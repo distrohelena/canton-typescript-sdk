@@ -17,6 +17,7 @@ import { PartiesClient } from "../services/parties/partiesClient.js";
 import { SystemClient } from "../services/system/systemClient.js";
 import { UsersClient } from "../services/users/usersClient.js";
 import { createJsonTransport } from "../transports/json/jsonTransportFactory.js";
+import { createGrpcTransport } from "../transports/grpc/grpcTransportFactory.js";
 
 export interface ServiceRegistry {
   readonly commands: CommandsClient;
@@ -62,7 +63,9 @@ export function createServiceRegistry(options: CantonClientOptions): ServiceRegi
   const transport =
     options.transportKind === TransportKind.json
       ? createJsonTransport(options)
-      : new PlaceholderTransport(options);
+      : options.transportKind === TransportKind.grpc
+        ? createGrpcTransport(options)
+        : new PlaceholderTransport(options);
 
   return {
     commands: new CommandsClient(transport),
