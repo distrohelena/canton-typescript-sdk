@@ -2,14 +2,21 @@ import { CreatePartyRequest } from "../../core/types/requests/createPartyRequest
 import { GrantUserRightsRequest } from "../../core/types/requests/grantUserRightsRequest.js";
 import { QueryContractsRequest } from "../../core/types/requests/queryContractsRequest.js";
 import { StreamTransactionsRequest } from "../../core/types/requests/streamTransactionsRequest.js";
+import { SubmitCommandRequest } from "../../core/types/requests/submitCommandRequest.js";
 import { UploadPackageRequest } from "../../core/types/requests/uploadPackageRequest.js";
+import { SignCommandResult } from "../../core/signing/signCommandResult.js";
 import { CreatePartyResponse } from "../../core/types/responses/createPartyResponse.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grantUserRightsResponse.js";
 import { HealthStatusResponse } from "../../core/types/responses/healthStatusResponse.js";
 import { QueryContractsResponse } from "../../core/types/responses/queryContractsResponse.js";
+import { SubmitCommandResponse } from "../../core/types/responses/submitCommandResponse.js";
 import { UploadPackageResponse } from "../../core/types/responses/uploadPackageResponse.js";
 import { ITransport } from "../../core/transports/iTransport.js";
 import { createGrpcOperations, GrpcOperations } from "./grpcChannelFactory.js";
+import {
+  mapGrpcSubmitCommand,
+  mapGrpcSubmitCommandRequest
+} from "./mappers/commandsMapper.js";
 import { mapGrpcQueryContracts } from "./mappers/contractsMapper.js";
 import { mapGrpcTransactionEvents } from "./mappers/eventsMapper.js";
 import { mapGrpcUploadPackage, mapGrpcUploadPackageRequest } from "./mappers/packagesMapper.js";
@@ -82,6 +89,19 @@ export class GrpcTransport implements ITransport {
     for (const event of events) {
       await observer.nextAsync(event);
     }
+  }
+
+  public async submitCommandAsync(
+    request: SubmitCommandRequest,
+    signed?: SignCommandResult
+  ): Promise<SubmitCommandResponse> {
+    const payload = await this.operations.submitCommandAsync(
+      mapGrpcSubmitCommandRequest(request, signed)
+    );
+
+    return mapGrpcSubmitCommand(
+      payload as { commandId?: string; transactionId?: string }
+    );
   }
 }
 

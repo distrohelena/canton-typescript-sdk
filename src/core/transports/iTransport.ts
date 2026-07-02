@@ -8,8 +8,11 @@ import { CreatePartyResponse } from "../types/responses/createPartyResponse.js";
 import { GrantUserRightsResponse } from "../types/responses/grantUserRightsResponse.js";
 import { HealthStatusResponse } from "../types/responses/healthStatusResponse.js";
 import { QueryContractsResponse } from "../types/responses/queryContractsResponse.js";
+import { SubmitCommandResponse } from "../types/responses/submitCommandResponse.js";
 import { UploadPackageResponse } from "../types/responses/uploadPackageResponse.js";
 import { TransactionObserver } from "../../services/events/transactionObserver.js";
+import { SignCommandResult } from "../signing/signCommandResult.js";
+import { SubmitCommandRequest } from "../types/requests/submitCommandRequest.js";
 
 export interface ITransport {
   readonly features: TransportFeatures;
@@ -24,4 +27,8 @@ export interface ITransport {
     request: StreamTransactionsRequest,
     observer: TransactionObserver
   ): Promise<void>;
+  submitCommandAsync(
+    request: SubmitCommandRequest,
+    signed?: SignCommandResult
+  ): Promise<SubmitCommandResponse>;
 }

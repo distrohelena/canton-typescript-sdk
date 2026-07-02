@@ -4,11 +4,14 @@ import { CreatePartyRequest } from "../core/types/requests/createPartyRequest.js
 import { GrantUserRightsRequest } from "../core/types/requests/grantUserRightsRequest.js";
 import { QueryContractsRequest } from "../core/types/requests/queryContractsRequest.js";
 import { StreamTransactionsRequest } from "../core/types/requests/streamTransactionsRequest.js";
+import { SubmitCommandRequest } from "../core/types/requests/submitCommandRequest.js";
 import { UploadPackageRequest } from "../core/types/requests/uploadPackageRequest.js";
+import { SignCommandResult } from "../core/signing/signCommandResult.js";
 import { CreatePartyResponse } from "../core/types/responses/createPartyResponse.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grantUserRightsResponse.js";
 import { HealthStatusResponse } from "../core/types/responses/healthStatusResponse.js";
 import { QueryContractsResponse } from "../core/types/responses/queryContractsResponse.js";
+import { SubmitCommandResponse } from "../core/types/responses/submitCommandResponse.js";
 import { UploadPackageResponse } from "../core/types/responses/uploadPackageResponse.js";
 import { TransportError } from "../core/errors/transportError.js";
 import { TransportKind } from "../core/types/transportKind.js";
@@ -74,6 +77,13 @@ class PlaceholderTransport implements ITransport {
   ): Promise<void> {
     throw new TransportError("transaction streaming is not available yet");
   }
+
+  public async submitCommandAsync(
+    _request: SubmitCommandRequest,
+    _signed?: SignCommandResult
+  ): Promise<SubmitCommandResponse> {
+    throw new TransportError("command submission is not available yet");
+  }
 }
 
 export function createServiceRegistry(options: CantonClientOptions): ServiceRegistry {
@@ -85,7 +95,7 @@ export function createServiceRegistry(options: CantonClientOptions): ServiceRegi
         : new PlaceholderTransport(options);
 
   return {
-    commands: new CommandsClient(transport),
+    commands: new CommandsClient(transport, options.commandSigner),
     contracts: new ContractsClient(transport),
     events: new EventsClient(transport),
     parties: new PartiesClient(transport),
