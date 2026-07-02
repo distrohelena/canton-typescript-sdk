@@ -5,6 +5,8 @@ export interface GrpcOperations {
   createPartyAsync(request: unknown): Promise<unknown>;
   grantUserRightsAsync(request: unknown): Promise<unknown>;
   uploadPackageAsync(request: unknown): Promise<unknown>;
+  queryContractsAsync(request: unknown): Promise<unknown>;
+  streamTransactionsAsync(request: unknown): Promise<unknown>;
 }
 
 export function createGrpcOperations(_endpoint: string): GrpcOperations {
@@ -20,6 +22,12 @@ export function createGrpcOperations(_endpoint: string): GrpcOperations {
     },
     async uploadPackageAsync(_request: unknown): Promise<unknown> {
       throw new TransportError("gRPC package operations are not wired yet");
+    },
+    async queryContractsAsync(_request: unknown): Promise<unknown> {
+      throw new TransportError("gRPC query operations are not wired yet");
+    },
+    async streamTransactionsAsync(_request: unknown): Promise<unknown> {
+      throw new TransportError("gRPC stream operations are not wired yet");
     }
   };
 }

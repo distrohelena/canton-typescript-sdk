@@ -3,17 +3,23 @@ import {
   GrantUserRightsRequest,
   UserRightAssignment
 } from "../../core/types/requests/grantUserRightsRequest.js";
+import { QueryContractsRequest } from "../../core/types/requests/queryContractsRequest.js";
+import { StreamTransactionsRequest } from "../../core/types/requests/streamTransactionsRequest.js";
 import { UploadPackageRequest } from "../../core/types/requests/uploadPackageRequest.js";
 import { CreatePartyResponse } from "../../core/types/responses/createPartyResponse.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grantUserRightsResponse.js";
 import { HealthStatusResponse } from "../../core/types/responses/healthStatusResponse.js";
+import { QueryContractsResponse } from "../../core/types/responses/queryContractsResponse.js";
 import { UploadPackageResponse } from "../../core/types/responses/uploadPackageResponse.js";
 import { ITransport } from "../../core/transports/iTransport.js";
 import { mapJsonUploadPackage } from "./mappers/packagesMapper.js";
 import { mapJsonCreateParty } from "./mappers/partiesMapper.js";
+import { mapJsonQueryContracts } from "./mappers/contractsMapper.js";
+import { mapJsonTransactionEvents } from "./mappers/eventsMapper.js";
 import { mapJsonHealth } from "./mappers/systemMapper.js";
 import { mapJsonGrantRights } from "./mappers/usersMapper.js";
 import { IJsonHttpClient } from "./jsonHttpClient.js";
+import { TransactionObserver } from "../../services/events/transactionObserver.js";
 
 export class JsonTransport implements ITransport {
   public readonly features = {
@@ -65,5 +71,27 @@ export class JsonTransport implements ITransport {
     return mapJsonUploadPackage(
       payload as { result?: { packageId?: string }; packageId?: string }
     );
+  }
+
+  public async queryContractsAsync(
+    request: QueryContractsRequest
+  ): Promise<QueryContractsResponse> {
+    const payload = await this.httpClient.postAsync("/v1/query", {
+      templateIds: [request.templateId]
+    });
+
+    return mapJsonQueryContracts(payload as { result?: unknown[] });
+  }
+
+  public async streamTransactionsAsync(
+    _request: StreamTransactionsRequest,
+    observer: TransactionObserver
+  ): Promise<void> {
+    const payload = await this.httpClient.postAsync("/v1/stream/query", {});
+    const events = mapJsonTransactionEvents(payload as { events?: unknown[] });
+
+    for (const event of events) {
+      await observer.nextAsync(event);
+    }
   }
 }

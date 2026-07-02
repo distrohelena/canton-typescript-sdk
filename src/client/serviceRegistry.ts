@@ -2,10 +2,13 @@ import { CantonClientOptions } from "./cantonClientOptions.js";
 import { ITransport } from "../core/transports/iTransport.js";
 import { CreatePartyRequest } from "../core/types/requests/createPartyRequest.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grantUserRightsRequest.js";
+import { QueryContractsRequest } from "../core/types/requests/queryContractsRequest.js";
+import { StreamTransactionsRequest } from "../core/types/requests/streamTransactionsRequest.js";
 import { UploadPackageRequest } from "../core/types/requests/uploadPackageRequest.js";
 import { CreatePartyResponse } from "../core/types/responses/createPartyResponse.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grantUserRightsResponse.js";
 import { HealthStatusResponse } from "../core/types/responses/healthStatusResponse.js";
+import { QueryContractsResponse } from "../core/types/responses/queryContractsResponse.js";
 import { UploadPackageResponse } from "../core/types/responses/uploadPackageResponse.js";
 import { TransportError } from "../core/errors/transportError.js";
 import { TransportKind } from "../core/types/transportKind.js";
@@ -18,6 +21,7 @@ import { SystemClient } from "../services/system/systemClient.js";
 import { UsersClient } from "../services/users/usersClient.js";
 import { createJsonTransport } from "../transports/json/jsonTransportFactory.js";
 import { createGrpcTransport } from "../transports/grpc/grpcTransportFactory.js";
+import { TransactionObserver } from "../services/events/transactionObserver.js";
 
 export interface ServiceRegistry {
   readonly commands: CommandsClient;
@@ -56,6 +60,19 @@ class PlaceholderTransport implements ITransport {
     _request: UploadPackageRequest
   ): Promise<UploadPackageResponse> {
     throw new TransportError("package upload is not available yet");
+  }
+
+  public async queryContractsAsync(
+    _request: QueryContractsRequest
+  ): Promise<QueryContractsResponse> {
+    throw new TransportError("contract queries are not available yet");
+  }
+
+  public async streamTransactionsAsync(
+    _request: StreamTransactionsRequest,
+    _observer: TransactionObserver
+  ): Promise<void> {
+    throw new TransportError("transaction streaming is not available yet");
   }
 }
 
