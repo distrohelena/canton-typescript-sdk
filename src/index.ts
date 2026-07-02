@@ -1,8 +1,17 @@
-export enum TransportKind {
-  grpc = "grpc",
-  json = "json"
-}
-
-export class CantonClientOptions {}
+export { CantonClientOptions } from "./client/cantonClientOptions.js";
+export { TransportKind } from "./core/types/transportKind.js";
+export { SubmissionMode } from "./core/types/submissionMode.js";
+export { EventStreamKind } from "./core/types/eventStreamKind.js";
+export { UserRightKind } from "./core/types/userRightKind.js";
+export { PackageFormat } from "./core/types/packageFormat.js";
+export { CantonError } from "./core/errors/cantonError.js";
+export { ValidationError } from "./core/errors/validationError.js";
+export { AuthenticationError } from "./core/errors/authenticationError.js";
+export { AuthorizationError } from "./core/errors/authorizationError.js";
+export { TransportError } from "./core/errors/transportError.js";
+export { SigningError } from "./core/errors/signingError.js";
+export { TimeoutError } from "./core/errors/timeoutError.js";
+export { ConflictError } from "./core/errors/conflictError.js";
+export { NotSupportedError } from "./core/errors/notSupportedError.js";
 
 export class CantonClient {}
