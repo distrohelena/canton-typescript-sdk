@@ -1,4 +1,11 @@
 export { CantonClientOptions } from "./client/cantonClientOptions.js";
+export type { IAuthProvider } from "./core/auth/iAuthProvider.js";
+export { BearerTokenAuthProvider } from "./core/auth/bearerTokenAuthProvider.js";
+export type { ICommandSigner } from "./core/signing/iCommandSigner.js";
+export { SignCommandRequest } from "./core/signing/signCommandRequest.js";
+export { SignCommandResult } from "./core/signing/signCommandResult.js";
+export type { ITransport } from "./core/transports/iTransport.js";
+export { TransportCapability } from "./core/transports/transportCapability.js";
 export { TransportKind } from "./core/types/transportKind.js";
 export { SubmissionMode } from "./core/types/submissionMode.js";
 export { EventStreamKind } from "./core/types/eventStreamKind.js";
