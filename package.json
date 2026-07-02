@@ -9,6 +9,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./grpc": {
+      "types": "./dist/grpc/index.d.ts",
+      "import": "./dist/grpc/index.js"
+    },
+    "./json": {
+      "types": "./dist/json/index.d.ts",
+      "import": "./dist/json/index.js"
     }
   },
   "scripts": {
