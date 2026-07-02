@@ -1,3 +1,4 @@
+export { CantonClient } from "./client/cantonClient.js";
 export { CantonClientOptions } from "./client/cantonClientOptions.js";
 export type { IAuthProvider } from "./core/auth/iAuthProvider.js";
 export { BearerTokenAuthProvider } from "./core/auth/bearerTokenAuthProvider.js";
@@ -20,5 +21,3 @@ export { SigningError } from "./core/errors/signingError.js";
 export { TimeoutError } from "./core/errors/timeoutError.js";
 export { ConflictError } from "./core/errors/conflictError.js";
 export { NotSupportedError } from "./core/errors/notSupportedError.js";
-
-export class CantonClient {}
