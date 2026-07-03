@@ -1,9 +1,17 @@
 import { GrpcTransport as ProtobufGrpcTransport } from "@protobuf-ts/grpc-transport";
 import { CantonClientOptions } from "../../client/canton-client-options.js";
 import {
+    IPackageServiceClient as IParticipantPackageServiceClient,
+    PackageServiceClient as ParticipantPackageServiceClient,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.client.js";
+import {
     IPackageManagementServiceClient,
     PackageManagementServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.client.js";
+import {
+    IPackageServiceClient as ILedgerPackageServiceClient,
+    PackageServiceClient as LedgerPackageServiceClient,
+} from "./generated/canton/com/daml/ledger/api/v2/package_service.client.js";
 import {
     IPartyManagementServiceClient,
     PartyManagementServiceClient,
@@ -40,6 +48,7 @@ import {
     GetUpdatesRequest,
     GetUpdatesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/update_service.js";
+import { ListVettedPackagesRequest as GrpcListVettedPackagesRequest } from "./generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import {
     SubmitAndWaitRequest,
@@ -61,17 +70,26 @@ import {
     buildGrpcCallOptionsAsync,
     createGrpcChannelCredentials,
 } from "./grpc-call-options-factory.js";
+import { RequestOptions } from "../../core/types/request-options.js";
 
 export interface GrpcOperations {
-    checkHealthAsync(request: unknown): Promise<unknown>;
-    getHealthAsync(): Promise<unknown>;
-    createPartyAsync(request: unknown): Promise<unknown>;
-    listPartiesAsync(request: unknown): Promise<unknown>;
-    grantUserRightsAsync(request: unknown): Promise<unknown>;
-    uploadPackageAsync(request: unknown): Promise<unknown>;
-    queryContractsAsync(request: unknown): Promise<unknown>;
-    streamTransactionsAsync(request: unknown): Promise<unknown>;
-    submitCommandAsync(request: unknown): Promise<unknown>;
+    disposeAsync?(): Promise<void>;
+    checkHealthAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getHealthAsync(options?: RequestOptions): Promise<unknown>;
+    createPartyAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listPartiesAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    grantUserRightsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    uploadPackageAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getPackageAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getPackageStatusAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listVettedPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listParticipantPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getParticipantPackageContentsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getParticipantPackageReferencesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    queryContractsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    streamTransactionsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
 }
 
 interface UnaryCallLike<TResponse> {
@@ -98,6 +116,14 @@ export interface GrpcOperationDependencies {
         IPackageManagementServiceClient,
         "uploadDarFile"
     >;
+    ledgerPackageServiceClient?: Pick<
+        ILedgerPackageServiceClient,
+        "listPackages" | "getPackage" | "getPackageStatus" | "listVettedPackages"
+    >;
+    participantPackageServiceClient?: Pick<
+        IParticipantPackageServiceClient,
+        "listPackages" | "getPackageContents" | "getPackageReferences"
+    >;
     stateServiceClient?: Pick<IStateServiceClient, "getActiveContractsPage">;
     updateServiceClient?: Pick<IUpdateServiceClient, "getUpdates">;
     commandServiceClient?: Pick<ICommandServiceClient, "submitAndWait">;
@@ -112,6 +138,12 @@ export function createGrpcOperations(
         channelCredentials: createGrpcChannelCredentials(
             options.grpcChannelSecurity,
         ),
+        clientOptions:
+            options.grpcConnectTimeoutMs === undefined
+                ? undefined
+                : {
+                    connectTimeoutMs: options.grpcConnectTimeoutMs,
+                },
     });
 
     const versionServiceClient =
@@ -131,6 +163,14 @@ export function createGrpcOperations(
         dependencies.packageManagementServiceClient
         ?? new PackageManagementServiceClient(rpcTransport);
 
+    const ledgerPackageServiceClient =
+        dependencies.ledgerPackageServiceClient
+        ?? new LedgerPackageServiceClient(rpcTransport);
+
+    const participantPackageServiceClient =
+        dependencies.participantPackageServiceClient
+        ?? new ParticipantPackageServiceClient(rpcTransport);
+
     const stateServiceClient =
         dependencies.stateServiceClient ?? new StateServiceClient(rpcTransport);
 
@@ -142,27 +182,44 @@ export function createGrpcOperations(
         ?? new CommandServiceClient(rpcTransport);
 
     return {
-        async checkHealthAsync(request: unknown): Promise<HealthCheckResponse> {
+        async disposeAsync(): Promise<void> {
+            rpcTransport.close();
+        },
+        async checkHealthAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<HealthCheckResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
                 healthClient.check(request as HealthCheckRequest, callOptions),
             );
         },
-        async getHealthAsync(): Promise<GetLedgerApiVersionResponse> {
+        async getHealthAsync(
+            requestOptions?: RequestOptions,
+        ): Promise<GetLedgerApiVersionResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
                 versionServiceClient.getLedgerApiVersion({}, callOptions),
             );
         },
-        async createPartyAsync(request: unknown): Promise<AllocatePartyResponse> {
+        async createPartyAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<AllocatePartyResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
@@ -174,9 +231,12 @@ export function createGrpcOperations(
         },
         async listPartiesAsync(
             request: unknown,
+            requestOptions?: RequestOptions,
         ): Promise<ListKnownPartiesResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
@@ -188,9 +248,12 @@ export function createGrpcOperations(
         },
         async grantUserRightsAsync(
             request: unknown,
+            requestOptions?: RequestOptions,
         ): Promise<GrantUserRightsResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
@@ -200,9 +263,14 @@ export function createGrpcOperations(
                 ),
             );
         },
-        async uploadPackageAsync(request: unknown): Promise<unknown> {
+        async uploadPackageAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
@@ -212,11 +280,136 @@ export function createGrpcOperations(
                 ),
             );
         },
+        async listPackagesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                ledgerPackageServiceClient.listPackages(
+                    request as Record<string, never>,
+                    callOptions,
+                ),
+            );
+        },
+        async getPackageAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                ledgerPackageServiceClient.getPackage(
+                    request as { packageId: string },
+                    callOptions,
+                ),
+            );
+        },
+        async getPackageStatusAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                ledgerPackageServiceClient.getPackageStatus(
+                    request as { packageId: string },
+                    callOptions,
+                ),
+            );
+        },
+        async listVettedPackagesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                ledgerPackageServiceClient.listVettedPackages(
+                    request as GrpcListVettedPackagesRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listParticipantPackagesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                participantPackageServiceClient.listPackages(
+                    request as {
+                        limit: number;
+                        filterName: string;
+                    },
+                    callOptions,
+                ),
+            );
+        },
+        async getParticipantPackageContentsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                participantPackageServiceClient.getPackageContents(
+                    request as { packageId: string },
+                    callOptions,
+                ),
+            );
+        },
+        async getParticipantPackageReferencesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                participantPackageServiceClient.getPackageReferences(
+                    request as { packageId: string },
+                    callOptions,
+                ),
+            );
+        },
         async queryContractsAsync(
             request: unknown,
+            requestOptions?: RequestOptions,
         ): Promise<GetActiveContractsPageResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(
@@ -228,9 +421,12 @@ export function createGrpcOperations(
         },
         async streamTransactionsAsync(
             request: unknown,
+            requestOptions?: RequestOptions,
         ): Promise<GetUpdatesResponse[]> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await collectServerResponsesAsync(
@@ -242,9 +438,12 @@ export function createGrpcOperations(
         },
         async submitCommandAsync(
             request: unknown,
+            requestOptions?: RequestOptions,
         ): Promise<SubmitAndWaitResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
             );
 
             return await unwrapUnaryResponse(

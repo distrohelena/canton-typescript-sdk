@@ -3,24 +3,39 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
+import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
+import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
+import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
+import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
+import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
+import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
+import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
+import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
+import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
+import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
+import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
+import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
+import { ListVettedPackagesResponse } from "../../core/types/responses/list-vetted-packages-response.js";
+import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { PackageFormat } from "../../core/types/package-format.js";
+import { RequestOptions } from "../../core/types/request-options.js";
 import {
     createGrpcOperations,
     GrpcOperations,
@@ -34,7 +49,24 @@ import {
     mapGrpcStreamTransactionsRequest,
     mapGrpcTransactionEvents,
 } from "./mappers/events-mapper.js";
-import { mapGrpcUploadPackage, mapGrpcUploadPackageRequest } from "./mappers/packages-mapper.js";
+import {
+    mapGrpcGetPackage,
+    mapGrpcGetPackageRequest,
+    mapGrpcGetPackageStatus,
+    mapGrpcGetPackageStatusRequest,
+    mapGrpcGetParticipantPackageContents,
+    mapGrpcGetParticipantPackageContentsRequest,
+    mapGrpcGetParticipantPackageReferences,
+    mapGrpcGetParticipantPackageReferencesRequest,
+    mapGrpcListPackages,
+    mapGrpcListPackagesRequest,
+    mapGrpcListVettedPackages,
+    mapGrpcListVettedPackagesRequest,
+    mapGrpcParticipantListPackages,
+    mapGrpcParticipantListPackagesRequest,
+    mapGrpcUploadPackage,
+    mapGrpcUploadPackageRequest,
+} from "./mappers/packages-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import {
     mapGrpcGrantUserRights,
@@ -44,22 +76,48 @@ import { mapGrpcHealthCheckResponse } from "./mappers/health-mapper.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 import { UploadDarFileResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import {
+    GetPackageResponse as ProtobufGetPackageResponse,
+    GetPackageStatusResponse as ProtobufGetPackageStatusResponse,
+    ListPackagesResponse as ProtobufListPackagesResponse,
+    ListVettedPackagesResponse as ProtobufListVettedPackagesResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { AllocatePartyResponse, ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GrantUserRightsResponse as ProtobufGrantUserRightsResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
+import {
+    GetPackageContentsResponse as ProtobufGetParticipantPackageContentsResponse,
+    GetPackageReferencesResponse as ProtobufGetParticipantPackageReferencesResponse,
+    ListPackagesResponse as ProtobufParticipantListPackagesResponse,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 
 export class GrpcTransport implements ITransport {
+    private disposed = false;
+
     public readonly features = {
         supportsCommandSigning: true,
     };
 
     public constructor(private readonly operations: GrpcOperations) {}
 
+    public async disposeAsync(): Promise<void> {
+        if (this.disposed) {
+            return;
+        }
+
+        this.disposed = true;
+        await this.operations.disposeAsync?.();
+    }
+
     public async getLedgerApiVersionAsync(
         _request?: GetLedgerApiVersionRequest,
+        options?: RequestOptions,
     ): Promise<SdkGetLedgerApiVersionResponse> {
+        this.throwIfDisposed();
+
         const payload =
-            await this.operations.getHealthAsync() as GetLedgerApiVersionResponse;
+            await this.operations.getHealthAsync(options) as GetLedgerApiVersionResponse;
 
         return new SdkGetLedgerApiVersionResponse({
             version: payload.version ?? "",
@@ -72,10 +130,13 @@ export class GrpcTransport implements ITransport {
 
     public async checkHealthAsync(
         request: HealthCheckRequest,
+        options?: RequestOptions,
     ): Promise<HealthCheckResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.checkHealthAsync({
             service: request.service ?? "",
-        });
+        }, options);
 
         return mapGrpcHealthCheckResponse(
             payload as { status: number },
@@ -84,9 +145,13 @@ export class GrpcTransport implements ITransport {
 
     public async allocatePartyAsync(
         request: AllocatePartyRequest,
+        options?: RequestOptions,
     ): Promise<SdkAllocatePartyResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.createPartyAsync(
             mapGrpcCreatePartyRequest(request),
+            options,
         );
 
         const response = mapGrpcCreateParty(
@@ -100,9 +165,13 @@ export class GrpcTransport implements ITransport {
 
     public async listKnownPartiesAsync(
         request: ListKnownPartiesRequest,
+        options?: RequestOptions,
     ): Promise<SdkListKnownPartiesResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.listPartiesAsync(
             mapGrpcListPartiesRequest(request),
+            options,
         );
 
         const response = mapGrpcListParties(payload as ListKnownPartiesResponse);
@@ -115,9 +184,13 @@ export class GrpcTransport implements ITransport {
 
     public async grantUserRightsAsync(
         request: GrantUserRightsRequest,
+        options?: RequestOptions,
     ): Promise<GrantUserRightsResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.grantUserRightsAsync(
             mapGrpcGrantUserRightsRequest(request),
+            options,
         );
 
         return mapGrpcGrantUserRights(
@@ -129,7 +202,10 @@ export class GrpcTransport implements ITransport {
 
     public async uploadDarFileAsync(
         request: UploadDarFileRequest,
+        options?: RequestOptions,
     ): Promise<SdkUploadDarFileResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.uploadPackageAsync(
             mapGrpcUploadPackageRequest(
                 {
@@ -137,6 +213,7 @@ export class GrpcTransport implements ITransport {
                     format: PackageFormat.dar,
                 },
             ),
+            options,
         );
 
         const response = mapGrpcUploadPackage(
@@ -148,14 +225,130 @@ export class GrpcTransport implements ITransport {
         });
     }
 
+    public async listPackagesAsync(
+        request: ListPackagesRequest,
+        options?: RequestOptions,
+    ): Promise<ListPackagesResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.listPackagesAsync!(
+            mapGrpcListPackagesRequest(request),
+            options,
+        );
+
+        return mapGrpcListPackages(
+            payload as Partial<ProtobufListPackagesResponse>,
+        );
+    }
+
+    public async getPackageAsync(
+        request: GetPackageRequest,
+        options?: RequestOptions,
+    ): Promise<GetPackageResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.getPackageAsync!(
+            mapGrpcGetPackageRequest(request),
+            options,
+        );
+
+        return mapGrpcGetPackage(
+            payload as Partial<ProtobufGetPackageResponse>,
+        );
+    }
+
+    public async getPackageStatusAsync(
+        request: GetPackageStatusRequest,
+        options?: RequestOptions,
+    ): Promise<GetPackageStatusResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.getPackageStatusAsync!(
+            mapGrpcGetPackageStatusRequest(request),
+            options,
+        );
+
+        return mapGrpcGetPackageStatus(
+            payload as Partial<ProtobufGetPackageStatusResponse>,
+        );
+    }
+
+    public async listVettedPackagesAsync(
+        request: ListVettedPackagesRequest,
+        options?: RequestOptions,
+    ): Promise<ListVettedPackagesResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.listVettedPackagesAsync!(
+            mapGrpcListVettedPackagesRequest(request),
+            options,
+        );
+
+        return mapGrpcListVettedPackages(
+            payload as Partial<ProtobufListVettedPackagesResponse>,
+        );
+    }
+
+    public async listParticipantPackagesAsync(
+        request: ParticipantListPackagesRequest,
+        options?: RequestOptions,
+    ): Promise<ParticipantListPackagesResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.listParticipantPackagesAsync!(
+            mapGrpcParticipantListPackagesRequest(request),
+            options,
+        );
+
+        return mapGrpcParticipantListPackages(
+            payload as Partial<ProtobufParticipantListPackagesResponse>,
+        );
+    }
+
+    public async getParticipantPackageContentsAsync(
+        request: GetPackageContentsRequest,
+        options?: RequestOptions,
+    ): Promise<GetPackageContentsResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.getParticipantPackageContentsAsync!(
+            mapGrpcGetParticipantPackageContentsRequest(request),
+            options,
+        );
+
+        return mapGrpcGetParticipantPackageContents(
+            payload as Partial<ProtobufGetParticipantPackageContentsResponse>,
+        );
+    }
+
+    public async getParticipantPackageReferencesAsync(
+        request: GetPackageReferencesRequest,
+        options?: RequestOptions,
+    ): Promise<GetPackageReferencesResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.getParticipantPackageReferencesAsync!(
+            mapGrpcGetParticipantPackageReferencesRequest(request),
+            options,
+        );
+
+        return mapGrpcGetParticipantPackageReferences(
+            payload as Partial<ProtobufGetParticipantPackageReferencesResponse>,
+        );
+    }
+
     public async getActiveContractsPageAsync(
         request: GetActiveContractsPageRequest,
+        options?: RequestOptions,
     ): Promise<GetActiveContractsPageResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.queryContractsAsync(
             mapGrpcQueryContractsRequest({
                 party: request.party,
                 templateId: request.templateId,
             }),
+            options,
         );
 
         const response = mapGrpcQueryContracts(payload as { contracts?: unknown[] });
@@ -168,7 +361,10 @@ export class GrpcTransport implements ITransport {
     public async getActiveContractsAsync(
         _request: GetActiveContractsRequest,
         _observer: ContractObserver,
+        _options?: RequestOptions,
     ): Promise<void> {
+        this.throwIfDisposed();
+
         throw new NotSupportedError(
             "StateService.GetActiveContracts is not supported by gRPC transport yet",
         );
@@ -177,7 +373,10 @@ export class GrpcTransport implements ITransport {
     public async getUpdatesAsync(
         request: GetUpdatesRequest,
         observer: TransactionObserver,
+        options?: RequestOptions,
     ): Promise<void> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.streamTransactionsAsync(
             mapGrpcStreamTransactionsRequest({
                 party: request.party,
@@ -185,6 +384,7 @@ export class GrpcTransport implements ITransport {
                 endOffset: request.endOffset,
                 templateId: request.templateId,
             }),
+            options,
         );
 
         const events = mapGrpcTransactionEvents(
@@ -199,14 +399,26 @@ export class GrpcTransport implements ITransport {
     public async submitCommandAsync(
         request: SubmitCommandRequest,
         signed?: SignCommandResult,
+        options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
+        this.throwIfDisposed();
+
         const payload = await this.operations.submitCommandAsync(
             mapGrpcSubmitCommandRequest(request, signed),
+            options,
         );
 
         return mapGrpcSubmitCommand(
             payload as { commandId?: string; transactionId?: string },
         );
+    }
+
+    private throwIfDisposed(): void {
+        if (this.disposed) {
+            throw new ObjectDisposedError(
+                "The client or transport has been disposed.",
+            );
+        }
     }
 }
 

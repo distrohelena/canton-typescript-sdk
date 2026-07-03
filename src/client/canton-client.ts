@@ -6,7 +6,8 @@ import { CommandSubmissionServiceClient } from "../services/command-submission/c
 import { ContractServiceClient } from "../services/contract/contract-service-client.js";
 import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
 import { HealthServiceClient } from "../services/health/health-service-client.js";
-import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
+import { PackageServiceClient } from "../services/package/package-service-client.js";
+import { ParticipantPackageServiceClient } from "../services/participant-package/participant-package-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
@@ -16,11 +17,15 @@ import { CantonClientOptions } from "./canton-client-options.js";
 import { createServiceRegistry } from "./service-registry.js";
 
 export class CantonClient {
+    private readonly transport;
+    private disposed = false;
+
     public readonly versionService: VersionServiceClient;
     public readonly healthService: HealthServiceClient;
     public readonly partyManagementService: PartyManagementServiceClient;
     public readonly userManagementService: UserManagementServiceClient;
-    public readonly packageManagementService: PackageManagementServiceClient;
+    public readonly packageService: PackageServiceClient;
+    public readonly participantPackageService: ParticipantPackageServiceClient;
     public readonly commandService: CommandServiceClient;
     public readonly commandSubmissionService: CommandSubmissionServiceClient;
     public readonly commandCompletionService: CommandCompletionServiceClient;
@@ -41,11 +46,14 @@ export class CantonClient {
 
         const services = createServiceRegistry(options);
 
+        this.transport = services.transport;
+
         this.versionService = services.versionService;
         this.healthService = services.healthService;
         this.partyManagementService = services.partyManagementService;
         this.userManagementService = services.userManagementService;
-        this.packageManagementService = services.packageManagementService;
+        this.packageService = services.packageService;
+        this.participantPackageService = services.participantPackageService;
         this.commandService = services.commandService;
         this.commandSubmissionService = services.commandSubmissionService;
         this.commandCompletionService = services.commandCompletionService;
@@ -53,5 +61,15 @@ export class CantonClient {
         this.updateService = services.updateService;
         this.eventQueryService = services.eventQueryService;
         this.contractService = services.contractService;
+    }
+
+    /** Disposes transport-owned resources for this client instance. */
+    public async disposeAsync(): Promise<void> {
+        if (this.disposed) {
+            return;
+        }
+
+        this.disposed = true;
+        await this.transport.disposeAsync();
     }
 }

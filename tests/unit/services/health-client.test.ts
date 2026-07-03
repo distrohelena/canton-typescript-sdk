@@ -1,13 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
     HealthCheckRequest,
     HealthCheckResponse,
     HealthCheckStatus,
+    RequestOptions,
 } from "../../../src";
 import { HealthServiceClient } from "../../../src/services/health/health-service-client.js";
 
 describe("HealthServiceClient", () => {
     it("checks health through the selected transport", async () => {
+        const checkHealthAsync = vi.fn(
+            async () =>
+                new HealthCheckResponse({
+                    status: HealthCheckStatus.serving,
+                }),
+        );
+
         const client = new HealthServiceClient({
             features: { supportsCommandSigning: false },
             getLedgerApiVersionAsync: async () => {
@@ -25,10 +33,7 @@ describe("HealthServiceClient", () => {
             uploadDarFileAsync: async () => {
                 throw new Error("not used");
             },
-            checkHealthAsync: async () =>
-                new HealthCheckResponse({
-                    status: HealthCheckStatus.serving,
-                }),
+            checkHealthAsync,
             getActiveContractsPageAsync: async () => {
                 throw new Error("not used");
             },
@@ -50,5 +55,21 @@ describe("HealthServiceClient", () => {
                 }),
             ),
         ).resolves.toBeInstanceOf(HealthCheckResponse);
+
+        const options = new RequestOptions({
+            timeoutMs: 5_000,
+        });
+
+        await client.checkAsync(
+            new HealthCheckRequest({
+                service: "grpc.health.v1.Health",
+            }),
+            options,
+        );
+
+        expect(checkHealthAsync).toHaveBeenLastCalledWith(
+            expect.any(HealthCheckRequest),
+            options,
+        );
     });
 });

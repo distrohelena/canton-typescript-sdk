@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    RequestOptions,
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
@@ -15,6 +16,11 @@ describe("CommandSubmissionPipeline", () => {
                     signature: new Uint8Array([1, 2, 3]),
                 }),
         );
+
+        const submitCommandAsync = vi.fn(async () => ({
+            commandId: "cmd-1",
+            transactionId: "tx-1",
+        }));
 
         const pipeline = new CommandSubmissionPipeline({
             transport: {
@@ -43,10 +49,7 @@ describe("CommandSubmissionPipeline", () => {
                 getUpdatesAsync: async () => {
                     throw new Error("not used");
                 },
-                submitCommandAsync: async () => ({
-                    commandId: "cmd-1",
-                    transactionId: "tx-1",
-                }),
+                submitCommandAsync,
             },
             signer: { signAsync },
         });
@@ -71,5 +74,17 @@ describe("CommandSubmissionPipeline", () => {
         expect(
             new TextDecoder().decode(signAsync.mock.calls[0]?.[0].payload),
         ).toContain("\"templateId\":\"Main:Iou\"");
+
+        const options = new RequestOptions({
+            timeoutMs: 5_000,
+        });
+
+        await pipeline.submitAsync(request, options);
+
+        expect(submitCommandAsync).toHaveBeenLastCalledWith(
+            request,
+            expect.any(SignCommandResult),
+            options,
+        );
     });
 });

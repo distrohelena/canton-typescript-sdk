@@ -1,4 +1,5 @@
 import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
+import { RequestOptions } from "../../core/types/request-options.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
@@ -17,7 +18,8 @@ export class CommandServiceClient {
     /** Submits a command and waits for the result. Supported on JSON and gRPC. */
     public submitAndWaitAsync(
         request: SubmitCommandRequest,
+        options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
-        return this.pipeline.submitAsync(request);
+        return this.pipeline.submitAsync(request, options);
     }
 }

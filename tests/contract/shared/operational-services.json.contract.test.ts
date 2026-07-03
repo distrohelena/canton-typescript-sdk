@@ -1,15 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
+    GetPackageContentsRequest,
+    GetPackageReferencesRequest,
+    GetPackageRequest,
+    GetPackageStatusRequest,
     GetLedgerApiVersionResponse,
     GrantUserRightsRequest,
     HealthCheckRequest,
+    ListPackagesRequest,
+    ListVettedPackagesRequest,
     NotSupportedError,
+    ParticipantListPackagesRequest,
     UploadDarFileRequest,
     UserRightKind,
 } from "../../../src";
 import { HealthServiceClient } from "../../../src/services/health/health-service-client.js";
-import { PackageManagementServiceClient } from "../../../src/services/package-management/package-management-service-client.js";
+import { PackageServiceClient } from "../../../src/services/package/package-service-client.js";
+import { ParticipantPackageServiceClient } from "../../../src/services/participant-package/participant-package-service-client.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { UserManagementServiceClient } from "../../../src/services/user-management/user-management-service-client.js";
 import { VersionServiceClient } from "../../../src/services/version/version-service-client.js";
@@ -46,7 +54,11 @@ describe("JSON operational services contract", () => {
             transport,
         );
 
-        const packageManagementService = new PackageManagementServiceClient(
+        const packageService = new PackageServiceClient(
+            transport,
+        );
+
+        const participantPackageService = new ParticipantPackageServiceClient(
             transport,
         );
 
@@ -78,7 +90,31 @@ describe("JSON operational services contract", () => {
             rights: [{ type: UserRightKind.participantAdmin }],
         });
         await expect(
-            packageManagementService.uploadDarFileAsync(
+            packageService.listPackagesAsync(
+                new ListPackagesRequest(),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            packageService.getPackageAsync(
+                new GetPackageRequest({
+                    packageId: "pkg-1",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            packageService.getPackageStatusAsync(
+                new GetPackageStatusRequest({
+                    packageId: "pkg-1",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            packageService.listVettedPackagesAsync(
+                new ListVettedPackagesRequest(),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            participantPackageService.uploadDarFileAsync(
                 new UploadDarFileRequest({
                     bytes: new Uint8Array([1, 2, 3]),
                 }),
@@ -86,5 +122,24 @@ describe("JSON operational services contract", () => {
         ).resolves.toMatchObject({
             packageId: "pkg-1",
         });
+        await expect(
+            participantPackageService.listPackagesAsync(
+                new ParticipantListPackagesRequest(),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            participantPackageService.getPackageContentsAsync(
+                new GetPackageContentsRequest({
+                    packageId: "pkg-1",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            participantPackageService.getPackageReferencesAsync(
+                new GetPackageReferencesRequest({
+                    packageId: "pkg-1",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
     });
 });

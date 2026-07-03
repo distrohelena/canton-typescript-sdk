@@ -44,7 +44,8 @@ describe("json transport entrypoint", () => {
         expect(client.healthService).toBeDefined();
         expect(client.partyManagementService).toBeDefined();
         expect(client.userManagementService).toBeDefined();
-        expect(client.packageManagementService).toBeDefined();
+        expect(client.packageService).toBeDefined();
+        expect(client.participantPackageService).toBeDefined();
         expect(client.commandService).toBeDefined();
         expect(client.commandSubmissionService).toBeDefined();
         expect(client.commandCompletionService).toBeDefined();
@@ -52,6 +53,7 @@ describe("json transport entrypoint", () => {
         expect(client.updateService).toBeDefined();
         expect(client.eventQueryService).toBeDefined();
         expect(client.contractService).toBeDefined();
+        expect(client).not.toHaveProperty("packageManagementService");
         expect(client).not.toHaveProperty("commands");
         expect(client).not.toHaveProperty("contracts");
         expect(client).not.toHaveProperty("events");

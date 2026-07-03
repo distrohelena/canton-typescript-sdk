@@ -6,6 +6,10 @@ export function createJsonTransport(
     options: CantonClientOptions,
 ): JsonTransport {
     return new JsonTransport(
-        new JsonHttpClient(options.endpoint, options.authProvider),
+        new JsonHttpClient(
+            options.endpoint,
+            options.authProvider,
+            options.defaultRequestTimeoutMs,
+        ),
     );
 }

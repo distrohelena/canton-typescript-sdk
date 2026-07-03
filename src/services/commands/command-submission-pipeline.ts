@@ -2,6 +2,7 @@ import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { RequestOptions } from "../../core/types/request-options.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { buildCanonicalCommandPayload } from "./command-payload-builder.js";
@@ -16,6 +17,7 @@ export class CommandSubmissionPipeline {
 
     public async submitAsync(
         request: SubmitCommandRequest,
+        options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
         let signed;
 
@@ -33,6 +35,10 @@ export class CommandSubmissionPipeline {
             );
         }
 
-        return this.dependencies.transport.submitCommandAsync(request, signed);
+        return this.dependencies.transport.submitCommandAsync(
+            request,
+            signed,
+            options,
+        );
     }
 }

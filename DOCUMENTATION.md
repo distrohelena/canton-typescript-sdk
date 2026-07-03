@@ -26,6 +26,10 @@ import {
     CantonClient,
     CantonClientOptions,
     CreateCommand,
+    GetPackageContentsRequest,
+    GetPackageReferencesRequest,
+    GetPackageRequest,
+    GetPackageStatusRequest,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     HealthCheckRequest,
@@ -34,7 +38,10 @@ import {
     GetLedgerApiVersionRequest,
     GetUpdatesRequest,
     GrantUserRightsRequest,
+    ListPackagesRequest,
     ListKnownPartiesRequest,
+    ListVettedPackagesRequest,
+    ParticipantListPackagesRequest,
     SubmitCommandRequest,
     TransportKind,
     UploadDarFileRequest,
@@ -102,7 +109,8 @@ Exposed properties:
 - `healthService`
 - `partyManagementService`
 - `userManagementService`
-- `packageManagementService`
+- `packageService`
+- `participantPackageService`
 - `commandService`
 - `commandSubmissionService`
 - `commandCompletionService`
@@ -581,7 +589,109 @@ Useful response fields:
 
 - `rights: readonly UserRightAssignment[]`
 
-### `packageManagementService.uploadDarFileAsync(request)`
+### `packageService.listPackagesAsync(request)`
+
+Lists ledger-visible package identifiers.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: ListPackagesRequest`
+
+Return type:
+
+- `Promise<ListPackagesResponse>`
+
+Useful response fields:
+
+- `packageIds: string[]`
+
+### `packageService.getPackageAsync(request)`
+
+Reads a ledger package archive payload.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetPackageRequest`
+
+Request fields:
+
+- `packageId: string`
+
+Return type:
+
+- `Promise<GetPackageResponse>`
+
+Useful response fields:
+
+- `hashFunction: HashFunction`
+- `archivePayload: Uint8Array`
+- `hash: string`
+
+### `packageService.getPackageStatusAsync(request)`
+
+Reads ledger package registration status.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetPackageStatusRequest`
+
+Request fields:
+
+- `packageId: string`
+
+Return type:
+
+- `Promise<GetPackageStatusResponse>`
+
+Useful response fields:
+
+- `packageStatus: PackageStatus`
+
+### `packageService.listVettedPackagesAsync(request)`
+
+Lists vetted ledger packages by participant and synchronizer.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: ListVettedPackagesRequest`
+
+Request fields:
+
+- `packageMetadataFilter?: PackageMetadataFilter`
+- `topologyStateFilter?: TopologyStateFilter`
+- `pageToken?: string`
+- `pageSize?: number`
+
+Return type:
+
+- `Promise<ListVettedPackagesResponse>`
+
+Useful response fields:
+
+- `vettedPackages: VettedPackages[]`
+- `nextPageToken?: string`
+
+### `participantPackageService.uploadDarFileAsync(request)`
 
 Uploads a DAR file.
 
@@ -605,6 +715,85 @@ Return type:
 Useful response fields:
 
 - `packageId?: string`
+
+### `participantPackageService.listPackagesAsync(request)`
+
+Lists participant-local package metadata.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: ParticipantListPackagesRequest`
+
+Request fields:
+
+- `limit?: number`
+- `filterName?: string`
+
+Return type:
+
+- `Promise<ParticipantListPackagesResponse>`
+
+Useful response fields:
+
+- `packageDescriptions: ParticipantPackageDescription[]`
+
+### `participantPackageService.getPackageContentsAsync(request)`
+
+Reads participant-local package module metadata.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetPackageContentsRequest`
+
+Request fields:
+
+- `packageId: string`
+
+Return type:
+
+- `Promise<GetPackageContentsResponse>`
+
+Useful response fields:
+
+- `description?: ParticipantPackageDescription`
+- `modules: ParticipantModuleDescription[]`
+- `isUtilityPackage: boolean`
+- `languageVersion: string`
+
+### `participantPackageService.getPackageReferencesAsync(request)`
+
+Reads DAR references for a participant-local package.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetPackageReferencesRequest`
+
+Request fields:
+
+- `packageId: string`
+
+Return type:
+
+- `Promise<GetPackageReferencesResponse>`
+
+Useful response fields:
+
+- `dars: ParticipantDarDescription[]`
 
 ### `commandService.submitAndWaitAsync(request)`
 
@@ -782,7 +971,14 @@ They do not expose public methods yet.
 | `partyManagementService.allocatePartyAsync` | Yes | Yes |
 | `partyManagementService.listKnownPartiesAsync` | Yes | Yes |
 | `userManagementService.grantUserRightsAsync` | Yes | Yes |
-| `packageManagementService.uploadDarFileAsync` | Yes | Yes |
+| `packageService.listPackagesAsync` | No | Yes |
+| `packageService.getPackageAsync` | No | Yes |
+| `packageService.getPackageStatusAsync` | No | Yes |
+| `packageService.listVettedPackagesAsync` | No | Yes |
+| `participantPackageService.uploadDarFileAsync` | Yes | Yes |
+| `participantPackageService.listPackagesAsync` | No | Yes |
+| `participantPackageService.getPackageContentsAsync` | No | Yes |
+| `participantPackageService.getPackageReferencesAsync` | No | Yes |
 | `commandService.submitAndWaitAsync` | Yes | Yes |
 | `commandSubmissionService.submitAsync` | No | No |
 | `stateService.getActiveContractsPageAsync` | Yes | Yes |

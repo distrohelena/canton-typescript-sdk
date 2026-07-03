@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ObjectDisposedError } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
@@ -27,5 +28,18 @@ describe("transport surface", () => {
         expect(jsonTransport).not.toHaveProperty("queryContractsAsync");
         expect(jsonTransport).not.toHaveProperty("streamQueryAsync");
         expect(jsonTransport).not.toHaveProperty("streamTransactionsAsync");
+    });
+
+    it("rejects json transport calls after disposal", async () => {
+        const jsonTransport = new JsonTransport({
+            getAsync: async () => ({ status: "healthy", version: "1.0.0" }),
+            postAsync: async () => ({}),
+        });
+
+        await jsonTransport.disposeAsync();
+
+        await expect(
+            jsonTransport.getLedgerApiVersionAsync(),
+        ).rejects.toThrow(ObjectDisposedError);
     });
 });
