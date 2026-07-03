@@ -12,6 +12,8 @@ This SDK exposes a gRPC-shaped public API:
 
 The documented public surface no longer uses the old domain-grouped names like `system`, `parties`, `packages`, `contracts`, `events`, or `commands`.
 
+The package also exposes a separate DAML-LF front-end through the `canton-typescript-sdk/daml-lf` subpath.
+
 ## Imports
 
 Shared client:
@@ -44,6 +46,19 @@ Protocol-specific clients:
 ```ts
 import { GrpcLedgerClient } from "canton-typescript-sdk/grpc";
 import { JsonLedgerClient } from "canton-typescript-sdk/json";
+```
+
+DAML-LF parser:
+
+```ts
+import {
+    DarArchiveLoader,
+    DamlLfCompilation,
+    DamlLfInterpreterScaffold,
+    DamlLfPackageLoader,
+    DamlLfSemanticModel,
+    DamlLfWorkspace,
+} from "canton-typescript-sdk/daml-lf";
 ```
 
 ## Construction
@@ -101,6 +116,95 @@ Notes:
 
 - exposes the same service properties as `CantonClient`
 - external command signing is not supported on JSON
+
+## DAML-LF Parser
+
+The `canton-typescript-sdk/daml-lf` subpath exposes a compiler-style front-end over compiled DAML-LF artifacts.
+
+Current implementation scope:
+
+- `DAR` archive loading
+- raw `DALF` / LF archive decoding
+- LF `2.x` support
+- immutable package/module/definition model
+- workspace and compilation symbol resolution
+- semantic queries over the compiled model
+- interpreter scaffold contracts only
+
+Important limits:
+
+- artifact-centric, not source-parser-centric
+- no source spans or trivia reconstruction yet
+- no real DAML-LF evaluator yet
+
+### `new DarArchiveLoader()`
+
+Loads `.dar` archives and exposes their manifest plus extracted `.dalf` payload entries.
+
+Primary method:
+
+- `loadDarOrThrowAsync(bytes: Uint8Array): Promise<DarArchive>`
+
+Useful result fields:
+
+- `manifest.mainDalfPath`
+- `mainPackageEntry.path`
+- `mainPackageEntry.bytes`
+- `packageEntries`
+
+### `new DamlLfPackageLoader()`
+
+Loads a single DAML-LF archive payload.
+
+Primary methods:
+
+- `loadPackageOrThrow(archiveBytes: Uint8Array): DamlLfPackage`
+- `loadRawPackageOrThrow(archiveBytes: Uint8Array): DamlLfPackageLoadResult`
+
+Notes:
+
+- expects a `.dalf` archive payload, not a whole `.dar`
+- only LF `2.x` is implemented currently
+
+### `new DamlLfWorkspace(packages)`
+
+Creates a package aggregation boundary for cross-package analysis.
+
+Parameters:
+
+- `packages: readonly DamlLfPackage[]`
+
+### `DamlLfCompilation.createOrThrow(workspace)`
+
+Builds the explicit symbol-resolution index over a workspace.
+
+Useful methods:
+
+- `getModuleSymbolOrThrow(reference)`
+- `getTypeSymbolOrThrow(reference)`
+- `createSemanticModel()`
+
+### `compilation.createSemanticModel()`
+
+Returns a `DamlLfSemanticModel` for interpreter-oriented queries.
+
+Useful methods:
+
+- `getRecordFieldsOrThrow(typeReference)`
+
+### `new DamlLfInterpreterScaffold(compilation)`
+
+Creates the current interpreter boundary object.
+
+Useful methods:
+
+- `getCompilation()`
+- `getBuiltinDispatch()`
+
+Notes:
+
+- this is a scaffold only
+- it does not execute DAML-LF yet
 
 ## Auth And Signing
 

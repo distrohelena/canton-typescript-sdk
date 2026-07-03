@@ -74,10 +74,44 @@ Subpath exports are available when you want to construct directly over a transpo
 
 - `canton-typescript-sdk/grpc`
 - `canton-typescript-sdk/json`
+- `canton-typescript-sdk/daml-lf`
 
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
 
 JSON does not provide a `grpc.health.v1.Health.Check` equivalent. The shared SDK still exposes `healthService`, but JSON rejects calls with `NotSupportedError`.
+
+## DAML-LF Parser
+
+The package also exposes a separate DAML-LF front-end at `canton-typescript-sdk/daml-lf`.
+
+Current scope:
+
+- artifact-centric `DAR` and `DALF` loading
+- LF `2.x` decoding
+- immutable package/module/definition model
+- workspace, compilation, and symbol resolution
+- semantic queries over the compiled model
+- interpreter scaffold contracts only, no real LF execution yet
+
+Example:
+
+```ts
+import {
+    DarArchiveLoader,
+    DamlLfCompilation,
+    DamlLfPackageLoader,
+    DamlLfWorkspace,
+} from "canton-typescript-sdk/daml-lf";
+
+const archive = await new DarArchiveLoader().loadDarOrThrowAsync(darBytes);
+const packageLoader = new DamlLfPackageLoader();
+const packageModel = packageLoader.loadPackageOrThrow(
+    archive.mainPackageEntry.bytes,
+);
+const workspace = new DamlLfWorkspace([packageModel]);
+const compilation = DamlLfCompilation.createOrThrow(workspace);
+const semanticModel = compilation.createSemanticModel();
+```
 
 ## External Signing
 
