@@ -23,6 +23,7 @@ export class ArchivePayloadDecoder {
                 ArchivePayloadDecoder.getPackagePayloadOrThrow(payload);
 
             return new ArchivePayloadEnvelope({
+                packageId: archive.hash,
                 languageVersion,
                 packagePayload,
             });

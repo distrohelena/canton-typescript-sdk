@@ -1,5 +1,9 @@
 import { DamlLfResolutionException } from "./errors/daml-lf-resolution.exception.js";
+import { DamlLfSemanticException } from "./errors/daml-lf-semantic.exception.js";
+import { DamlLfChoice } from "./model/daml-lf-choice.js";
 import { DamlLfDataType } from "./model/daml-lf-data-type.js";
+import { DamlLfTemplate } from "./model/daml-lf-template.js";
+import { DamlLfTemplateId } from "./model/daml-lf-template-id.js";
 import { DamlLfType } from "./model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "./model/daml-lf-value-definition.js";
 import { ModuleReference } from "./model/module-reference.js";
@@ -12,6 +16,7 @@ import { TypeSymbol } from "./symbols/type-symbol.js";
 export class DamlLfCompilation {
     private readonly moduleSymbols = new Map<string, ModuleSymbol>();
     private readonly typeSymbols = new Map<string, TypeSymbol>();
+    private readonly templates = new Map<string, DamlLfTemplate>();
 
     private constructor(private readonly workspace: DamlLfWorkspace) {
         void this.workspace;
@@ -65,6 +70,16 @@ export class DamlLfCompilation {
         return new DamlLfSemanticModel(this);
     }
 
+    public getTemplates(): readonly DamlLfTemplate[] {
+        return [...this.templates.values()];
+    }
+
+    public getTemplateChoicesOrThrow(
+        templateId: DamlLfTemplateId,
+    ): readonly DamlLfChoice[] {
+        return this.getTemplateOrThrow(templateId).choices;
+    }
+
     private buildIndexes(): void {
         for (const pkg of this.workspace.packages) {
             for (const module of pkg.modules) {
@@ -90,6 +105,15 @@ export class DamlLfCompilation {
                             }),
                         );
                     }
+
+                    if (definition instanceof DamlLfTemplate) {
+                        this.templates.set(
+                            DamlLfCompilation.createTemplateKey(
+                                definition.templateId,
+                            ),
+                            definition,
+                        );
+                    }
                 }
             }
         }
@@ -106,6 +130,21 @@ export class DamlLfCompilation {
                     if (definition instanceof DamlLfDataType) {
                         for (const field of definition.fields) {
                             this.validateTypeOrThrow(field.type);
+                        }
+                    }
+
+                    if (definition instanceof DamlLfTemplate) {
+                        this.getTypeSymbolOrThrow(
+                            definition.templateId.toTypeConReference(),
+                        );
+
+                        for (const field of definition.fields) {
+                            this.validateTypeOrThrow(field.type);
+                        }
+
+                        for (const choice of definition.choices) {
+                            this.validateTypeOrThrow(choice.parameter.type);
+                            this.validateTypeOrThrow(choice.returnType);
                         }
                     }
                 }
@@ -133,5 +172,23 @@ export class DamlLfCompilation {
         name: string,
     ): string {
         return `${packageId}::${moduleName}::${name}`;
+    }
+
+    private getTemplateOrThrow(templateId: DamlLfTemplateId): DamlLfTemplate {
+        const template = this.templates.get(
+            DamlLfCompilation.createTemplateKey(templateId),
+        );
+
+        if (template === undefined) {
+            throw new DamlLfSemanticException(
+                `could not resolve template '${templateId.templateName}' in module '${templateId.moduleName}'`,
+            );
+        }
+
+        return template;
+    }
+
+    private static createTemplateKey(templateId: DamlLfTemplateId): string {
+        return `${templateId.packageId}::${templateId.moduleName}::${templateId.templateName}`;
     }
 }

@@ -6,13 +6,16 @@ import { DamlLfPackage } from "./model/daml-lf-package.js";
 import { Lf2ModelMapper } from "./model/lf-2-model-mapper.js";
 
 export class DamlLfPackageLoadResult {
+    public readonly packageId: string;
     public readonly languageVersion: DamlLfLanguageVersion;
     public readonly rawPackage: LfArchivePackage;
 
     public constructor(init: {
+        packageId: string;
         languageVersion: DamlLfLanguageVersion;
         rawPackage: LfArchivePackage;
     }) {
+        this.packageId = init.packageId;
         this.languageVersion = init.languageVersion;
         this.rawPackage = init.rawPackage;
     }
@@ -37,6 +40,7 @@ export class DamlLfPackageLoader {
         );
 
         return new DamlLfPackageLoadResult({
+            packageId: envelope.packageId,
             languageVersion: envelope.languageVersion,
             rawPackage,
         });
@@ -46,6 +50,7 @@ export class DamlLfPackageLoader {
         const result = this.loadRawPackageOrThrow(archiveBytes);
 
         return Lf2ModelMapper.mapPackage(
+            result.packageId,
             result.rawPackage,
             result.languageVersion,
         );

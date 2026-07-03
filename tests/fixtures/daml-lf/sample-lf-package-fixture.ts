@@ -13,11 +13,48 @@ export class SampleLfPackageFixture {
                 {
                     nameInternedDname: 0,
                     synonyms: [],
-                    dataTypes: [],
+                    dataTypes: [
+                        {
+                            nameInternedDname: 1,
+                            params: [],
+                            serializable: true,
+                            dataCons: {
+                                oneofKind: "record",
+                                record: {
+                                    fields: [
+                                        {
+                                            fieldInternedStr: 6,
+                                            type: {
+                                                sum: {
+                                                    oneofKind: "builtin",
+                                                    builtin: {
+                                                        builtin: BuiltinType.TEXT,
+                                                        args: [],
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        {
+                                            fieldInternedStr: 7,
+                                            type: {
+                                                sum: {
+                                                    oneofKind: "builtin",
+                                                    builtin: {
+                                                        builtin: BuiltinType.TEXT,
+                                                        args: [],
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
                     values: [
                         {
                             nameWithType: {
-                                nameInternedDname: 1,
+                                nameInternedDname: 2,
                                 type: {
                                     sum: {
                                         oneofKind: "builtin",
@@ -34,14 +71,59 @@ export class SampleLfPackageFixture {
                                     builtinLit: {
                                         sum: {
                                             oneofKind: "textInternedStr",
-                                            textInternedStr: 5,
+                                            textInternedStr: 9,
                                         },
                                     },
                                 },
                             },
                         },
                     ],
-                    templates: [],
+                    templates: [
+                        {
+                            tyconInternedDname: 1,
+                            paramInternedStr: 8,
+                            choices: [
+                                {
+                                    nameInternedStr: 10,
+                                    consuming: true,
+                                    argBinder: {
+                                        varInternedStr: 11,
+                                        type: {
+                                            sum: {
+                                                oneofKind: "builtin",
+                                                builtin: {
+                                                    builtin: BuiltinType.TEXT,
+                                                    args: [],
+                                                },
+                                            },
+                                        },
+                                    },
+                                    retType: {
+                                        sum: {
+                                            oneofKind: "builtin",
+                                            builtin: {
+                                                builtin: BuiltinType.TEXT,
+                                                args: [],
+                                            },
+                                        },
+                                    },
+                                    update: {
+                                        sum: {
+                                            oneofKind: "builtinLit",
+                                            builtinLit: {
+                                                sum: {
+                                                    oneofKind: "textInternedStr",
+                                                    textInternedStr: 11,
+                                                },
+                                            },
+                                        },
+                                    },
+                                    selfBinderInternedStr: 12,
+                                },
+                            ],
+                            implements: [],
+                        },
+                    ],
                     exceptions: [],
                     interfaces: [],
                 },
@@ -51,8 +133,15 @@ export class SampleLfPackageFixture {
                 "1.0.0",
                 "Sample",
                 "Module",
+                "Iou",
                 "greeting",
+                "issuer",
+                "owner",
+                "this",
                 "hello",
+                "Transfer",
+                "newOwner",
+                "self",
             ],
             internedDottedNames: [
                 {
@@ -60,6 +149,9 @@ export class SampleLfPackageFixture {
                 },
                 {
                     segmentsInternedStr: [4],
+                },
+                {
+                    segmentsInternedStr: [5],
                 },
             ],
             metadata: {
