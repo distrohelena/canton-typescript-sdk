@@ -10,6 +10,10 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js"
         },
+        "./daml-interface": {
+            "types": "./dist/daml-interface/index.d.ts",
+            "import": "./dist/daml-interface/index.js"
+        },
         "./daml-lf": {
             "types": "./dist/daml-lf/index.d.ts",
             "import": "./dist/daml-lf/index.js"
