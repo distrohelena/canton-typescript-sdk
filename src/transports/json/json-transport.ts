@@ -3,6 +3,7 @@ import {
     GrantUserRightsRequest,
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
+import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
 import { StreamTransactionsRequest } from "../../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -11,6 +12,7 @@ import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
+import { ListPartiesResponse } from "../../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadPackageResponse } from "../../core/types/responses/upload-package-response.js";
@@ -18,7 +20,10 @@ import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { mapJsonSubmitCommand } from "./mappers/commands-mapper.js";
 import { mapJsonUploadPackage } from "./mappers/packages-mapper.js";
-import { mapJsonCreateParty } from "./mappers/parties-mapper.js";
+import {
+    mapJsonCreateParty,
+    mapJsonListParties,
+} from "./mappers/parties-mapper.js";
 import { mapJsonQueryContracts } from "./mappers/contracts-mapper.js";
 import { mapJsonTransactionEvents } from "./mappers/events-mapper.js";
 import { mapJsonHealth } from "./mappers/system-mapper.js";
@@ -54,6 +59,42 @@ export class JsonTransport implements ITransport {
             payload as {
                 result?: { identifier?: string };
                 identifier?: string;
+            },
+        );
+    }
+
+    public async listPartiesAsync(
+        request: ListPartiesRequest,
+    ): Promise<ListPartiesResponse> {
+        const query = new URLSearchParams();
+
+        if (request.identityProviderId) {
+            query.set("identity-provider-id", request.identityProviderId);
+        }
+        if (request.filterParty) {
+            query.set("filter-party", request.filterParty);
+        }
+        if (request.pageSize !== undefined) {
+            query.set("pageSize", request.pageSize.toString());
+        }
+        if (request.pageToken) {
+            query.set("pageToken", request.pageToken);
+        }
+
+        const path =
+            query.size === 0 ? "/v2/parties" : `/v2/parties?${query.toString()}`;
+
+        const payload = await this.httpClient.getAsync(path);
+
+        return mapJsonListParties(
+            payload as {
+                partyDetails?: Array<{
+                    party?: string;
+                    isLocal?: boolean;
+                    localMetadata?: { attributes?: Record<string, string> };
+                    identityProviderId?: string;
+                }>;
+                nextPageToken?: string;
             },
         );
     }
