@@ -1,3 +1,4 @@
+import { BuiltinType } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 import {
     Archive,
     ArchivePayload,
@@ -13,16 +14,52 @@ export class SampleLfPackageFixture {
                     nameInternedDname: 0,
                     synonyms: [],
                     dataTypes: [],
-                    values: [],
+                    values: [
+                        {
+                            nameWithType: {
+                                nameInternedDname: 1,
+                                type: {
+                                    sum: {
+                                        oneofKind: "builtin",
+                                        builtin: {
+                                            builtin: BuiltinType.TEXT,
+                                            args: [],
+                                        },
+                                    },
+                                },
+                            },
+                            expr: {
+                                sum: {
+                                    oneofKind: "builtinLit",
+                                    builtinLit: {
+                                        sum: {
+                                            oneofKind: "textInternedStr",
+                                            textInternedStr: 5,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    ],
                     templates: [],
                     exceptions: [],
                     interfaces: [],
                 },
             ],
-            internedStrings: ["sample-package", "1.0.0", "Sample", "Module"],
+            internedStrings: [
+                "sample-package",
+                "1.0.0",
+                "Sample",
+                "Module",
+                "greeting",
+                "hello",
+            ],
             internedDottedNames: [
                 {
                     segmentsInternedStr: [2, 3],
+                },
+                {
+                    segmentsInternedStr: [4],
                 },
             ],
             metadata: {

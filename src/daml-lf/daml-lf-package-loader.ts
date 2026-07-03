@@ -2,6 +2,8 @@ import { Package as LfArchivePackage } from "../transports/grpc/generated/canton
 import { ArchivePayloadDecoder } from "./decoding/archive-payload-decoder.js";
 import { DamlLfLanguageVersion } from "./decoding/daml-lf-language-version.js";
 import { PackageDecoderRegistry } from "./decoding/package-decoder-registry.js";
+import { DamlLfPackage } from "./model/daml-lf-package.js";
+import { Lf2ModelMapper } from "./model/lf-2-model-mapper.js";
 
 export class DamlLfPackageLoadResult {
     public readonly languageVersion: DamlLfLanguageVersion;
@@ -23,7 +25,9 @@ export class DamlLfPackageLoader {
         void this.packageDecoderRegistry;
     }
 
-    public loadPackageOrThrow(archiveBytes: Uint8Array): DamlLfPackageLoadResult {
+    public loadRawPackageOrThrow(
+        archiveBytes: Uint8Array,
+    ): DamlLfPackageLoadResult {
         const envelope =
             ArchivePayloadDecoder.decodeArchiveOrThrow(archiveBytes);
         const rawPackage = this.packageDecoderRegistry.decodePackageOrThrow(
@@ -35,5 +39,14 @@ export class DamlLfPackageLoader {
             languageVersion: envelope.languageVersion,
             rawPackage,
         });
+    }
+
+    public loadPackageOrThrow(archiveBytes: Uint8Array): DamlLfPackage {
+        const result = this.loadRawPackageOrThrow(archiveBytes);
+
+        return Lf2ModelMapper.mapPackage(
+            result.rawPackage,
+            result.languageVersion,
+        );
     }
 }

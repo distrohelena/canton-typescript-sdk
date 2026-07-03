@@ -4,6 +4,7 @@ export { DamlLfResolutionException } from "./errors/daml-lf-resolution.exception
 export { DamlLfSemanticException } from "./errors/daml-lf-semantic.exception.js";
 export { DamlLfVersionNotSupportedException } from "./errors/daml-lf-version-not-supported.exception.js";
 export { DamlLfPackageLoader, DamlLfPackageLoadResult } from "./daml-lf-package-loader.js";
-
-export class DarArchiveLoader {
-}
+export { DarArchiveLoader } from "./container/dar-archive-loader.js";
+export { DamlLfBuiltinType } from "./model/daml-lf-builtin-type.js";
+export { DamlLfNodeKind } from "./model/daml-lf-node-kind.js";
+export { DamlLfPackage } from "./model/daml-lf-package.js";

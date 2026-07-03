@@ -3,11 +3,18 @@ import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package
 import { DamlLfPackageLoader } from "../../../src/daml-lf/daml-lf-package-loader.js";
 
 describe("DamlLfPackageLoader", () => {
-    it("loads an LF 2.x package from archive bytes", () => {
+    it("loads an LF 2.x raw package from archive bytes", () => {
         const archiveBytes = SampleLfPackageFixture.createLf2ArchiveBytes();
         const loader = new DamlLfPackageLoader();
 
-        const result = loader.loadPackageOrThrow(archiveBytes);
+        const result = (
+            loader as DamlLfPackageLoader & {
+                loadRawPackageOrThrow(bytes: Uint8Array): {
+                    languageVersion: { major: number; minor: string };
+                    rawPackage: { modules: unknown[]; metadata?: { nameInternedStr: number } };
+                };
+            }
+        ).loadRawPackageOrThrow(archiveBytes);
 
         expect(result.languageVersion.major).toBe(2);
         expect(result.languageVersion.minor).toBe("1");
