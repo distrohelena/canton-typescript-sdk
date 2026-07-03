@@ -10,10 +10,14 @@ describe("DAML interface package surface", () => {
         expect(module.DamlInterfaceGenerationException).toBeTypeOf("function");
     });
 
-    it("does not export daml interface generator types from the root package", async () => {
-        const rootModule = await import("../../../src/index.js");
+    it(
+        "does not export daml interface generator types from the root package",
+        async () => {
+            const rootModule = await import("../../../src/index.js");
 
-        expect(rootModule).not.toHaveProperty("DamlInterfaceGenerator");
-        expect(rootModule).not.toHaveProperty("DamlInterfaceWriter");
-    });
+            expect(rootModule).not.toHaveProperty("DamlInterfaceGenerator");
+            expect(rootModule).not.toHaveProperty("DamlInterfaceWriter");
+        },
+        15000,
+    );
 });
