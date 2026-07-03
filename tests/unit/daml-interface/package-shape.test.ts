@@ -5,6 +5,7 @@ describe("DAML interface package surface", () => {
         const module = await import("../../../src/daml-interface/index.js");
 
         expect(module.DamlInterfaceGenerator).toBeTypeOf("function");
+        expect(module.DamlInterfaceGeneratorOptions).toBeTypeOf("function");
         expect(module.DamlInterfaceWriter).toBeTypeOf("function");
         expect(module.DamlInterfaceGenerationException).toBeTypeOf("function");
     });
