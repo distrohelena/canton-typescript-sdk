@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    NotSupportedError,
     QueryContractsRequest,
+    StreamQueryRequest,
     SubmitCommandRequest,
 } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
@@ -35,7 +37,16 @@ describe("grpc transport entrypoint", () => {
             ),
         ).resolves.toBeDefined();
         await expect(
-            client.commands.submitAsync(
+            client.contracts.streamQueryAsync(
+                new StreamQueryRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
+                { nextAsync: async () => undefined },
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            client.commandService.submitAndWaitAsync(
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],

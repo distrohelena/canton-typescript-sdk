@@ -165,7 +165,10 @@ export function createServiceRegistry(
         packageManagementService: new PackageManagementServiceClient(
             transport,
         ),
-        commandService: new CommandServiceClient(transport),
+        commandService: new CommandServiceClient(
+            transport,
+            options.commandSigner,
+        ),
         commandSubmissionService: new CommandSubmissionServiceClient(
             transport,
         ),

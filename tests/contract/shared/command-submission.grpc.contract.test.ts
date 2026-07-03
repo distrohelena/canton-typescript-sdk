@@ -4,7 +4,7 @@ import {
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
-import { CommandsClient } from "../../../src/services/commands/commands-client.js";
+import { CommandServiceClient } from "../../../src/services/command/command-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("grpc command submission contract", () => {
@@ -17,10 +17,14 @@ describe("grpc command submission contract", () => {
                 }),
         );
 
-        const client = new CommandsClient(
+        const commandService = new CommandServiceClient(
             new GrpcTransport({
                 getHealthAsync: async () => ({ status: "healthy" }),
                 createPartyAsync: async () => ({ identifier: "unused" }),
+                listPartiesAsync: async () => ({
+                    partyDetails: [],
+                    nextPageToken: "",
+                }),
                 grantUserRightsAsync: async () => ({ rights: [] }),
                 uploadPackageAsync: async () => ({ packageId: "unused" }),
                 queryContractsAsync: async () => ({ contracts: [] }),
@@ -34,7 +38,7 @@ describe("grpc command submission contract", () => {
         );
 
         await expect(
-            client.submitAsync(
+            commandService.submitAndWaitAsync(
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],

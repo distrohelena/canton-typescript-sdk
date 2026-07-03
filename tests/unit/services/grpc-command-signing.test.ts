@@ -1,25 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    NotSupportedError,
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
-import { CommandsClient } from "../../../src/services/commands/commands-client.js";
+import { CommandServiceClient } from "../../../src/services/command/command-service-client.js";
+import { CommandSubmissionServiceClient } from "../../../src/services/command-submission/command-submission-service-client.js";
 
-describe("CommandsClient grpc signing", () => {
+describe("CommandServiceClient grpc signing", () => {
     it("submits signed grpc commands through the command pipeline", async () => {
         const submitCommandAsync = vi.fn(async () => ({
             commandId: "cmd-1",
             transactionId: "tx-1",
         }));
 
-        const client = new CommandsClient(
+        const client = new CommandServiceClient(
             {
                 features: { supportsCommandSigning: true },
                 getHealthAsync: async () => {
                     throw new Error("not used");
                 },
+                getLedgerApiVersionAsync: async () => {
+                    throw new Error("not used");
+                },
                 createPartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                allocatePartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                listPartiesAsync: async () => {
+                    throw new Error("not used");
+                },
+                listKnownPartiesAsync: async () => {
                     throw new Error("not used");
                 },
                 grantUserRightsAsync: async () => {
@@ -28,7 +42,13 @@ describe("CommandsClient grpc signing", () => {
                 uploadPackageAsync: async () => {
                     throw new Error("not used");
                 },
+                uploadDarFileAsync: async () => {
+                    throw new Error("not used");
+                },
                 queryContractsAsync: async () => {
+                    throw new Error("not used");
+                },
+                streamQueryAsync: async () => {
                     throw new Error("not used");
                 },
                 streamTransactionsAsync: async () => {
@@ -45,7 +65,7 @@ describe("CommandsClient grpc signing", () => {
             },
         );
 
-        const result = await client.submitAsync(
+        const result = await client.submitAndWaitAsync(
             new SubmitCommandRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
@@ -58,5 +78,63 @@ describe("CommandsClient grpc signing", () => {
 
         expect(result.commandId).toBe("cmd-1");
         expect(submitCommandAsync).toHaveBeenCalledOnce();
+    });
+
+    it("keeps command submission service unsupported for now", async () => {
+        const client = new CommandSubmissionServiceClient({
+            features: { supportsCommandSigning: true },
+            getHealthAsync: async () => {
+                throw new Error("not used");
+            },
+            getLedgerApiVersionAsync: async () => {
+                throw new Error("not used");
+            },
+            createPartyAsync: async () => {
+                throw new Error("not used");
+            },
+            allocatePartyAsync: async () => {
+                throw new Error("not used");
+            },
+            listPartiesAsync: async () => {
+                throw new Error("not used");
+            },
+            listKnownPartiesAsync: async () => {
+                throw new Error("not used");
+            },
+            grantUserRightsAsync: async () => {
+                throw new Error("not used");
+            },
+            uploadPackageAsync: async () => {
+                throw new Error("not used");
+            },
+            uploadDarFileAsync: async () => {
+                throw new Error("not used");
+            },
+            queryContractsAsync: async () => {
+                throw new Error("not used");
+            },
+            streamQueryAsync: async () => {
+                throw new Error("not used");
+            },
+            streamTransactionsAsync: async () => {
+                throw new Error("not used");
+            },
+            submitCommandAsync: async () => {
+                throw new Error("not used");
+            },
+        });
+
+        await expect(
+            client.submitAsync(
+                new SubmitCommandRequest({
+                    applicationId: "app-1",
+                    actAs: ["Alice"],
+                    command: new CreateCommand({
+                        templateId: "Main:Iou",
+                        payload: { issuer: "Alice" },
+                    }),
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
     });
 });

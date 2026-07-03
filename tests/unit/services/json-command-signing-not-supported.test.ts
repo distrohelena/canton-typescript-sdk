@@ -15,7 +15,19 @@ describe("JSON command signing", () => {
                 getHealthAsync: async () => {
                     throw new Error("not used");
                 },
+                getLedgerApiVersionAsync: async () => {
+                    throw new Error("not used");
+                },
                 createPartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                allocatePartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                listPartiesAsync: async () => {
+                    throw new Error("not used");
+                },
+                listKnownPartiesAsync: async () => {
                     throw new Error("not used");
                 },
                 grantUserRightsAsync: async () => {
@@ -24,7 +36,13 @@ describe("JSON command signing", () => {
                 uploadPackageAsync: async () => {
                     throw new Error("not used");
                 },
+                uploadDarFileAsync: async () => {
+                    throw new Error("not used");
+                },
                 queryContractsAsync: async () => {
+                    throw new Error("not used");
+                },
+                streamQueryAsync: async () => {
                     throw new Error("not used");
                 },
                 streamTransactionsAsync: async () => {

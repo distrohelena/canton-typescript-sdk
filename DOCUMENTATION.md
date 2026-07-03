@@ -18,7 +18,9 @@ The SDK follows a C#-style shape:
 Current alignment note:
 
 - `VersionService`, `PartyManagementService`, `UserManagementService`, and `PackageManagementService` are already exposed under gRPC-shaped names on `CantonClient`
-- command and ledger-read surfaces are still being renamed and will be rewritten in a later refactor step
+- `CommandService.submitAndWaitAsync(...)` is the active command surface
+- `CommandSubmissionService.submitAsync(...)` is present but intentionally unsupported for now
+- ledger-read surfaces are still being renamed and will be rewritten in a later refactor step
 
 ## Installation And Imports
 
@@ -54,6 +56,7 @@ import { JsonLedgerClient } from "canton-typescript-sdk/json";
 | `partyManagementService.listKnownPartiesAsync()` | Yes | Yes |
 | `userManagementService.grantUserRightsAsync()` | Yes | Yes |
 | `packageManagementService.uploadDarFileAsync()` | Yes | Yes |
+| `commandService.submitAndWaitAsync()` | Yes | Yes |
 | external command signing | No | Yes |
 
 ## Shared Client
@@ -217,7 +220,7 @@ Fields:
 
 ## Service Clients
 
-The operational services below use their new gRPC-shaped names now. Command and ledger-read service documentation will be rewritten once those migrations complete.
+The operational services below use their new gRPC-shaped names now. Ledger-read service documentation will be rewritten once those migrations complete.
 
 ### `client.versionService.getLedgerApiVersionAsync()`
 
@@ -354,6 +357,54 @@ const uploaded = await client.packageManagementService.uploadDarFileAsync(
     }),
 );
 ```
+
+### `client.commandService.submitAndWaitAsync(request)`
+
+Submits a command and waits for the result.
+
+Transport support:
+
+- JSON
+- gRPC
+
+Parameters:
+
+- `request: SubmitCommandRequest`
+
+Return type:
+
+- `Promise<SubmitCommandResponse>`
+
+Behavior:
+
+- if a signer was configured on a gRPC client, signing happens before submission
+- JSON still rejects external signing
+
+Example:
+
+```ts
+const result = await client.commandService.submitAndWaitAsync(
+    new SubmitCommandRequest({
+        applicationId: "app-1",
+        actAs: ["Alice"],
+        command: new CreateCommand({
+            templateId: "Main:Iou",
+            payload: {
+                issuer: "Alice",
+                owner: "Bob",
+            },
+        }),
+    }),
+);
+```
+
+### `client.commandSubmissionService.submitAsync(request)`
+
+Reserved for the gRPC `CommandSubmissionService.Submit` shape.
+
+Current behavior:
+
+- rejects with `NotSupportedError`
 
 ### `client.contracts.queryAsync(request)`
 

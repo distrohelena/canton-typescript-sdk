@@ -43,10 +43,11 @@ await client.partyManagementService.allocatePartyAsync(
 - `client.partyManagementService.listKnownPartiesAsync(...)`: supported on `json` and `grpc`
 - `client.userManagementService.grantUserRightsAsync(...)`: supported on `json` and `grpc`
 - `client.packageManagementService.uploadDarFileAsync(...)`: supported on `json` and `grpc`
+- `client.commandService.submitAndWaitAsync(...)`: supported on `json` and `grpc`
 
 ## Alignment Status
 
-The root client is being realigned to gRPC Ledger API service boundaries. The operational services above are live under their new names. Command and ledger-read APIs are being migrated next and should be treated as in-flight until their gRPC-shaped service names land.
+The root client is being realigned to gRPC Ledger API service boundaries. The operational services above and `CommandService.submitAndWaitAsync(...)` are live under their new names. Ledger-read APIs are being migrated next. `CommandSubmissionService.submitAsync(...)` remains reserved but intentionally unsupported in this phase.
 
 ## Protocol-Specific Modules
 
