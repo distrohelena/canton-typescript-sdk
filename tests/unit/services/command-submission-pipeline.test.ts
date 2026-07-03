@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { SignCommandResult, SubmitCommandRequest } from "../../../src";
+import {
+    CreateCommand,
+    SignCommandResult,
+    SubmitCommandRequest,
+} from "../../../src";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
 
 describe("CommandSubmissionPipeline", () => {
@@ -41,14 +45,25 @@ describe("CommandSubmissionPipeline", () => {
             signer: { signAsync },
         });
 
-        await pipeline.submitAsync(
-            new SubmitCommandRequest({
-                applicationId: "app-1",
-                actAs: ["Alice"],
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            command: new CreateCommand({
+                templateId: "Main:Iou",
+                payload: {
+                    issuer: "Alice",
+                    owner: "Bob",
+                },
             }),
-        );
+        });
+
+        expect(request.command.templateId).toBe("Main:Iou");
+        await pipeline.submitAsync(request);
 
         expect(signAsync).toHaveBeenCalledOnce();
         expect(signAsync.mock.calls[0]?.[0].payload).toBeInstanceOf(Uint8Array);
+        expect(
+            new TextDecoder().decode(signAsync.mock.calls[0]?.[0].payload),
+        ).toContain("\"templateId\":\"Main:Iou\"");
     });
 });

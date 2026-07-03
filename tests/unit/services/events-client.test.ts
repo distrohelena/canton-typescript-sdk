@@ -4,6 +4,13 @@ import { EventsClient } from "../../../src/services/events/events-client.js";
 
 describe("EventsClient", () => {
     it("streams transactions through the selected transport", async () => {
+        const request = new StreamTransactionsRequest({
+            party: "Alice",
+            beginOffset: "0",
+            endOffset: "10",
+            templateId: "Main:Iou",
+        });
+
         const nextAsync = vi.fn(async () => undefined);
 
         const transport = {
@@ -33,9 +40,11 @@ describe("EventsClient", () => {
 
         const client = new EventsClient(transport);
 
-        await client.streamTransactionsAsync(new StreamTransactionsRequest(), {
-            nextAsync,
-        });
+        expect(request.party).toBe("Alice");
+        expect(request.beginOffset).toBe("0");
+        expect(request.endOffset).toBe("10");
+        expect(request.templateId).toBe("Main:Iou");
+        await client.streamTransactionsAsync(request, { nextAsync });
 
         expect(nextAsync).toHaveBeenCalledWith({ transactionId: "tx-1" });
     });

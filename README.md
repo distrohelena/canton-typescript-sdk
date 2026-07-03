@@ -14,6 +14,7 @@ import {
     BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
+    QueryContractsRequest,
     TransportKind,
 } from "canton-typescript-sdk";
 
@@ -26,22 +27,33 @@ const client = new CantonClient(
 );
 
 await client.system.getHealthAsync();
-await client.contracts.queryAsync({ templateId: "Main:Iou" });
+await client.contracts.queryAsync(
+    new QueryContractsRequest({
+        party: "Alice",
+        templateId: "Main:Iou",
+    }),
+);
 ```
 
 ## gRPC External Signing
 
 ```ts
 import {
+    BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
+    CreateCommand,
+    GrpcChannelSecurity,
+    SubmitCommandRequest,
     TransportKind,
 } from "canton-typescript-sdk";
 
 const client = new CantonClient(
     new CantonClientOptions({
         transportKind: TransportKind.grpc,
-        endpoint: "https://participant.example.com",
+        endpoint: "http://localhost:6865",
+        grpcChannelSecurity: GrpcChannelSecurity.insecure,
+        authProvider: new BearerTokenAuthProvider("token"),
         commandSigner: {
             async signAsync(request) {
                 return {
@@ -53,10 +65,19 @@ const client = new CantonClient(
     }),
 );
 
-await client.commands.submitAsync({
-    applicationId: "app-1",
-    actAs: ["Alice"],
-});
+await client.commands.submitAsync(
+    new SubmitCommandRequest({
+        applicationId: "app-1",
+        actAs: ["Alice"],
+        command: new CreateCommand({
+            templateId: "Main:Iou",
+            payload: {
+                issuer: "Alice",
+                owner: "Bob",
+            },
+        }),
+    }),
+);
 ```
 
 ## JSON Signing

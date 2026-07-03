@@ -1,3 +1,4 @@
+import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
@@ -22,8 +23,14 @@ import {
     mapGrpcSubmitCommand,
     mapGrpcSubmitCommandRequest,
 } from "./mappers/commands-mapper.js";
-import { mapGrpcQueryContracts } from "./mappers/contracts-mapper.js";
-import { mapGrpcTransactionEvents } from "./mappers/events-mapper.js";
+import {
+    mapGrpcQueryContracts,
+    mapGrpcQueryContractsRequest,
+} from "./mappers/contracts-mapper.js";
+import {
+    mapGrpcStreamTransactionsRequest,
+    mapGrpcTransactionEvents,
+} from "./mappers/events-mapper.js";
 import {
     mapGrpcUploadPackage,
     mapGrpcUploadPackageRequest,
@@ -40,7 +47,10 @@ import {
     mapGrpcGrantUserRightsRequest,
 } from "./mappers/users-mapper.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
-import { ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import { UploadDarFileResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { AllocatePartyResponse, ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import { GrantUserRightsResponse as ProtobufGrantUserRightsResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
 
 export class GrpcTransport implements ITransport {
     public readonly features = {
@@ -52,7 +62,9 @@ export class GrpcTransport implements ITransport {
     public async getHealthAsync(): Promise<HealthStatusResponse> {
         const payload = await this.operations.getHealthAsync();
 
-        return mapGrpcHealth(payload as { status?: string; version?: string });
+        return mapGrpcHealth(
+            payload as { status?: string; version?: string } | GetLedgerApiVersionResponse,
+        );
     }
 
     public async createPartyAsync(
@@ -62,7 +74,9 @@ export class GrpcTransport implements ITransport {
             mapGrpcCreatePartyRequest(request),
         );
 
-        return mapGrpcCreateParty(payload as { identifier?: string });
+        return mapGrpcCreateParty(
+            payload as { identifier?: string } | AllocatePartyResponse,
+        );
     }
 
     public async listPartiesAsync(
@@ -83,7 +97,9 @@ export class GrpcTransport implements ITransport {
         );
 
         return mapGrpcGrantUserRights(
-            payload as { rights?: Array<{ type: string; party?: string }> },
+            payload as
+                | { rights?: Array<{ type: string; party?: string }> }
+                | ProtobufGrantUserRightsResponse,
         );
     }
 
@@ -94,24 +110,28 @@ export class GrpcTransport implements ITransport {
             mapGrpcUploadPackageRequest(request),
         );
 
-        return mapGrpcUploadPackage(payload as { packageId?: string });
+        return mapGrpcUploadPackage(
+            payload as { packageId?: string } | UploadDarFileResponse,
+        );
     }
 
     public async queryContractsAsync(
         request: QueryContractsRequest,
     ): Promise<QueryContractsResponse> {
-        const payload = await this.operations.queryContractsAsync({
-            templateId: request.templateId,
-        });
+        const payload = await this.operations.queryContractsAsync(
+            mapGrpcQueryContractsRequest(request),
+        );
 
         return mapGrpcQueryContracts(payload as { contracts?: unknown[] });
     }
 
     public async streamTransactionsAsync(
-        _request: StreamTransactionsRequest,
+        request: StreamTransactionsRequest,
         observer: TransactionObserver,
     ): Promise<void> {
-        const payload = await this.operations.streamTransactionsAsync({});
+        const payload = await this.operations.streamTransactionsAsync(
+            mapGrpcStreamTransactionsRequest(request),
+        );
 
         const events = mapGrpcTransactionEvents(
             payload as { events?: unknown[] } | readonly unknown[],
@@ -136,6 +156,8 @@ export class GrpcTransport implements ITransport {
     }
 }
 
-export function createDefaultGrpcTransport(endpoint: string): GrpcTransport {
-    return new GrpcTransport(createGrpcOperations(endpoint));
+export function createDefaultGrpcTransport(
+    options: CantonClientOptions,
+): GrpcTransport {
+    return new GrpcTransport(createGrpcOperations(options));
 }

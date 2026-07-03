@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { QueryContractsRequest, SubmitCommandRequest } from "../../../src";
+import {
+    CreateCommand,
+    QueryContractsRequest,
+    SubmitCommandRequest,
+} from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 
 describe("grpc transport entrypoint", () => {
@@ -9,7 +13,14 @@ describe("grpc transport entrypoint", () => {
         const client = new grpcModule.GrpcLedgerClient(
             createFakeGrpcOperations({
                 queryContractsAsync: async () => ({
-                    contracts: [{ contractId: "c2" }],
+                    activeContracts: [
+                        {
+                            contractEntry: {
+                                oneofKind: "activeContract",
+                                activeContract: { contractId: "c2" },
+                            },
+                        },
+                    ],
                 }),
             }),
         );
@@ -17,7 +28,10 @@ describe("grpc transport entrypoint", () => {
         expect(grpcModule).toHaveProperty("GrpcLedgerClient");
         await expect(
             client.contracts.queryAsync(
-                new QueryContractsRequest({ templateId: "Main:Iou" }),
+                new QueryContractsRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
             ),
         ).resolves.toBeDefined();
         await expect(
@@ -25,6 +39,10 @@ describe("grpc transport entrypoint", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
+                    command: new CreateCommand({
+                        templateId: "Main:Iou",
+                        payload: { issuer: "Alice" },
+                    }),
                 }),
             ),
         ).resolves.toBeDefined();

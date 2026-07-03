@@ -6,8 +6,8 @@ describe("SystemClient with gRPC transport", () => {
     it("reports grpc signing capability", async () => {
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({
-                status: "healthy",
-                version: "1.0.0",
+                version: "3.4.0",
+                features: {},
             }),
             createPartyAsync: async () => ({ identifier: "Alice" }),
             grantUserRightsAsync: async () => ({
@@ -21,6 +21,7 @@ describe("SystemClient with gRPC transport", () => {
         expect(transport.features.supportsCommandSigning).toBe(true);
         await expect(client.getHealthAsync()).resolves.toMatchObject({
             status: "healthy",
+            version: "3.4.0",
         });
     });
 });

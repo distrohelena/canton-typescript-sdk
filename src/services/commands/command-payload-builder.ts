@@ -7,6 +7,11 @@ export function buildCanonicalCommandPayload(
         JSON.stringify({
             applicationId: request.applicationId,
             actAs: request.actAs,
+            readAs: request.readAs,
+            command: {
+                templateId: request.command.templateId,
+                payload: request.command.payload,
+            },
         }),
     );
 }

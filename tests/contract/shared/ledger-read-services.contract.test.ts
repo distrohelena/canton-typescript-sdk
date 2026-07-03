@@ -11,9 +11,13 @@ import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
 describe("shared ledger read services contract", () => {
     it("supports query and event reads on json and grpc transports", async () => {
+        const capturedJsonBodies: Record<string, unknown> = {};
+
         const jsonTransport = new JsonTransport({
             getAsync: async () => ({ status: "healthy" }),
-            postAsync: async (path: string) => {
+            postAsync: async (path: string, body: unknown) => {
+                capturedJsonBodies[path] = body;
+
                 if (path === "/v1/query") {
                     return { result: [{ contractId: "c1" }] };
                 } else if (path === "/v1/stream/query") {
@@ -30,10 +34,22 @@ describe("shared ledger read services contract", () => {
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             queryContractsAsync: async () => ({
-                contracts: [{ contractId: "c2" }],
+                activeContracts: [
+                    {
+                        contractEntry: {
+                            oneofKind: "activeContract",
+                            activeContract: { contractId: "c2" },
+                        },
+                    },
+                ],
             }),
             streamTransactionsAsync: async () => [
-                { transactionId: "grpc-tx-1" },
+                {
+                    update: {
+                        oneofKind: "transaction",
+                        transaction: { transactionId: "grpc-tx-1" },
+                    },
+                },
             ],
         });
 
@@ -47,26 +63,45 @@ describe("shared ledger read services contract", () => {
 
         await expect(
             jsonContracts.queryAsync(
-                new QueryContractsRequest({ templateId: "Main:Iou" }),
+                new QueryContractsRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
             ),
         ).resolves.toBeInstanceOf(QueryContractsResponse);
         await expect(
             grpcContracts.queryAsync(
-                new QueryContractsRequest({ templateId: "Main:Iou" }),
+                new QueryContractsRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
             ),
         ).resolves.toBeInstanceOf(QueryContractsResponse);
 
         const nextAsync = vi.fn(async () => undefined);
 
         await jsonEvents.streamTransactionsAsync(
-            new StreamTransactionsRequest(),
+            new StreamTransactionsRequest({
+                party: "Alice",
+                templateId: "Main:Iou",
+            }),
             { nextAsync },
         );
         await grpcEvents.streamTransactionsAsync(
-            new StreamTransactionsRequest(),
+            new StreamTransactionsRequest({
+                party: "Alice",
+                templateId: "Main:Iou",
+            }),
             { nextAsync },
         );
 
+        expect(capturedJsonBodies["/v1/query"]).toEqual({
+            templateIds: ["Main:Iou"],
+        });
+        expect(capturedJsonBodies["/v1/stream/query"]).toEqual({
+            party: "Alice",
+            templateIds: ["Main:Iou"],
+        });
         expect(nextAsync).toHaveBeenCalledWith({ transactionId: "json-tx-1" });
         expect(nextAsync).toHaveBeenCalledWith({ transactionId: "grpc-tx-1" });
     });

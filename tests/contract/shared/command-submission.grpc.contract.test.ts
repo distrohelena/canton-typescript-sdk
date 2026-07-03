@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { SignCommandResult, SubmitCommandRequest } from "../../../src";
+import {
+    CreateCommand,
+    SignCommandResult,
+    SubmitCommandRequest,
+} from "../../../src";
 import { CommandsClient } from "../../../src/services/commands/commands-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
@@ -34,6 +38,10 @@ describe("grpc command submission contract", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
+                    command: new CreateCommand({
+                        templateId: "Main:Iou",
+                        payload: { issuer: "Alice" },
+                    }),
                 }),
             ),
         ).resolves.toMatchObject({

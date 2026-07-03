@@ -7,7 +7,7 @@ export function createFakeJsonHttpClient(
         async getAsync(path: string): Promise<unknown> {
             return handlers[path] ?? {};
         },
-        async postAsync(path: string): Promise<unknown> {
+        async postAsync(path: string, _body: unknown): Promise<unknown> {
             return handlers[path] ?? {};
         },
     };

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { SignCommandResult, SubmitCommandRequest } from "../../../src";
+import {
+    CreateCommand,
+    SignCommandResult,
+    SubmitCommandRequest,
+} from "../../../src";
 import { CommandsClient } from "../../../src/services/commands/commands-client.js";
 
 describe("CommandsClient grpc signing", () => {
@@ -45,6 +49,10 @@ describe("CommandsClient grpc signing", () => {
             new SubmitCommandRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: "Main:Iou",
+                    payload: { issuer: "Alice" },
+                }),
             }),
         );
 

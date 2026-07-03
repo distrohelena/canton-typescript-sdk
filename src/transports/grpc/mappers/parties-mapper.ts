@@ -4,25 +4,32 @@ import { PartyDetails as SdkPartyDetails } from "../../../core/types/party-detai
 import { CreatePartyResponse } from "../../../core/types/responses/create-party-response.js";
 import { ListPartiesResponse } from "../../../core/types/responses/list-parties-response.js";
 import {
+    AllocatePartyRequest,
+    AllocatePartyResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
 } from "../generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 
-export function mapGrpcCreatePartyRequest(request: CreatePartyRequest): {
-    identifierHint?: string;
-    displayName?: string;
-} {
+export function mapGrpcCreatePartyRequest(
+    request: CreatePartyRequest,
+): AllocatePartyRequest {
     return {
-        identifierHint: request.partyIdHint,
-        displayName: request.displayName,
+        partyIdHint: request.partyIdHint ?? "",
+        identityProviderId: "",
+        synchronizerId: "",
+        userId: "",
     };
 }
 
 export function mapGrpcCreateParty(payload: {
     identifier?: string;
-}): CreatePartyResponse {
+    partyDetails?: { party: string };
+} | AllocatePartyResponse): CreatePartyResponse {
     return new CreatePartyResponse({
-        party: payload.identifier ?? "",
+        party:
+            payload.partyDetails?.party
+            ?? ("identifier" in payload ? payload.identifier : undefined)
+            ?? "",
     });
 }
 

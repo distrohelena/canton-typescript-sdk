@@ -12,11 +12,11 @@ export function createFakeGrpcOperations(
         }),
         grantUserRightsAsync: async () => ({ rights: [] }),
         uploadPackageAsync: async () => ({ packageId: "unused" }),
-        queryContractsAsync: async () => ({ contracts: [] }),
+        queryContractsAsync: async () => ({ activeContracts: [] }),
         streamTransactionsAsync: async () => [],
         submitCommandAsync: async () => ({
-            commandId: "cmd-1",
-            transactionId: "tx-1",
+            updateId: "tx-1",
+            completionOffset: "10",
         }),
         ...overrides,
     };

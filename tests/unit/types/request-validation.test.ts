@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SubmitCommandRequest, ValidationError } from "../../../src";
+import { CreateCommand, SubmitCommandRequest, ValidationError } from "../../../src";
 
 describe("request validation", () => {
     it("rejects a submit request without an acting party", () => {
@@ -8,6 +8,10 @@ describe("request validation", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: [],
+                    command: new CreateCommand({
+                        templateId: "Main:Iou",
+                        payload: {},
+                    }),
                 }),
         ).toThrow(ValidationError);
     });

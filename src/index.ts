@@ -13,6 +13,7 @@ export { SubmissionMode } from "./core/types/submission-mode.js";
 export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
 export { PackageFormat } from "./core/types/package-format.js";
+export { CreateCommand } from "./core/types/commands/create-command.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
 export { QueryContractsRequest } from "./core/types/requests/query-contracts-request.js";
 export { StreamTransactionsRequest } from "./core/types/requests/stream-transactions-request.js";

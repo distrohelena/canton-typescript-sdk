@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    CreateCommand,
     NotSupportedError,
     SignCommandResult,
     SubmitCommandRequest,
@@ -47,6 +48,10 @@ describe("JSON command signing", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
+                    command: new CreateCommand({
+                        templateId: "Main:Iou",
+                        payload: { issuer: "Alice" },
+                    }),
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);

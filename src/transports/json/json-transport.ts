@@ -145,10 +145,13 @@ export class JsonTransport implements ITransport {
     }
 
     public async streamTransactionsAsync(
-        _request: StreamTransactionsRequest,
+        request: StreamTransactionsRequest,
         observer: TransactionObserver,
     ): Promise<void> {
-        const payload = await this.httpClient.postAsync("/v1/stream/query", {});
+        const payload = await this.httpClient.postAsync("/v1/stream/query", {
+            party: request.party,
+            templateIds: request.templateId ? [request.templateId] : [],
+        });
 
         const events = mapJsonTransactionEvents(
             payload as { events?: unknown[] },
@@ -170,8 +173,11 @@ export class JsonTransport implements ITransport {
         }
 
         const payload = await this.httpClient.postAsync("/v1/create", {
+            templateId: request.command.templateId,
+            payload: request.command.payload,
             applicationId: request.applicationId,
             actAs: request.actAs,
+            readAs: request.readAs,
         });
 
         return mapJsonSubmitCommand(

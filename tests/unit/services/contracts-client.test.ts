@@ -4,6 +4,11 @@ import { ContractsClient } from "../../../src/services/contracts/contracts-clien
 
 describe("ContractsClient", () => {
     it("queries contracts through the selected transport", async () => {
+        const request = new QueryContractsRequest({
+            party: "Alice",
+            templateId: "Main:Iou",
+        });
+
         const transport = {
             features: { supportsCommandSigning: false },
             getHealthAsync: async () => {
@@ -27,10 +32,10 @@ describe("ContractsClient", () => {
 
         const client = new ContractsClient(transport);
 
-        await expect(
-            client.queryAsync(
-                new QueryContractsRequest({ templateId: "Main:Iou" }),
-            ),
-        ).resolves.toBeInstanceOf(QueryContractsResponse);
+        expect(request.party).toBe("Alice");
+        expect(request.templateId).toBe("Main:Iou");
+        await expect(client.queryAsync(request)).resolves.toBeInstanceOf(
+            QueryContractsResponse,
+        );
     });
 });

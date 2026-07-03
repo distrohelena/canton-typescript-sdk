@@ -1,20 +1,34 @@
+import { NotSupportedError } from "../../../core/errors/not-supported-error.js";
+import { PackageFormat } from "../../../core/types/package-format.js";
 import { UploadPackageRequest } from "../../../core/types/requests/upload-package-request.js";
 import { UploadPackageResponse } from "../../../core/types/responses/upload-package-response.js";
+import {
+    UploadDarFileRequest,
+    UploadDarFileRequest_VettingChange,
+    UploadDarFileResponse,
+} from "../generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 
-export function mapGrpcUploadPackageRequest(request: UploadPackageRequest): {
-    bytes: Uint8Array;
-    format: string;
-} {
+export function mapGrpcUploadPackageRequest(
+    request: UploadPackageRequest,
+): UploadDarFileRequest {
+    if (request.format !== PackageFormat.dar) {
+        throw new NotSupportedError(
+            "gRPC package upload currently supports DAR archives only.",
+        );
+    }
+
     return {
-        bytes: request.bytes,
-        format: request.format,
+        darFile: request.bytes,
+        submissionId: "",
+        vettingChange: UploadDarFileRequest_VettingChange.UNSPECIFIED,
+        synchronizerId: "",
     };
 }
 
 export function mapGrpcUploadPackage(payload: {
     packageId?: string;
-}): UploadPackageResponse {
+} | UploadDarFileResponse): UploadPackageResponse {
     return new UploadPackageResponse({
-        packageId: payload.packageId,
+        packageId: "packageId" in payload ? payload.packageId : undefined,
     });
 }
