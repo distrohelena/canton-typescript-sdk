@@ -5,6 +5,7 @@ import {
     HealthCheckStatus,
     HealthServiceClient,
     PartyManagementServiceClient,
+    RequestOptions,
     TransportKind,
     VersionServiceClient,
 } from "../../../src";
@@ -17,6 +18,7 @@ describe("package surface", () => {
         expect(HealthCheckStatus.serving).toBe("serving");
         expect(VersionServiceClient).toBeTypeOf("function");
         expect(PartyManagementServiceClient).toBeTypeOf("function");
+        expect(RequestOptions).toBeTypeOf("function");
         expect(TransportKind.grpc).toBe("grpc");
     });
 

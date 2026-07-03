@@ -7,6 +7,8 @@ export class CantonClientOptions {
     public readonly transportKind: TransportKind;
     public readonly endpoint: string;
     public readonly grpcChannelSecurity: GrpcChannelSecurity;
+    public readonly defaultRequestTimeoutMs?: number;
+    public readonly grpcConnectTimeoutMs?: number;
     public readonly authProvider?: IAuthProvider;
     public readonly commandSigner?: ICommandSigner;
 
@@ -14,6 +16,8 @@ export class CantonClientOptions {
         transportKind: TransportKind;
         endpoint: string;
         grpcChannelSecurity?: GrpcChannelSecurity;
+        defaultRequestTimeoutMs?: number;
+        grpcConnectTimeoutMs?: number;
         authProvider?: IAuthProvider;
         commandSigner?: ICommandSigner;
     }) {
@@ -21,6 +25,8 @@ export class CantonClientOptions {
         this.endpoint = init.endpoint;
         this.grpcChannelSecurity =
             init.grpcChannelSecurity ?? GrpcChannelSecurity.tls;
+        this.defaultRequestTimeoutMs = init.defaultRequestTimeoutMs;
+        this.grpcConnectTimeoutMs = init.grpcConnectTimeoutMs;
         this.authProvider = init.authProvider;
         this.commandSigner = init.commandSigner;
     }

@@ -26,6 +26,7 @@ export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
 export { PackageFormat } from "./core/types/package-format.js";
 export { HealthCheckStatus } from "./core/types/health-check-status.js";
+export { RequestOptions } from "./core/types/request-options.js";
 export { CreateCommand } from "./core/types/commands/create-command.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
 export { GetActiveContractsPageRequest } from "./core/types/requests/get-active-contracts-page-request.js";

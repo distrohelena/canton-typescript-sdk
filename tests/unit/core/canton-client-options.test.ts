@@ -36,4 +36,16 @@ describe("CantonClientOptions", () => {
             GrpcChannelSecurity.insecure,
         );
     });
+
+    it("stores default request timeout and grpc connect timeout settings", () => {
+        const options = new CantonClientOptions({
+            transportKind: TransportKind.grpc,
+            endpoint: "http://localhost:6865",
+            defaultRequestTimeoutMs: 5_000,
+            grpcConnectTimeoutMs: 2_000,
+        });
+
+        expect(options.defaultRequestTimeoutMs).toBe(5_000);
+        expect(options.grpcConnectTimeoutMs).toBe(2_000);
+    });
 });
