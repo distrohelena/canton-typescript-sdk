@@ -3,6 +3,8 @@ import {
     CreateCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
+    HealthCheckRequest,
+    HealthCheckStatus,
     NotSupportedError,
     SubmitCommandRequest,
 } from "../../../src";
@@ -14,6 +16,7 @@ describe("grpc transport entrypoint", () => {
 
         const client = new grpcModule.GrpcLedgerClient(
             createFakeGrpcOperations({
+                checkHealthAsync: async () => ({ status: 1 }),
                 queryContractsAsync: async () => ({
                     activeContracts: [
                         {
@@ -29,6 +32,7 @@ describe("grpc transport entrypoint", () => {
 
         expect(grpcModule).toHaveProperty("GrpcLedgerClient");
         expect(client.versionService).toBeDefined();
+        expect(client.healthService).toBeDefined();
         expect(client.partyManagementService).toBeDefined();
         expect(client.userManagementService).toBeDefined();
         expect(client.packageManagementService).toBeDefined();
@@ -42,6 +46,15 @@ describe("grpc transport entrypoint", () => {
         expect(client).not.toHaveProperty("commands");
         expect(client).not.toHaveProperty("contracts");
         expect(client).not.toHaveProperty("events");
+        await expect(
+            client.healthService.checkAsync(
+                new HealthCheckRequest({
+                    service: "grpc.health.v1.Health",
+                }),
+            ),
+        ).resolves.toMatchObject({
+            status: HealthCheckStatus.serving,
+        });
         await expect(
             client.stateService.getActiveContractsPageAsync(
                 new GetActiveContractsPageRequest({

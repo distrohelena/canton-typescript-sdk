@@ -4,6 +4,7 @@ export function createFakeGrpcOperations(
     overrides: Partial<GrpcOperations> = {},
 ): GrpcOperations {
     return {
+        checkHealthAsync: async () => ({ status: 1 }),
         getHealthAsync: async () => ({ status: "healthy" }),
         createPartyAsync: async () => ({ identifier: "unused" }),
         listPartiesAsync: async () => ({

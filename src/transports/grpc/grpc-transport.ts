@@ -40,6 +40,7 @@ import {
     mapGrpcGrantUserRights,
     mapGrpcGrantUserRightsRequest,
 } from "./mappers/users-mapper.js";
+import { mapGrpcHealthCheckResponse } from "./mappers/health-mapper.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 import { UploadDarFileResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
@@ -70,10 +71,14 @@ export class GrpcTransport implements ITransport {
     }
 
     public async checkHealthAsync(
-        _request: HealthCheckRequest,
+        request: HealthCheckRequest,
     ): Promise<HealthCheckResponse> {
-        throw new NotSupportedError(
-            "grpc.health.v1.Health.Check is not implemented yet",
+        const payload = await this.operations.checkHealthAsync({
+            service: request.service ?? "",
+        });
+
+        return mapGrpcHealthCheckResponse(
+            payload as { status: number },
         );
     }
 

@@ -3,9 +3,12 @@ import {
     AllocatePartyRequest,
     GetLedgerApiVersionResponse,
     GrantUserRightsRequest,
+    HealthCheckRequest,
+    NotSupportedError,
     UploadDarFileRequest,
     UserRightKind,
 } from "../../../src";
+import { HealthServiceClient } from "../../../src/services/health/health-service-client.js";
 import { PackageManagementServiceClient } from "../../../src/services/package-management/package-management-service-client.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { UserManagementServiceClient } from "../../../src/services/user-management/user-management-service-client.js";
@@ -32,6 +35,7 @@ describe("JSON operational services contract", () => {
         });
 
         const versionService = new VersionServiceClient(transport);
+        const healthService = new HealthServiceClient(transport);
 
         const partyManagementService = new PartyManagementServiceClient(
             transport,
@@ -45,6 +49,13 @@ describe("JSON operational services contract", () => {
             transport,
         );
 
+        await expect(
+            healthService.checkAsync(
+                new HealthCheckRequest({
+                    service: "grpc.health.v1.Health",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
         await expect(
             versionService.getLedgerApiVersionAsync(),
         ).resolves.toBeInstanceOf(

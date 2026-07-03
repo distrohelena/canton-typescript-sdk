@@ -35,6 +35,7 @@ describe("gRPC call-options factory", () => {
 
     it("passes auth metadata into generated unary calls", async () => {
         let capturedOptions: unknown;
+        let capturedHealthOptions: unknown;
 
         const operations = createGrpcOperations(
             new CantonClientOptions({
@@ -57,6 +58,17 @@ describe("gRPC call-options factory", () => {
                             response: Promise.resolve({
                                 version: "3.4.0",
                                 features: {},
+                            }),
+                        };
+                    },
+                },
+                healthClient: {
+                    check: (_request: unknown, options?: unknown) => {
+                        capturedHealthOptions = options;
+
+                        return {
+                            response: Promise.resolve({
+                                status: 1,
                             }),
                         };
                     },
@@ -88,9 +100,19 @@ describe("gRPC call-options factory", () => {
         );
 
         const result = await operations.getHealthAsync();
+        const healthResult = await operations.checkHealthAsync({
+            service: "grpc.health.v1.Health",
+        });
 
         expect(result).toMatchObject({ version: "3.4.0" });
+        expect(healthResult).toMatchObject({ status: 1 });
         expect(capturedOptions).toMatchObject({
+            meta: {
+                authorization: "Bearer token-123",
+                "x-canton-test": "yes",
+            },
+        });
+        expect(capturedHealthOptions).toMatchObject({
             meta: {
                 authorization: "Bearer token-123",
                 "x-canton-test": "yes",

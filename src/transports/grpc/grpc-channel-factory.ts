@@ -29,6 +29,10 @@ import {
     UpdateServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/update_service.client.js";
 import {
+    HealthClient,
+    IHealthClient,
+} from "./generated/canton/google/grpc/health/v1/health.client.js";
+import {
     GetActiveContractsPageRequest,
     GetActiveContractsPageResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/state_service.js";
@@ -36,6 +40,7 @@ import {
     GetUpdatesRequest,
     GetUpdatesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/update_service.js";
+import { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import {
     SubmitAndWaitRequest,
     SubmitAndWaitResponse,
@@ -58,6 +63,7 @@ import {
 } from "./grpc-call-options-factory.js";
 
 export interface GrpcOperations {
+    checkHealthAsync(request: unknown): Promise<unknown>;
     getHealthAsync(): Promise<unknown>;
     createPartyAsync(request: unknown): Promise<unknown>;
     listPartiesAsync(request: unknown): Promise<unknown>;
@@ -79,6 +85,7 @@ interface ServerStreamingCallLike<TResponse> {
 
 export interface GrpcOperationDependencies {
     versionServiceClient?: Pick<IVersionServiceClient, "getLedgerApiVersion">;
+    healthClient?: Pick<IHealthClient, "check">;
     partyManagementServiceClient?: Pick<
         IPartyManagementServiceClient,
         "allocateParty" | "listKnownParties"
@@ -109,6 +116,7 @@ export function createGrpcOperations(
 
     const versionServiceClient =
         dependencies.versionServiceClient ?? new VersionServiceClient(rpcTransport);
+    const healthClient = dependencies.healthClient ?? new HealthClient(rpcTransport);
 
     const partyManagementServiceClient =
         dependencies.partyManagementServiceClient
@@ -133,6 +141,15 @@ export function createGrpcOperations(
         ?? new CommandServiceClient(rpcTransport);
 
     return {
+        async checkHealthAsync(request: unknown): Promise<HealthCheckResponse> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+            );
+
+            return await unwrapUnaryResponse(
+                healthClient.check(request as HealthCheckRequest, callOptions),
+            );
+        },
         async getHealthAsync(): Promise<GetLedgerApiVersionResponse> {
             const callOptions = await buildGrpcCallOptionsAsync(
                 options.authProvider,
