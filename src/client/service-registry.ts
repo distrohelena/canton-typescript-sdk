@@ -3,6 +3,7 @@ import { ITransport } from "../core/transports/transport.interface.js";
 import { CreatePartyRequest } from "../core/types/requests/create-party-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { QueryContractsRequest } from "../core/types/requests/query-contracts-request.js";
+import { StreamQueryRequest } from "../core/types/requests/stream-query-request.js";
 import { StreamTransactionsRequest } from "../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { UploadPackageRequest } from "../core/types/requests/upload-package-request.js";
@@ -17,25 +18,34 @@ import { SubmitCommandResponse } from "../core/types/responses/submit-command-re
 import { UploadPackageResponse } from "../core/types/responses/upload-package-response.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";
-import { CommandsClient } from "../services/commands/commands-client.js";
-import { ContractsClient } from "../services/contracts/contracts-client.js";
-import { EventsClient } from "../services/events/events-client.js";
-import { PackagesClient } from "../services/packages/packages-client.js";
-import { PartiesClient } from "../services/parties/parties-client.js";
-import { SystemClient } from "../services/system/system-client.js";
-import { UsersClient } from "../services/users/users-client.js";
+import { CommandCompletionServiceClient } from "../services/command-completion/command-completion-service-client.js";
+import { CommandServiceClient } from "../services/command/command-service-client.js";
+import { CommandSubmissionServiceClient } from "../services/command-submission/command-submission-service-client.js";
+import { ContractServiceClient } from "../services/contract/contract-service-client.js";
+import { ContractObserver } from "../services/contracts/contract-observer.interface.js";
+import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
+import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
+import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
+import { StateServiceClient } from "../services/state/state-service-client.js";
+import { UpdateServiceClient } from "../services/update/update-service-client.js";
+import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
+import { VersionServiceClient } from "../services/version/version-service-client.js";
 import { createJsonTransport } from "../transports/json/json-transport-factory.js";
 import { createGrpcTransport } from "../transports/grpc/grpc-transport-factory.js";
 import { TransactionObserver } from "../services/events/transaction-observer.interface.js";
 
 export interface ServiceRegistry {
-    readonly commands: CommandsClient;
-    readonly contracts: ContractsClient;
-    readonly events: EventsClient;
-    readonly parties: PartiesClient;
-    readonly users: UsersClient;
-    readonly packages: PackagesClient;
-    readonly system: SystemClient;
+    readonly versionService: VersionServiceClient;
+    readonly partyManagementService: PartyManagementServiceClient;
+    readonly userManagementService: UserManagementServiceClient;
+    readonly packageManagementService: PackageManagementServiceClient;
+    readonly commandService: CommandServiceClient;
+    readonly commandSubmissionService: CommandSubmissionServiceClient;
+    readonly commandCompletionService: CommandCompletionServiceClient;
+    readonly stateService: StateServiceClient;
+    readonly updateService: UpdateServiceClient;
+    readonly eventQueryService: EventQueryServiceClient;
+    readonly contractService: ContractServiceClient;
 }
 
 class PlaceholderTransport implements ITransport {
@@ -84,6 +94,13 @@ class PlaceholderTransport implements ITransport {
         throw new TransportError("contract queries are not available yet");
     }
 
+    public async streamQueryAsync(
+        _request: StreamQueryRequest,
+        _observer: ContractObserver,
+    ): Promise<void> {
+        throw new TransportError("contract query streaming is not available yet");
+    }
+
     public async streamTransactionsAsync(
         _request: StreamTransactionsRequest,
         _observer: TransactionObserver,
@@ -110,12 +127,22 @@ export function createServiceRegistry(
               : new PlaceholderTransport(options);
 
     return {
-        commands: new CommandsClient(transport, options.commandSigner),
-        contracts: new ContractsClient(transport),
-        events: new EventsClient(transport),
-        parties: new PartiesClient(transport),
-        users: new UsersClient(transport),
-        packages: new PackagesClient(transport),
-        system: new SystemClient(transport),
+        versionService: new VersionServiceClient(transport),
+        partyManagementService: new PartyManagementServiceClient(transport),
+        userManagementService: new UserManagementServiceClient(transport),
+        packageManagementService: new PackageManagementServiceClient(
+            transport,
+        ),
+        commandService: new CommandServiceClient(transport),
+        commandSubmissionService: new CommandSubmissionServiceClient(
+            transport,
+        ),
+        commandCompletionService: new CommandCompletionServiceClient(
+            transport,
+        ),
+        stateService: new StateServiceClient(transport),
+        updateService: new UpdateServiceClient(transport),
+        eventQueryService: new EventQueryServiceClient(transport),
+        contractService: new ContractServiceClient(transport),
     };
 }
