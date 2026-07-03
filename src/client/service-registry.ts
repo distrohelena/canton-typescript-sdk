@@ -1,20 +1,28 @@
 import { CantonClientOptions } from "./canton-client-options.js";
 import { ITransport } from "../core/transports/transport.interface.js";
 import { CreatePartyRequest } from "../core/types/requests/create-party-request.js";
+import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
+import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
+import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { QueryContractsRequest } from "../core/types/requests/query-contracts-request.js";
 import { StreamQueryRequest } from "../core/types/requests/stream-query-request.js";
 import { StreamTransactionsRequest } from "../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
+import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
 import { UploadPackageRequest } from "../core/types/requests/upload-package-request.js";
 import { ListPartiesRequest } from "../core/types/requests/list-parties-request.js";
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
+import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../core/types/responses/create-party-response.js";
+import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../core/types/responses/health-status-response.js";
+import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
 import { ListPartiesResponse } from "../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
+import { UploadDarFileResponse } from "../core/types/responses/upload-dar-file-response.js";
 import { UploadPackageResponse } from "../core/types/responses/upload-package-response.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";
@@ -64,16 +72,34 @@ class PlaceholderTransport implements ITransport {
         );
     }
 
+    public async getLedgerApiVersionAsync(
+        _request?: GetLedgerApiVersionRequest,
+    ): Promise<GetLedgerApiVersionResponse> {
+        throw new TransportError("ledger api version is not available yet");
+    }
+
     public async createPartyAsync(
         _request: CreatePartyRequest,
     ): Promise<CreatePartyResponse> {
         throw new TransportError("party creation is not available yet");
     }
 
+    public async allocatePartyAsync(
+        _request: AllocatePartyRequest,
+    ): Promise<AllocatePartyResponse> {
+        throw new TransportError("party allocation is not available yet");
+    }
+
     public async listPartiesAsync(
         _request: ListPartiesRequest,
     ): Promise<ListPartiesResponse> {
         throw new TransportError("party listing is not available yet");
+    }
+
+    public async listKnownPartiesAsync(
+        _request: ListKnownPartiesRequest,
+    ): Promise<ListKnownPartiesResponse> {
+        throw new TransportError("known party listing is not available yet");
     }
 
     public async grantUserRightsAsync(
@@ -86,6 +112,12 @@ class PlaceholderTransport implements ITransport {
         _request: UploadPackageRequest,
     ): Promise<UploadPackageResponse> {
         throw new TransportError("package upload is not available yet");
+    }
+
+    public async uploadDarFileAsync(
+        _request: UploadDarFileRequest,
+    ): Promise<UploadDarFileResponse> {
+        throw new TransportError("dar upload is not available yet");
     }
 
     public async queryContractsAsync(

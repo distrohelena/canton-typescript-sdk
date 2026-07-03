@@ -6,15 +6,16 @@ TypeScript SDK for Canton with:
 - `grpc` and `json` transport adapters
 - `grpc`-only external signing in v1
 - C#-influenced object boundaries with TypeScript `camelCase`
+- gRPC Ledger API service names as the public SDK foundation
 
 ## Shared Client
 
 ```ts
 import {
+    AllocatePartyRequest,
     BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
-    QueryContractsRequest,
     TransportKind,
 } from "canton-typescript-sdk";
 
@@ -26,63 +27,26 @@ const client = new CantonClient(
     }),
 );
 
-await client.system.getHealthAsync();
-await client.contracts.queryAsync(
-    new QueryContractsRequest({
-        party: "Alice",
-        templateId: "Main:Iou",
+await client.versionService.getLedgerApiVersionAsync();
+await client.partyManagementService.allocatePartyAsync(
+    new AllocatePartyRequest({
+        partyIdHint: "Alice",
+        displayName: "Alice",
     }),
 );
 ```
 
-## gRPC External Signing
+## Operational APIs By Transport
 
-```ts
-import {
-    BearerTokenAuthProvider,
-    CantonClient,
-    CantonClientOptions,
-    CreateCommand,
-    GrpcChannelSecurity,
-    SubmitCommandRequest,
-    TransportKind,
-} from "canton-typescript-sdk";
+- `client.versionService.getLedgerApiVersionAsync()`: supported on `json` and `grpc`
+- `client.partyManagementService.allocatePartyAsync(...)`: supported on `json` and `grpc`
+- `client.partyManagementService.listKnownPartiesAsync(...)`: supported on `json` and `grpc`
+- `client.userManagementService.grantUserRightsAsync(...)`: supported on `json` and `grpc`
+- `client.packageManagementService.uploadDarFileAsync(...)`: supported on `json` and `grpc`
 
-const client = new CantonClient(
-    new CantonClientOptions({
-        transportKind: TransportKind.grpc,
-        endpoint: "http://localhost:6865",
-        grpcChannelSecurity: GrpcChannelSecurity.insecure,
-        authProvider: new BearerTokenAuthProvider("token"),
-        commandSigner: {
-            async signAsync(request) {
-                return {
-                    algorithm: "ed25519",
-                    signature: request.payload,
-                };
-            },
-        },
-    }),
-);
+## Alignment Status
 
-await client.commands.submitAsync(
-    new SubmitCommandRequest({
-        applicationId: "app-1",
-        actAs: ["Alice"],
-        command: new CreateCommand({
-            templateId: "Main:Iou",
-            payload: {
-                issuer: "Alice",
-                owner: "Bob",
-            },
-        }),
-    }),
-);
-```
-
-## JSON Signing
-
-`json` command signing is intentionally unsupported in v1. Configuring `commandSigner` with `TransportKind.json` throws `NotSupportedError`.
+The root client is being realigned to gRPC Ledger API service boundaries. The operational services above are live under their new names. Command and ledger-read APIs are being migrated next and should be treated as in-flight until their gRPC-shaped service names land.
 
 ## Protocol-Specific Modules
 

@@ -1,20 +1,31 @@
 import { CantonClientOptions } from "../../client/canton-client-options.js";
+import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
+import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
+import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
+import { StreamQueryRequest } from "../../core/types/requests/stream-query-request.js";
 import { StreamTransactionsRequest } from "../../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { UploadPackageRequest } from "../../core/types/requests/upload-package-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
+import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
+import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
+import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListPartiesResponse } from "../../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
+import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { UploadPackageResponse } from "../../core/types/responses/upload-package-response.js";
+import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { PackageFormat } from "../../core/types/package-format.js";
 import {
     createGrpcOperations,
     GrpcOperations,
@@ -46,6 +57,7 @@ import {
     mapGrpcGrantUserRights,
     mapGrpcGrantUserRightsRequest,
 } from "./mappers/users-mapper.js";
+import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 import { UploadDarFileResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { AllocatePartyResponse, ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
@@ -67,6 +79,20 @@ export class GrpcTransport implements ITransport {
         );
     }
 
+    public async getLedgerApiVersionAsync(
+        _request?: GetLedgerApiVersionRequest,
+    ): Promise<SdkGetLedgerApiVersionResponse> {
+        const payload = await this.operations.getHealthAsync();
+
+        return new SdkGetLedgerApiVersionResponse({
+            version: payload.version ?? "",
+            features:
+                "features" in payload
+                    ? payload.features
+                    : undefined,
+        });
+    }
+
     public async createPartyAsync(
         request: CreatePartyRequest,
     ): Promise<CreatePartyResponse> {
@@ -79,6 +105,22 @@ export class GrpcTransport implements ITransport {
         );
     }
 
+    public async allocatePartyAsync(
+        request: AllocatePartyRequest,
+    ): Promise<SdkAllocatePartyResponse> {
+        const payload = await this.operations.createPartyAsync(
+            mapGrpcCreatePartyRequest(request),
+        );
+
+        const response = mapGrpcCreateParty(
+            payload as { identifier?: string } | AllocatePartyResponse,
+        );
+
+        return new SdkAllocatePartyResponse({
+            party: response.party,
+        });
+    }
+
     public async listPartiesAsync(
         request: ListPartiesRequest,
     ): Promise<ListPartiesResponse> {
@@ -87,6 +129,21 @@ export class GrpcTransport implements ITransport {
         );
 
         return mapGrpcListParties(payload as ListKnownPartiesResponse);
+    }
+
+    public async listKnownPartiesAsync(
+        request: ListKnownPartiesRequest,
+    ): Promise<SdkListKnownPartiesResponse> {
+        const payload = await this.operations.listPartiesAsync(
+            mapGrpcListPartiesRequest(request),
+        );
+
+        const response = mapGrpcListParties(payload as ListKnownPartiesResponse);
+
+        return new SdkListKnownPartiesResponse({
+            partyDetails: [...response.partyDetails],
+            nextPageToken: response.nextPageToken,
+        });
     }
 
     public async grantUserRightsAsync(
@@ -115,6 +172,27 @@ export class GrpcTransport implements ITransport {
         );
     }
 
+    public async uploadDarFileAsync(
+        request: UploadDarFileRequest,
+    ): Promise<SdkUploadDarFileResponse> {
+        const payload = await this.operations.uploadPackageAsync(
+            mapGrpcUploadPackageRequest(
+                new UploadPackageRequest({
+                    bytes: request.bytes,
+                    format: PackageFormat.dar,
+                }),
+            ),
+        );
+
+        const response = mapGrpcUploadPackage(
+            payload as { packageId?: string } | UploadDarFileResponse,
+        );
+
+        return new SdkUploadDarFileResponse({
+            packageId: response.packageId,
+        });
+    }
+
     public async queryContractsAsync(
         request: QueryContractsRequest,
     ): Promise<QueryContractsResponse> {
@@ -123,6 +201,15 @@ export class GrpcTransport implements ITransport {
         );
 
         return mapGrpcQueryContracts(payload as { contracts?: unknown[] });
+    }
+
+    public async streamQueryAsync(
+        _request: StreamQueryRequest,
+        _observer: ContractObserver,
+    ): Promise<void> {
+        throw new NotSupportedError(
+            "contract query streaming is not supported by gRPC transport",
+        );
     }
 
     public async streamTransactionsAsync(

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ListPartiesRequest, ListPartiesResponse, PartyDetails } from "../../../src";
-import { PartiesClient } from "../../../src/services/parties/parties-client.js";
+import {
+    ListKnownPartiesRequest,
+    ListKnownPartiesResponse,
+    PartyDetails,
+} from "../../../src";
+import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 
-describe("PartiesClient", () => {
+describe("PartyManagementServiceClient", () => {
     it("lists parties through the selected transport", async () => {
         const transport = {
             features: { supportsCommandSigning: false },
@@ -12,8 +16,8 @@ describe("PartiesClient", () => {
             createPartyAsync: async () => {
                 throw new Error("not used");
             },
-            listPartiesAsync: async () =>
-                new ListPartiesResponse({
+            listKnownPartiesAsync: async () =>
+                new ListKnownPartiesResponse({
                     partyDetails: [
                         new PartyDetails({
                             party: "Alice",
@@ -38,10 +42,12 @@ describe("PartiesClient", () => {
             },
         };
 
-        const client = new PartiesClient(transport);
+        const client = new PartyManagementServiceClient(transport);
 
         await expect(
-            client.listAsync(new ListPartiesRequest({ filterParty: "Alice" })),
+            client.listKnownPartiesAsync(
+                new ListKnownPartiesRequest({ filterParty: "Alice" }),
+            ),
         ).resolves.toMatchObject({
             partyDetails: [{ party: "Alice" }],
         });

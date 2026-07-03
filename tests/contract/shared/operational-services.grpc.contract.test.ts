@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
-    CreatePartyRequest,
+    AllocatePartyRequest,
+    GetLedgerApiVersionResponse,
     GrantUserRightsRequest,
-    HealthStatusResponse,
-    PackageFormat,
-    UploadPackageRequest,
+    UploadDarFileRequest,
     UserRightKind,
 } from "../../../src";
-import { PackagesClient } from "../../../src/services/packages/packages-client.js";
-import { PartiesClient } from "../../../src/services/parties/parties-client.js";
-import { SystemClient } from "../../../src/services/system/system-client.js";
-import { UsersClient } from "../../../src/services/users/users-client.js";
+import { PackageManagementServiceClient } from "../../../src/services/package-management/package-management-service-client.js";
+import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
+import { UserManagementServiceClient } from "../../../src/services/user-management/user-management-service-client.js";
+import { VersionServiceClient } from "../../../src/services/version/version-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("gRPC operational services contract", () => {
-    it("supports the shared operational service surface", async () => {
+    it("supports the gRPC-shaped operational service surface", async () => {
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({
                 status: "healthy",
@@ -27,24 +26,32 @@ describe("gRPC operational services contract", () => {
             uploadPackageAsync: async () => ({ packageId: "pkg-1" }),
         });
 
-        const system = new SystemClient(transport);
+        const versionService = new VersionServiceClient(transport);
 
-        const parties = new PartiesClient(transport);
+        const partyManagementService = new PartyManagementServiceClient(
+            transport,
+        );
 
-        const users = new UsersClient(transport);
+        const userManagementService = new UserManagementServiceClient(
+            transport,
+        );
 
-        const packages = new PackagesClient(transport);
+        const packageManagementService = new PackageManagementServiceClient(
+            transport,
+        );
 
-        await expect(system.getHealthAsync()).resolves.toBeInstanceOf(
-            HealthStatusResponse,
+        await expect(
+            versionService.getLedgerApiVersionAsync(),
+        ).resolves.toBeInstanceOf(
+            GetLedgerApiVersionResponse,
         );
         await expect(
-            parties.createAsync(new CreatePartyRequest()),
+            partyManagementService.allocatePartyAsync(new AllocatePartyRequest()),
         ).resolves.toMatchObject({
             party: "Alice",
         });
         await expect(
-            users.grantRightsAsync(
+            userManagementService.grantUserRightsAsync(
                 new GrantUserRightsRequest({
                     userId: "carol",
                     rights: [{ type: UserRightKind.participantAdmin }],
@@ -54,10 +61,9 @@ describe("gRPC operational services contract", () => {
             rights: [{ type: UserRightKind.participantAdmin }],
         });
         await expect(
-            packages.uploadAsync(
-                new UploadPackageRequest({
+            packageManagementService.uploadDarFileAsync(
+                new UploadDarFileRequest({
                     bytes: new Uint8Array([1, 2, 3]),
-                    format: PackageFormat.dar,
                 }),
             ),
         ).resolves.toMatchObject({

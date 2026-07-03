@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { SystemClient } from "../../../src/services/system/system-client.js";
+import { GetLedgerApiVersionResponse } from "../../../src";
+import { VersionServiceClient } from "../../../src/services/version/version-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
-describe("SystemClient with gRPC transport", () => {
+describe("VersionServiceClient with gRPC transport", () => {
     it("reports grpc signing capability", async () => {
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({
@@ -16,12 +17,11 @@ describe("SystemClient with gRPC transport", () => {
             uploadPackageAsync: async () => ({ packageId: "pkg-1" }),
         });
 
-        const client = new SystemClient(transport);
+        const client = new VersionServiceClient(transport);
 
         expect(transport.features.supportsCommandSigning).toBe(true);
-        await expect(client.getHealthAsync()).resolves.toMatchObject({
-            status: "healthy",
-            version: "3.4.0",
-        });
+        await expect(client.getLedgerApiVersionAsync()).resolves.toBeInstanceOf(
+            GetLedgerApiVersionResponse,
+        );
     });
 });

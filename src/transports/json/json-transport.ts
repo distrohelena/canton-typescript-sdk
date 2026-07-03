@@ -1,23 +1,33 @@
+import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
+import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
+import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
+import { StreamQueryRequest } from "../../core/types/requests/stream-query-request.js";
 import { StreamTransactionsRequest } from "../../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { UploadPackageRequest } from "../../core/types/requests/upload-package-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
+import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
+import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
+import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListPartiesResponse } from "../../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
+import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { UploadPackageResponse } from "../../core/types/responses/upload-package-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { PackageFormat } from "../../core/types/package-format.js";
 import { mapJsonSubmitCommand } from "./mappers/commands-mapper.js";
 import { mapJsonUploadPackage } from "./mappers/packages-mapper.js";
 import {
@@ -29,6 +39,7 @@ import { mapJsonTransactionEvents } from "./mappers/events-mapper.js";
 import { mapJsonHealth } from "./mappers/system-mapper.js";
 import { mapJsonGrantRights } from "./mappers/users-mapper.js";
 import { IJsonHttpClient } from "./json-http-client.js";
+import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 
 export class JsonTransport implements ITransport {
@@ -42,6 +53,18 @@ export class JsonTransport implements ITransport {
         const payload = await this.httpClient.getAsync("/livez");
 
         return mapJsonHealth(payload as { status?: string; version?: string });
+    }
+
+    public async getLedgerApiVersionAsync(
+        _request?: GetLedgerApiVersionRequest,
+    ): Promise<GetLedgerApiVersionResponse> {
+        const payload = await this.httpClient.getAsync("/livez");
+
+        return new GetLedgerApiVersionResponse({
+            version:
+                (payload as { version?: string }).version
+                ?? "unknown",
+        });
     }
 
     public async createPartyAsync(
@@ -61,6 +84,29 @@ export class JsonTransport implements ITransport {
                 identifier?: string;
             },
         );
+    }
+
+    public async allocatePartyAsync(
+        request: AllocatePartyRequest,
+    ): Promise<AllocatePartyResponse> {
+        const payload = await this.httpClient.postAsync(
+            "/v1/parties/allocate",
+            {
+                identifierHint: request.partyIdHint,
+                displayName: request.displayName,
+            },
+        );
+
+        const response = mapJsonCreateParty(
+            payload as {
+                result?: { identifier?: string };
+                identifier?: string;
+            },
+        );
+
+        return new AllocatePartyResponse({
+            party: response.party,
+        });
     }
 
     public async listPartiesAsync(
@@ -102,6 +148,24 @@ export class JsonTransport implements ITransport {
         );
     }
 
+    public async listKnownPartiesAsync(
+        request: ListKnownPartiesRequest,
+    ): Promise<ListKnownPartiesResponse> {
+        const payload = await this.listPartiesAsync(
+            new ListPartiesRequest({
+                identityProviderId: request.identityProviderId,
+                filterParty: request.filterParty,
+                pageSize: request.pageSize,
+                pageToken: request.pageToken,
+            }),
+        );
+
+        return new ListKnownPartiesResponse({
+            partyDetails: [...payload.partyDetails],
+            nextPageToken: payload.nextPageToken,
+        });
+    }
+
     public async grantUserRightsAsync(
         request: GrantUserRightsRequest,
     ): Promise<GrantUserRightsResponse> {
@@ -134,6 +198,21 @@ export class JsonTransport implements ITransport {
         );
     }
 
+    public async uploadDarFileAsync(
+        request: UploadDarFileRequest,
+    ): Promise<UploadDarFileResponse> {
+        const payload = await this.uploadPackageAsync(
+            new UploadPackageRequest({
+                bytes: request.bytes,
+                format: PackageFormat.dar,
+            }),
+        );
+
+        return new UploadDarFileResponse({
+            packageId: payload.packageId,
+        });
+    }
+
     public async queryContractsAsync(
         request: QueryContractsRequest,
     ): Promise<QueryContractsResponse> {
@@ -144,9 +223,9 @@ export class JsonTransport implements ITransport {
         return mapJsonQueryContracts(payload as { result?: unknown[] });
     }
 
-    public async streamTransactionsAsync(
-        request: StreamTransactionsRequest,
-        observer: TransactionObserver,
+    public async streamQueryAsync(
+        request: StreamQueryRequest,
+        observer: ContractObserver,
     ): Promise<void> {
         const payload = await this.httpClient.postAsync("/v1/stream/query", {
             party: request.party,
@@ -160,6 +239,15 @@ export class JsonTransport implements ITransport {
         for (const event of events) {
             await observer.nextAsync(event);
         }
+    }
+
+    public async streamTransactionsAsync(
+        _request: StreamTransactionsRequest,
+        _observer: TransactionObserver,
+    ): Promise<void> {
+        throw new NotSupportedError(
+            "ledger update streaming is gRPC-only; JSON supports streamQueryAsync instead",
+        );
     }
 
     public async submitCommandAsync(

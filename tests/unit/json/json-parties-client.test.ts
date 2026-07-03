@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { ListPartiesRequest } from "../../../src";
-import { PartiesClient } from "../../../src/services/parties/parties-client.js";
+import { ListKnownPartiesRequest } from "../../../src";
+import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
-describe("PartiesClient with JSON transport", () => {
+describe("PartyManagementServiceClient with JSON transport", () => {
     it("calls /v2/parties with the shared query parameters", async () => {
         let requestedPath = "";
 
@@ -24,10 +24,10 @@ describe("PartiesClient with JSON transport", () => {
             postAsync: async () => ({}),
         });
 
-        const client = new PartiesClient(transport);
+        const client = new PartyManagementServiceClient(transport);
 
-        const result = await client.listAsync(
-            new ListPartiesRequest({
+        const result = await client.listKnownPartiesAsync(
+            new ListKnownPartiesRequest({
                 identityProviderId: "default",
                 filterParty: "Alice",
                 pageSize: 25,

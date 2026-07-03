@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ListPartiesRequest } from "../../../src";
+import { ListKnownPartiesRequest } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
-import { PartiesClient } from "../../../src/services/parties/parties-client.js";
+import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
-describe("PartiesClient with gRPC transport", () => {
-    it("delegates listParties through grpc operations", async () => {
+describe("PartyManagementServiceClient with gRPC transport", () => {
+    it("delegates listKnownParties through grpc operations", async () => {
         let capturedRequest: unknown;
 
         const transport = new GrpcTransport(
@@ -21,10 +21,10 @@ describe("PartiesClient with gRPC transport", () => {
             }),
         );
 
-        const client = new PartiesClient(transport);
+        const client = new PartyManagementServiceClient(transport);
 
-        const result = await client.listAsync(
-            new ListPartiesRequest({ filterParty: "Alice" }),
+        const result = await client.listKnownPartiesAsync(
+            new ListKnownPartiesRequest({ filterParty: "Alice" }),
         );
 
         expect(capturedRequest).toMatchObject({ filterParty: "Alice" });
