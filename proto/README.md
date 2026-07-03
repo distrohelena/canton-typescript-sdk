@@ -22,9 +22,13 @@ Additionally, the repo vendors this direct upstream dependency from the official
 
 - `google/rpc/status.proto`
 
+And this protobuf options dependency from the official `scalapb/ScalaPB` repository:
+
+- `scalapb/scalapb.proto`
+
 Notes:
 
-- This is vendored source only. No TypeScript codegen is wired yet.
+- Vendored source is converted to TypeScript with `npm run generate:grpc`.
 - The upstream `buf.work.yaml` also references generated third-party protobuf output under `community/lib/google-common-protos-scala/target/protobuf_external`. That build output is not vendored here.
 - Standard `google/protobuf/*` well-known types are still expected to come from the protobuf toolchain used for codegen.
 - Future gRPC codegen should treat each `src/main/protobuf` directory above as an include root, instead of flattening imports by hand.
