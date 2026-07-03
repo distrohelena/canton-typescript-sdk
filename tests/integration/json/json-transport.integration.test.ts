@@ -3,6 +3,8 @@ import {
     CreateCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
+    HealthCheckRequest,
+    NotSupportedError,
     SubmitCommandRequest,
 } from "../../../src";
 
@@ -39,6 +41,7 @@ describe("json transport entrypoint", () => {
 
         expect(jsonModule).toHaveProperty("JsonLedgerClient");
         expect(client.versionService).toBeDefined();
+        expect(client.healthService).toBeDefined();
         expect(client.partyManagementService).toBeDefined();
         expect(client.userManagementService).toBeDefined();
         expect(client.packageManagementService).toBeDefined();
@@ -55,6 +58,13 @@ describe("json transport entrypoint", () => {
 
         const nextAsync = vi.fn(async () => undefined);
 
+        await expect(
+            client.healthService.checkAsync(
+                new HealthCheckRequest({
+                    service: "grpc.health.v1.Health",
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
         await expect(
             client.stateService.getActiveContractsPageAsync(
                 new GetActiveContractsPageRequest({
