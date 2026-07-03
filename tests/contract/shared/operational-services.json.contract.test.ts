@@ -35,6 +35,7 @@ describe("JSON operational services contract", () => {
         });
 
         const versionService = new VersionServiceClient(transport);
+
         const healthService = new HealthServiceClient(transport);
 
         const partyManagementService = new PartyManagementServiceClient(

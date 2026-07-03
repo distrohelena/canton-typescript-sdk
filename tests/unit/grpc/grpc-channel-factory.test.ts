@@ -35,6 +35,7 @@ describe("gRPC call-options factory", () => {
 
     it("passes auth metadata into generated unary calls", async () => {
         let capturedOptions: unknown;
+
         let capturedHealthOptions: unknown;
 
         const operations = createGrpcOperations(
@@ -100,6 +101,7 @@ describe("gRPC call-options factory", () => {
         );
 
         const result = await operations.getHealthAsync();
+
         const healthResult = await operations.checkHealthAsync({
             service: "grpc.health.v1.Health",
         });

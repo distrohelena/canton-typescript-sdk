@@ -116,6 +116,7 @@ export function createGrpcOperations(
 
     const versionServiceClient =
         dependencies.versionServiceClient ?? new VersionServiceClient(rpcTransport);
+
     const healthClient = dependencies.healthClient ?? new HealthClient(rpcTransport);
 
     const partyManagementServiceClient =
