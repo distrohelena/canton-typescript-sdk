@@ -19,19 +19,10 @@ describe("CommandSubmissionPipeline", () => {
         const pipeline = new CommandSubmissionPipeline({
             transport: {
                 features: { supportsCommandSigning: true },
-                getHealthAsync: async () => {
-                    throw new Error("not used");
-                },
                 getLedgerApiVersionAsync: async () => {
                     throw new Error("not used");
                 },
-                createPartyAsync: async () => {
-                    throw new Error("not used");
-                },
                 allocatePartyAsync: async () => {
-                    throw new Error("not used");
-                },
-                listPartiesAsync: async () => {
                     throw new Error("not used");
                 },
                 listKnownPartiesAsync: async () => {
@@ -40,19 +31,16 @@ describe("CommandSubmissionPipeline", () => {
                 grantUserRightsAsync: async () => {
                     throw new Error("not used");
                 },
-                uploadPackageAsync: async () => {
-                    throw new Error("not used");
-                },
                 uploadDarFileAsync: async () => {
                     throw new Error("not used");
                 },
-                queryContractsAsync: async () => {
+                getActiveContractsPageAsync: async () => {
                     throw new Error("not used");
                 },
-                streamQueryAsync: async () => {
+                getActiveContractsAsync: async () => {
                     throw new Error("not used");
                 },
-                streamTransactionsAsync: async () => {
+                getUpdatesAsync: async () => {
                     throw new Error("not used");
                 },
                 submitCommandAsync: async () => ({

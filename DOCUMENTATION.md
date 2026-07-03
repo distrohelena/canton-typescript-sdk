@@ -2,27 +2,19 @@
 
 ## Overview
 
-This SDK exposes:
+This SDK exposes a gRPC-shaped public API:
 
-- a shared `CantonClient` for normal application use
-- protocol-specific `GrpcLedgerClient` and `JsonLedgerClient` entrypoints
-- request and response classes for all supported operations
-- auth, signing, enum, and error types
+- `CantonClient` for shared construction from endpoint settings
+- `GrpcLedgerClient` and `JsonLedgerClient` for transport-specific construction
+- service clients grouped by gRPC Ledger API service boundaries
+- explicit request and response classes
+- `grpc`-only external signing through `ICommandSigner`
 
-The SDK follows a C#-style shape:
+The documented public surface no longer uses the old domain-grouped names like `system`, `parties`, `packages`, `contracts`, `events`, or `commands`.
 
-- instantiate option or request objects explicitly
-- call methods on service clients
-- receive typed response objects
+## Imports
 
-Current alignment note:
-
-- `VersionService`, `PartyManagementService`, `UserManagementService`, and `PackageManagementService` are already exposed under gRPC-shaped names on `CantonClient`
-- `CommandService.submitAndWaitAsync(...)` is the active command surface
-- `CommandSubmissionService.submitAsync(...)` is present but intentionally unsupported for now
-- `StateService.getActiveContractsPageAsync(...)`, `StateService.getActiveContractsAsync(...)`, and `UpdateService.getUpdatesAsync(...)` are the first migrated ledger-read surfaces
-
-## Installation And Imports
+Shared client:
 
 ```ts
 import {
@@ -30,155 +22,99 @@ import {
     BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
-    GetLedgerApiVersionResponse,
+    CreateCommand,
+    GetActiveContractsPageRequest,
+    GetActiveContractsRequest,
+    GetLedgerApiVersionRequest,
+    GetUpdatesRequest,
     GrantUserRightsRequest,
-    GrpcChannelSecurity,
     ListKnownPartiesRequest,
+    SubmitCommandRequest,
     TransportKind,
     UploadDarFileRequest,
     UserRightKind,
 } from "canton-typescript-sdk";
 ```
 
-Protocol-specific entrypoints:
+Protocol-specific clients:
 
 ```ts
 import { GrpcLedgerClient } from "canton-typescript-sdk/grpc";
 import { JsonLedgerClient } from "canton-typescript-sdk/json";
 ```
 
-## Transport Support Matrix
-
-| Surface | JSON | gRPC |
-| --- | --- | --- |
-| `versionService.getLedgerApiVersionAsync()` | Yes | Yes |
-| `partyManagementService.allocatePartyAsync()` | Yes | Yes |
-| `partyManagementService.listKnownPartiesAsync()` | Yes | Yes |
-| `userManagementService.grantUserRightsAsync()` | Yes | Yes |
-| `packageManagementService.uploadDarFileAsync()` | Yes | Yes |
-| `commandService.submitAndWaitAsync()` | Yes | Yes |
-| `stateService.getActiveContractsPageAsync()` | Yes | Yes |
-| `stateService.getActiveContractsAsync()` | Yes | No |
-| `updateService.getUpdatesAsync()` | No | Yes |
-| external command signing | No | Yes |
-
-## Shared Client
+## Construction
 
 ### `new CantonClientOptions(init)`
 
-Use this to configure the shared client.
+Creates the shared client options object.
 
 Fields:
 
-- `transportKind: TransportKind`  
-  Required. `TransportKind.json` or `TransportKind.grpc`.
-- `endpoint: string`  
-  Required. Base endpoint for the participant or JSON API.
-- `grpcChannelSecurity?: GrpcChannelSecurity`  
-  Optional. Defaults to `GrpcChannelSecurity.tls`.
-- `authProvider?: IAuthProvider`  
-  Optional. Supplies request headers.
-- `commandSigner?: ICommandSigner`  
-  Optional. Only valid with `TransportKind.grpc`.
+- `transportKind: TransportKind`
+- `endpoint: string`
+- `grpcChannelSecurity?: GrpcChannelSecurity`
+- `authProvider?: IAuthProvider`
+- `commandSigner?: ICommandSigner`
 
-Example:
+Notes:
 
-```ts
-const options = new CantonClientOptions({
-    transportKind: TransportKind.grpc,
-    endpoint: "http://localhost:6865",
-    grpcChannelSecurity: GrpcChannelSecurity.insecure,
-    authProvider: new BearerTokenAuthProvider("token"),
-});
-```
+- `grpcChannelSecurity` defaults to `GrpcChannelSecurity.tls`
+- `commandSigner` is valid on `grpc` only
 
 ### `new CantonClient(options)`
 
-Creates the shared high-level SDK client.
+Creates a high-level client from `CantonClientOptions`.
 
-Properties:
+Exposed properties:
 
-- `versionService: VersionServiceClient`
-- `partyManagementService: PartyManagementServiceClient`
-- `userManagementService: UserManagementServiceClient`
-- `packageManagementService: PackageManagementServiceClient`
-- `commandService: CommandServiceClient`
-- `commandSubmissionService: CommandSubmissionServiceClient`
-- `commandCompletionService: CommandCompletionServiceClient`
-- `stateService: StateServiceClient`
-- `updateService: UpdateServiceClient`
-- `eventQueryService: EventQueryServiceClient`
-- `contractService: ContractServiceClient`
-
-Behavior:
-
-- throws `NotSupportedError` if you set `commandSigner` while using `TransportKind.json`
-
-Example:
-
-```ts
-const client = new CantonClient(options);
-```
-
-## Protocol-Specific Clients
-
-Use these when you want to bring your own low-level protocol integration instead of constructing from a shared endpoint.
+- `versionService`
+- `partyManagementService`
+- `userManagementService`
+- `packageManagementService`
+- `commandService`
+- `commandSubmissionService`
+- `commandCompletionService`
+- `stateService`
+- `updateService`
+- `eventQueryService`
+- `contractService`
 
 ### `new GrpcLedgerClient(operations, signer?)`
 
-Creates a gRPC-only client with:
+Creates a gRPC-only client over low-level gRPC operations.
 
-- `commands`
-- `contracts`
-- `events`
+Notes:
 
-`signer` is optional and enables external command signing.
-
-Use this when you already have a low-level gRPC operations object.
+- exposes the same service properties as `CantonClient`
+- `signer` enables external command signing
 
 ### `new JsonLedgerClient(httpClient)`
 
-Creates a JSON-only client with:
+Creates a JSON-only client over a low-level HTTP adapter.
 
-- `commands`
-- `contracts`
-- `events`
+Notes:
 
-Use this when you already have a low-level HTTP adapter with `getAsync(path)` and `postAsync(path, body)`.
+- exposes the same service properties as `CantonClient`
+- external command signing is not supported on JSON
 
 ## Auth And Signing
 
 ### `IAuthProvider.getHeadersAsync()`
 
-Returns request headers for outgoing calls.
-
-Return type:
-
-- `Promise<Record<string, string>>`
-
-Use this to inject bearer tokens or custom headers.
+Returns `Promise<Record<string, string>>` for outgoing requests.
 
 ### `new BearerTokenAuthProvider(token)`
 
-Simple auth provider for bearer token authorization.
+Creates a simple bearer-token auth provider.
 
 ### `BearerTokenAuthProvider.getHeadersAsync()`
 
-Returns:
-
-```ts
-{ authorization: `Bearer ${token}` }
-```
-
-Example:
-
-```ts
-const authProvider = new BearerTokenAuthProvider("my-token");
-```
+Returns an `authorization` header with the configured bearer token.
 
 ### `ICommandSigner.signAsync(request)`
 
-Signs a canonical command payload for gRPC submission.
+Signs a canonical gRPC command payload.
 
 Parameters:
 
@@ -190,21 +126,8 @@ Return type:
 
 Notes:
 
-- only used with gRPC
+- used only by `grpc`
 - JSON command submission rejects external signing
-
-Example:
-
-```ts
-const signer = {
-    async signAsync(request) {
-        return new SignCommandResult({
-            algorithm: "ed25519",
-            signature: request.payload,
-        });
-    },
-};
-```
 
 ### `new SignCommandRequest(init)`
 
@@ -221,323 +144,202 @@ Fields:
 - `signature: Uint8Array`
 - `keyId?: string`
 
-## Service Clients
+## Service Functions
 
-The operational services below use their new gRPC-shaped names now.
+The same service methods are available from `CantonClient`, `GrpcLedgerClient`, and `JsonLedgerClient`.
 
-### `client.versionService.getLedgerApiVersionAsync()`
+### `versionService.getLedgerApiVersionAsync(request?)`
 
 Reads the ledger API version.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
+
+Parameters:
+
+- `request?: GetLedgerApiVersionRequest`
 
 Return type:
 
 - `Promise<GetLedgerApiVersionResponse>`
 
+Useful response fields:
+
+- `version: string`
+- `features?: unknown`
+
 Example:
 
 ```ts
-const version = await client.versionService.getLedgerApiVersionAsync();
-console.log(version.version);
+const response = await client.versionService.getLedgerApiVersionAsync(
+    new GetLedgerApiVersionRequest(),
+);
+console.log(response.version);
 ```
 
-### `client.partyManagementService.allocatePartyAsync(request)`
+### `partyManagementService.allocatePartyAsync(request)`
 
-Allocates a new party.
+Allocates a party.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
 
 Parameters:
 
 - `request: AllocatePartyRequest`
 
+Request fields:
+
+- `partyIdHint?: string`
+- `displayName?: string`
+
 Return type:
 
 - `Promise<AllocatePartyResponse>`
 
-Example:
+Useful response fields:
 
-```ts
-const created = await client.partyManagementService.allocatePartyAsync(
-    new AllocatePartyRequest({
-        partyIdHint: "Alice",
-        displayName: "Alice",
-    }),
-);
-```
+- `party: string`
 
-### `client.partyManagementService.listKnownPartiesAsync(request)`
+### `partyManagementService.listKnownPartiesAsync(request)`
 
 Lists known parties.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
 
 Parameters:
 
 - `request: ListKnownPartiesRequest`
 
+Request fields:
+
+- `identityProviderId?: string`
+- `filterParty?: string`
+- `pageSize?: number`
+- `pageToken?: string`
+
 Return type:
 
 - `Promise<ListKnownPartiesResponse>`
 
-Example:
+Useful response fields:
 
-```ts
-const parties = await client.partyManagementService.listKnownPartiesAsync(
-    new ListKnownPartiesRequest({
-        filterParty: "Alice",
-        pageSize: 20,
-    }),
-);
-```
+- `partyDetails: PartyDetails[]`
+- `nextPageToken?: string`
 
-### `client.userManagementService.grantUserRightsAsync(request)`
+`PartyDetails` fields:
 
-Grants rights to a user.
+- `party: string`
+- `isLocal: boolean`
+- `localMetadata?: Record<string, string>`
+- `identityProviderId?: string`
+
+### `userManagementService.grantUserRightsAsync(request)`
+
+Grants user rights.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
 
 Parameters:
 
 - `request: GrantUserRightsRequest`
 
+Request fields:
+
+- `userId: string`
+- `rights: readonly UserRightAssignment[]`
+
+`UserRightAssignment` fields:
+
+- `type: UserRightKind`
+- `party?: string`
+
 Return type:
 
 - `Promise<GrantUserRightsResponse>`
 
-Example:
+Useful response fields:
 
-```ts
-const rights = await client.userManagementService.grantUserRightsAsync(
-    new GrantUserRightsRequest({
-        userId: "alice-user",
-        rights: [
-            {
-                type: UserRightKind.canActAs,
-                party: "Alice",
-            },
-        ],
-    }),
-);
-```
+- `rights: readonly UserRightAssignment[]`
 
-### `client.packageManagementService.uploadDarFileAsync(request)`
+### `packageManagementService.uploadDarFileAsync(request)`
 
-Uploads a Daml package archive.
+Uploads a DAR file.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
 
 Parameters:
 
 - `request: UploadDarFileRequest`
 
+Request fields:
+
+- `bytes: Uint8Array`
+
 Return type:
 
 - `Promise<UploadDarFileResponse>`
 
-Example:
+Useful response fields:
 
-```ts
-const uploaded = await client.packageManagementService.uploadDarFileAsync(
-    new UploadDarFileRequest({
-        bytes: darBytes,
-    }),
-);
-```
+- `packageId?: string`
 
-### `client.commandService.submitAndWaitAsync(request)`
+### `commandService.submitAndWaitAsync(request)`
 
 Submits a command and waits for the result.
 
 Transport support:
 
-- JSON
-- gRPC
+- `json`
+- `grpc`
 
 Parameters:
 
 - `request: SubmitCommandRequest`
 
-Return type:
+Request fields:
 
-- `Promise<SubmitCommandResponse>`
+- `applicationId: string`
+- `actAs: readonly string[]`
+- `readAs: readonly string[]`
+- `command: CreateCommand`
 
-Behavior:
+`CreateCommand` fields:
 
-- if a signer was configured on a gRPC client, signing happens before submission
-- JSON still rejects external signing
-
-Example:
-
-```ts
-const result = await client.commandService.submitAndWaitAsync(
-    new SubmitCommandRequest({
-        applicationId: "app-1",
-        actAs: ["Alice"],
-        command: new CreateCommand({
-            templateId: "Main:Iou",
-            payload: {
-                issuer: "Alice",
-                owner: "Bob",
-            },
-        }),
-    }),
-);
-```
-
-### `client.commandSubmissionService.submitAsync(request)`
-
-Reserved for the gRPC `CommandSubmissionService.Submit` shape.
-
-Current behavior:
-
-- rejects with `NotSupportedError`
-
-### `client.stateService.getActiveContractsPageAsync(request)`
-
-Reads a page of active contracts.
-
-Transport support:
-
-- JSON
-- gRPC
-
-Parameters:
-
-- `request: GetActiveContractsPageRequest`
-
-Return type:
-
-- `Promise<GetActiveContractsPageResponse<TContract>>`
-
-Example:
-
-```ts
-const contracts = await client.stateService.getActiveContractsPageAsync(
-    new GetActiveContractsPageRequest({
-        party: "Alice",
-        templateId: "Main:Iou",
-    }),
-);
-```
-
-### `client.stateService.getActiveContractsAsync(request, observer)`
-
-Reads active contracts as a stream-like contract callback surface.
-
-Transport support:
-
-- JSON
-
-Parameters:
-
-- `request: GetActiveContractsRequest`
-- `observer: ContractObserver`
-
-Return type:
-
-- `Promise<void>`
-
-Behavior:
-
-- on gRPC this currently rejects with `NotSupportedError`
-
-Example:
-
-```ts
-await client.stateService.getActiveContractsAsync(
-    new GetActiveContractsRequest({
-        party: "Alice",
-        templateId: "Main:Iou",
-    }),
-    {
-        async nextAsync(contract) {
-            console.log(contract);
-        },
-    },
-);
-```
-
-### `client.updateService.getUpdatesAsync(request, observer)`
-
-Reads ledger updates.
-
-Transport support:
-
-- gRPC
-
-Parameters:
-
-- `request: GetUpdatesRequest`
-- `observer: Transaction-like observer with async nextAsync(event)`
-
-Return type:
-
-- `Promise<void>`
-
-Behavior:
-
-- on JSON this currently rejects with `NotSupportedError`
-
-Example:
-
-```ts
-await client.updateService.getUpdatesAsync(
-    new GetUpdatesRequest({
-        party: "Alice",
-        beginOffset: "0",
-        templateId: "Main:Iou",
-    }),
-    {
-        async nextAsync(event) {
-            console.log(event);
-        },
-    },
-);
-```
-
-### `client.commands.submitAsync(request)`
-
-Submits a create command.
-
-Transport support:
-
-- JSON
-- gRPC
-
-Parameters:
-
-- `request: SubmitCommandRequest`
+- `templateId: string`
+- `payload: Record<string, unknown>`
 
 Return type:
 
 - `Promise<SubmitCommandResponse>`
 
-Behavior:
+Useful response fields:
 
-- if the shared client was configured with a signer, gRPC signs before submit
-- JSON rejects external signing
+- `commandId?: string`
+- `transactionId?: string`
+
+Notes:
+
+- `actAs` must contain at least one party
+- external signing is applied here on `grpc` when `commandSigner` is configured
 
 Example:
 
 ```ts
-const submission = await client.commands.submitAsync(
+const response = await client.commandService.submitAndWaitAsync(
     new SubmitCommandRequest({
         applicationId: "app-1",
         actAs: ["Alice"],
@@ -553,302 +355,127 @@ const submission = await client.commands.submitAsync(
 );
 ```
 
-## Advanced Transport Surface
+### `commandSubmissionService.submitAsync(request)`
 
-The root package exports `ITransport`. The protocol-specific entrypoints also export `GrpcTransport` and `JsonTransport`.
+Reserved for `CommandSubmissionService.Submit`.
 
-Prefer `CantonClient`, `GrpcLedgerClient`, or `JsonLedgerClient` unless you are building custom integration layers or tests.
+Transport support:
 
-### `new GrpcTransport(operations)`
+- currently unsupported on `json`
+- currently unsupported on `grpc`
 
-Creates a low-level gRPC transport implementation.
+Current behavior:
 
-Use this when you want direct transport access instead of service clients.
+- throws `NotSupportedError`
 
-Available methods:
+### `stateService.getActiveContractsPageAsync(request)`
 
-- `getHealthAsync()`
-- `createPartyAsync(request)`
-- `listPartiesAsync(request)`
-- `grantUserRightsAsync(request)`
-- `uploadPackageAsync(request)`
-- `queryContractsAsync(request)`
-- `streamQueryAsync(request, observer)`  
-  Always rejects with `NotSupportedError`.
-- `streamTransactionsAsync(request, observer)`
-- `submitCommandAsync(request, signed?)`
+Reads a page of active contracts.
 
-### `new JsonTransport(httpClient)`
+Transport support:
 
-Creates a low-level JSON transport implementation.
+- `json`
+- `grpc`
 
-Use this when you want direct transport access instead of service clients.
+Parameters:
 
-Available methods:
+- `request: GetActiveContractsPageRequest`
 
-- `getHealthAsync()`
-- `createPartyAsync(request)`
-- `listPartiesAsync(request)`
-- `grantUserRightsAsync(request)`
-- `uploadPackageAsync(request)`
-- `queryContractsAsync(request)`
-- `streamQueryAsync(request, observer)`
-- `streamTransactionsAsync(request, observer)`  
-  Always rejects with `NotSupportedError`.
-- `submitCommandAsync(request, signed?)`  
-  Rejects if `signed` is provided.
-
-### `ITransport`
-
-Methods:
-
-- `getHealthAsync()`
-- `createPartyAsync(request)`
-- `listPartiesAsync(request)`
-- `grantUserRightsAsync(request)`
-- `uploadPackageAsync(request)`
-- `queryContractsAsync(request)`
-- `streamQueryAsync(request, observer)`
-- `streamTransactionsAsync(request, observer)`
-- `submitCommandAsync(request, signed?)`
-
-`GrpcTransport` and `JsonTransport` implement this contract with the transport rules described earlier in this document.
-
-### `TransportCapability`
-
-Enum values:
-
-- `TransportCapability.commandSigning`
-
-This represents optional transport features. In v1, only gRPC supports external command signing.
-
-## Request Types
-
-### `CreatePartyRequest`
-
-Fields:
-
-- `partyIdHint?: string`
-- `displayName?: string`
-
-### `ListPartiesRequest`
-
-Fields:
-
-- `identityProviderId?: string`
-- `filterParty?: string`
-- `pageSize?: number`
-- `pageToken?: string`
-
-### `GrantUserRightsRequest`
-
-Fields:
-
-- `userId: string`
-- `rights: readonly UserRightAssignment[]`
-
-### `UserRightAssignment`
-
-Fields:
-
-- `type: UserRightKind`
-- `party?: string`
-
-### `QueryContractsRequest`
-
-Fields:
-
-- `party: string`
-- `templateId: string`
-
-### `StreamQueryRequest`
-
-Fields:
+Request fields:
 
 - `party: string`
 - `templateId?: string`
 
-### `StreamTransactionsRequest`
+Return type:
 
-Fields:
+- `Promise<GetActiveContractsPageResponse<TContract>>`
+
+Useful response fields:
+
+- `contracts: readonly TContract[]`
+
+### `stateService.getActiveContractsAsync(request, observer)`
+
+Reads active contracts through an observer callback surface.
+
+Transport support:
+
+- `json`
+- `grpc` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetActiveContractsRequest`
+- `observer: ContractObserver<TContract>`
+
+Request fields:
+
+- `party: string`
+- `templateId?: string`
+
+Observer contract:
+
+```ts
+const observer: ContractObserver = {
+    async nextAsync(contract) {
+        console.log(contract);
+    },
+};
+```
+
+### `updateService.getUpdatesAsync(request, observer)`
+
+Reads ledger updates through an observer callback surface.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetUpdatesRequest`
+- `observer: TransactionObserver<TEvent>`
+
+Request fields:
 
 - `party: string`
 - `beginOffset?: string`
 - `endOffset?: string`
 - `templateId?: string`
 
-### `UploadPackageRequest`
-
-Fields:
-
-- `bytes: Uint8Array`
-- `format: PackageFormat`
-
-### `CreateCommand`
-
-Fields:
-
-- `templateId: string`
-- `payload: Record<string, unknown>`
-
-### `SubmitCommandRequest`
-
-Fields:
-
-- `applicationId: string`
-- `actAs: readonly string[]`
-- `readAs: readonly string[]`
-- `command: CreateCommand`
-
-Validation:
-
-- throws `ValidationError` if `actAs` is empty
-
-## Response Types
-
-### `HealthStatusResponse`
-
-Fields:
-
-- `status: string`
-- `version?: string`
-
-### `CreatePartyResponse`
-
-Fields:
-
-- `party: string`
-
-### `PartyDetails`
-
-Fields:
-
-- `party: string`
-- `isLocal: boolean`
-- `localMetadata?: Record<string, string>`
-- `identityProviderId?: string`
-
-### `ListPartiesResponse`
-
-Fields:
-
-- `partyDetails: PartyDetails[]`
-- `nextPageToken?: string`
-
-### `GrantUserRightsResponse`
-
-Fields:
-
-- `rights: readonly UserRightAssignment[]`
-
-### `QueryContractsResponse<TContract = unknown>`
-
-Fields:
-
-- `contracts: readonly TContract[]`
-
-### `UploadPackageResponse`
-
-Fields:
-
-- `packageId?: string`
-
-### `SubmitCommandResponse`
-
-Fields:
-
-- `commandId?: string`
-- `transactionId?: string`
-
-## Observer Contracts
-
-### `ContractObserver<TContract = unknown>`
-
-Method:
-
-- `nextAsync(contract: TContract): Promise<void>`
-
-Use this with `stateService.getActiveContractsAsync(...)`.
-
-## Enums
-
-### `TransportKind`
-
-- `TransportKind.grpc`
-- `TransportKind.json`
-
-### `GrpcChannelSecurity`
-
-- `GrpcChannelSecurity.insecure`
-- `GrpcChannelSecurity.tls`
-
-### `SubmissionMode`
-
-- `SubmissionMode.synchronous`
-- `SubmissionMode.asynchronous`
-
-### `EventStreamKind`
-
-- `EventStreamKind.transactions`
-- `EventStreamKind.activeContracts`
-
-### `UserRightKind`
-
-- `UserRightKind.canActAs`
-- `UserRightKind.canReadAs`
-- `UserRightKind.participantAdmin`
-
-### `PackageFormat`
-
-- `PackageFormat.dar`
-- `PackageFormat.dalf`
-
-## Errors
-
-All SDK-specific errors inherit from `CantonError`.
-
-### `CantonError`
-
-Base SDK error type.
-
-### `ValidationError`
-
-Thrown when SDK input validation fails.
-
-Current example:
-
-- `SubmitCommandRequest` with an empty `actAs` array
-
-### `AuthenticationError`
-
-Represents authentication failures.
-
-### `AuthorizationError`
-
-Represents authorization failures.
-
-### `TransportError`
-
-Represents transport or protocol adapter failures.
-
-### `SigningError`
-
-Represents external signing failures.
-
-### `TimeoutError`
-
-Represents timeout failures.
-
-### `ConflictError`
-
-Represents conflict-style failures.
-
-### `NotSupportedError`
-
-Thrown when the requested feature is unsupported by the selected transport.
-
-Examples:
-
-- using `commandSigner` with `TransportKind.json`
-- calling `stateService.getActiveContractsAsync(...)` on gRPC
-- calling `updateService.getUpdatesAsync(...)` on JSON
+Observer contract:
+
+```ts
+const observer: TransactionObserver = {
+    async nextAsync(event) {
+        console.log(event);
+    },
+};
+```
+
+## Placeholder Services
+
+These services are intentionally present on the public client shape so the SDK can keep matching the gRPC service map as implementation expands:
+
+- `commandCompletionService`
+- `eventQueryService`
+- `contractService`
+
+They do not expose public methods yet.
+
+## Transport Support Matrix
+
+| Function | JSON | gRPC |
+| --- | --- | --- |
+| `versionService.getLedgerApiVersionAsync` | Yes | Yes |
+| `partyManagementService.allocatePartyAsync` | Yes | Yes |
+| `partyManagementService.listKnownPartiesAsync` | Yes | Yes |
+| `userManagementService.grantUserRightsAsync` | Yes | Yes |
+| `packageManagementService.uploadDarFileAsync` | Yes | Yes |
+| `commandService.submitAndWaitAsync` | Yes | Yes |
+| `commandSubmissionService.submitAsync` | No | No |
+| `stateService.getActiveContractsPageAsync` | Yes | Yes |
+| `stateService.getActiveContractsAsync` | Yes | No |
+| `updateService.getUpdatesAsync` | No | Yes |
+| external signing | No | Yes |

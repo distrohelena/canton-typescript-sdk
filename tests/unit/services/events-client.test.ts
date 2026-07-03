@@ -6,19 +6,10 @@ describe("UpdateServiceClient", () => {
     it("surfaces unsupported update streaming", async () => {
         const transport = {
             features: { supportsCommandSigning: false },
-            getHealthAsync: async () => {
-                throw new Error("not used");
-            },
             getLedgerApiVersionAsync: async () => {
                 throw new Error("not used");
             },
-            createPartyAsync: async () => {
-                throw new Error("not used");
-            },
             allocatePartyAsync: async () => {
-                throw new Error("not used");
-            },
-            listPartiesAsync: async () => {
                 throw new Error("not used");
             },
             listKnownPartiesAsync: async () => {
@@ -27,25 +18,13 @@ describe("UpdateServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
-            uploadPackageAsync: async () => {
-                throw new Error("not used");
-            },
             uploadDarFileAsync: async () => {
-                throw new Error("not used");
-            },
-            queryContractsAsync: async () => {
                 throw new Error("not used");
             },
             getActiveContractsPageAsync: async () => {
                 throw new Error("not used");
             },
             getActiveContractsAsync: async () => {
-                throw new Error("not used");
-            },
-            streamQueryAsync: async () => {
-                throw new Error("not used");
-            },
-            streamTransactionsAsync: async () => {
                 throw new Error("not used");
             },
             getUpdatesAsync: async () => {

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     GrantUserRightsRequest,
     PackageFormat,
-    UploadPackageRequest,
     UserRightKind,
 } from "../../../src";
 import {
@@ -11,10 +10,12 @@ import {
     mapGrpcListParties,
     mapGrpcListPartiesRequest,
 } from "../../../src/transports/grpc/mappers/parties-mapper.js";
-import { CreatePartyRequest, ListPartiesRequest } from "../../../src";
 import { mapGrpcUploadPackageRequest } from "../../../src/transports/grpc/mappers/packages-mapper.js";
 import { mapGrpcHealth } from "../../../src/transports/grpc/mappers/system-mapper.js";
 import { mapGrpcGrantUserRightsRequest } from "../../../src/transports/grpc/mappers/users-mapper.js";
+import { CreatePartyRequest } from "../../../src/core/types/requests/create-party-request.js";
+import { ListPartiesRequest } from "../../../src/core/types/requests/list-parties-request.js";
+import { UploadPackageRequest } from "../../../src/core/types/requests/upload-package-request.js";
 
 describe("gRPC operational mappers", () => {
     it("maps health payloads", () => {

@@ -10,10 +10,10 @@ describe("PartyManagementServiceClient", () => {
     it("lists parties through the selected transport", async () => {
         const transport = {
             features: { supportsCommandSigning: false },
-            getHealthAsync: async () => {
+            getLedgerApiVersionAsync: async () => {
                 throw new Error("not used");
             },
-            createPartyAsync: async () => {
+            allocatePartyAsync: async () => {
                 throw new Error("not used");
             },
             listKnownPartiesAsync: async () =>
@@ -28,13 +28,16 @@ describe("PartyManagementServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
-            uploadPackageAsync: async () => {
+            uploadDarFileAsync: async () => {
                 throw new Error("not used");
             },
-            queryContractsAsync: async () => {
+            getActiveContractsPageAsync: async () => {
                 throw new Error("not used");
             },
-            streamTransactionsAsync: async () => {
+            getActiveContractsAsync: async () => {
+                throw new Error("not used");
+            },
+            getUpdatesAsync: async () => {
                 throw new Error("not used");
             },
             submitCommandAsync: async () => {

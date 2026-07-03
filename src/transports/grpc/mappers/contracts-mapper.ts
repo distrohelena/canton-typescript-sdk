@@ -1,5 +1,4 @@
 import { ValidationError } from "../../../core/errors/validation-error.js";
-import { QueryContractsRequest } from "../../../core/types/requests/query-contracts-request.js";
 import { QueryContractsResponse } from "../../../core/types/responses/query-contracts-response.js";
 import { GetActiveContractsPageRequest } from "../generated/canton/com/daml/ledger/api/v2/state_service.js";
 import {
@@ -9,7 +8,10 @@ import {
 import { Identifier } from "../generated/canton/com/daml/ledger/api/v2/value.js";
 
 export function mapGrpcQueryContractsRequest(
-    request: QueryContractsRequest,
+    request: {
+        party: string;
+        templateId?: string;
+    },
 ): GetActiveContractsPageRequest {
     return {
         eventFormat: createEventFormat(request.party, request.templateId),

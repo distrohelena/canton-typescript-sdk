@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { ListPartiesRequest, ListPartiesResponse, PartyDetails } from "../../../src";
+import {
+    ListKnownPartiesRequest,
+    ListKnownPartiesResponse,
+    PartyDetails,
+} from "../../../src";
 
-describe("list parties sdk types", () => {
+describe("list known parties sdk types", () => {
     it("stores request filters", () => {
-        const request = new ListPartiesRequest({
+        const request = new ListKnownPartiesRequest({
             identityProviderId: "default",
             filterParty: "Alice",
             pageSize: 25,
@@ -24,7 +28,7 @@ describe("list parties sdk types", () => {
             identityProviderId: "default",
         });
 
-        const response = new ListPartiesResponse({
+        const response = new ListKnownPartiesResponse({
             partyDetails: [party],
             nextPageToken: "next-1",
         });

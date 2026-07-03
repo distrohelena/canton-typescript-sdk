@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
-    QueryContractsRequest,
-    StreamTransactionsRequest,
+    GetActiveContractsPageRequest,
+    GetUpdatesRequest,
     SubmitCommandRequest,
 } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
@@ -34,15 +34,15 @@ describe("GrpcTransport live ledger shapes", () => {
             }),
         );
 
-        await transport.queryContractsAsync(
-            new QueryContractsRequest({
+        await transport.getActiveContractsPageAsync(
+            new GetActiveContractsPageRequest({
                 party: "Alice",
                 templateId: "Main:Iou",
             }),
         );
 
-        await transport.streamTransactionsAsync(
-            new StreamTransactionsRequest({
+        await transport.getUpdatesAsync(
+            new GetUpdatesRequest({
                 party: "Alice",
                 beginOffset: "0",
                 endOffset: "10",

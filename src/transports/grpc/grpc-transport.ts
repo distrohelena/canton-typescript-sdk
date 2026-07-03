@@ -1,32 +1,21 @@
 import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
-import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
-import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
-import { StreamQueryRequest } from "../../core/types/requests/stream-query-request.js";
-import { StreamTransactionsRequest } from "../../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
-import { UploadPackageRequest } from "../../core/types/requests/upload-package-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
-import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
-import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { ListPartiesResponse } from "../../core/types/responses/list-parties-response.js";
-import { QueryContractsResponse } from "../../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
-import { UploadPackageResponse } from "../../core/types/responses/upload-package-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { PackageFormat } from "../../core/types/package-format.js";
@@ -38,25 +27,13 @@ import {
     mapGrpcSubmitCommand,
     mapGrpcSubmitCommandRequest,
 } from "./mappers/commands-mapper.js";
-import {
-    mapGrpcQueryContracts,
-    mapGrpcQueryContractsRequest,
-} from "./mappers/contracts-mapper.js";
+import { mapGrpcQueryContracts, mapGrpcQueryContractsRequest } from "./mappers/contracts-mapper.js";
 import {
     mapGrpcStreamTransactionsRequest,
     mapGrpcTransactionEvents,
 } from "./mappers/events-mapper.js";
-import {
-    mapGrpcUploadPackage,
-    mapGrpcUploadPackageRequest,
-} from "./mappers/packages-mapper.js";
-import {
-    mapGrpcCreateParty,
-    mapGrpcCreatePartyRequest,
-    mapGrpcListParties,
-    mapGrpcListPartiesRequest,
-} from "./mappers/parties-mapper.js";
-import { mapGrpcHealth } from "./mappers/system-mapper.js";
+import { mapGrpcUploadPackage, mapGrpcUploadPackageRequest } from "./mappers/packages-mapper.js";
+import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import {
     mapGrpcGrantUserRights,
     mapGrpcGrantUserRightsRequest,
@@ -75,18 +52,11 @@ export class GrpcTransport implements ITransport {
 
     public constructor(private readonly operations: GrpcOperations) {}
 
-    public async getHealthAsync(): Promise<HealthStatusResponse> {
-        const payload = await this.operations.getHealthAsync();
-
-        return mapGrpcHealth(
-            payload as { status?: string; version?: string } | GetLedgerApiVersionResponse,
-        );
-    }
-
     public async getLedgerApiVersionAsync(
         _request?: GetLedgerApiVersionRequest,
     ): Promise<SdkGetLedgerApiVersionResponse> {
-        const payload = await this.operations.getHealthAsync();
+        const payload =
+            await this.operations.getHealthAsync() as GetLedgerApiVersionResponse;
 
         return new SdkGetLedgerApiVersionResponse({
             version: payload.version ?? "",
@@ -95,18 +65,6 @@ export class GrpcTransport implements ITransport {
                     ? payload.features
                     : undefined,
         });
-    }
-
-    public async createPartyAsync(
-        request: CreatePartyRequest,
-    ): Promise<CreatePartyResponse> {
-        const payload = await this.operations.createPartyAsync(
-            mapGrpcCreatePartyRequest(request),
-        );
-
-        return mapGrpcCreateParty(
-            payload as { identifier?: string } | AllocatePartyResponse,
-        );
     }
 
     public async allocatePartyAsync(
@@ -123,16 +81,6 @@ export class GrpcTransport implements ITransport {
         return new SdkAllocatePartyResponse({
             party: response.party,
         });
-    }
-
-    public async listPartiesAsync(
-        request: ListPartiesRequest,
-    ): Promise<ListPartiesResponse> {
-        const payload = await this.operations.listPartiesAsync(
-            mapGrpcListPartiesRequest(request),
-        );
-
-        return mapGrpcListParties(payload as ListKnownPartiesResponse);
     }
 
     public async listKnownPartiesAsync(
@@ -164,27 +112,15 @@ export class GrpcTransport implements ITransport {
         );
     }
 
-    public async uploadPackageAsync(
-        request: UploadPackageRequest,
-    ): Promise<UploadPackageResponse> {
-        const payload = await this.operations.uploadPackageAsync(
-            mapGrpcUploadPackageRequest(request),
-        );
-
-        return mapGrpcUploadPackage(
-            payload as { packageId?: string } | UploadDarFileResponse,
-        );
-    }
-
     public async uploadDarFileAsync(
         request: UploadDarFileRequest,
     ): Promise<SdkUploadDarFileResponse> {
         const payload = await this.operations.uploadPackageAsync(
             mapGrpcUploadPackageRequest(
-                new UploadPackageRequest({
+                {
                     bytes: request.bytes,
                     format: PackageFormat.dar,
-                }),
+                },
             ),
         );
 
@@ -197,28 +133,20 @@ export class GrpcTransport implements ITransport {
         });
     }
 
-    public async queryContractsAsync(
-        request: QueryContractsRequest,
-    ): Promise<QueryContractsResponse> {
-        const payload = await this.operations.queryContractsAsync(
-            mapGrpcQueryContractsRequest(request),
-        );
-
-        return mapGrpcQueryContracts(payload as { contracts?: unknown[] });
-    }
-
     public async getActiveContractsPageAsync(
         request: GetActiveContractsPageRequest,
     ): Promise<GetActiveContractsPageResponse> {
-        const payload = await this.queryContractsAsync(
-            new QueryContractsRequest({
+        const payload = await this.operations.queryContractsAsync(
+            mapGrpcQueryContractsRequest({
                 party: request.party,
-                templateId: request.templateId ?? "",
+                templateId: request.templateId,
             }),
         );
 
+        const response = mapGrpcQueryContracts(payload as { contracts?: unknown[] });
+
         return new GetActiveContractsPageResponse({
-            contracts: payload.contracts,
+            contracts: response.contracts,
         });
     }
 
@@ -231,21 +159,17 @@ export class GrpcTransport implements ITransport {
         );
     }
 
-    public async streamQueryAsync(
-        _request: StreamQueryRequest,
-        _observer: ContractObserver,
-    ): Promise<void> {
-        throw new NotSupportedError(
-            "contract query streaming is not supported by gRPC transport",
-        );
-    }
-
-    public async streamTransactionsAsync(
-        request: StreamTransactionsRequest,
+    public async getUpdatesAsync(
+        request: GetUpdatesRequest,
         observer: TransactionObserver,
     ): Promise<void> {
         const payload = await this.operations.streamTransactionsAsync(
-            mapGrpcStreamTransactionsRequest(request),
+            mapGrpcStreamTransactionsRequest({
+                party: request.party,
+                beginOffset: request.beginOffset,
+                endOffset: request.endOffset,
+                templateId: request.templateId,
+            }),
         );
 
         const events = mapGrpcTransactionEvents(
@@ -255,21 +179,6 @@ export class GrpcTransport implements ITransport {
         for (const event of events) {
             await observer.nextAsync(event);
         }
-    }
-
-    public getUpdatesAsync(
-        request: GetUpdatesRequest,
-        observer: TransactionObserver,
-    ): Promise<void> {
-        return this.streamTransactionsAsync(
-            new StreamTransactionsRequest({
-                party: request.party,
-                beginOffset: request.beginOffset,
-                endOffset: request.endOffset,
-                templateId: request.templateId,
-            }),
-            observer,
-        );
     }
 
     public async submitCommandAsync(

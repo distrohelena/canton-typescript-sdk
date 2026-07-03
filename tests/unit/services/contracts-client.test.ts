@@ -15,19 +15,10 @@ describe("StateServiceClient", () => {
 
         const transport = {
             features: { supportsCommandSigning: false },
-            getHealthAsync: async () => {
-                throw new Error("not used");
-            },
             getLedgerApiVersionAsync: async () => {
                 throw new Error("not used");
             },
-            createPartyAsync: async () => {
-                throw new Error("not used");
-            },
             allocatePartyAsync: async () => {
-                throw new Error("not used");
-            },
-            listPartiesAsync: async () => {
                 throw new Error("not used");
             },
             listKnownPartiesAsync: async () => {
@@ -36,13 +27,7 @@ describe("StateServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
-            uploadPackageAsync: async () => {
-                throw new Error("not used");
-            },
             uploadDarFileAsync: async () => {
-                throw new Error("not used");
-            },
-            queryContractsAsync: async () => {
                 throw new Error("not used");
             },
             getActiveContractsPageAsync: async () =>
@@ -50,13 +35,7 @@ describe("StateServiceClient", () => {
             getActiveContractsAsync: async () => {
                 throw new Error("not used");
             },
-            streamTransactionsAsync: async () => {
-                throw new Error("not used");
-            },
             getUpdatesAsync: async () => {
-                throw new Error("not used");
-            },
-            streamQueryAsync: async () => {
                 throw new Error("not used");
             },
             submitCommandAsync: async () => {
@@ -85,19 +64,10 @@ describe("StateServiceClient", () => {
 
         const transport = {
             features: { supportsCommandSigning: false },
-            getHealthAsync: async () => {
-                throw new Error("not used");
-            },
             getLedgerApiVersionAsync: async () => {
                 throw new Error("not used");
             },
-            createPartyAsync: async () => {
-                throw new Error("not used");
-            },
             allocatePartyAsync: async () => {
-                throw new Error("not used");
-            },
-            listPartiesAsync: async () => {
                 throw new Error("not used");
             },
             listKnownPartiesAsync: async () => {
@@ -106,13 +76,7 @@ describe("StateServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
-            uploadPackageAsync: async () => {
-                throw new Error("not used");
-            },
             uploadDarFileAsync: async () => {
-                throw new Error("not used");
-            },
-            queryContractsAsync: async () => {
                 throw new Error("not used");
             },
             getActiveContractsPageAsync: async () => {
@@ -124,16 +88,10 @@ describe("StateServiceClient", () => {
             ) => {
                 await observer.nextAsync({ contractId: "c1" });
             },
-            streamTransactionsAsync: async () => {
-                throw new Error("not used");
-            },
             getUpdatesAsync: async () => {
                 throw new Error("not used");
             },
             submitCommandAsync: async () => {
-                throw new Error("not used");
-            },
-            streamQueryAsync: async () => {
                 throw new Error("not used");
             },
         };

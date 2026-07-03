@@ -2,11 +2,10 @@
 
 TypeScript SDK for Canton with:
 
-- a shared high-level `CantonClient`
-- `grpc` and `json` transport adapters
-- `grpc`-only external signing in v1
-- C#-influenced object boundaries with TypeScript `camelCase`
-- gRPC Ledger API service names as the public SDK foundation
+- a shared `CantonClient`
+- `grpc` and `json` transports
+- `grpc`-only external signing
+- gRPC Ledger API service boundaries as the public SDK shape
 
 ## Shared Client
 
@@ -16,6 +15,8 @@ import {
     BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
+    GetActiveContractsPageRequest,
+    GetLedgerApiVersionRequest,
     TransportKind,
 } from "canton-typescript-sdk";
 
@@ -27,34 +28,69 @@ const client = new CantonClient(
     }),
 );
 
-await client.versionService.getLedgerApiVersionAsync();
-await client.partyManagementService.allocatePartyAsync(
+const version = await client.versionService.getLedgerApiVersionAsync(
+    new GetLedgerApiVersionRequest(),
+);
+const party = await client.partyManagementService.allocatePartyAsync(
     new AllocatePartyRequest({
         partyIdHint: "Alice",
         displayName: "Alice",
     }),
 );
+const contracts = await client.stateService.getActiveContractsPageAsync(
+    new GetActiveContractsPageRequest({
+        party: "Alice",
+        templateId: "Main:Iou",
+    }),
+);
 ```
 
-## Operational APIs By Transport
+## Service Map
 
-- `client.versionService.getLedgerApiVersionAsync()`: supported on `json` and `grpc`
-- `client.partyManagementService.allocatePartyAsync(...)`: supported on `json` and `grpc`
-- `client.partyManagementService.listKnownPartiesAsync(...)`: supported on `json` and `grpc`
-- `client.userManagementService.grantUserRightsAsync(...)`: supported on `json` and `grpc`
-- `client.packageManagementService.uploadDarFileAsync(...)`: supported on `json` and `grpc`
-- `client.commandService.submitAndWaitAsync(...)`: supported on `json` and `grpc`
-- `client.stateService.getActiveContractsPageAsync(...)`: supported on `json` and `grpc`
-- `client.stateService.getActiveContractsAsync(...)`: supported on `json`; `grpc` currently throws `NotSupportedError`
-- `client.updateService.getUpdatesAsync(...)`: supported on `grpc`; `json` currently throws `NotSupportedError`
+- `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
+- `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
+- `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
+- `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
+- `packageManagementService.uploadDarFileAsync(...)`: `json`, `grpc`
+- `commandService.submitAndWaitAsync(...)`: `json`, `grpc`
+- `commandSubmissionService.submitAsync(...)`: reserved, currently unsupported
+- `stateService.getActiveContractsPageAsync(...)`: `json`, `grpc`
+- `stateService.getActiveContractsAsync(...)`: `json` only
+- `updateService.getUpdatesAsync(...)`: `grpc` only
+- `commandCompletionService`: placeholder, no methods yet
+- `eventQueryService`: placeholder, no methods yet
+- `contractService`: placeholder, no methods yet
 
-## Alignment Status
+## Protocol-Specific Clients
 
-The root client is being realigned to gRPC Ledger API service boundaries. The operational services above, `CommandService.submitAndWaitAsync(...)`, and the first `StateService`/`UpdateService` read surfaces are live under their new names. `CommandSubmissionService.submitAsync(...)` remains reserved but intentionally unsupported in this phase.
-
-## Protocol-Specific Modules
-
-Use subpath exports when you want transport-specific construction:
+Subpath exports are available when you want to construct directly over a transport adapter:
 
 - `canton-typescript-sdk/grpc`
 - `canton-typescript-sdk/json`
+
+`GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
+
+## External Signing
+
+External signing is supported on `grpc` only through `ICommandSigner`.
+
+```ts
+import {
+    ICommandSigner,
+    SignCommandRequest,
+    SignCommandResult,
+} from "canton-typescript-sdk";
+
+class ExampleSigner implements ICommandSigner {
+    public async signAsync(
+        request: SignCommandRequest,
+    ): Promise<SignCommandResult> {
+        return new SignCommandResult({
+            algorithm: "ed25519",
+            signature: request.payload,
+        });
+    }
+}
+```
+
+See [DOCUMENTATION.md](/home/helena/env/daml/typescript-sdk/DOCUMENTATION.md:1) for the full function-by-function reference.

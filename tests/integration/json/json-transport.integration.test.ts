@@ -38,6 +38,20 @@ describe("json transport entrypoint", () => {
         );
 
         expect(jsonModule).toHaveProperty("JsonLedgerClient");
+        expect(client.versionService).toBeDefined();
+        expect(client.partyManagementService).toBeDefined();
+        expect(client.userManagementService).toBeDefined();
+        expect(client.packageManagementService).toBeDefined();
+        expect(client.commandService).toBeDefined();
+        expect(client.commandSubmissionService).toBeDefined();
+        expect(client.commandCompletionService).toBeDefined();
+        expect(client.stateService).toBeDefined();
+        expect(client.updateService).toBeDefined();
+        expect(client.eventQueryService).toBeDefined();
+        expect(client.contractService).toBeDefined();
+        expect(client).not.toHaveProperty("commands");
+        expect(client).not.toHaveProperty("contracts");
+        expect(client).not.toHaveProperty("events");
 
         const nextAsync = vi.fn(async () => undefined);
 

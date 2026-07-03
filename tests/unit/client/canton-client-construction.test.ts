@@ -21,8 +21,12 @@ describe("CantonClient", () => {
         expect(client.updateService).toBeDefined();
         expect(client.eventQueryService).toBeDefined();
         expect(client.contractService).toBeDefined();
+        expect(client).not.toHaveProperty("system");
+        expect(client).not.toHaveProperty("parties");
+        expect(client).not.toHaveProperty("users");
+        expect(client).not.toHaveProperty("packages");
         expect(client).not.toHaveProperty("commands");
         expect(client).not.toHaveProperty("contracts");
-        expect(client).not.toHaveProperty("system");
+        expect(client).not.toHaveProperty("events");
     });
 });

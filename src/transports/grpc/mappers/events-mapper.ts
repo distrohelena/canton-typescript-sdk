@@ -1,10 +1,14 @@
-import { StreamTransactionsRequest } from "../../../core/types/requests/stream-transactions-request.js";
 import { GetUpdatesRequest } from "../generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { TransactionShape } from "../generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 import { mapGrpcQueryContractsRequest } from "./contracts-mapper.js";
 
 export function mapGrpcStreamTransactionsRequest(
-    request: StreamTransactionsRequest,
+    request: {
+        party: string;
+        beginOffset?: string;
+        endOffset?: string;
+        templateId?: string;
+    },
 ): GetUpdatesRequest {
     const queryRequest = mapGrpcQueryContractsRequest({
         party: request.party,
