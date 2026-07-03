@@ -4,6 +4,7 @@ import { DamlLfType } from "./model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "./model/daml-lf-value-definition.js";
 import { ModuleReference } from "./model/module-reference.js";
 import { TypeConReference } from "./model/type-con-reference.js";
+import { DamlLfSemanticModel } from "./semantics/daml-lf-semantic-model.js";
 import { DamlLfWorkspace } from "./daml-lf-workspace.js";
 import { ModuleSymbol } from "./symbols/module-symbol.js";
 import { TypeSymbol } from "./symbols/type-symbol.js";
@@ -58,6 +59,10 @@ export class DamlLfCompilation {
         }
 
         return symbol;
+    }
+
+    public createSemanticModel(): DamlLfSemanticModel {
+        return new DamlLfSemanticModel(this);
     }
 
     private buildIndexes(): void {
