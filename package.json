@@ -29,6 +29,7 @@
     },
     "scripts": {
         "build": "tsc -p tsconfig.json",
+        "generate:daml-interface": "node ./dist/daml-interface/cli/daml-interface-cli-main.js",
         "generate:grpc": "node ./scripts/generate-grpc-bindings.mjs",
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix --max-warnings=0",
