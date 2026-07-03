@@ -6,6 +6,10 @@ export function createFakeGrpcOperations(
     return {
         getHealthAsync: async () => ({ status: "healthy" }),
         createPartyAsync: async () => ({ identifier: "unused" }),
+        listPartiesAsync: async () => ({
+            partyDetails: [],
+            nextPageToken: "",
+        }),
         grantUserRightsAsync: async () => ({ rights: [] }),
         uploadPackageAsync: async () => ({ packageId: "unused" }),
         queryContractsAsync: async () => ({ contracts: [] }),

@@ -1,5 +1,6 @@
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
+import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
 import { StreamTransactionsRequest } from "../../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -8,6 +9,7 @@ import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
+import { ListPartiesResponse } from "../../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadPackageResponse } from "../../core/types/responses/upload-package-response.js";
@@ -29,6 +31,8 @@ import {
 import {
     mapGrpcCreateParty,
     mapGrpcCreatePartyRequest,
+    mapGrpcListParties,
+    mapGrpcListPartiesRequest,
 } from "./mappers/parties-mapper.js";
 import { mapGrpcHealth } from "./mappers/system-mapper.js";
 import {
@@ -36,6 +40,7 @@ import {
     mapGrpcGrantUserRightsRequest,
 } from "./mappers/users-mapper.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
+import { ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 
 export class GrpcTransport implements ITransport {
     public readonly features = {
@@ -58,6 +63,16 @@ export class GrpcTransport implements ITransport {
         );
 
         return mapGrpcCreateParty(payload as { identifier?: string });
+    }
+
+    public async listPartiesAsync(
+        request: ListPartiesRequest,
+    ): Promise<ListPartiesResponse> {
+        const payload = await this.operations.listPartiesAsync(
+            mapGrpcListPartiesRequest(request),
+        );
+
+        return mapGrpcListParties(payload as ListKnownPartiesResponse);
     }
 
     public async grantUserRightsAsync(

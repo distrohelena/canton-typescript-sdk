@@ -3,6 +3,7 @@ import { TransportError } from "../../core/errors/transport-error.js";
 export interface GrpcOperations {
     getHealthAsync(): Promise<unknown>;
     createPartyAsync(request: unknown): Promise<unknown>;
+    listPartiesAsync(request: unknown): Promise<unknown>;
     grantUserRightsAsync(request: unknown): Promise<unknown>;
     uploadPackageAsync(request: unknown): Promise<unknown>;
     queryContractsAsync(request: unknown): Promise<unknown>;
@@ -18,6 +19,9 @@ export function createGrpcOperations(_endpoint: string): GrpcOperations {
             );
         },
         async createPartyAsync(_request: unknown): Promise<unknown> {
+            throw new TransportError("gRPC party operations are not wired yet");
+        },
+        async listPartiesAsync(_request: unknown): Promise<unknown> {
             throw new TransportError("gRPC party operations are not wired yet");
         },
         async grantUserRightsAsync(_request: unknown): Promise<unknown> {
