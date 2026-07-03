@@ -16,15 +16,18 @@ export { SubmitCommandRequest } from "./core/types/requests/submit-command-reque
 export { QueryContractsRequest } from "./core/types/requests/query-contracts-request.js";
 export { StreamTransactionsRequest } from "./core/types/requests/stream-transactions-request.js";
 export { CreatePartyRequest } from "./core/types/requests/create-party-request.js";
+export { ListPartiesRequest } from "./core/types/requests/list-parties-request.js";
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
 export type { UserRightAssignment } from "./core/types/requests/grant-user-rights-request.js";
 export { UploadPackageRequest } from "./core/types/requests/upload-package-request.js";
 export { SubmitCommandResponse } from "./core/types/responses/submit-command-response.js";
 export { QueryContractsResponse } from "./core/types/responses/query-contracts-response.js";
 export { CreatePartyResponse } from "./core/types/responses/create-party-response.js";
+export { ListPartiesResponse } from "./core/types/responses/list-parties-response.js";
 export { GrantUserRightsResponse } from "./core/types/responses/grant-user-rights-response.js";
 export { UploadPackageResponse } from "./core/types/responses/upload-package-response.js";
 export { HealthStatusResponse } from "./core/types/responses/health-status-response.js";
+export { PartyDetails } from "./core/types/party-details.js";
 export { CantonError } from "./core/errors/canton-error.js";
 export { ValidationError } from "./core/errors/validation-error.js";
 export { AuthenticationError } from "./core/errors/authentication-error.js";
