@@ -71,12 +71,15 @@ export class JsonTransport implements ITransport {
         if (request.identityProviderId) {
             query.set("identity-provider-id", request.identityProviderId);
         }
+
         if (request.filterParty) {
             query.set("filter-party", request.filterParty);
         }
+
         if (request.pageSize !== undefined) {
             query.set("pageSize", request.pageSize.toString());
         }
+
         if (request.pageToken) {
             query.set("pageToken", request.pageToken);
         }
