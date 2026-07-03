@@ -1,31 +1,40 @@
 {
-  "name": "canton-typescript-sdk",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "name": "canton-typescript-sdk",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./grpc": {
+            "types": "./dist/grpc/index.d.ts",
+            "import": "./dist/grpc/index.js"
+        },
+        "./json": {
+            "types": "./dist/json/index.d.ts",
+            "import": "./dist/json/index.js"
+        }
     },
-    "./grpc": {
-      "types": "./dist/grpc/index.d.ts",
-      "import": "./dist/grpc/index.js"
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "lint": "eslint . --max-warnings=0",
+        "lint:fix": "eslint . --fix --max-warnings=0",
+        "start:local-ledger": "bash node/start-local.sh",
+        "stop:local-ledger": "bash node/stop-local.sh",
+        "test": "vitest run",
+        "test:unit": "vitest run tests/unit"
     },
-    "./json": {
-      "types": "./dist/json/index.d.ts",
-      "import": "./dist/json/index.js"
+    "devDependencies": {
+        "@distrohelena/linter": "^0.5.0",
+        "@typescript-eslint/parser": "^8.62.1",
+        "@typescript-eslint/utils": "^8.62.1",
+        "eslint": "^10.6.0",
+        "prettier": "^3.9.4",
+        "typescript": "^5.9.2",
+        "vitest": "^3.2.4"
     }
-  },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
-    "test:unit": "vitest run tests/unit"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
-  }
 }
