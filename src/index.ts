@@ -8,6 +8,7 @@ export { SignCommandResult } from "./core/signing/sign-command-result.js";
 export type { ITransport } from "./core/transports/transport.interface.js";
 export { TransportCapability } from "./core/transports/transport-capability.js";
 export { TransportKind } from "./core/types/transport-kind.js";
+export { GrpcChannelSecurity } from "./core/types/grpc-channel-security.js";
 export { SubmissionMode } from "./core/types/submission-mode.js";
 export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
