@@ -25,6 +25,9 @@ import {
     CreateCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
+    HealthCheckRequest,
+    HealthCheckResponse,
+    HealthCheckStatus,
     GetLedgerApiVersionRequest,
     GetUpdatesRequest,
     GrantUserRightsRequest,
@@ -69,6 +72,7 @@ Creates a high-level client from `CantonClientOptions`.
 Exposed properties:
 
 - `versionService`
+- `healthService`
 - `partyManagementService`
 - `userManagementService`
 - `packageManagementService`
@@ -177,6 +181,57 @@ const response = await client.versionService.getLedgerApiVersionAsync(
     new GetLedgerApiVersionRequest(),
 );
 console.log(response.version);
+```
+
+### `healthService.checkAsync(request)`
+
+Checks `grpc.health.v1.Health.Check`.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Parameters:
+
+- `request: HealthCheckRequest`
+
+Request fields:
+
+- `service?: string`
+
+Return type:
+
+- `Promise<HealthCheckResponse>`
+
+Useful response fields:
+
+- `status: HealthCheckStatus`
+
+`HealthCheckStatus` values:
+
+- `HealthCheckStatus.unknown`
+- `HealthCheckStatus.serving`
+- `HealthCheckStatus.notServing`
+- `HealthCheckStatus.serviceUnknown`
+
+Notes:
+
+- this is a dedicated gRPC health endpoint, not a version call
+- JSON has no equivalent `grpc.health.v1` endpoint and rejects it intentionally
+
+Example:
+
+```ts
+const response = await client.healthService.checkAsync(
+    new HealthCheckRequest({
+        service: "grpc.health.v1.Health",
+    }),
+);
+
+if (response.status === HealthCheckStatus.serving) {
+    console.log("service is serving");
+}
 ```
 
 ### `partyManagementService.allocatePartyAsync(request)`
@@ -469,6 +524,7 @@ They do not expose public methods yet.
 | Function | JSON | gRPC |
 | --- | --- | --- |
 | `versionService.getLedgerApiVersionAsync` | Yes | Yes |
+| `healthService.checkAsync` | No | Yes |
 | `partyManagementService.allocatePartyAsync` | Yes | Yes |
 | `partyManagementService.listKnownPartiesAsync` | Yes | Yes |
 | `userManagementService.grantUserRightsAsync` | Yes | Yes |

@@ -16,6 +16,7 @@ import {
     CantonClient,
     CantonClientOptions,
     GetActiveContractsPageRequest,
+    HealthCheckRequest,
     GetLedgerApiVersionRequest,
     TransportKind,
 } from "canton-typescript-sdk";
@@ -30,6 +31,11 @@ const client = new CantonClient(
 
 const version = await client.versionService.getLedgerApiVersionAsync(
     new GetLedgerApiVersionRequest(),
+);
+const health = await client.healthService.checkAsync(
+    new HealthCheckRequest({
+        service: "grpc.health.v1.Health",
+    }),
 );
 const party = await client.partyManagementService.allocatePartyAsync(
     new AllocatePartyRequest({
@@ -48,6 +54,7 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
 ## Service Map
 
 - `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
+- `healthService.checkAsync(...)`: `grpc` only
 - `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
 - `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
 - `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
@@ -69,6 +76,8 @@ Subpath exports are available when you want to construct directly over a transpo
 - `canton-typescript-sdk/json`
 
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
+
+JSON does not provide a `grpc.health.v1.Health.Check` equivalent. The shared SDK still exposes `healthService`, but JSON rejects calls with `NotSupportedError`.
 
 ## External Signing
 
