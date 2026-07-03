@@ -14,6 +14,10 @@ export class CommandsClient {
         });
     }
 
+    /**
+     * Submits a command.
+     * Supported on JSON and gRPC. External signing is gRPC-only.
+     */
     public submitAsync(
         request: SubmitCommandRequest,
     ): Promise<SubmitCommandResponse> {

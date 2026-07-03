@@ -6,6 +6,7 @@ export class SystemClient {
         void this.transport;
     }
 
+    /** Gets participant health. Supported on JSON and gRPC. */
     public getHealthAsync(): Promise<HealthStatusResponse> {
         return this.transport.getHealthAsync();
     }

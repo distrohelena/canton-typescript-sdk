@@ -9,12 +9,14 @@ export class PartiesClient {
         void this.transport;
     }
 
+    /** Allocates a party. Supported on JSON and gRPC. */
     public createAsync(
         request: CreatePartyRequest,
     ): Promise<CreatePartyResponse> {
         return this.transport.createPartyAsync(request);
     }
 
+    /** Lists known parties. Supported on JSON and gRPC. */
     public listAsync(
         request: ListPartiesRequest,
     ): Promise<ListPartiesResponse> {

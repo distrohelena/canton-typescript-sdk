@@ -7,6 +7,10 @@ export class EventsClient {
         void this.transport;
     }
 
+    /**
+     * Streams ledger update events.
+     * True streaming support is gRPC-only; JSON only exposes query-stream semantics.
+     */
     public streamTransactionsAsync(
         request: StreamTransactionsRequest,
         observer: TransactionObserver,

@@ -7,6 +7,7 @@ export class ContractsClient {
         void this.transport;
     }
 
+    /** Queries contracts. Supported on JSON and gRPC. */
     public queryAsync(
         request: QueryContractsRequest,
     ): Promise<QueryContractsResponse> {

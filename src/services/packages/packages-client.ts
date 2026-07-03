@@ -7,6 +7,7 @@ export class PackagesClient {
         void this.transport;
     }
 
+    /** Uploads a DAR package. Supported on JSON and gRPC. */
     public uploadAsync(
         request: UploadPackageRequest,
     ): Promise<UploadPackageResponse> {

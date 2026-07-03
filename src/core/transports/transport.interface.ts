@@ -18,24 +18,47 @@ import { ListPartiesResponse } from "../types/responses/list-parties-response.js
 
 export interface ITransport {
     readonly features: TransportFeatures;
+
+    /** Gets participant health. Supported on JSON and gRPC. */
     getHealthAsync(): Promise<HealthStatusResponse>;
+
+    /** Allocates a party. Supported on JSON and gRPC. */
     createPartyAsync(request: CreatePartyRequest): Promise<CreatePartyResponse>;
+
+    /** Lists known parties. Supported on JSON and gRPC. */
     listPartiesAsync(
         request: ListPartiesRequest,
     ): Promise<ListPartiesResponse>;
+
+    /** Grants user rights. Supported on JSON and gRPC. */
     grantUserRightsAsync(
         request: GrantUserRightsRequest,
     ): Promise<GrantUserRightsResponse>;
+
+    /** Uploads a DAR package. Supported on JSON and gRPC. */
     uploadPackageAsync(
         request: UploadPackageRequest,
     ): Promise<UploadPackageResponse>;
+
+    /** Queries contracts. Supported on JSON and gRPC. */
     queryContractsAsync(
         request: QueryContractsRequest,
     ): Promise<QueryContractsResponse>;
+
+    /**
+     * Streams ledger update events over gRPC.
+     * JSON does not provide equivalent support here; its `/v1/stream/query`
+     * endpoint has query-stream semantics, not ledger-update stream semantics.
+     */
     streamTransactionsAsync(
         request: StreamTransactionsRequest,
         observer: TransactionObserver,
     ): Promise<void>;
+
+    /**
+     * Submits a command.
+     * Supported on JSON and gRPC. External signing is gRPC-only.
+     */
     submitCommandAsync(
         request: SubmitCommandRequest,
         signed?: SignCommandResult,

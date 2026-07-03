@@ -7,6 +7,7 @@ export class UsersClient {
         void this.transport;
     }
 
+    /** Grants user rights. Supported on JSON and gRPC. */
     public grantRightsAsync(
         request: GrantUserRightsRequest,
     ): Promise<GrantUserRightsResponse> {
