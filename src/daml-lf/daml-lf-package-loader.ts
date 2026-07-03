@@ -30,6 +30,7 @@ export class DamlLfPackageLoader {
     ): DamlLfPackageLoadResult {
         const envelope =
             ArchivePayloadDecoder.decodeArchiveOrThrow(archiveBytes);
+
         const rawPackage = this.packageDecoderRegistry.decodePackageOrThrow(
             envelope.packagePayload,
             envelope.languageVersion,

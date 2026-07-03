@@ -13,9 +13,12 @@ export class ArchivePayloadDecoder {
     ): ArchivePayloadEnvelope {
         try {
             const archive = Archive.fromBinary(archiveBytes);
+
             const payload = ArchivePayload.fromBinary(archive.payload);
+
             const languageVersion =
                 ArchivePayloadDecoder.getLanguageVersionOrThrow(payload);
+
             const packagePayload =
                 ArchivePayloadDecoder.getPackagePayloadOrThrow(payload);
 

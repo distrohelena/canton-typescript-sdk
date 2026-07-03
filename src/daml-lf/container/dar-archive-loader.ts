@@ -8,6 +8,7 @@ export class DarArchiveLoader {
     public async loadDarOrThrowAsync(archiveBytes: Uint8Array): Promise<DarArchive> {
         try {
             const archiveEntries = unzipSync(archiveBytes);
+
             const manifestBytes = archiveEntries["META-INF/MANIFEST.MF"];
 
             if (manifestBytes === undefined) {
@@ -17,6 +18,7 @@ export class DarArchiveLoader {
             }
 
             const manifest = this.parseManifestOrThrow(strFromU8(manifestBytes));
+
             const packageEntries = Object.entries(archiveEntries)
                 .filter(([path]) => path.endsWith(".dalf"))
                 .map(
@@ -26,6 +28,7 @@ export class DarArchiveLoader {
                             bytes,
                         }),
                 );
+
             const mainPackageEntry = packageEntries.find(
                 (entry) => entry.path === manifest.mainDalfPath,
             );
@@ -71,6 +74,7 @@ export class DarArchiveLoader {
             }
 
             const key = line.slice(0, delimiterIndex).trim();
+
             const value = line.slice(delimiterIndex + 1).trim();
 
             properties.set(key, value);

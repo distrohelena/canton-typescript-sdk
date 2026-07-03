@@ -7,6 +7,7 @@ import { DamlLfNodeKind } from "../../../src/daml-lf/model/daml-lf-node-kind.js"
 describe("LF 2.x model mapper", () => {
     it("maps a decoded LF package into the public immutable model", () => {
         const archiveBytes = SampleLfPackageFixture.createLf2ArchiveBytes();
+
         const loader = new DamlLfPackageLoader();
 
         const packageModel = loader.loadPackageOrThrow(archiveBytes);

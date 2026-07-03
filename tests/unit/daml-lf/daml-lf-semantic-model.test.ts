@@ -18,6 +18,7 @@ describe("DamlLfSemanticModel", () => {
             moduleName: "Dependency.Module",
             name: "DependencyRecord",
         });
+
         const compilation = DamlLfCompilation.createOrThrow(
             new DamlLfWorkspace([
                 new DamlLfPackage({

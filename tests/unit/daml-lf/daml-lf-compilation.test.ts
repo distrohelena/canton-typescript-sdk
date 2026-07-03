@@ -20,6 +20,7 @@ describe("DamlLfCompilation", () => {
             moduleName: "Dependency.Module",
             name: "DependencyRecord",
         });
+
         const dependencyPackage = new DamlLfPackage({
             packageId: "dependency-hash",
             packageName: "dependency-package",
@@ -49,6 +50,7 @@ describe("DamlLfCompilation", () => {
                 }),
             ],
         });
+
         const consumerPackage = new DamlLfPackage({
             packageId: "consumer-hash",
             packageName: "consumer-package",
@@ -74,18 +76,21 @@ describe("DamlLfCompilation", () => {
                 }),
             ],
         });
+
         const workspace = new DamlLfWorkspace([
             dependencyPackage,
             consumerPackage,
         ]);
 
         const compilation = DamlLfCompilation.createOrThrow(workspace);
+
         const moduleSymbol = compilation.getModuleSymbolOrThrow(
             new ModuleReference({
                 packageId: "dependency-hash",
                 moduleName: "Dependency.Module",
             }),
         );
+
         const typeSymbol = compilation.getTypeSymbolOrThrow(dependencyReference);
 
         expect(moduleSymbol.name).toBe("Dependency.Module");
@@ -122,6 +127,7 @@ describe("DamlLfCompilation", () => {
                 }),
             ],
         });
+
         const workspace = new DamlLfWorkspace([brokenPackage]);
 
         expect(() => DamlLfCompilation.createOrThrow(workspace)).toThrow(

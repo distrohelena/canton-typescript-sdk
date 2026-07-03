@@ -5,6 +5,7 @@ import { DamlLfPackageLoader } from "../../../src/daml-lf/daml-lf-package-loader
 describe("DamlLfPackageLoader", () => {
     it("loads an LF 2.x raw package from archive bytes", () => {
         const archiveBytes = SampleLfPackageFixture.createLf2ArchiveBytes();
+
         const loader = new DamlLfPackageLoader();
 
         const result = (
