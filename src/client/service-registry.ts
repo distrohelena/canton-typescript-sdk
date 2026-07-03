@@ -6,10 +6,12 @@ import { QueryContractsRequest } from "../core/types/requests/query-contracts-re
 import { StreamTransactionsRequest } from "../core/types/requests/stream-transactions-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { UploadPackageRequest } from "../core/types/requests/upload-package-request.js";
+import { ListPartiesRequest } from "../core/types/requests/list-parties-request.js";
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
 import { CreatePartyResponse } from "../core/types/responses/create-party-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../core/types/responses/health-status-response.js";
+import { ListPartiesResponse } from "../core/types/responses/list-parties-response.js";
 import { QueryContractsResponse } from "../core/types/responses/query-contracts-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
 import { UploadPackageResponse } from "../core/types/responses/upload-package-response.js";
@@ -56,6 +58,12 @@ class PlaceholderTransport implements ITransport {
         _request: CreatePartyRequest,
     ): Promise<CreatePartyResponse> {
         throw new TransportError("party creation is not available yet");
+    }
+
+    public async listPartiesAsync(
+        _request: ListPartiesRequest,
+    ): Promise<ListPartiesResponse> {
+        throw new TransportError("party listing is not available yet");
     }
 
     public async grantUserRightsAsync(

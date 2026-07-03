@@ -13,11 +13,16 @@ import { UploadPackageResponse } from "../types/responses/upload-package-respons
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 import { SignCommandResult } from "../signing/sign-command-result.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
+import { ListPartiesRequest } from "../types/requests/list-parties-request.js";
+import { ListPartiesResponse } from "../types/responses/list-parties-response.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;
     getHealthAsync(): Promise<HealthStatusResponse>;
     createPartyAsync(request: CreatePartyRequest): Promise<CreatePartyResponse>;
+    listPartiesAsync(
+        request: ListPartiesRequest,
+    ): Promise<ListPartiesResponse>;
     grantUserRightsAsync(
         request: GrantUserRightsRequest,
     ): Promise<GrantUserRightsResponse>;
