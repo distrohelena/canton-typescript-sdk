@@ -13,6 +13,7 @@ This SDK exposes a gRPC-shaped public API:
 The documented public surface no longer uses the old domain-grouped names like `system`, `parties`, `packages`, `contracts`, `events`, or `commands`.
 
 The package also exposes a separate DAML-LF front-end through the `canton-typescript-sdk/daml-lf` subpath.
+It also exposes a separate interface generator through the `canton-typescript-sdk/daml-interface` subpath.
 
 ## Imports
 
@@ -59,6 +60,17 @@ import {
     DamlLfSemanticModel,
     DamlLfWorkspace,
 } from "canton-typescript-sdk/daml-lf";
+```
+
+DAML interface generator:
+
+```ts
+import {
+    DamlInterfaceCli,
+    DamlInterfaceCliOptions,
+    DamlInterfaceGenerator,
+    DamlInterfaceWriter,
+} from "canton-typescript-sdk/daml-interface";
 ```
 
 ## Construction
@@ -205,6 +217,144 @@ Notes:
 
 - this is a scaffold only
 - it does not execute DAML-LF yet
+
+## DAML Interface Generator
+
+The `canton-typescript-sdk/daml-interface` subpath generates an in-memory TypeScript project from compiled `DAR` or `DALF` artifacts.
+
+Current generated project shape:
+
+- one file per template
+- shared support files
+- a registry file
+- an index file
+
+Important limits:
+
+- generation is strict and throws when a template or choice shape is unsupported
+- current analyzer support is limited to the implemented `daml-lf` semantic surface
+- input is compiled artifacts only, not `.daml` source files
+
+### `new DamlInterfaceGeneratorOptions(init?)`
+
+Creates generator configuration.
+
+Fields:
+
+- `generatedDirectory?: string`
+
+Notes:
+
+- currently defaults to `"generated"`
+
+### `new DamlInterfaceGenerator(options?)`
+
+Creates the interface generator entry point.
+
+Primary methods:
+
+- `analyzeOrThrow(compilation: DamlLfCompilation): DamlInterfaceAnalysisResult`
+- `generateFromDalfOrThrowAsync(archiveBytes: Uint8Array): Promise<GeneratedDamlInterfaceProject>`
+- `generateFromDarOrThrowAsync(archiveBytes: Uint8Array): Promise<GeneratedDamlInterfaceProject>`
+
+Example:
+
+```ts
+const project = await new DamlInterfaceGenerator().generateFromDarOrThrowAsync(
+    darBytes,
+);
+```
+
+### `new DamlInterfaceWriter()`
+
+Creates the file-system writer for generated projects.
+
+Primary method:
+
+- `writeProjectAsync(project: GeneratedDamlInterfaceProject, outputDirectory: string): Promise<void>`
+
+Example:
+
+```ts
+const generator = new DamlInterfaceGenerator();
+const writer = new DamlInterfaceWriter();
+const project = await generator.generateFromDalfOrThrowAsync(dalfBytes);
+
+await writer.writeProjectAsync(project, "./generated-sdk");
+```
+
+### `GeneratedDamlInterfaceProject`
+
+Represents the current in-memory generated file set.
+
+Useful fields:
+
+- `templateFiles`
+- `supportFiles`
+- `registryFile?`
+- `indexFile?`
+
+### `GeneratedTemplateBindingFile`
+
+Represents one generated template output.
+
+Useful fields:
+
+- `path`
+- `contents`
+- `binding`
+
+### `DamlInterfaceCliOptions.parseOrThrow(args)`
+
+Parses CLI arguments.
+
+Required flags:
+
+- `--input <path>`
+- `--output <directory>`
+
+Example:
+
+```ts
+const options = DamlInterfaceCliOptions.parseOrThrow([
+    "--input",
+    "./sample.dalf",
+    "--output",
+    "./artifacts",
+]);
+```
+
+### `new DamlInterfaceCli()`
+
+Creates the thin CLI orchestrator.
+
+Primary method:
+
+- `runAsync(args: readonly string[]): Promise<number>`
+
+Supported input extensions:
+
+- `.dalf`
+- `.dar`
+
+Example:
+
+```ts
+const exitCode = await new DamlInterfaceCli().runAsync([
+    "--input",
+    "./sample.dar",
+    "--output",
+    "./artifacts",
+]);
+```
+
+### CLI Script
+
+The package exposes:
+
+```bash
+npm run generate:daml-interface -- --input ./sample.dalf --output ./artifacts
+```
 
 ## Auth And Signing
 

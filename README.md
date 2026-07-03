@@ -75,6 +75,7 @@ Subpath exports are available when you want to construct directly over a transpo
 - `canton-typescript-sdk/grpc`
 - `canton-typescript-sdk/json`
 - `canton-typescript-sdk/daml-lf`
+- `canton-typescript-sdk/daml-interface`
 
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
 
@@ -112,6 +113,58 @@ const workspace = new DamlLfWorkspace([packageModel]);
 const compilation = DamlLfCompilation.createOrThrow(workspace);
 const semanticModel = compilation.createSemanticModel();
 ```
+
+## DAML Interface Generator
+
+The `canton-typescript-sdk/daml-interface` subpath exposes a generator that turns compiled `DAR` or `DALF` artifacts into an in-memory TypeScript binding project.
+
+Current generated output shape:
+
+- one file per template
+- shared support files
+- a registry file
+- an index file
+
+Example:
+
+```ts
+import { DamlInterfaceGenerator } from "canton-typescript-sdk/daml-interface";
+
+const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+    dalfBytes,
+);
+
+console.log(project.templateFiles[0].path);
+console.log(project.registryFile?.path);
+console.log(project.indexFile?.path);
+```
+
+You can also write the generated project to disk:
+
+```ts
+import {
+    DamlInterfaceGenerator,
+    DamlInterfaceWriter,
+} from "canton-typescript-sdk/daml-interface";
+
+const generator = new DamlInterfaceGenerator();
+const writer = new DamlInterfaceWriter();
+const project = await generator.generateFromDarOrThrowAsync(darBytes);
+
+await writer.writeProjectAsync(project, "./artifacts");
+```
+
+CLI:
+
+```bash
+npm run generate:daml-interface -- --input ./sample.dalf --output ./artifacts
+```
+
+Current limits:
+
+- generation is strict and throws when a template shape is not supported yet
+- milestone 1 supports the current `daml-lf` text-based analyzer surface only
+- the generator works from compiled artifacts, not `.daml` source files
 
 ## External Signing
 
