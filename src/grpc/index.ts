@@ -1,2 +1,2 @@
-export { GrpcLedgerClient } from "../transports/grpc/grpcLedgerClient.js";
-export { GrpcTransport } from "../transports/grpc/grpcTransport.js";
+export { GrpcLedgerClient } from "../transports/grpc/grpc-ledger-client.js";
+export { GrpcTransport } from "../transports/grpc/grpc-transport.js";

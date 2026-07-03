@@ -11,18 +11,18 @@ TypeScript SDK for Canton with:
 
 ```ts
 import {
-  BearerTokenAuthProvider,
-  CantonClient,
-  CantonClientOptions,
-  TransportKind
+    BearerTokenAuthProvider,
+    CantonClient,
+    CantonClientOptions,
+    TransportKind,
 } from "canton-typescript-sdk";
 
 const client = new CantonClient(
-  new CantonClientOptions({
-    transportKind: TransportKind.json,
-    endpoint: "https://participant.example.com",
-    authProvider: new BearerTokenAuthProvider("token")
-  })
+    new CantonClientOptions({
+        transportKind: TransportKind.json,
+        endpoint: "https://participant.example.com",
+        authProvider: new BearerTokenAuthProvider("token"),
+    }),
 );
 
 await client.system.getHealthAsync();
@@ -33,29 +33,29 @@ await client.contracts.queryAsync({ templateId: "Main:Iou" });
 
 ```ts
 import {
-  CantonClient,
-  CantonClientOptions,
-  TransportKind
+    CantonClient,
+    CantonClientOptions,
+    TransportKind,
 } from "canton-typescript-sdk";
 
 const client = new CantonClient(
-  new CantonClientOptions({
-    transportKind: TransportKind.grpc,
-    endpoint: "https://participant.example.com",
-    commandSigner: {
-      async signAsync(request) {
-        return {
-          algorithm: "ed25519",
-          signature: request.payload
-        };
-      }
-    }
-  })
+    new CantonClientOptions({
+        transportKind: TransportKind.grpc,
+        endpoint: "https://participant.example.com",
+        commandSigner: {
+            async signAsync(request) {
+                return {
+                    algorithm: "ed25519",
+                    signature: request.payload,
+                };
+            },
+        },
+    }),
 );
 
 await client.commands.submitAsync({
-  applicationId: "app-1",
-  actAs: ["Alice"]
+    applicationId: "app-1",
+    actAs: ["Alice"],
 });
 ```
 
