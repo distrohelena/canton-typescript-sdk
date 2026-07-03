@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
-    QueryContractsRequest,
-    StreamQueryRequest,
+    GetActiveContractsPageRequest,
+    GetActiveContractsRequest,
     SubmitCommandRequest,
 } from "../../../src";
 
@@ -42,15 +42,15 @@ describe("json transport entrypoint", () => {
         const nextAsync = vi.fn(async () => undefined);
 
         await expect(
-            client.contracts.queryAsync(
-                new QueryContractsRequest({
+            client.stateService.getActiveContractsPageAsync(
+                new GetActiveContractsPageRequest({
                     party: "Alice",
                     templateId: "Main:Iou",
                 }),
             ),
         ).resolves.toBeDefined();
-        await client.contracts.streamQueryAsync(
-            new StreamQueryRequest({
+        await client.stateService.getActiveContractsAsync(
+            new GetActiveContractsRequest({
                 party: "Alice",
                 templateId: "Main:Iou",
             }),

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    GetActiveContractsPageRequest,
+    GetActiveContractsRequest,
     NotSupportedError,
-    QueryContractsRequest,
-    StreamQueryRequest,
     SubmitCommandRequest,
 } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
@@ -29,16 +29,16 @@ describe("grpc transport entrypoint", () => {
 
         expect(grpcModule).toHaveProperty("GrpcLedgerClient");
         await expect(
-            client.contracts.queryAsync(
-                new QueryContractsRequest({
+            client.stateService.getActiveContractsPageAsync(
+                new GetActiveContractsPageRequest({
                     party: "Alice",
                     templateId: "Main:Iou",
                 }),
             ),
         ).resolves.toBeDefined();
         await expect(
-            client.contracts.streamQueryAsync(
-                new StreamQueryRequest({
+            client.stateService.getActiveContractsAsync(
+                new GetActiveContractsRequest({
                     party: "Alice",
                     templateId: "Main:Iou",
                 }),

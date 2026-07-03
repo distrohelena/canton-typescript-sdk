@@ -1,8 +1,11 @@
 import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
+import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
+import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
+import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
@@ -14,6 +17,7 @@ import { UploadPackageRequest } from "../../core/types/requests/upload-package-r
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
+import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
@@ -203,6 +207,30 @@ export class GrpcTransport implements ITransport {
         return mapGrpcQueryContracts(payload as { contracts?: unknown[] });
     }
 
+    public async getActiveContractsPageAsync(
+        request: GetActiveContractsPageRequest,
+    ): Promise<GetActiveContractsPageResponse> {
+        const payload = await this.queryContractsAsync(
+            new QueryContractsRequest({
+                party: request.party,
+                templateId: request.templateId ?? "",
+            }),
+        );
+
+        return new GetActiveContractsPageResponse({
+            contracts: payload.contracts,
+        });
+    }
+
+    public async getActiveContractsAsync(
+        _request: GetActiveContractsRequest,
+        _observer: ContractObserver,
+    ): Promise<void> {
+        throw new NotSupportedError(
+            "StateService.GetActiveContracts is not supported by gRPC transport yet",
+        );
+    }
+
     public async streamQueryAsync(
         _request: StreamQueryRequest,
         _observer: ContractObserver,
@@ -227,6 +255,21 @@ export class GrpcTransport implements ITransport {
         for (const event of events) {
             await observer.nextAsync(event);
         }
+    }
+
+    public getUpdatesAsync(
+        request: GetUpdatesRequest,
+        observer: TransactionObserver,
+    ): Promise<void> {
+        return this.streamTransactionsAsync(
+            new StreamTransactionsRequest({
+                party: request.party,
+                beginOffset: request.beginOffset,
+                endOffset: request.endOffset,
+                templateId: request.templateId,
+            }),
+            observer,
+        );
     }
 
     public async submitCommandAsync(

@@ -2,8 +2,11 @@ import { CantonClientOptions } from "./canton-client-options.js";
 import { ITransport } from "../core/transports/transport.interface.js";
 import { CreatePartyRequest } from "../core/types/requests/create-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
+import { GetActiveContractsPageRequest } from "../core/types/requests/get-active-contracts-page-request.js";
+import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
+import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { QueryContractsRequest } from "../core/types/requests/query-contracts-request.js";
 import { StreamQueryRequest } from "../core/types/requests/stream-query-request.js";
@@ -15,6 +18,7 @@ import { ListPartiesRequest } from "../core/types/requests/list-parties-request.
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../core/types/responses/create-party-response.js";
+import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../core/types/responses/health-status-response.js";
@@ -126,6 +130,23 @@ class PlaceholderTransport implements ITransport {
         throw new TransportError("contract queries are not available yet");
     }
 
+    public async getActiveContractsPageAsync(
+        _request: GetActiveContractsPageRequest,
+    ): Promise<GetActiveContractsPageResponse> {
+        throw new TransportError(
+            "StateService.GetActiveContractsPage is not available yet",
+        );
+    }
+
+    public async getActiveContractsAsync(
+        _request: GetActiveContractsRequest,
+        _observer: ContractObserver,
+    ): Promise<void> {
+        throw new TransportError(
+            "StateService.GetActiveContracts is not available yet",
+        );
+    }
+
     public async streamQueryAsync(
         _request: StreamQueryRequest,
         _observer: ContractObserver,
@@ -138,6 +159,13 @@ class PlaceholderTransport implements ITransport {
         _observer: TransactionObserver,
     ): Promise<void> {
         throw new TransportError("transaction streaming is not available yet");
+    }
+
+    public async getUpdatesAsync(
+        _request: GetUpdatesRequest,
+        _observer: TransactionObserver,
+    ): Promise<void> {
+        throw new TransportError("UpdateService.GetUpdates is not available yet");
     }
 
     public async submitCommandAsync(

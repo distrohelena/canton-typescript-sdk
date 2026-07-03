@@ -1,24 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
-import { StreamTransactionsRequest } from "../../../src";
-import { EventsClient } from "../../../src/services/events/events-client.js";
+import { GetUpdatesRequest, NotSupportedError } from "../../../src";
+import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
 
-describe("EventsClient", () => {
-    it("streams transactions through the selected transport", async () => {
-        const request = new StreamTransactionsRequest({
-            party: "Alice",
-            beginOffset: "0",
-            endOffset: "10",
-            templateId: "Main:Iou",
-        });
-
-        const nextAsync = vi.fn(async () => undefined);
-
+describe("UpdateServiceClient", () => {
+    it("surfaces unsupported update streaming", async () => {
         const transport = {
             features: { supportsCommandSigning: false },
             getHealthAsync: async () => {
                 throw new Error("not used");
             },
+            getLedgerApiVersionAsync: async () => {
+                throw new Error("not used");
+            },
             createPartyAsync: async () => {
+                throw new Error("not used");
+            },
+            allocatePartyAsync: async () => {
+                throw new Error("not used");
+            },
+            listPartiesAsync: async () => {
+                throw new Error("not used");
+            },
+            listKnownPartiesAsync: async () => {
                 throw new Error("not used");
             },
             grantUserRightsAsync: async () => {
@@ -27,25 +30,41 @@ describe("EventsClient", () => {
             uploadPackageAsync: async () => {
                 throw new Error("not used");
             },
+            uploadDarFileAsync: async () => {
+                throw new Error("not used");
+            },
             queryContractsAsync: async () => {
                 throw new Error("not used");
             },
-            streamTransactionsAsync: async (
-                _request: StreamTransactionsRequest,
-                observer: { nextAsync(event: unknown): Promise<void> },
-            ) => {
-                await observer.nextAsync({ transactionId: "tx-1" });
+            getActiveContractsPageAsync: async () => {
+                throw new Error("not used");
+            },
+            getActiveContractsAsync: async () => {
+                throw new Error("not used");
+            },
+            streamQueryAsync: async () => {
+                throw new Error("not used");
+            },
+            streamTransactionsAsync: async () => {
+                throw new Error("not used");
+            },
+            getUpdatesAsync: async () => {
+                throw new NotSupportedError(
+                    "UpdateService.GetUpdates is gRPC-only",
+                );
+            },
+            submitCommandAsync: async () => {
+                throw new Error("not used");
             },
         };
 
-        const client = new EventsClient(transport);
+        const client = new UpdateServiceClient(transport);
 
-        expect(request.party).toBe("Alice");
-        expect(request.beginOffset).toBe("0");
-        expect(request.endOffset).toBe("10");
-        expect(request.templateId).toBe("Main:Iou");
-        await client.streamTransactionsAsync(request, { nextAsync });
-
-        expect(nextAsync).toHaveBeenCalledWith({ transactionId: "tx-1" });
+        await expect(
+            client.getUpdatesAsync(
+                new GetUpdatesRequest({ party: "Alice" }),
+                { nextAsync: vi.fn(async () => undefined) },
+            ),
+        ).rejects.toThrow(NotSupportedError);
     });
 });

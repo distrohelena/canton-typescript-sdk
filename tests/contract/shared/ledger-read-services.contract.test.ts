@@ -1,17 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    QueryContractsRequest,
-    QueryContractsResponse,
-    StreamTransactionsRequest,
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
+    GetActiveContractsRequest,
+    GetUpdatesRequest,
+    NotSupportedError,
 } from "../../../src";
-import { ContractsClient } from "../../../src/services/contracts/contracts-client.js";
-import { EventsClient } from "../../../src/services/events/events-client.js";
+import { StateServiceClient } from "../../../src/services/state/state-service-client.js";
+import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
 describe("shared ledger read services contract", () => {
     it("supports query and event reads on json and grpc transports", async () => {
         const capturedJsonBodies: Record<string, unknown> = {};
+
+        const jsonQueryNextAsync = vi.fn(async () => undefined);
+
+        const grpcEventNextAsync = vi.fn(async () => undefined);
 
         const jsonTransport = new JsonTransport({
             getAsync: async () => ({ status: "healthy" }),
@@ -21,7 +27,7 @@ describe("shared ledger read services contract", () => {
                 if (path === "/v1/query") {
                     return { result: [{ contractId: "c1" }] };
                 } else if (path === "/v1/stream/query") {
-                    return { events: [{ transactionId: "json-tx-1" }] };
+                    return { events: [{ contractId: "json-c1" }] };
                 }
 
                 return {};
@@ -31,6 +37,10 @@ describe("shared ledger read services contract", () => {
         const grpcTransport = new GrpcTransport({
             getHealthAsync: async () => ({ status: "healthy" }),
             createPartyAsync: async () => ({ identifier: "unused" }),
+            listPartiesAsync: async () => ({
+                partyDetails: [],
+                nextPageToken: "",
+            }),
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             queryContractsAsync: async () => ({
@@ -53,46 +63,62 @@ describe("shared ledger read services contract", () => {
             ],
         });
 
-        const jsonContracts = new ContractsClient(jsonTransport);
+        const jsonStateService = new StateServiceClient(jsonTransport);
 
-        const grpcContracts = new ContractsClient(grpcTransport);
+        const grpcStateService = new StateServiceClient(grpcTransport);
 
-        const jsonEvents = new EventsClient(jsonTransport);
+        const jsonUpdateService = new UpdateServiceClient(jsonTransport);
 
-        const grpcEvents = new EventsClient(grpcTransport);
+        const grpcUpdateService = new UpdateServiceClient(grpcTransport);
 
         await expect(
-            jsonContracts.queryAsync(
-                new QueryContractsRequest({
+            jsonStateService.getActiveContractsPageAsync(
+                new GetActiveContractsPageRequest({
                     party: "Alice",
                     templateId: "Main:Iou",
                 }),
             ),
-        ).resolves.toBeInstanceOf(QueryContractsResponse);
+        ).resolves.toBeInstanceOf(GetActiveContractsPageResponse);
         await expect(
-            grpcContracts.queryAsync(
-                new QueryContractsRequest({
+            grpcStateService.getActiveContractsPageAsync(
+                new GetActiveContractsPageRequest({
                     party: "Alice",
                     templateId: "Main:Iou",
                 }),
             ),
-        ).resolves.toBeInstanceOf(QueryContractsResponse);
+        ).resolves.toBeInstanceOf(GetActiveContractsPageResponse);
+        await expect(
+            grpcStateService.getActiveContractsAsync(
+                new GetActiveContractsRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
+                { nextAsync: vi.fn(async () => undefined) },
+            ),
+        ).rejects.toThrow(NotSupportedError);
 
-        const nextAsync = vi.fn(async () => undefined);
-
-        await jsonEvents.streamTransactionsAsync(
-            new StreamTransactionsRequest({
+        await jsonStateService.getActiveContractsAsync(
+            new GetActiveContractsRequest({
                 party: "Alice",
                 templateId: "Main:Iou",
             }),
-            { nextAsync },
+            { nextAsync: jsonQueryNextAsync },
         );
-        await grpcEvents.streamTransactionsAsync(
-            new StreamTransactionsRequest({
+        await expect(
+            jsonUpdateService.getUpdatesAsync(
+                new GetUpdatesRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
+                { nextAsync: vi.fn(async () => undefined) },
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await grpcUpdateService.getUpdatesAsync(
+            new GetUpdatesRequest({
                 party: "Alice",
                 templateId: "Main:Iou",
             }),
-            { nextAsync },
+            { nextAsync: grpcEventNextAsync },
         );
 
         expect(capturedJsonBodies["/v1/query"]).toEqual({
@@ -102,7 +128,11 @@ describe("shared ledger read services contract", () => {
             party: "Alice",
             templateIds: ["Main:Iou"],
         });
-        expect(nextAsync).toHaveBeenCalledWith({ transactionId: "json-tx-1" });
-        expect(nextAsync).toHaveBeenCalledWith({ transactionId: "grpc-tx-1" });
+        expect(jsonQueryNextAsync).toHaveBeenCalledWith({
+            contractId: "json-c1",
+        });
+        expect(grpcEventNextAsync).toHaveBeenCalledWith({
+            transactionId: "grpc-tx-1",
+        });
     });
 });

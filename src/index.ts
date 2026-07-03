@@ -26,7 +26,10 @@ export { UserRightKind } from "./core/types/user-right-kind.js";
 export { PackageFormat } from "./core/types/package-format.js";
 export { CreateCommand } from "./core/types/commands/create-command.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
+export { GetActiveContractsPageRequest } from "./core/types/requests/get-active-contracts-page-request.js";
+export { GetActiveContractsRequest } from "./core/types/requests/get-active-contracts-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
+export { GetUpdatesRequest } from "./core/types/requests/get-updates-request.js";
 export { ListKnownPartiesRequest } from "./core/types/requests/list-known-parties-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
 export { QueryContractsRequest } from "./core/types/requests/query-contracts-request.js";
@@ -39,6 +42,7 @@ export type { UserRightAssignment } from "./core/types/requests/grant-user-right
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
 export { UploadPackageRequest } from "./core/types/requests/upload-package-request.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
+export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { ListKnownPartiesResponse } from "./core/types/responses/list-known-parties-response.js";
 export { SubmitCommandResponse } from "./core/types/responses/submit-command-response.js";

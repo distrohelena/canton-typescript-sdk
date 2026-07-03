@@ -20,7 +20,7 @@ Current alignment note:
 - `VersionService`, `PartyManagementService`, `UserManagementService`, and `PackageManagementService` are already exposed under gRPC-shaped names on `CantonClient`
 - `CommandService.submitAndWaitAsync(...)` is the active command surface
 - `CommandSubmissionService.submitAsync(...)` is present but intentionally unsupported for now
-- ledger-read surfaces are still being renamed and will be rewritten in a later refactor step
+- `StateService.getActiveContractsPageAsync(...)`, `StateService.getActiveContractsAsync(...)`, and `UpdateService.getUpdatesAsync(...)` are the first migrated ledger-read surfaces
 
 ## Installation And Imports
 
@@ -57,6 +57,9 @@ import { JsonLedgerClient } from "canton-typescript-sdk/json";
 | `userManagementService.grantUserRightsAsync()` | Yes | Yes |
 | `packageManagementService.uploadDarFileAsync()` | Yes | Yes |
 | `commandService.submitAndWaitAsync()` | Yes | Yes |
+| `stateService.getActiveContractsPageAsync()` | Yes | Yes |
+| `stateService.getActiveContractsAsync()` | Yes | No |
+| `updateService.getUpdatesAsync()` | No | Yes |
 | external command signing | No | Yes |
 
 ## Shared Client
@@ -220,7 +223,7 @@ Fields:
 
 ## Service Clients
 
-The operational services below use their new gRPC-shaped names now. Ledger-read service documentation will be rewritten once those migrations complete.
+The operational services below use their new gRPC-shaped names now.
 
 ### `client.versionService.getLedgerApiVersionAsync()`
 
@@ -406,9 +409,9 @@ Current behavior:
 
 - rejects with `NotSupportedError`
 
-### `client.contracts.queryAsync(request)`
+### `client.stateService.getActiveContractsPageAsync(request)`
 
-Runs a point-in-time contract query.
+Reads a page of active contracts.
 
 Transport support:
 
@@ -417,34 +420,34 @@ Transport support:
 
 Parameters:
 
-- `request: QueryContractsRequest`
+- `request: GetActiveContractsPageRequest`
 
 Return type:
 
-- `Promise<QueryContractsResponse<TContract>>`
+- `Promise<GetActiveContractsPageResponse<TContract>>`
 
 Example:
 
 ```ts
-const contracts = await client.contracts.queryAsync(
-    new QueryContractsRequest({
+const contracts = await client.stateService.getActiveContractsPageAsync(
+    new GetActiveContractsPageRequest({
         party: "Alice",
         templateId: "Main:Iou",
     }),
 );
 ```
 
-### `client.contracts.streamQueryAsync(request, observer)`
+### `client.stateService.getActiveContractsAsync(request, observer)`
 
-Streams query results from the JSON `/v1/stream/query` surface.
+Reads active contracts as a stream-like contract callback surface.
 
 Transport support:
 
-- JSON only
+- JSON
 
 Parameters:
 
-- `request: StreamQueryRequest`
+- `request: GetActiveContractsRequest`
 - `observer: ContractObserver`
 
 Return type:
@@ -453,13 +456,13 @@ Return type:
 
 Behavior:
 
-- on gRPC this rejects with `NotSupportedError`
+- on gRPC this currently rejects with `NotSupportedError`
 
 Example:
 
 ```ts
-await client.contracts.streamQueryAsync(
-    new StreamQueryRequest({
+await client.stateService.getActiveContractsAsync(
+    new GetActiveContractsRequest({
         party: "Alice",
         templateId: "Main:Iou",
     }),
@@ -471,17 +474,17 @@ await client.contracts.streamQueryAsync(
 );
 ```
 
-### `client.events.streamTransactionsAsync(request, observer)`
+### `client.updateService.getUpdatesAsync(request, observer)`
 
-Streams ledger update events.
+Reads ledger updates.
 
 Transport support:
 
-- gRPC only
+- gRPC
 
 Parameters:
 
-- `request: StreamTransactionsRequest`
+- `request: GetUpdatesRequest`
 - `observer: Transaction-like observer with async nextAsync(event)`
 
 Return type:
@@ -490,14 +493,13 @@ Return type:
 
 Behavior:
 
-- on JSON this rejects with `NotSupportedError`
-- JSON query streaming is separate and lives on `contracts.streamQueryAsync(...)`
+- on JSON this currently rejects with `NotSupportedError`
 
 Example:
 
 ```ts
-await client.events.streamTransactionsAsync(
-    new StreamTransactionsRequest({
+await client.updateService.getUpdatesAsync(
+    new GetUpdatesRequest({
         party: "Alice",
         beginOffset: "0",
         templateId: "Main:Iou",
@@ -766,7 +768,7 @@ Method:
 
 - `nextAsync(contract: TContract): Promise<void>`
 
-Use this with `contracts.streamQueryAsync(...)`.
+Use this with `stateService.getActiveContractsAsync(...)`.
 
 ## Enums
 
@@ -848,5 +850,5 @@ Thrown when the requested feature is unsupported by the selected transport.
 Examples:
 
 - using `commandSigner` with `TransportKind.json`
-- calling `contracts.streamQueryAsync(...)` on gRPC
-- calling `events.streamTransactionsAsync(...)` on JSON
+- calling `stateService.getActiveContractsAsync(...)` on gRPC
+- calling `updateService.getUpdatesAsync(...)` on JSON

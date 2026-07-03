@@ -1,10 +1,13 @@
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreatePartyRequest } from "../../core/types/requests/create-party-request.js";
+import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
+import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
+import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListPartiesRequest } from "../../core/types/requests/list-parties-request.js";
 import { QueryContractsRequest } from "../../core/types/requests/query-contracts-request.js";
@@ -16,6 +19,7 @@ import { UploadPackageRequest } from "../../core/types/requests/upload-package-r
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { CreatePartyResponse } from "../../core/types/responses/create-party-response.js";
+import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthStatusResponse } from "../../core/types/responses/health-status-response.js";
@@ -223,6 +227,34 @@ export class JsonTransport implements ITransport {
         return mapJsonQueryContracts(payload as { result?: unknown[] });
     }
 
+    public async getActiveContractsPageAsync(
+        request: GetActiveContractsPageRequest,
+    ): Promise<GetActiveContractsPageResponse> {
+        const payload = await this.queryContractsAsync(
+            new QueryContractsRequest({
+                party: request.party,
+                templateId: request.templateId ?? "",
+            }),
+        );
+
+        return new GetActiveContractsPageResponse({
+            contracts: payload.contracts,
+        });
+    }
+
+    public getActiveContractsAsync(
+        request: GetActiveContractsRequest,
+        observer: ContractObserver,
+    ): Promise<void> {
+        return this.streamQueryAsync(
+            new StreamQueryRequest({
+                party: request.party,
+                templateId: request.templateId,
+            }),
+            observer,
+        );
+    }
+
     public async streamQueryAsync(
         request: StreamQueryRequest,
         observer: ContractObserver,
@@ -247,6 +279,15 @@ export class JsonTransport implements ITransport {
     ): Promise<void> {
         throw new NotSupportedError(
             "ledger update streaming is gRPC-only; JSON supports streamQueryAsync instead",
+        );
+    }
+
+    public async getUpdatesAsync(
+        _request: GetUpdatesRequest,
+        _observer: TransactionObserver,
+    ): Promise<void> {
+        throw new NotSupportedError(
+            "UpdateService.GetUpdates is gRPC-only; JSON supports StateService.getActiveContractsAsync instead",
         );
     }
 
