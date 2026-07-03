@@ -4,6 +4,7 @@ import { CommandCompletionServiceClient } from "../../services/command-completio
 import { CommandSubmissionServiceClient } from "../../services/command-submission/command-submission-service-client.js";
 import { ContractServiceClient } from "../../services/contract/contract-service-client.js";
 import { EventQueryServiceClient } from "../../services/event-query/event-query-service-client.js";
+import { HealthServiceClient } from "../../services/health/health-service-client.js";
 import { PackageManagementServiceClient } from "../../services/package-management/package-management-service-client.js";
 import { PartyManagementServiceClient } from "../../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
@@ -15,6 +16,7 @@ import { GrpcTransport } from "./grpc-transport.js";
 
 export class GrpcLedgerClient {
     public readonly versionService: VersionServiceClient;
+    public readonly healthService: HealthServiceClient;
     public readonly partyManagementService: PartyManagementServiceClient;
     public readonly userManagementService: UserManagementServiceClient;
     public readonly packageManagementService: PackageManagementServiceClient;
@@ -30,6 +32,7 @@ export class GrpcLedgerClient {
         const transport = new GrpcTransport(operations);
 
         this.versionService = new VersionServiceClient(transport);
+        this.healthService = new HealthServiceClient(transport);
         this.partyManagementService = new PartyManagementServiceClient(transport);
         this.userManagementService = new UserManagementServiceClient(transport);
         this.packageManagementService = new PackageManagementServiceClient(

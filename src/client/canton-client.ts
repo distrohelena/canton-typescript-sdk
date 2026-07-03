@@ -5,6 +5,7 @@ import { CommandServiceClient } from "../services/command/command-service-client
 import { CommandSubmissionServiceClient } from "../services/command-submission/command-submission-service-client.js";
 import { ContractServiceClient } from "../services/contract/contract-service-client.js";
 import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
+import { HealthServiceClient } from "../services/health/health-service-client.js";
 import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
@@ -16,6 +17,7 @@ import { createServiceRegistry } from "./service-registry.js";
 
 export class CantonClient {
     public readonly versionService: VersionServiceClient;
+    public readonly healthService: HealthServiceClient;
     public readonly partyManagementService: PartyManagementServiceClient;
     public readonly userManagementService: UserManagementServiceClient;
     public readonly packageManagementService: PackageManagementServiceClient;
@@ -40,6 +42,7 @@ export class CantonClient {
         const services = createServiceRegistry(options);
 
         this.versionService = services.versionService;
+        this.healthService = services.healthService;
         this.partyManagementService = services.partyManagementService;
         this.userManagementService = services.userManagementService;
         this.packageManagementService = services.packageManagementService;

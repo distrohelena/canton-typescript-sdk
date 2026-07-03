@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
+    HealthCheckStatus,
+    HealthServiceClient,
     PartyManagementServiceClient,
     TransportKind,
     VersionServiceClient,
@@ -11,6 +13,8 @@ describe("package surface", () => {
     it("exports the grpc-shaped root client types", () => {
         expect(CantonClient).toBeTypeOf("function");
         expect(CantonClientOptions).toBeTypeOf("function");
+        expect(HealthServiceClient).toBeTypeOf("function");
+        expect(HealthCheckStatus.serving).toBe("serving");
         expect(VersionServiceClient).toBeTypeOf("function");
         expect(PartyManagementServiceClient).toBeTypeOf("function");
         expect(TransportKind.grpc).toBe("grpc");

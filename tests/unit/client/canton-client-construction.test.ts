@@ -11,6 +11,7 @@ describe("CantonClient", () => {
         );
 
         expect(client.versionService).toBeDefined();
+        expect(client.healthService).toBeDefined();
         expect(client.partyManagementService).toBeDefined();
         expect(client.userManagementService).toBeDefined();
         expect(client.packageManagementService).toBeDefined();

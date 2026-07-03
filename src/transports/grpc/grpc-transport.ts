@@ -5,6 +5,7 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
+import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
@@ -13,6 +14,7 @@ import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/ty
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
+import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
@@ -65,6 +67,14 @@ export class GrpcTransport implements ITransport {
                     ? payload.features
                     : undefined,
         });
+    }
+
+    public async checkHealthAsync(
+        _request: HealthCheckRequest,
+    ): Promise<HealthCheckResponse> {
+        throw new NotSupportedError(
+            "grpc.health.v1.Health.Check is not implemented yet",
+        );
     }
 
     public async allocatePartyAsync(

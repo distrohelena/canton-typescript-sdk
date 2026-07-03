@@ -5,6 +5,7 @@ export { CommandServiceClient } from "./services/command/command-service-client.
 export { CommandSubmissionServiceClient } from "./services/command-submission/command-submission-service-client.js";
 export { ContractServiceClient } from "./services/contract/contract-service-client.js";
 export { EventQueryServiceClient } from "./services/event-query/event-query-service-client.js";
+export { HealthServiceClient } from "./services/health/health-service-client.js";
 export { PackageManagementServiceClient } from "./services/package-management/package-management-service-client.js";
 export { PartyManagementServiceClient } from "./services/party-management/party-management-service-client.js";
 export { StateServiceClient } from "./services/state/state-service-client.js";
@@ -24,10 +25,12 @@ export { SubmissionMode } from "./core/types/submission-mode.js";
 export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
 export { PackageFormat } from "./core/types/package-format.js";
+export { HealthCheckStatus } from "./core/types/health-check-status.js";
 export { CreateCommand } from "./core/types/commands/create-command.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
 export { GetActiveContractsPageRequest } from "./core/types/requests/get-active-contracts-page-request.js";
 export { GetActiveContractsRequest } from "./core/types/requests/get-active-contracts-request.js";
+export { HealthCheckRequest } from "./core/types/requests/health-check-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
 export { GetUpdatesRequest } from "./core/types/requests/get-updates-request.js";
 export { ListKnownPartiesRequest } from "./core/types/requests/list-known-parties-request.js";
@@ -37,6 +40,7 @@ export type { UserRightAssignment } from "./core/types/requests/grant-user-right
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
+export { HealthCheckResponse } from "./core/types/responses/health-check-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { ListKnownPartiesResponse } from "./core/types/responses/list-known-parties-response.js";
 export { SubmitCommandResponse } from "./core/types/responses/submit-command-response.js";

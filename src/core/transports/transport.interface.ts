@@ -6,11 +6,13 @@ import { GetActiveContractsRequest } from "../types/requests/get-active-contract
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetLedgerApiVersionRequest } from "../types/requests/get-ledger-api-version-request.js";
 import { GetUpdatesRequest } from "../types/requests/get-updates-request.js";
+import { HealthCheckRequest } from "../types/requests/health-check-request.js";
 import { UploadDarFileRequest } from "../types/requests/upload-dar-file-request.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../types/responses/grant-user-rights-response.js";
+import { HealthCheckResponse } from "../types/responses/health-check-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
 import { SubmitCommandResponse } from "../types/responses/submit-command-response.js";
 import { UploadDarFileResponse } from "../types/responses/upload-dar-file-response.js";
@@ -26,6 +28,9 @@ export interface ITransport {
     getLedgerApiVersionAsync(
         request?: GetLedgerApiVersionRequest,
     ): Promise<GetLedgerApiVersionResponse>;
+
+    /** Checks gRPC health. Supported on gRPC; JSON rejects it. */
+    checkHealthAsync(request: HealthCheckRequest): Promise<HealthCheckResponse>;
 
     /** Allocates a party. Supported on JSON and gRPC. */
     allocatePartyAsync(

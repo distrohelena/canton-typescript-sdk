@@ -7,6 +7,7 @@ import {
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
+import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
@@ -15,6 +16,7 @@ import { AllocatePartyResponse } from "../../core/types/responses/allocate-party
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
+import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
@@ -47,6 +49,14 @@ export class JsonTransport implements ITransport {
                 (payload as { version?: string }).version
                 ?? "unknown",
         });
+    }
+
+    public async checkHealthAsync(
+        _request: HealthCheckRequest,
+    ): Promise<HealthCheckResponse> {
+        throw new NotSupportedError(
+            "grpc.health.v1.Health.Check is not supported by json transport",
+        );
     }
 
     public async allocatePartyAsync(

@@ -6,6 +6,7 @@ import { GetActiveContractsRequest } from "../core/types/requests/get-active-con
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
 import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js";
+import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
@@ -14,6 +15,7 @@ import { AllocatePartyResponse } from "../core/types/responses/allocate-party-re
 import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
+import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse } from "../core/types/responses/upload-dar-file-response.js";
@@ -25,6 +27,7 @@ import { CommandSubmissionServiceClient } from "../services/command-submission/c
 import { ContractServiceClient } from "../services/contract/contract-service-client.js";
 import { ContractObserver } from "../services/contracts/contract-observer.interface.js";
 import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
+import { HealthServiceClient } from "../services/health/health-service-client.js";
 import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
@@ -37,6 +40,7 @@ import { TransactionObserver } from "../services/events/transaction-observer.int
 
 export interface ServiceRegistry {
     readonly versionService: VersionServiceClient;
+    readonly healthService: HealthServiceClient;
     readonly partyManagementService: PartyManagementServiceClient;
     readonly userManagementService: UserManagementServiceClient;
     readonly packageManagementService: PackageManagementServiceClient;
@@ -63,6 +67,12 @@ class PlaceholderTransport implements ITransport {
         _request?: GetLedgerApiVersionRequest,
     ): Promise<GetLedgerApiVersionResponse> {
         throw new TransportError("ledger api version is not available yet");
+    }
+
+    public async checkHealthAsync(
+        _request: HealthCheckRequest,
+    ): Promise<HealthCheckResponse> {
+        throw new TransportError("gRPC health checks are not available yet");
     }
 
     public async allocatePartyAsync(
@@ -133,6 +143,7 @@ export function createServiceRegistry(
 
     return {
         versionService: new VersionServiceClient(transport),
+        healthService: new HealthServiceClient(transport),
         partyManagementService: new PartyManagementServiceClient(transport),
         userManagementService: new UserManagementServiceClient(transport),
         packageManagementService: new PackageManagementServiceClient(
