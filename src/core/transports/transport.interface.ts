@@ -9,6 +9,7 @@ import { GetPackageContentsRequest } from "../types/requests/get-package-content
 import { GetPackageReferencesRequest } from "../types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../types/requests/get-package-status-request.js";
+import { GetParticipantStatusRequest } from "../types/requests/get-participant-status-request.js";
 import { GetUpdatesRequest } from "../types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../types/requests/health-check-request.js";
 import { ListPackagesRequest } from "../types/requests/list-packages-request.js";
@@ -19,6 +20,7 @@ import { GetPackageContentsResponse } from "../types/responses/get-package-conte
 import { GetPackageReferencesResponse } from "../types/responses/get-package-references-response.js";
 import { GetPackageResponse } from "../types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../types/responses/get-package-status-response.js";
+import { GetParticipantStatusResponse } from "../types/responses/get-participant-status-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
@@ -119,6 +121,12 @@ export interface ITransport {
         request: GetPackageReferencesRequest,
         options?: RequestOptions,
     ): Promise<GetPackageReferencesResponse>;
+
+    /** Reads participant admin status. Supported on gRPC; JSON rejects it. */
+    getParticipantStatusAsync(
+        request: GetParticipantStatusRequest,
+        options?: RequestOptions,
+    ): Promise<GetParticipantStatusResponse>;
 
     /** Reads a page of active contracts. Supported on JSON and gRPC. */
     getActiveContractsPageAsync(

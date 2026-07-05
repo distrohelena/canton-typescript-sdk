@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
+    ConnectedSynchronizerHealth,
+    GetParticipantStatusRequest,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
     GetPackageRequest,
@@ -14,6 +16,7 @@ import {
     ListVettedPackagesRequest,
     PackageStatus,
     ParticipantListPackagesRequest,
+    ParticipantStatusServiceClient,
     UploadDarFileRequest,
     UserRightKind,
 } from "../../../src";
@@ -97,6 +100,28 @@ describe("gRPC operational services contract", () => {
                     },
                 ],
             }),
+            getParticipantStatusAsync: async () => ({
+                kind: {
+                    oneofKind: "status",
+                    status: {
+                        commonStatus: {
+                            uid: "participant::sandbox",
+                            ports: {},
+                            active: true,
+                            components: [],
+                            version: "3.4.0",
+                        },
+                        connectedSynchronizers: [
+                            {
+                                physicalSynchronizerId: "sync::sandbox",
+                                health: 1,
+                            },
+                        ],
+                        active: true,
+                        supportedProtocolVersions: [30],
+                    },
+                },
+            }),
         });
 
         const versionService = new VersionServiceClient(transport);
@@ -116,6 +141,10 @@ describe("gRPC operational services contract", () => {
         );
 
         const participantPackageService = new ParticipantPackageServiceClient(
+            transport,
+        );
+
+        const participantStatusService = new ParticipantStatusServiceClient(
             transport,
         );
 
@@ -227,6 +256,21 @@ describe("gRPC operational services contract", () => {
             ),
         ).resolves.toMatchObject({
             dars: [{ main: "pkg-1" }],
+        });
+        await expect(
+            participantStatusService.getParticipantStatusAsync(
+                new GetParticipantStatusRequest(),
+            ),
+        ).resolves.toMatchObject({
+            status: {
+                uid: "participant::sandbox",
+                connectedSynchronizers: [
+                    {
+                        physicalSynchronizerId: "sync::sandbox",
+                        health: ConnectedSynchronizerHealth.healthy,
+                    },
+                ],
+            },
         });
     });
 });

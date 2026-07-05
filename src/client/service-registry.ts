@@ -9,6 +9,7 @@ import { GetPackageContentsRequest } from "../core/types/requests/get-package-co
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../core/types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../core/types/requests/get-package-status-request.js";
+import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { ListPackagesRequest } from "../core/types/requests/list-packages-request.js";
@@ -23,6 +24,7 @@ import { GetPackageContentsResponse } from "../core/types/responses/get-package-
 import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
 import { GetPackageResponse } from "../core/types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../core/types/responses/get-package-status-response.js";
+import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
@@ -48,6 +50,7 @@ import { EventQueryServiceClient } from "../services/event-query/event-query-ser
 import { HealthServiceClient } from "../services/health/health-service-client.js";
 import { PackageServiceClient } from "../services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../services/participant-package/participant-package-service-client.js";
+import { ParticipantStatusServiceClient } from "../services/participant-status/participant-status-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
@@ -65,6 +68,7 @@ export interface ServiceRegistry {
     readonly userManagementService: UserManagementServiceClient;
     readonly packageService: PackageServiceClient;
     readonly participantPackageService: ParticipantPackageServiceClient;
+    readonly participantStatusService: ParticipantStatusServiceClient;
     readonly commandService: CommandServiceClient;
     readonly commandSubmissionService: CommandSubmissionServiceClient;
     readonly commandCompletionService: CommandCompletionServiceClient;
@@ -207,6 +211,15 @@ class PlaceholderTransport implements ITransport {
         throw new TransportError("participant package references are not available yet");
     }
 
+    public async getParticipantStatusAsync(
+        _request: GetParticipantStatusRequest,
+        _options?: RequestOptions,
+    ): Promise<GetParticipantStatusResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("participant status is not available yet");
+    }
+
     public async getActiveContractsPageAsync(
         _request: GetActiveContractsPageRequest,
         _options?: RequestOptions,
@@ -328,6 +341,10 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
+    public async getParticipantStatusAsync(): Promise<GetParticipantStatusResponse> {
+        this.throwMissingEndpoint();
+    }
+
     public async getActiveContractsPageAsync(): Promise<GetActiveContractsPageResponse> {
         this.throwMissingEndpoint();
     }
@@ -415,6 +432,10 @@ class CompositeTransport implements ITransport {
     }
 
     public async getParticipantPackageReferencesAsync(): Promise<GetPackageReferencesResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async getParticipantStatusAsync(): Promise<GetParticipantStatusResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
@@ -574,6 +595,10 @@ export function createServiceRegistry(
         adminTransport
         ?? createMissingAdminTransport(options, "participantPackageService");
 
+    const participantStatusTransport =
+        adminTransport
+        ?? createMissingAdminTransport(options, "participantStatusService");
+
     const transport = new CompositeTransport(
         [
             ledgerTransport,
@@ -594,6 +619,9 @@ export function createServiceRegistry(
         packageService: new PackageServiceClient(packageTransport),
         participantPackageService: new ParticipantPackageServiceClient(
             participantPackageTransport,
+        ),
+        participantStatusService: new ParticipantStatusServiceClient(
+            participantStatusTransport,
         ),
         commandService: new CommandServiceClient(
             commandTransport,

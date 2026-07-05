@@ -6,6 +6,7 @@ import { GetPackageContentsRequest } from "../../core/types/requests/get-package
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
+import { GetParticipantStatusRequest } from "../../core/types/requests/get-participant-status-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
@@ -24,6 +25,7 @@ import { GetPackageContentsResponse } from "../../core/types/responses/get-packa
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
+import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
@@ -282,6 +284,17 @@ export class JsonTransport implements ITransport {
 
         throw new NotSupportedError(
             "Participant PackageService.GetPackageReferences is not supported by json transport",
+        );
+    }
+
+    public async getParticipantStatusAsync(
+        _request: GetParticipantStatusRequest,
+        _options?: RequestOptions,
+    ): Promise<GetParticipantStatusResponse> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "ParticipantStatusService.ParticipantStatus is not supported by json transport",
         );
     }
 

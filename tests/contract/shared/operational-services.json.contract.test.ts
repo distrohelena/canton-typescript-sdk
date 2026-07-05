@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
+    GetParticipantStatusRequest,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
     GetPackageRequest,
@@ -12,6 +13,7 @@ import {
     ListVettedPackagesRequest,
     NotSupportedError,
     ParticipantListPackagesRequest,
+    ParticipantStatusServiceClient,
     UploadDarFileRequest,
     UserRightKind,
 } from "../../../src";
@@ -59,6 +61,10 @@ describe("JSON operational services contract", () => {
         );
 
         const participantPackageService = new ParticipantPackageServiceClient(
+            transport,
+        );
+
+        const participantStatusService = new ParticipantStatusServiceClient(
             transport,
         );
 
@@ -139,6 +145,11 @@ describe("JSON operational services contract", () => {
                 new GetPackageReferencesRequest({
                     packageId: "pkg-1",
                 }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+        await expect(
+            participantStatusService.getParticipantStatusAsync(
+                new GetParticipantStatusRequest(),
             ),
         ).rejects.toThrow(NotSupportedError);
     });

@@ -8,6 +8,7 @@ export { EventQueryServiceClient } from "./services/event-query/event-query-serv
 export { HealthServiceClient } from "./services/health/health-service-client.js";
 export { PackageServiceClient } from "./services/package/package-service-client.js";
 export { ParticipantPackageServiceClient } from "./services/participant-package/participant-package-service-client.js";
+export { ParticipantStatusServiceClient } from "./services/participant-status/participant-status-service-client.js";
 export { PartyManagementServiceClient } from "./services/party-management/party-management-service-client.js";
 export { StateServiceClient } from "./services/state/state-service-client.js";
 export { UpdateServiceClient } from "./services/update/update-service-client.js";
@@ -23,6 +24,14 @@ export { TransportCapability } from "./core/transports/transport-capability.js";
 export { TransportKind } from "./core/types/transport-kind.js";
 export { GrpcChannelSecurity } from "./core/types/grpc-channel-security.js";
 export { SubmissionMode } from "./core/types/submission-mode.js";
+export { AdminComponentHealthKind } from "./core/types/admin-component-health-kind.js";
+export { AdminComponentStatus } from "./core/types/admin-component-status.js";
+export { AdminNodeStatus } from "./core/types/admin-node-status.js";
+export { AdminNotInitializedExternalInputKind } from "./core/types/admin-not-initialized-external-input-kind.js";
+export { AdminNotInitializedStatus } from "./core/types/admin-not-initialized-status.js";
+export { AdminTopologyQueueStatus } from "./core/types/admin-topology-queue-status.js";
+export { ConnectedSynchronizerHealth } from "./core/types/connected-synchronizer-health.js";
+export { ConnectedSynchronizerStatus } from "./core/types/connected-synchronizer-status.js";
 export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
 export { PackageFormat } from "./core/types/package-format.js";
@@ -45,6 +54,7 @@ export { GetActiveContractsRequest } from "./core/types/requests/get-active-cont
 export { HealthCheckRequest } from "./core/types/requests/health-check-request.js";
 export { ListPackagesRequest } from "./core/types/requests/list-packages-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
+export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
 export { GetPackageContentsRequest } from "./core/types/requests/get-package-contents-request.js";
 export { GetPackageRequest } from "./core/types/requests/get-package-request.js";
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
@@ -61,6 +71,7 @@ export { AllocatePartyResponse } from "./core/types/responses/allocate-party-res
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
 export { HealthCheckResponse } from "./core/types/responses/health-check-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
+export { GetParticipantStatusResponse } from "./core/types/responses/get-participant-status-response.js";
 export { GetPackageContentsResponse } from "./core/types/responses/get-package-contents-response.js";
 export { GetPackageResponse } from "./core/types/responses/get-package-response.js";
 export { GetPackageReferencesResponse } from "./core/types/responses/get-package-references-response.js";
@@ -73,6 +84,7 @@ export { SubmitCommandResponse } from "./core/types/responses/submit-command-res
 export { GrantUserRightsResponse } from "./core/types/responses/grant-user-rights-response.js";
 export { UploadDarFileResponse } from "./core/types/responses/upload-dar-file-response.js";
 export { PartyDetails } from "./core/types/party-details.js";
+export { ParticipantNodeStatus } from "./core/types/participant-node-status.js";
 export type { ContractObserver } from "./services/contracts/contract-observer.interface.js";
 export type { TransactionObserver } from "./services/events/transaction-observer.interface.js";
 export { CantonError } from "./core/errors/canton-error.js";

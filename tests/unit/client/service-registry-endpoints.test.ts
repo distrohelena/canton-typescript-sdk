@@ -2,8 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     CantonClientOptions,
     EndpointNotConfiguredError,
+    GetParticipantStatusRequest,
+    GetParticipantStatusResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
+    ParticipantNodeStatus,
     TransportKind,
 } from "../../../src";
 import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
@@ -29,6 +32,9 @@ describe("service registry endpoint routing", () => {
             listKnownPartiesAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve admin calls");
             }),
+            getParticipantStatusAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve admin calls");
+            }),
             disposeAsync: vi.fn(async () => undefined),
             features: {
                 supportsCommandSigning: false,
@@ -42,6 +48,19 @@ describe("service registry endpoint routing", () => {
             listKnownPartiesAsync: vi.fn(async () => {
                 return new ListKnownPartiesResponse({
                     partyDetails: [],
+                });
+            }),
+            getParticipantStatusAsync: vi.fn(async () => {
+                return new GetParticipantStatusResponse({
+                    status: new ParticipantNodeStatus({
+                        uid: "participant::sandbox",
+                        active: true,
+                        version: "3.4.0",
+                        connectedSynchronizers: [],
+                        supportedProtocolVersions: [30],
+                        components: [],
+                        ports: {},
+                    }),
                 });
             }),
             disposeAsync: vi.fn(async () => undefined),
@@ -73,10 +92,16 @@ describe("service registry endpoint routing", () => {
                 new ListKnownPartiesRequest(),
             ),
         ).resolves.toBeInstanceOf(ListKnownPartiesResponse);
+        await expect(
+            services.participantStatusService.getParticipantStatusAsync(
+                new GetParticipantStatusRequest(),
+            ),
+        ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
 
         expect(createJsonTransport).toHaveBeenCalledTimes(2);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
         expect(adminTransport.listKnownPartiesAsync).toHaveBeenCalledTimes(1);
+        expect(adminTransport.getParticipantStatusAsync).toHaveBeenCalledTimes(1);
     });
 
     it("fails lazily when the admin endpoint is missing", async () => {
@@ -87,6 +112,9 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             listKnownPartiesAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve admin calls");
+            }),
+            getParticipantStatusAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve admin calls");
             }),
             disposeAsync: vi.fn(async () => undefined),
@@ -115,6 +143,12 @@ describe("service registry endpoint routing", () => {
         await expect(
             services.partyManagementService.listKnownPartiesAsync(
                 new ListKnownPartiesRequest(),
+            ),
+        ).rejects.toThrow(EndpointNotConfiguredError);
+
+        await expect(
+            services.participantStatusService.getParticipantStatusAsync(
+                new GetParticipantStatusRequest(),
             ),
         ).rejects.toThrow(EndpointNotConfiguredError);
     });

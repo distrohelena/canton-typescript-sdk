@@ -5,6 +5,10 @@ import {
     PackageServiceClient as ParticipantPackageServiceClient,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.client.js";
 import {
+    IParticipantStatusServiceClient,
+    ParticipantStatusServiceClient,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.client.js";
+import {
     IPackageManagementServiceClient,
     PackageManagementServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.client.js";
@@ -88,6 +92,7 @@ export interface GrpcOperations {
     listParticipantPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getParticipantPackageContentsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getParticipantPackageReferencesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getParticipantStatusAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     queryContractsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     streamTransactionsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -124,6 +129,10 @@ export interface GrpcOperationDependencies {
     participantPackageServiceClient?: Pick<
         IParticipantPackageServiceClient,
         "listPackages" | "getPackageContents" | "getPackageReferences"
+    >;
+    participantStatusServiceClient?: Pick<
+        IParticipantStatusServiceClient,
+        "participantStatus"
     >;
     stateServiceClient?: Pick<IStateServiceClient, "getActiveContractsPage">;
     updateServiceClient?: Pick<IUpdateServiceClient, "getUpdates">;
@@ -173,6 +182,10 @@ export function createGrpcOperations(
     const participantPackageServiceClient =
         dependencies.participantPackageServiceClient
         ?? new ParticipantPackageServiceClient(rpcTransport);
+
+    const participantStatusServiceClient =
+        dependencies.participantStatusServiceClient
+        ?? new ParticipantStatusServiceClient(rpcTransport);
 
     const stateServiceClient =
         dependencies.stateServiceClient ?? new StateServiceClient(rpcTransport);
@@ -401,6 +414,23 @@ export function createGrpcOperations(
             return await unwrapUnaryResponse(
                 participantPackageServiceClient.getPackageReferences(
                     request as { packageId: string },
+                    callOptions,
+                ),
+            );
+        },
+        async getParticipantStatusAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions = await buildGrpcCallOptionsAsync(
+                options.authProvider,
+                options.defaultRequestTimeoutMs,
+                requestOptions,
+            );
+
+            return await unwrapUnaryResponse(
+                participantStatusServiceClient.participantStatus(
+                    request as Record<string, never>,
                     callOptions,
                 ),
             );

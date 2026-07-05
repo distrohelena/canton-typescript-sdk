@@ -7,6 +7,7 @@ import { GetPackageContentsRequest } from "../../core/types/requests/get-package
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
+import { GetParticipantStatusRequest } from "../../core/types/requests/get-participant-status-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
@@ -22,6 +23,7 @@ import { GetPackageContentsResponse } from "../../core/types/responses/get-packa
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
+import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
@@ -68,6 +70,10 @@ import {
     mapGrpcUploadPackage,
     mapGrpcUploadPackageRequest,
 } from "./mappers/packages-mapper.js";
+import {
+    mapGrpcGetParticipantStatusRequest,
+    mapGrpcParticipantStatusResponse,
+} from "./mappers/participant-status-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import {
     mapGrpcGrantUserRights,
@@ -91,6 +97,7 @@ import {
     GetPackageReferencesResponse as ProtobufGetParticipantPackageReferencesResponse,
     ListPackagesResponse as ProtobufParticipantListPackagesResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import { ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 
 export class GrpcTransport implements ITransport {
@@ -335,6 +342,22 @@ export class GrpcTransport implements ITransport {
 
         return mapGrpcGetParticipantPackageReferences(
             payload as Partial<ProtobufGetParticipantPackageReferencesResponse>,
+        );
+    }
+
+    public async getParticipantStatusAsync(
+        request: GetParticipantStatusRequest,
+        options?: RequestOptions,
+    ): Promise<GetParticipantStatusResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.getParticipantStatusAsync!(
+            mapGrpcGetParticipantStatusRequest(request),
+            options,
+        );
+
+        return mapGrpcParticipantStatusResponse(
+            payload as Partial<ProtobufParticipantStatusResponse>,
         );
     }
 

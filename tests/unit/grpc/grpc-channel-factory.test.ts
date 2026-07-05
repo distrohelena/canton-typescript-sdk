@@ -149,6 +149,10 @@ describe("gRPC call-options factory", () => {
 
         let capturedParticipantOptions: unknown;
 
+        let capturedParticipantStatusRequest: unknown;
+
+        let capturedParticipantStatusOptions: unknown;
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -259,6 +263,25 @@ describe("gRPC call-options factory", () => {
                         }),
                     }),
                 },
+                participantStatusServiceClient: {
+                    participantStatus: (request: unknown, options?: unknown) => {
+                        capturedParticipantStatusRequest = request;
+                        capturedParticipantStatusOptions = options;
+
+                        return {
+                            response: Promise.resolve({
+                                kind: {
+                                    oneofKind: "notInitialized",
+                                    notInitialized: {
+                                        active: false,
+                                        waitingForExternalInput: 1,
+                                        version: "3.4.0",
+                                    },
+                                },
+                            }),
+                        };
+                    },
+                },
             } as any,
         ) as any;
 
@@ -268,6 +291,7 @@ describe("gRPC call-options factory", () => {
         await operations.getParticipantPackageContentsAsync({
             packageId: "pkg-1",
         });
+        await operations.getParticipantStatusAsync!({});
 
         expect(capturedLedgerRequest).toEqual({});
         expect(capturedLedgerOptions).toMatchObject({
@@ -281,6 +305,14 @@ describe("gRPC call-options factory", () => {
             packageId: "pkg-1",
         });
         expect(capturedParticipantOptions).toMatchObject({
+            meta: {
+                authorization: "Bearer token-123",
+                "x-canton-test": "yes",
+            },
+            timeout: 1_500,
+        });
+        expect(capturedParticipantStatusRequest).toEqual({});
+        expect(capturedParticipantStatusOptions).toMatchObject({
             meta: {
                 authorization: "Bearer token-123",
                 "x-canton-test": "yes",

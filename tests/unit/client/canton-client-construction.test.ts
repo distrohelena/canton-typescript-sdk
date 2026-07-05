@@ -29,6 +29,7 @@ describe("CantonClient", () => {
         expect(client.userManagementService).toBeDefined();
         expect(client.packageService).toBeDefined();
         expect(client.participantPackageService).toBeDefined();
+        expect(client.participantStatusService).toBeDefined();
         expect(client.commandService).toBeDefined();
         expect(client.commandSubmissionService).toBeDefined();
         expect(client.commandCompletionService).toBeDefined();
@@ -59,6 +60,7 @@ describe("CantonClient", () => {
             userManagementService: {},
             packageService: {},
             participantPackageService: {},
+            participantStatusService: {},
             commandService: {},
             commandSubmissionService: {},
             commandCompletionService: {},

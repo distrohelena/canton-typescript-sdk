@@ -88,6 +88,7 @@ For gRPC, channel security resolves per surface:
 - `participantPackageService.listPackagesAsync(...)`: `grpc` only
 - `participantPackageService.getPackageContentsAsync(...)`: `grpc` only
 - `participantPackageService.getPackageReferencesAsync(...)`: `grpc` only
+- `participantStatusService.getParticipantStatusAsync(...)`: `grpc` only
 
 ## Protocol-Specific Clients
 
@@ -101,6 +102,7 @@ Subpath exports are available when you want to construct directly over a transpo
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
 
 JSON does not provide a `grpc.health.v1.Health.Check` equivalent. The shared SDK still exposes `healthService`, but JSON rejects calls with `NotSupportedError`.
+JSON also does not provide a participant-admin status equivalent, so `participantStatusService` is currently `grpc` only.
 
 ## DAML-LF Parser
 

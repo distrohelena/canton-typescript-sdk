@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+    AdminComponentHealthKind,
+    AdminComponentStatus,
+    AdminNodeStatus,
+    AdminNotInitializedExternalInputKind,
+    AdminNotInitializedStatus,
     CantonClient,
     CantonClientOptions,
+    ConnectedSynchronizerHealth,
+    ConnectedSynchronizerStatus,
+    GetParticipantStatusRequest,
+    GetParticipantStatusResponse,
     GetPackageContentsRequest,
     GetPackageContentsResponse,
     GetPackageReferencesRequest,
@@ -21,6 +30,7 @@ import {
     ParticipantDarDescription,
     ParticipantListPackagesRequest,
     ParticipantListPackagesResponse,
+    ParticipantNodeStatus,
     ParticipantModuleDescription,
     ParticipantPackageDescription,
     ParticipantPackageServiceClient,
@@ -45,8 +55,16 @@ describe("package surface", () => {
         expect(EndpointNotConfiguredError).toBeTypeOf("function");
         expect(RequestOptions).toBeTypeOf("function");
         expect(TransportKind.grpc).toBe("grpc");
+        expect(AdminNodeStatus).toBeTypeOf("function");
+        expect(AdminNotInitializedStatus).toBeTypeOf("function");
+        expect(AdminComponentStatus).toBeTypeOf("function");
+        expect(AdminComponentHealthKind.ok).toBe("ok");
+        expect(AdminNotInitializedExternalInputKind.id).toBe("id");
+        expect(ConnectedSynchronizerHealth.healthy).toBe("healthy");
 
         const listPackagesRequest = new ListPackagesRequest();
+
+        const getParticipantStatusRequest = new GetParticipantStatusRequest();
 
         const getPackageContentsRequest = new GetPackageContentsRequest({
             packageId: "pkg-1",
@@ -68,7 +86,27 @@ describe("package surface", () => {
             limit: 25,
         });
 
+        const getParticipantStatusResponse = new GetParticipantStatusResponse({
+            status: new ParticipantNodeStatus({
+                uid: "participant::sandbox",
+                active: true,
+                version: "3.4.0",
+                connectedSynchronizers: [
+                    new ConnectedSynchronizerStatus({
+                        physicalSynchronizerId: "sync::sandbox",
+                        health: ConnectedSynchronizerHealth.healthy,
+                    }),
+                ],
+                supportedProtocolVersions: [30],
+                components: [],
+                ports: {},
+            }),
+        });
+
         expect(listPackagesRequest).toBeInstanceOf(ListPackagesRequest);
+        expect(getParticipantStatusRequest).toBeInstanceOf(
+            GetParticipantStatusRequest,
+        );
         expect(getPackageContentsRequest.packageId).toBe("pkg-1");
         expect(getPackageReferencesRequest.packageId).toBe("pkg-1");
         expect(getPackageRequest.packageId).toBe("pkg-1");
@@ -77,6 +115,7 @@ describe("package surface", () => {
             ListVettedPackagesRequest,
         );
         expect(participantListPackagesRequest.limit).toBe(25);
+        expect(getParticipantStatusResponse.status?.active).toBe(true);
         expect(new ListPackagesResponse({ packageIds: ["pkg-1"] })).toBeInstanceOf(
             ListPackagesResponse,
         );

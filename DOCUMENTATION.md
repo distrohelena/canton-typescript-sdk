@@ -30,6 +30,7 @@ import {
     GetPackageReferencesRequest,
     GetPackageRequest,
     GetPackageStatusRequest,
+    GetParticipantStatusRequest,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     HealthCheckRequest,
@@ -122,6 +123,7 @@ Exposed properties:
 - `userManagementService`
 - `packageService`
 - `participantPackageService`
+- `participantStatusService`
 - `commandService`
 - `commandSubmissionService`
 - `commandCompletionService`
@@ -150,6 +152,7 @@ Admin endpoint services use `adminEndpoint`:
 - `partyManagementService`
 - `userManagementService`
 - `participantPackageService`
+- `participantStatusService`
 
 ### `new GrpcLedgerClient(operations, signer?)`
 
@@ -827,6 +830,110 @@ Useful response fields:
 
 - `dars: ParticipantDarDescription[]`
 
+### `participantStatusService.getParticipantStatusAsync(request)`
+
+Reads participant admin status.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetParticipantStatusRequest`
+
+Request fields:
+
+- none
+
+Return type:
+
+- `Promise<GetParticipantStatusResponse>`
+
+Useful response fields:
+
+- `status?: ParticipantNodeStatus`
+- `notInitialized?: AdminNotInitializedStatus`
+
+`ParticipantNodeStatus` fields:
+
+- `uid: string`
+- `uptime?: { seconds: string; nanos: number }`
+- `ports: Record<string, number>`
+- `active: boolean`
+- `topologyQueues?: AdminTopologyQueueStatus`
+- `components: AdminComponentStatus[]`
+- `version: string`
+- `connectedSynchronizers: ConnectedSynchronizerStatus[]`
+- `supportedProtocolVersions: number[]`
+
+`ConnectedSynchronizerStatus` fields:
+
+- `physicalSynchronizerId: string`
+- `health: ConnectedSynchronizerHealth`
+
+`ConnectedSynchronizerHealth` values:
+
+- `ConnectedSynchronizerHealth.unspecified`
+- `ConnectedSynchronizerHealth.healthy`
+- `ConnectedSynchronizerHealth.unhealthy`
+
+`AdminNotInitializedStatus` fields:
+
+- `active: boolean`
+- `waitingForExternalInput: AdminNotInitializedExternalInputKind`
+- `version: string`
+
+`AdminNotInitializedExternalInputKind` values:
+
+- `AdminNotInitializedExternalInputKind.unspecified`
+- `AdminNotInitializedExternalInputKind.id`
+- `AdminNotInitializedExternalInputKind.nodeTopology`
+- `AdminNotInitializedExternalInputKind.initialization`
+
+`AdminTopologyQueueStatus` fields:
+
+- `manager: number`
+- `dispatcher: number`
+- `clients: number`
+
+`AdminComponentStatus` fields:
+
+- `name: string`
+- `kind: AdminComponentHealthKind`
+- `description?: string`
+
+`AdminComponentHealthKind` values:
+
+- `AdminComponentHealthKind.unknown`
+- `AdminComponentHealthKind.ok`
+- `AdminComponentHealthKind.degraded`
+- `AdminComponentHealthKind.failed`
+- `AdminComponentHealthKind.fatal`
+
+Notes:
+
+- `status` and `notInitialized` are mutually exclusive
+- JSON does not expose an equivalent participant-admin status endpoint today
+
+Example:
+
+```ts
+const response = await client.participantStatusService.getParticipantStatusAsync(
+    new GetParticipantStatusRequest(),
+);
+
+if (response.status) {
+    console.log(response.status.uid);
+    console.log(response.status.connectedSynchronizers.length);
+}
+
+if (response.notInitialized) {
+    console.log(response.notInitialized.waitingForExternalInput);
+}
+```
+
 ### `commandService.submitAndWaitAsync(request)`
 
 Submits a command and waits for the result.
@@ -1011,6 +1118,7 @@ They do not expose public methods yet.
 | `participantPackageService.listPackagesAsync` | Admin | No | Yes |
 | `participantPackageService.getPackageContentsAsync` | Admin | No | Yes |
 | `participantPackageService.getPackageReferencesAsync` | Admin | No | Yes |
+| `participantStatusService.getParticipantStatusAsync` | Admin | No | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
 | `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |
