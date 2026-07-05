@@ -24,7 +24,8 @@ import {
 const client = new CantonClient(
     new CantonClientOptions({
         transportKind: TransportKind.json,
-        endpoint: "https://participant.example.com",
+        ledgerEndpoint: "https://ledger.example.com",
+        adminEndpoint: "https://participant-admin.example.com",
         authProvider: new BearerTokenAuthProvider("token"),
     }),
 );
@@ -51,14 +52,25 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
 );
 ```
 
+`CantonClient` now splits its public surface across the real API boundaries:
+
+- ledger services use `ledgerEndpoint`
+- participant-admin services use `adminEndpoint`
+
+For gRPC, channel security resolves per surface:
+
+- ledger services use `ledgerGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- admin services use `adminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+
 ## Service Map
 
+- Ledger endpoint:
 - `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
 - `healthService.checkAsync(...)`: `grpc` only
-- `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
-- `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
-- `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
-- `packageManagementService.uploadDarFileAsync(...)`: `json`, `grpc`
+- `packageService.listPackagesAsync(...)`: `grpc` only
+- `packageService.getPackageAsync(...)`: `grpc` only
+- `packageService.getPackageStatusAsync(...)`: `grpc` only
+- `packageService.listVettedPackagesAsync(...)`: `grpc` only
 - `commandService.submitAndWaitAsync(...)`: `json`, `grpc`
 - `commandSubmissionService.submitAsync(...)`: reserved, currently unsupported
 - `stateService.getActiveContractsPageAsync(...)`: `json`, `grpc`
@@ -67,6 +79,15 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
 - `commandCompletionService`: placeholder, no methods yet
 - `eventQueryService`: placeholder, no methods yet
 - `contractService`: placeholder, no methods yet
+
+- Admin endpoint:
+- `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
+- `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
+- `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
+- `participantPackageService.uploadDarFileAsync(...)`: `json`, `grpc`
+- `participantPackageService.listPackagesAsync(...)`: `grpc` only
+- `participantPackageService.getPackageContentsAsync(...)`: `grpc` only
+- `participantPackageService.getPackageReferencesAsync(...)`: `grpc` only
 
 ## Protocol-Specific Clients
 

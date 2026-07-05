@@ -4,7 +4,7 @@
 
 This SDK exposes a gRPC-shaped public API:
 
-- `CantonClient` for shared construction from endpoint settings
+- `CantonClient` for shared construction from split ledger/admin endpoint settings
 - `GrpcLedgerClient` and `JsonLedgerClient` for transport-specific construction
 - service clients grouped by gRPC Ledger API service boundaries
 - explicit request and response classes
@@ -89,15 +89,26 @@ Creates the shared client options object.
 Fields:
 
 - `transportKind: TransportKind`
-- `endpoint: string`
+- `ledgerEndpoint?: string`
+- `adminEndpoint?: string`
 - `grpcChannelSecurity?: GrpcChannelSecurity`
+- `ledgerGrpcChannelSecurity?: GrpcChannelSecurity`
+- `adminGrpcChannelSecurity?: GrpcChannelSecurity`
+- `defaultRequestTimeoutMs?: number`
+- `grpcConnectTimeoutMs?: number`
 - `authProvider?: IAuthProvider`
 - `commandSigner?: ICommandSigner`
 
 Notes:
 
 - `grpcChannelSecurity` defaults to `GrpcChannelSecurity.tls`
+- ledger gRPC security resolves with:
+  `ledgerGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- admin gRPC security resolves with:
+  `adminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 - `commandSigner` is valid on `grpc` only
+- client construction succeeds even if one endpoint is missing
+- a service only fails when its own surface endpoint is missing
 
 ### `new CantonClient(options)`
 
@@ -118,6 +129,27 @@ Exposed properties:
 - `updateService`
 - `eventQueryService`
 - `contractService`
+
+## Endpoint Surfaces
+
+Ledger endpoint services use `ledgerEndpoint`:
+
+- `versionService`
+- `healthService`
+- `packageService`
+- `commandService`
+- `commandSubmissionService`
+- `commandCompletionService`
+- `stateService`
+- `updateService`
+- `eventQueryService`
+- `contractService`
+
+Admin endpoint services use `adminEndpoint`:
+
+- `partyManagementService`
+- `userManagementService`
+- `participantPackageService`
 
 ### `new GrpcLedgerClient(operations, signer?)`
 
@@ -964,24 +996,24 @@ They do not expose public methods yet.
 
 ## Transport Support Matrix
 
-| Function | JSON | gRPC |
-| --- | --- | --- |
-| `versionService.getLedgerApiVersionAsync` | Yes | Yes |
-| `healthService.checkAsync` | No | Yes |
-| `partyManagementService.allocatePartyAsync` | Yes | Yes |
-| `partyManagementService.listKnownPartiesAsync` | Yes | Yes |
-| `userManagementService.grantUserRightsAsync` | Yes | Yes |
-| `packageService.listPackagesAsync` | No | Yes |
-| `packageService.getPackageAsync` | No | Yes |
-| `packageService.getPackageStatusAsync` | No | Yes |
-| `packageService.listVettedPackagesAsync` | No | Yes |
-| `participantPackageService.uploadDarFileAsync` | Yes | Yes |
-| `participantPackageService.listPackagesAsync` | No | Yes |
-| `participantPackageService.getPackageContentsAsync` | No | Yes |
-| `participantPackageService.getPackageReferencesAsync` | No | Yes |
-| `commandService.submitAndWaitAsync` | Yes | Yes |
-| `commandSubmissionService.submitAsync` | No | No |
-| `stateService.getActiveContractsPageAsync` | Yes | Yes |
-| `stateService.getActiveContractsAsync` | Yes | No |
-| `updateService.getUpdatesAsync` | No | Yes |
-| external signing | No | Yes |
+| Function | Endpoint Surface | JSON | gRPC |
+| --- | --- | --- | --- |
+| `versionService.getLedgerApiVersionAsync` | Ledger | Yes | Yes |
+| `healthService.checkAsync` | Ledger | No | Yes |
+| `partyManagementService.allocatePartyAsync` | Admin | Yes | Yes |
+| `partyManagementService.listKnownPartiesAsync` | Admin | Yes | Yes |
+| `userManagementService.grantUserRightsAsync` | Admin | Yes | Yes |
+| `packageService.listPackagesAsync` | Ledger | No | Yes |
+| `packageService.getPackageAsync` | Ledger | No | Yes |
+| `packageService.getPackageStatusAsync` | Ledger | No | Yes |
+| `packageService.listVettedPackagesAsync` | Ledger | No | Yes |
+| `participantPackageService.uploadDarFileAsync` | Admin | Yes | Yes |
+| `participantPackageService.listPackagesAsync` | Admin | No | Yes |
+| `participantPackageService.getPackageContentsAsync` | Admin | No | Yes |
+| `participantPackageService.getPackageReferencesAsync` | Admin | No | Yes |
+| `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
+| `commandSubmissionService.submitAsync` | Ledger | No | No |
+| `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |
+| `stateService.getActiveContractsAsync` | Ledger | Yes | No |
+| `updateService.getUpdatesAsync` | Ledger | No | Yes |
+| external signing | Ledger | No | Yes |
