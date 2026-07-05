@@ -6,20 +6,22 @@ import {
 } from "../../../src";
 
 describe("CantonClientOptions", () => {
-    it("stores transport and endpoint settings", () => {
+    it("stores transport and split endpoint settings", () => {
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,
-            endpoint: "https://participant.example.com",
+            ledgerEndpoint: "https://ledger.example.com",
+            adminEndpoint: "https://admin.example.com",
         });
 
         expect(options.transportKind).toBe(TransportKind.grpc);
-        expect(options.endpoint).toBe("https://participant.example.com");
+        expect(options.ledgerEndpoint).toBe("https://ledger.example.com");
+        expect(options.adminEndpoint).toBe("https://admin.example.com");
     });
 
     it("defaults grpc channel security to tls", () => {
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,
-            endpoint: "https://participant.example.com",
+            ledgerEndpoint: "https://ledger.example.com",
         });
 
         expect(options.grpcChannelSecurity).toBe(GrpcChannelSecurity.tls);
@@ -28,7 +30,7 @@ describe("CantonClientOptions", () => {
     it("stores an explicit grpc channel security override", () => {
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,
-            endpoint: "http://localhost:6865",
+            ledgerEndpoint: "http://localhost:6865",
             grpcChannelSecurity: GrpcChannelSecurity.insecure,
         });
 
@@ -37,10 +39,27 @@ describe("CantonClientOptions", () => {
         );
     });
 
+    it("stores explicit per-surface grpc channel security overrides", () => {
+        const options = new CantonClientOptions({
+            transportKind: TransportKind.grpc,
+            ledgerEndpoint: "https://ledger.example.com",
+            adminEndpoint: "http://localhost:8080",
+            ledgerGrpcChannelSecurity: GrpcChannelSecurity.tls,
+            adminGrpcChannelSecurity: GrpcChannelSecurity.insecure,
+        });
+
+        expect(options.ledgerGrpcChannelSecurity).toBe(
+            GrpcChannelSecurity.tls,
+        );
+        expect(options.adminGrpcChannelSecurity).toBe(
+            GrpcChannelSecurity.insecure,
+        );
+    });
+
     it("stores default request timeout and grpc connect timeout settings", () => {
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,
-            endpoint: "http://localhost:6865",
+            ledgerEndpoint: "http://localhost:6865",
             defaultRequestTimeoutMs: 5_000,
             grpcConnectTimeoutMs: 2_000,
         });

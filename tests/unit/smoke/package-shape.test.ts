@@ -10,6 +10,7 @@ import {
     GetPackageResponse,
     GetPackageStatusRequest,
     GetPackageStatusResponse,
+    EndpointNotConfiguredError,
     HashFunction,
     HealthCheckStatus,
     HealthServiceClient,
@@ -41,6 +42,7 @@ describe("package surface", () => {
         expect(PartyManagementServiceClient).toBeTypeOf("function");
         expect(PackageServiceClient).toBeTypeOf("function");
         expect(ParticipantPackageServiceClient).toBeTypeOf("function");
+        expect(EndpointNotConfiguredError).toBeTypeOf("function");
         expect(RequestOptions).toBeTypeOf("function");
         expect(TransportKind.grpc).toBe("grpc");
 

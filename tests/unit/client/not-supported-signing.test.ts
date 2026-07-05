@@ -13,7 +13,7 @@ describe("CantonClient signing support", () => {
                 new CantonClient(
                     new CantonClientOptions({
                         transportKind: TransportKind.json,
-                        endpoint: "https://participant.example.com",
+                        ledgerEndpoint: "https://ledger.example.com",
                         commandSigner: {
                             signAsync: async () => ({
                                 algorithm: "x",

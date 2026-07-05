@@ -85,3 +85,4 @@ export { TimeoutError } from "./core/errors/timeout-error.js";
 export { ConflictError } from "./core/errors/conflict-error.js";
 export { NotSupportedError } from "./core/errors/not-supported-error.js";
 export { ObjectDisposedError } from "./core/errors/object-disposed-error.js";
+export { EndpointNotConfiguredError } from "./core/errors/endpoint-not-configured-error.js";
