@@ -36,6 +36,7 @@ import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { PackageFormat } from "../../core/types/package-format.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import { GrpcChannelSecurity } from "../../core/types/grpc-channel-security.js";
 import {
     createGrpcOperations,
     GrpcOperations,
@@ -424,6 +425,10 @@ export class GrpcTransport implements ITransport {
 
 export function createDefaultGrpcTransport(
     options: CantonClientOptions,
+    endpoint: string,
+    grpcChannelSecurity: GrpcChannelSecurity,
 ): GrpcTransport {
-    return new GrpcTransport(createGrpcOperations(options));
+    return new GrpcTransport(
+        createGrpcOperations(options, endpoint, grpcChannelSecurity),
+    );
 }

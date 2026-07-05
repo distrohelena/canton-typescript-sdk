@@ -38,6 +38,7 @@ import { ObjectDisposedError } from "../core/errors/object-disposed-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";
 import { RequestOptions } from "../core/types/request-options.js";
 import { EndpointNotConfiguredError } from "../core/errors/endpoint-not-configured-error.js";
+import { GrpcChannelSecurity } from "../core/types/grpc-channel-security.js";
 import { CommandCompletionServiceClient } from "../services/command-completion/command-completion-service-client.js";
 import { CommandServiceClient } from "../services/command/command-service-client.js";
 import { CommandSubmissionServiceClient } from "../services/command-submission/command-submission-service-client.js";
@@ -437,16 +438,16 @@ class CompositeTransport implements ITransport {
 function createTransportForEndpoint(
     options: CantonClientOptions,
     endpoint: string,
+    grpcChannelSecurity?: GrpcChannelSecurity,
 ): ITransport {
-    const transportOptions = {
-        ...options,
-        endpoint,
-    } as CantonClientOptions & { endpoint: string };
-
     return options.transportKind === TransportKind.json
-        ? createJsonTransport(transportOptions)
+        ? createJsonTransport(options, endpoint)
         : options.transportKind === TransportKind.grpc
-          ? createGrpcTransport(transportOptions)
+          ? createGrpcTransport(
+                options,
+                endpoint,
+                grpcChannelSecurity ?? options.grpcChannelSecurity,
+            )
           : new PlaceholderTransport(options);
 }
 
@@ -459,7 +460,13 @@ function createLedgerTransport(
             "ledger",
             options.transportKind,
         )
-        : createTransportForEndpoint(options, options.ledgerEndpoint);
+        : createTransportForEndpoint(
+            options,
+            options.ledgerEndpoint,
+            options.ledgerGrpcChannelSecurity
+                ?? options.grpcChannelSecurity
+                ?? GrpcChannelSecurity.tls,
+        );
 }
 
 function createAdminTransport(
@@ -471,7 +478,13 @@ function createAdminTransport(
             "admin",
             options.transportKind,
         )
-        : createTransportForEndpoint(options, options.adminEndpoint);
+        : createTransportForEndpoint(
+            options,
+            options.adminEndpoint,
+            options.adminGrpcChannelSecurity
+                ?? options.grpcChannelSecurity
+                ?? GrpcChannelSecurity.tls,
+        );
 }
 
 function createMissingLedgerTransport(

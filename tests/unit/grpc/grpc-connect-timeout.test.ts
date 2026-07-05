@@ -7,6 +7,13 @@ import {
 
 const grpcTransportConstructor = vi.fn();
 
+vi.mock("@grpc/grpc-js", () => ({
+    credentials: {
+        createInsecure: vi.fn(() => "insecure-credentials"),
+        createSsl: vi.fn(() => "ssl-credentials"),
+    },
+}));
+
 vi.mock("@protobuf-ts/grpc-transport", () => ({
     GrpcTransport: vi.fn().mockImplementation((options: unknown) => {
         grpcTransportConstructor(options);
@@ -16,7 +23,7 @@ vi.mock("@protobuf-ts/grpc-transport", () => ({
 }));
 
 describe("gRPC connect timeout", () => {
-    it("passes grpcConnectTimeoutMs into the protobuf transport", async () => {
+    it("passes the selected endpoint, security, and grpcConnectTimeoutMs into the protobuf transport", async () => {
         const { createGrpcOperations } = await import(
             "../../../src/transports/grpc/grpc-channel-factory.js"
         );
@@ -26,10 +33,14 @@ describe("gRPC connect timeout", () => {
         createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
-                endpoint: "http://localhost:6865",
-                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+                ledgerEndpoint: "https://ledger.example.com",
+                adminEndpoint: "http://admin.example.com:8080",
+                grpcChannelSecurity: GrpcChannelSecurity.tls,
+                adminGrpcChannelSecurity: GrpcChannelSecurity.insecure,
                 grpcConnectTimeoutMs: 4_500,
             }),
+            "http://admin.example.com:8080",
+            GrpcChannelSecurity.insecure,
             {
                 versionServiceClient: {
                     getLedgerApiVersion: () => ({
@@ -91,6 +102,8 @@ describe("gRPC connect timeout", () => {
 
         expect(grpcTransportConstructor).toHaveBeenCalledWith(
             expect.objectContaining({
+                host: "admin.example.com:8080",
+                channelCredentials: "insecure-credentials",
                 clientOptions: expect.objectContaining({
                     connectTimeoutMs: 4_500,
                 }),

@@ -54,7 +54,7 @@ describe("gRPC call-options factory", () => {
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
-                endpoint: "http://localhost:6865",
+                ledgerEndpoint: "http://localhost:6865",
                 grpcChannelSecurity: GrpcChannelSecurity.insecure,
                 authProvider: {
                     getHeadersAsync: async () => ({
@@ -63,6 +63,8 @@ describe("gRPC call-options factory", () => {
                     }),
                 },
             }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
             {
                 versionServiceClient: {
                     getLedgerApiVersion: (_request: unknown, options?: unknown) => {
@@ -150,8 +152,10 @@ describe("gRPC call-options factory", () => {
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
-                endpoint: "http://localhost:6865",
-                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+                ledgerEndpoint: "http://localhost:6865",
+                adminEndpoint: "http://localhost:8080",
+                grpcChannelSecurity: GrpcChannelSecurity.tls,
+                adminGrpcChannelSecurity: GrpcChannelSecurity.insecure,
                 defaultRequestTimeoutMs: 1_500,
                 authProvider: {
                     getHeadersAsync: async () => ({
@@ -160,6 +164,8 @@ describe("gRPC call-options factory", () => {
                     }),
                 },
             }),
+            "http://localhost:8080",
+            GrpcChannelSecurity.insecure,
             {
                 versionServiceClient: {
                     getLedgerApiVersion: () => ({

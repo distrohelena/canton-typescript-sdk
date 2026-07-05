@@ -4,10 +4,11 @@ import { JsonTransport } from "./json-transport.js";
 
 export function createJsonTransport(
     options: CantonClientOptions,
+    endpoint: string,
 ): JsonTransport {
     return new JsonTransport(
         new JsonHttpClient(
-            options.endpoint,
+            endpoint,
             options.authProvider,
             options.defaultRequestTimeoutMs,
         ),

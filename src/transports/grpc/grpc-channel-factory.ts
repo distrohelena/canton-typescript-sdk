@@ -131,12 +131,14 @@ export interface GrpcOperationDependencies {
 
 export function createGrpcOperations(
     options: CantonClientOptions,
+    endpoint: string,
+    grpcChannelSecurity: GrpcChannelSecurity,
     dependencies: GrpcOperationDependencies = {},
 ): GrpcOperations {
     const rpcTransport = new ProtobufGrpcTransport({
-        host: normalizeGrpcHost(options.endpoint),
+        host: normalizeGrpcHost(endpoint),
         channelCredentials: createGrpcChannelCredentials(
-            options.grpcChannelSecurity,
+            grpcChannelSecurity,
         ),
         clientOptions:
             options.grpcConnectTimeoutMs === undefined

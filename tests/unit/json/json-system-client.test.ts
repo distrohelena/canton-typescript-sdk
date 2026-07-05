@@ -27,7 +27,7 @@ describe("VersionServiceClient with JSON transport", () => {
         const client = new CantonClient(
             new CantonClientOptions({
                 transportKind: TransportKind.json,
-                endpoint: "https://participant.example.com",
+                ledgerEndpoint: "https://ledger.example.com",
             }),
         );
 
