@@ -71,6 +71,7 @@ import {
     createGrpcChannelCredentials,
 } from "./grpc-call-options-factory.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import { GrpcChannelSecurity } from "../../core/types/grpc-channel-security.js";
 
 export interface GrpcOperations {
     disposeAsync?(): Promise<void>;

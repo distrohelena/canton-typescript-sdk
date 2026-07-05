@@ -34,6 +34,7 @@ describe("service registry endpoint routing", () => {
                 supportsCommandSigning: false,
             },
         };
+
         const adminTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
                 throw new Error("admin transport should not serve ledger calls");

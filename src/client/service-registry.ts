@@ -516,49 +516,64 @@ export function createServiceRegistry(
         options.ledgerEndpoint === undefined
             ? undefined
             : createLedgerTransport(options);
+
     const adminTransport =
         options.adminEndpoint === undefined
             ? undefined
             : createAdminTransport(options);
+
     const versionTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "versionService");
+
     const healthTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "healthService");
+
     const packageTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "packageService");
+
     const commandTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "commandService");
+
     const commandSubmissionTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "commandSubmissionService");
+
     const commandCompletionTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "commandCompletionService");
+
     const stateTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "stateService");
+
     const updateTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "updateService");
+
     const eventQueryTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "eventQueryService");
+
     const contractTransport =
         ledgerTransport
         ?? createMissingLedgerTransport(options, "contractService");
+
     const partyManagementTransport =
         adminTransport
         ?? createMissingAdminTransport(options, "partyManagementService");
+
     const userManagementTransport =
         adminTransport
         ?? createMissingAdminTransport(options, "userManagementService");
+
     const participantPackageTransport =
         adminTransport
         ?? createMissingAdminTransport(options, "participantPackageService");
+
     const transport = new CompositeTransport(
         [
             ledgerTransport,
