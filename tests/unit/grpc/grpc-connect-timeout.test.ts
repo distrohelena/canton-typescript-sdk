@@ -34,12 +34,16 @@ describe("gRPC connect timeout", () => {
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
                 ledgerEndpoint: "https://ledger.example.com",
-                adminEndpoint: "http://admin.example.com:8080",
+                ledgerAdminEndpoint: "http://ledger-admin.example.com:8080",
+                participantAdminEndpoint:
+                    "http://participant-admin.example.com:8081",
                 grpcChannelSecurity: GrpcChannelSecurity.tls,
-                adminGrpcChannelSecurity: GrpcChannelSecurity.insecure,
+                ledgerAdminGrpcChannelSecurity: GrpcChannelSecurity.insecure,
+                participantAdminGrpcChannelSecurity:
+                    GrpcChannelSecurity.insecure,
                 grpcConnectTimeoutMs: 4_500,
             }),
-            "http://admin.example.com:8080",
+            "http://participant-admin.example.com:8081",
             GrpcChannelSecurity.insecure,
             {
                 versionServiceClient: {
@@ -102,7 +106,7 @@ describe("gRPC connect timeout", () => {
 
         expect(grpcTransportConstructor).toHaveBeenCalledWith(
             expect.objectContaining({
-                host: "admin.example.com:8080",
+                host: "participant-admin.example.com:8081",
                 channelCredentials: "insecure-credentials",
                 clientOptions: expect.objectContaining({
                     connectTimeoutMs: 4_500,

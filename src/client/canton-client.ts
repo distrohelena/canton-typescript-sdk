@@ -6,6 +6,7 @@ import { CommandSubmissionServiceClient } from "../services/command-submission/c
 import { ContractServiceClient } from "../services/contract/contract-service-client.js";
 import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
 import { HealthServiceClient } from "../services/health/health-service-client.js";
+import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
 import { PackageServiceClient } from "../services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../services/participant-package/participant-package-service-client.js";
 import { ParticipantStatusServiceClient } from "../services/participant-status/participant-status-service-client.js";
@@ -26,6 +27,7 @@ export class CantonClient {
     public readonly partyManagementService: PartyManagementServiceClient;
     public readonly userManagementService: UserManagementServiceClient;
     public readonly packageService: PackageServiceClient;
+    public readonly packageManagementService: PackageManagementServiceClient;
     public readonly participantPackageService: ParticipantPackageServiceClient;
     public readonly participantStatusService: ParticipantStatusServiceClient;
     public readonly commandService: CommandServiceClient;
@@ -55,6 +57,7 @@ export class CantonClient {
         this.partyManagementService = services.partyManagementService;
         this.userManagementService = services.userManagementService;
         this.packageService = services.packageService;
+        this.packageManagementService = services.packageManagementService;
         this.participantPackageService = services.participantPackageService;
         this.participantStatusService = services.participantStatusService;
         this.commandService = services.commandService;

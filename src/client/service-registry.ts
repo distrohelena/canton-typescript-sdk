@@ -1,4 +1,5 @@
 import { CantonClientOptions } from "./canton-client-options.js";
+import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsPageRequest } from "../core/types/requests/get-active-contracts-page-request.js";
@@ -48,6 +49,7 @@ import { ContractServiceClient } from "../services/contract/contract-service-cli
 import { ContractObserver } from "../services/contracts/contract-observer.interface.js";
 import { EventQueryServiceClient } from "../services/event-query/event-query-service-client.js";
 import { HealthServiceClient } from "../services/health/health-service-client.js";
+import { PackageManagementServiceClient } from "../services/package-management/package-management-service-client.js";
 import { PackageServiceClient } from "../services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../services/participant-package/participant-package-service-client.js";
 import { ParticipantStatusServiceClient } from "../services/participant-status/participant-status-service-client.js";
@@ -67,6 +69,7 @@ export interface ServiceRegistry {
     readonly partyManagementService: PartyManagementServiceClient;
     readonly userManagementService: UserManagementServiceClient;
     readonly packageService: PackageServiceClient;
+    readonly packageManagementService: PackageManagementServiceClient;
     readonly participantPackageService: ParticipantPackageServiceClient;
     readonly participantStatusService: ParticipantStatusServiceClient;
     readonly commandService: CommandServiceClient;
@@ -277,7 +280,10 @@ class MissingEndpointTransport implements ITransport {
 
     public constructor(
         private readonly serviceName: string,
-        private readonly surfaceName: "ledger" | "admin",
+        private readonly surfaceName:
+            | "ledger"
+            | "ledger admin"
+            | "participant admin",
         transportKind: TransportKind,
     ) {
         this.features = {
@@ -460,9 +466,10 @@ function createTransportForEndpoint(
     options: CantonClientOptions,
     endpoint: string,
     grpcChannelSecurity?: GrpcChannelSecurity,
+    authProvider?: IAuthProvider,
 ): ITransport {
     return options.transportKind === TransportKind.json
-        ? createJsonTransport(options, endpoint)
+        ? createJsonTransport(options, endpoint, authProvider)
         : options.transportKind === TransportKind.grpc
           ? createGrpcTransport(
                 options,
@@ -487,24 +494,45 @@ function createLedgerTransport(
             options.ledgerGrpcChannelSecurity
                 ?? options.grpcChannelSecurity
                 ?? GrpcChannelSecurity.tls,
+            options.ledgerAuthProvider,
         );
 }
 
-function createAdminTransport(
+function createLedgerAdminTransport(
     options: CantonClientOptions,
 ): ITransport {
-    return options.adminEndpoint === undefined
+    return options.ledgerAdminEndpoint === undefined
         ? new MissingEndpointTransport(
             "partyManagementService",
-            "admin",
+            "ledger admin",
             options.transportKind,
         )
         : createTransportForEndpoint(
             options,
-            options.adminEndpoint,
-            options.adminGrpcChannelSecurity
+            options.ledgerAdminEndpoint,
+            options.ledgerAdminGrpcChannelSecurity
                 ?? options.grpcChannelSecurity
                 ?? GrpcChannelSecurity.tls,
+            options.ledgerAdminAuthProvider,
+        );
+}
+
+function createParticipantAdminTransport(
+    options: CantonClientOptions,
+): ITransport {
+    return options.participantAdminEndpoint === undefined
+        ? new MissingEndpointTransport(
+            "participantPackageService",
+            "participant admin",
+            options.transportKind,
+        )
+        : createTransportForEndpoint(
+            options,
+            options.participantAdminEndpoint,
+            options.participantAdminGrpcChannelSecurity
+                ?? options.grpcChannelSecurity
+                ?? GrpcChannelSecurity.tls,
+            options.participantAdminAuthProvider,
         );
 }
 
@@ -519,13 +547,24 @@ function createMissingLedgerTransport(
     );
 }
 
-function createMissingAdminTransport(
+function createMissingLedgerAdminTransport(
     options: CantonClientOptions,
     serviceName: string,
 ): ITransport {
     return new MissingEndpointTransport(
         serviceName,
-        "admin",
+        "ledger admin",
+        options.transportKind,
+    );
+}
+
+function createMissingParticipantAdminTransport(
+    options: CantonClientOptions,
+    serviceName: string,
+): ITransport {
+    return new MissingEndpointTransport(
+        serviceName,
+        "participant admin",
         options.transportKind,
     );
 }
@@ -538,10 +577,15 @@ export function createServiceRegistry(
             ? undefined
             : createLedgerTransport(options);
 
-    const adminTransport =
-        options.adminEndpoint === undefined
+    const ledgerAdminTransport =
+        options.ledgerAdminEndpoint === undefined
             ? undefined
-            : createAdminTransport(options);
+            : createLedgerAdminTransport(options);
+
+    const participantAdminTransport =
+        options.participantAdminEndpoint === undefined
+            ? undefined
+            : createParticipantAdminTransport(options);
 
     const versionTransport =
         ledgerTransport
@@ -584,25 +628,39 @@ export function createServiceRegistry(
         ?? createMissingLedgerTransport(options, "contractService");
 
     const partyManagementTransport =
-        adminTransport
-        ?? createMissingAdminTransport(options, "partyManagementService");
+        ledgerAdminTransport
+        ?? createMissingLedgerAdminTransport(options, "partyManagementService");
 
     const userManagementTransport =
-        adminTransport
-        ?? createMissingAdminTransport(options, "userManagementService");
+        ledgerAdminTransport
+        ?? createMissingLedgerAdminTransport(options, "userManagementService");
 
     const participantPackageTransport =
-        adminTransport
-        ?? createMissingAdminTransport(options, "participantPackageService");
+        participantAdminTransport
+        ?? createMissingParticipantAdminTransport(
+            options,
+            "participantPackageService",
+        );
+
+    const packageManagementTransport =
+        ledgerAdminTransport
+        ?? createMissingLedgerAdminTransport(
+            options,
+            "packageManagementService",
+        );
 
     const participantStatusTransport =
-        adminTransport
-        ?? createMissingAdminTransport(options, "participantStatusService");
+        participantAdminTransport
+        ?? createMissingParticipantAdminTransport(
+            options,
+            "participantStatusService",
+        );
 
     const transport = new CompositeTransport(
         [
             ledgerTransport,
-            adminTransport,
+            ledgerAdminTransport,
+            participantAdminTransport,
         ].filter((item): item is ITransport => item !== undefined),
     );
 
@@ -617,6 +675,9 @@ export function createServiceRegistry(
             userManagementTransport,
         ),
         packageService: new PackageServiceClient(packageTransport),
+        packageManagementService: new PackageManagementServiceClient(
+            packageManagementTransport,
+        ),
         participantPackageService: new ParticipantPackageServiceClient(
             participantPackageTransport,
         ),

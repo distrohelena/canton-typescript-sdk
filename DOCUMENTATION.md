@@ -4,7 +4,7 @@
 
 This SDK exposes a gRPC-shaped public API:
 
-- `CantonClient` for shared construction from split ledger/admin endpoint settings
+- `CantonClient` for shared construction from split Ledger, Ledger Admin, and Participant Admin endpoint settings
 - `GrpcLedgerClient` and `JsonLedgerClient` for transport-specific construction
 - service clients grouped by gRPC Ledger API service boundaries
 - explicit request and response classes
@@ -91,13 +91,17 @@ Fields:
 
 - `transportKind: TransportKind`
 - `ledgerEndpoint?: string`
-- `adminEndpoint?: string`
+- `ledgerAdminEndpoint?: string`
+- `participantAdminEndpoint?: string`
 - `grpcChannelSecurity?: GrpcChannelSecurity`
 - `ledgerGrpcChannelSecurity?: GrpcChannelSecurity`
-- `adminGrpcChannelSecurity?: GrpcChannelSecurity`
+- `ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity`
+- `participantAdminGrpcChannelSecurity?: GrpcChannelSecurity`
 - `defaultRequestTimeoutMs?: number`
 - `grpcConnectTimeoutMs?: number`
-- `authProvider?: IAuthProvider`
+- `ledgerAuthProvider?: IAuthProvider`
+- `ledgerAdminAuthProvider?: IAuthProvider`
+- `participantAdminAuthProvider?: IAuthProvider`
 - `commandSigner?: ICommandSigner`
 
 Notes:
@@ -105,8 +109,10 @@ Notes:
 - `grpcChannelSecurity` defaults to `GrpcChannelSecurity.tls`
 - ledger gRPC security resolves with:
   `ledgerGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
-- admin gRPC security resolves with:
-  `adminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- ledger admin gRPC security resolves with:
+  `ledgerAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- participant admin gRPC security resolves with:
+  `participantAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 - `commandSigner` is valid on `grpc` only
 - client construction succeeds even if one endpoint is missing
 - a service only fails when its own surface endpoint is missing
@@ -122,6 +128,7 @@ Exposed properties:
 - `partyManagementService`
 - `userManagementService`
 - `packageService`
+- `packageManagementService`
 - `participantPackageService`
 - `participantStatusService`
 - `commandService`
@@ -147,10 +154,14 @@ Ledger endpoint services use `ledgerEndpoint`:
 - `eventQueryService`
 - `contractService`
 
-Admin endpoint services use `adminEndpoint`:
+Ledger Admin endpoint services use `ledgerAdminEndpoint`:
 
 - `partyManagementService`
 - `userManagementService`
+- `packageManagementService`
+
+Participant Admin endpoint services use `participantAdminEndpoint`:
+
 - `participantPackageService`
 - `participantStatusService`
 
@@ -726,7 +737,7 @@ Useful response fields:
 - `vettedPackages: VettedPackages[]`
 - `nextPageToken?: string`
 
-### `participantPackageService.uploadDarFileAsync(request)`
+### `packageManagementService.uploadDarFileAsync(request)`
 
 Uploads a DAR file.
 
@@ -1107,18 +1118,18 @@ They do not expose public methods yet.
 | --- | --- | --- | --- |
 | `versionService.getLedgerApiVersionAsync` | Ledger | Yes | Yes |
 | `healthService.checkAsync` | Ledger | No | Yes |
-| `partyManagementService.allocatePartyAsync` | Admin | Yes | Yes |
-| `partyManagementService.listKnownPartiesAsync` | Admin | Yes | Yes |
-| `userManagementService.grantUserRightsAsync` | Admin | Yes | Yes |
+| `partyManagementService.allocatePartyAsync` | Ledger Admin | Yes | Yes |
+| `partyManagementService.listKnownPartiesAsync` | Ledger Admin | Yes | Yes |
+| `userManagementService.grantUserRightsAsync` | Ledger Admin | Yes | Yes |
 | `packageService.listPackagesAsync` | Ledger | No | Yes |
 | `packageService.getPackageAsync` | Ledger | No | Yes |
 | `packageService.getPackageStatusAsync` | Ledger | No | Yes |
 | `packageService.listVettedPackagesAsync` | Ledger | No | Yes |
-| `participantPackageService.uploadDarFileAsync` | Admin | Yes | Yes |
-| `participantPackageService.listPackagesAsync` | Admin | No | Yes |
-| `participantPackageService.getPackageContentsAsync` | Admin | No | Yes |
-| `participantPackageService.getPackageReferencesAsync` | Admin | No | Yes |
-| `participantStatusService.getParticipantStatusAsync` | Admin | No | Yes |
+| `packageManagementService.uploadDarFileAsync` | Ledger Admin | Yes | Yes |
+| `participantPackageService.listPackagesAsync` | Participant Admin | No | Yes |
+| `participantPackageService.getPackageContentsAsync` | Participant Admin | No | Yes |
+| `participantPackageService.getPackageReferencesAsync` | Participant Admin | No | Yes |
+| `participantStatusService.getParticipantStatusAsync` | Participant Admin | No | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
 | `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |

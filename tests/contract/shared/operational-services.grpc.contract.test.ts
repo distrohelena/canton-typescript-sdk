@@ -16,6 +16,7 @@ import {
     ListVettedPackagesRequest,
     PackageStatus,
     ParticipantListPackagesRequest,
+    PackageManagementServiceClient,
     ParticipantStatusServiceClient,
     UploadDarFileRequest,
     UserRightKind,
@@ -140,6 +141,10 @@ describe("gRPC operational services contract", () => {
             transport,
         );
 
+        const packageManagementService = new PackageManagementServiceClient(
+            transport,
+        );
+
         const participantPackageService = new ParticipantPackageServiceClient(
             transport,
         );
@@ -216,7 +221,7 @@ describe("gRPC operational services contract", () => {
             ],
         });
         await expect(
-            participantPackageService.uploadDarFileAsync(
+            packageManagementService.uploadDarFileAsync(
                 new UploadDarFileRequest({
                     bytes: new Uint8Array([1, 2, 3]),
                 }),

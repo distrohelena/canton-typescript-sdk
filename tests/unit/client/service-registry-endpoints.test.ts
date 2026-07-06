@@ -4,6 +4,8 @@ import {
     EndpointNotConfiguredError,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
+    UploadDarFileRequest,
+    UploadDarFileResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
     ParticipantNodeStatus,
@@ -22,7 +24,7 @@ describe("service registry endpoint routing", () => {
         vi.resetAllMocks();
     });
 
-    it("routes ledger services and admin services through separate transports", async () => {
+    it("routes ledger, ledger admin, and participant admin services through separate transports", async () => {
         const ledgerTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
                 return new GetLedgerApiVersionResponse({
@@ -30,10 +32,13 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             listKnownPartiesAsync: vi.fn(async () => {
-                throw new Error("ledger transport should not serve admin calls");
+                throw new Error("ledger transport should not serve ledger admin calls");
             }),
             getParticipantStatusAsync: vi.fn(async () => {
-                throw new Error("ledger transport should not serve admin calls");
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            uploadDarFileAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve ledger admin calls");
             }),
             disposeAsync: vi.fn(async () => undefined),
             features: {
@@ -41,14 +46,41 @@ describe("service registry endpoint routing", () => {
             },
         };
 
-        const adminTransport = {
+        const ledgerAdminTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
-                throw new Error("admin transport should not serve ledger calls");
+                throw new Error("ledger admin transport should not serve ledger calls");
             }),
             listKnownPartiesAsync: vi.fn(async () => {
                 return new ListKnownPartiesResponse({
                     partyDetails: [],
                 });
+            }),
+            getParticipantStatusAsync: vi.fn(async () => {
+                throw new Error(
+                    "ledger admin transport should not serve participant admin calls",
+                );
+            }),
+            uploadDarFileAsync: vi.fn(async () => {
+                return new UploadDarFileResponse({
+                    packageId: "pkg-1",
+                });
+            }),
+            disposeAsync: vi.fn(async () => undefined),
+            features: {
+                supportsCommandSigning: false,
+            },
+        };
+
+        const participantAdminTransport = {
+            getLedgerApiVersionAsync: vi.fn(async () => {
+                throw new Error(
+                    "participant admin transport should not serve ledger calls",
+                );
+            }),
+            listKnownPartiesAsync: vi.fn(async () => {
+                throw new Error(
+                    "participant admin transport should not serve ledger admin calls",
+                );
             }),
             getParticipantStatusAsync: vi.fn(async () => {
                 return new GetParticipantStatusResponse({
@@ -63,6 +95,11 @@ describe("service registry endpoint routing", () => {
                     }),
                 });
             }),
+            uploadDarFileAsync: vi.fn(async () => {
+                throw new Error(
+                    "participant admin transport should not serve ledger admin calls",
+                );
+            }),
             disposeAsync: vi.fn(async () => undefined),
             features: {
                 supportsCommandSigning: false,
@@ -71,13 +108,15 @@ describe("service registry endpoint routing", () => {
 
         vi.mocked(createJsonTransport)
             .mockReturnValueOnce(ledgerTransport as never)
-            .mockReturnValueOnce(adminTransport as never);
+            .mockReturnValueOnce(ledgerAdminTransport as never)
+            .mockReturnValueOnce(participantAdminTransport as never);
 
         const services = createServiceRegistry(
             new CantonClientOptions({
                 transportKind: TransportKind.json,
                 ledgerEndpoint: "https://ledger.example.com",
-                adminEndpoint: "https://admin.example.com",
+                ledgerAdminEndpoint: "https://ledger-admin.example.com",
+                participantAdminEndpoint: "https://participant-admin.example.com",
             }),
         );
 
@@ -93,18 +132,28 @@ describe("service registry endpoint routing", () => {
             ),
         ).resolves.toBeInstanceOf(ListKnownPartiesResponse);
         await expect(
+            services.packageManagementService.uploadDarFileAsync(
+                new UploadDarFileRequest({
+                    bytes: new Uint8Array([1, 2, 3]),
+                }),
+            ),
+        ).resolves.toBeInstanceOf(UploadDarFileResponse);
+        await expect(
             services.participantStatusService.getParticipantStatusAsync(
                 new GetParticipantStatusRequest(),
             ),
         ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
 
-        expect(createJsonTransport).toHaveBeenCalledTimes(2);
+        expect(createJsonTransport).toHaveBeenCalledTimes(3);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
-        expect(adminTransport.listKnownPartiesAsync).toHaveBeenCalledTimes(1);
-        expect(adminTransport.getParticipantStatusAsync).toHaveBeenCalledTimes(1);
+        expect(ledgerAdminTransport.listKnownPartiesAsync).toHaveBeenCalledTimes(1);
+        expect(ledgerAdminTransport.uploadDarFileAsync).toHaveBeenCalledTimes(1);
+        expect(
+            participantAdminTransport.getParticipantStatusAsync,
+        ).toHaveBeenCalledTimes(1);
     });
 
-    it("fails lazily when the admin endpoint is missing", async () => {
+    it("fails lazily when the ledger admin and participant admin endpoints are missing", async () => {
         const ledgerTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
                 return new GetLedgerApiVersionResponse({
@@ -112,10 +161,13 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             listKnownPartiesAsync: vi.fn(async () => {
-                throw new Error("ledger transport should not serve admin calls");
+                throw new Error("ledger transport should not serve ledger admin calls");
             }),
             getParticipantStatusAsync: vi.fn(async () => {
-                throw new Error("ledger transport should not serve admin calls");
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            uploadDarFileAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve ledger admin calls");
             }),
             disposeAsync: vi.fn(async () => undefined),
             features: {
@@ -144,12 +196,42 @@ describe("service registry endpoint routing", () => {
             services.partyManagementService.listKnownPartiesAsync(
                 new ListKnownPartiesRequest(),
             ),
-        ).rejects.toThrow(EndpointNotConfiguredError);
+        ).rejects.toThrow(
+            "The ledger admin endpoint is not configured for partyManagementService.",
+        );
+
+        await expect(
+            services.packageManagementService.uploadDarFileAsync(
+                new UploadDarFileRequest({
+                    bytes: new Uint8Array([1, 2, 3]),
+                }),
+            ),
+        ).rejects.toThrow(
+            "The ledger admin endpoint is not configured for packageManagementService.",
+        );
 
         await expect(
             services.participantStatusService.getParticipantStatusAsync(
                 new GetParticipantStatusRequest(),
             ),
-        ).rejects.toThrow(EndpointNotConfiguredError);
+        ).rejects.toThrow(
+            "The participant admin endpoint is not configured for participantStatusService.",
+        );
+    });
+
+    it("fails lazily when the ledger endpoint is missing", async () => {
+        const services = createServiceRegistry(
+            new CantonClientOptions({
+                transportKind: TransportKind.json,
+                ledgerAdminEndpoint: "https://ledger-admin.example.com",
+                participantAdminEndpoint: "https://participant-admin.example.com",
+            }),
+        );
+
+        await expect(
+            services.versionService.getLedgerApiVersionAsync(),
+        ).rejects.toThrow(
+            "The ledger endpoint is not configured for versionService.",
+        );
     });
 });

@@ -35,6 +35,7 @@ import {
     ParticipantPackageDescription,
     ParticipantPackageServiceClient,
     PartyManagementServiceClient,
+    PackageManagementServiceClient,
     PackageServiceClient,
     PackageStatus,
     RequestOptions,
@@ -51,6 +52,7 @@ describe("package surface", () => {
         expect(VersionServiceClient).toBeTypeOf("function");
         expect(PartyManagementServiceClient).toBeTypeOf("function");
         expect(PackageServiceClient).toBeTypeOf("function");
+        expect(PackageManagementServiceClient).toBeTypeOf("function");
         expect(ParticipantPackageServiceClient).toBeTypeOf("function");
         expect(EndpointNotConfiguredError).toBeTypeOf("function");
         expect(RequestOptions).toBeTypeOf("function");

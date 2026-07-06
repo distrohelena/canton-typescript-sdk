@@ -6,37 +6,52 @@ import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 export class CantonClientOptions {
     public readonly transportKind: TransportKind;
     public readonly ledgerEndpoint?: string;
-    public readonly adminEndpoint?: string;
+    public readonly ledgerAdminEndpoint?: string;
+    public readonly participantAdminEndpoint?: string;
     public readonly grpcChannelSecurity: GrpcChannelSecurity;
     public readonly ledgerGrpcChannelSecurity?: GrpcChannelSecurity;
-    public readonly adminGrpcChannelSecurity?: GrpcChannelSecurity;
+    public readonly ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity;
+    public readonly participantAdminGrpcChannelSecurity?: GrpcChannelSecurity;
     public readonly defaultRequestTimeoutMs?: number;
     public readonly grpcConnectTimeoutMs?: number;
-    public readonly authProvider?: IAuthProvider;
+    public readonly ledgerAuthProvider?: IAuthProvider;
+    public readonly ledgerAdminAuthProvider?: IAuthProvider;
+    public readonly participantAdminAuthProvider?: IAuthProvider;
     public readonly commandSigner?: ICommandSigner;
 
     public constructor(init: {
         transportKind: TransportKind;
         ledgerEndpoint?: string;
-        adminEndpoint?: string;
+        ledgerAdminEndpoint?: string;
+        participantAdminEndpoint?: string;
         grpcChannelSecurity?: GrpcChannelSecurity;
         ledgerGrpcChannelSecurity?: GrpcChannelSecurity;
-        adminGrpcChannelSecurity?: GrpcChannelSecurity;
+        ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity;
+        participantAdminGrpcChannelSecurity?: GrpcChannelSecurity;
         defaultRequestTimeoutMs?: number;
         grpcConnectTimeoutMs?: number;
-        authProvider?: IAuthProvider;
+        ledgerAuthProvider?: IAuthProvider;
+        ledgerAdminAuthProvider?: IAuthProvider;
+        participantAdminAuthProvider?: IAuthProvider;
         commandSigner?: ICommandSigner;
     }) {
         this.transportKind = init.transportKind;
         this.ledgerEndpoint = init.ledgerEndpoint;
-        this.adminEndpoint = init.adminEndpoint;
+        this.ledgerAdminEndpoint = init.ledgerAdminEndpoint;
+        this.participantAdminEndpoint = init.participantAdminEndpoint;
         this.grpcChannelSecurity =
             init.grpcChannelSecurity ?? GrpcChannelSecurity.tls;
         this.ledgerGrpcChannelSecurity = init.ledgerGrpcChannelSecurity;
-        this.adminGrpcChannelSecurity = init.adminGrpcChannelSecurity;
+        this.ledgerAdminGrpcChannelSecurity =
+            init.ledgerAdminGrpcChannelSecurity;
+        this.participantAdminGrpcChannelSecurity =
+            init.participantAdminGrpcChannelSecurity;
         this.defaultRequestTimeoutMs = init.defaultRequestTimeoutMs;
         this.grpcConnectTimeoutMs = init.grpcConnectTimeoutMs;
-        this.authProvider = init.authProvider;
+        this.ledgerAuthProvider = init.ledgerAuthProvider;
+        this.ledgerAdminAuthProvider = init.ledgerAdminAuthProvider;
+        this.participantAdminAuthProvider =
+            init.participantAdminAuthProvider;
         this.commandSigner = init.commandSigner;
     }
 }

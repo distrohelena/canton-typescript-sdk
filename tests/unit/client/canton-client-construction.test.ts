@@ -19,7 +19,8 @@ describe("CantonClient", () => {
             new CantonClientOptions({
                 transportKind: TransportKind.json,
                 ledgerEndpoint: "https://ledger.example.com",
-                adminEndpoint: "https://admin.example.com",
+                ledgerAdminEndpoint: "https://ledger-admin.example.com",
+                participantAdminEndpoint: "https://participant-admin.example.com",
             }),
         );
 
@@ -28,6 +29,7 @@ describe("CantonClient", () => {
         expect(client.partyManagementService).toBeDefined();
         expect(client.userManagementService).toBeDefined();
         expect(client.packageService).toBeDefined();
+        expect(client.packageManagementService).toBeDefined();
         expect(client.participantPackageService).toBeDefined();
         expect(client.participantStatusService).toBeDefined();
         expect(client.commandService).toBeDefined();
@@ -41,7 +43,6 @@ describe("CantonClient", () => {
         expect(client).not.toHaveProperty("parties");
         expect(client).not.toHaveProperty("users");
         expect(client).not.toHaveProperty("packages");
-        expect(client).not.toHaveProperty("packageManagementService");
         expect(client).not.toHaveProperty("commands");
         expect(client).not.toHaveProperty("contracts");
         expect(client).not.toHaveProperty("events");
@@ -59,6 +60,7 @@ describe("CantonClient", () => {
             partyManagementService: {},
             userManagementService: {},
             packageService: {},
+            packageManagementService: {},
             participantPackageService: {},
             participantStatusService: {},
             commandService: {},

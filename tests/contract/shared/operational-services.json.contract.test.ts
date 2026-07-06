@@ -13,6 +13,7 @@ import {
     ListVettedPackagesRequest,
     NotSupportedError,
     ParticipantListPackagesRequest,
+    PackageManagementServiceClient,
     ParticipantStatusServiceClient,
     UploadDarFileRequest,
     UserRightKind,
@@ -57,6 +58,10 @@ describe("JSON operational services contract", () => {
         );
 
         const packageService = new PackageServiceClient(
+            transport,
+        );
+
+        const packageManagementService = new PackageManagementServiceClient(
             transport,
         );
 
@@ -120,7 +125,7 @@ describe("JSON operational services contract", () => {
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
-            participantPackageService.uploadDarFileAsync(
+            packageManagementService.uploadDarFileAsync(
                 new UploadDarFileRequest({
                     bytes: new Uint8Array([1, 2, 3]),
                 }),

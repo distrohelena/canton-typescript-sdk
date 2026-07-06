@@ -6,6 +6,7 @@ export { CommandSubmissionServiceClient } from "./services/command-submission/co
 export { ContractServiceClient } from "./services/contract/contract-service-client.js";
 export { EventQueryServiceClient } from "./services/event-query/event-query-service-client.js";
 export { HealthServiceClient } from "./services/health/health-service-client.js";
+export { PackageManagementServiceClient } from "./services/package-management/package-management-service-client.js";
 export { PackageServiceClient } from "./services/package/package-service-client.js";
 export { ParticipantPackageServiceClient } from "./services/participant-package/participant-package-service-client.js";
 export { ParticipantStatusServiceClient } from "./services/participant-status/participant-status-service-client.js";

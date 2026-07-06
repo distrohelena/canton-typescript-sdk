@@ -4,8 +4,10 @@ import { CommandSubmissionServiceClient } from "../../services/command-submissio
 import { ContractServiceClient } from "../../services/contract/contract-service-client.js";
 import { EventQueryServiceClient } from "../../services/event-query/event-query-service-client.js";
 import { HealthServiceClient } from "../../services/health/health-service-client.js";
+import { PackageManagementServiceClient } from "../../services/package-management/package-management-service-client.js";
 import { PackageServiceClient } from "../../services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../../services/participant-package/participant-package-service-client.js";
+import { ParticipantStatusServiceClient } from "../../services/participant-status/participant-status-service-client.js";
 import { PartyManagementServiceClient } from "../../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
 import { UpdateServiceClient } from "../../services/update/update-service-client.js";
@@ -20,7 +22,9 @@ export class JsonLedgerClient {
     public readonly partyManagementService: PartyManagementServiceClient;
     public readonly userManagementService: UserManagementServiceClient;
     public readonly packageService: PackageServiceClient;
+    public readonly packageManagementService: PackageManagementServiceClient;
     public readonly participantPackageService: ParticipantPackageServiceClient;
+    public readonly participantStatusService: ParticipantStatusServiceClient;
     public readonly commandService: CommandServiceClient;
     public readonly commandSubmissionService: CommandSubmissionServiceClient;
     public readonly commandCompletionService: CommandCompletionServiceClient;
@@ -37,7 +41,13 @@ export class JsonLedgerClient {
         this.partyManagementService = new PartyManagementServiceClient(transport);
         this.userManagementService = new UserManagementServiceClient(transport);
         this.packageService = new PackageServiceClient(transport);
+        this.packageManagementService = new PackageManagementServiceClient(
+            transport,
+        );
         this.participantPackageService = new ParticipantPackageServiceClient(
+            transport,
+        );
+        this.participantStatusService = new ParticipantStatusServiceClient(
             transport,
         );
         this.commandService = new CommandServiceClient(transport);

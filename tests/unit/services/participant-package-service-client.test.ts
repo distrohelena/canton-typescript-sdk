@@ -5,8 +5,6 @@ import {
     ParticipantListPackagesRequest,
     ParticipantPackageServiceClient,
     RequestOptions,
-    UploadDarFileRequest,
-    UploadDarFileResponse,
 } from "../../../src";
 
 describe("ParticipantPackageServiceClient", () => {
@@ -24,13 +22,6 @@ describe("ParticipantPackageServiceClient", () => {
         const getParticipantPackageReferencesAsync = vi.fn(async () => ({
             dars: [],
         }));
-
-        const uploadDarFileAsync = vi.fn(
-            async () =>
-                new UploadDarFileResponse({
-                    packageId: "pkg-1",
-                }),
-        );
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -50,7 +41,9 @@ describe("ParticipantPackageServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
-            uploadDarFileAsync,
+            uploadDarFileAsync: async () => {
+                throw new Error("not used");
+            },
             listPackagesAsync: async () => {
                 throw new Error("not used");
             },
@@ -82,18 +75,12 @@ describe("ParticipantPackageServiceClient", () => {
 
         const client = new ParticipantPackageServiceClient(transport as never);
 
+        expect("uploadDarFileAsync" in client).toBe(false);
+
         const options = new RequestOptions({
             timeoutMs: 5_000,
         });
 
-        await expect(
-            client.uploadDarFileAsync(
-                new UploadDarFileRequest({
-                    bytes: new Uint8Array([1, 2, 3]),
-                }),
-                options,
-            ),
-        ).resolves.toBeInstanceOf(UploadDarFileResponse);
         await client.listPackagesAsync(
             new ParticipantListPackagesRequest({
                 limit: 10,
@@ -113,10 +100,6 @@ describe("ParticipantPackageServiceClient", () => {
             options,
         );
 
-        expect(uploadDarFileAsync).toHaveBeenLastCalledWith(
-            expect.any(UploadDarFileRequest),
-            options,
-        );
         expect(listParticipantPackagesAsync).toHaveBeenLastCalledWith(
             expect.any(ParticipantListPackagesRequest),
             options,

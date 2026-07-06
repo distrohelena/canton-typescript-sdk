@@ -76,6 +76,7 @@ import {
 } from "./grpc-call-options-factory.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { GrpcChannelSecurity } from "../../core/types/grpc-channel-security.js";
+import { IAuthProvider } from "../../core/auth/auth-provider.interface.js";
 
 export interface GrpcOperations {
     disposeAsync?(): Promise<void>;
@@ -205,11 +206,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<HealthCheckResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 healthClient.check(request as HealthCheckRequest, callOptions),
@@ -218,11 +219,11 @@ export function createGrpcOperations(
         async getHealthAsync(
             requestOptions?: RequestOptions,
         ): Promise<GetLedgerApiVersionResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 versionServiceClient.getLedgerApiVersion({}, callOptions),
@@ -232,11 +233,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<AllocatePartyResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 partyManagementServiceClient.allocateParty(
@@ -249,11 +250,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<ListKnownPartiesResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 partyManagementServiceClient.listKnownParties(
@@ -266,11 +267,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<GrantUserRightsResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 userManagementServiceClient.grantUserRights(
@@ -283,11 +284,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 packageManagementServiceClient.uploadDarFile(
@@ -300,11 +301,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 ledgerPackageServiceClient.listPackages(
@@ -317,11 +318,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 ledgerPackageServiceClient.getPackage(
@@ -334,11 +335,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 ledgerPackageServiceClient.getPackageStatus(
@@ -351,11 +352,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 ledgerPackageServiceClient.listVettedPackages(
@@ -368,11 +369,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 participantPackageServiceClient.listPackages(
@@ -388,11 +389,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 participantPackageServiceClient.getPackageContents(
@@ -405,11 +406,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 participantPackageServiceClient.getPackageReferences(
@@ -422,11 +423,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<unknown> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 participantStatusServiceClient.participantStatus(
@@ -439,11 +440,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<GetActiveContractsPageResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 stateServiceClient.getActiveContractsPage(
@@ -456,11 +457,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<GetUpdatesResponse[]> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await collectServerResponsesAsync(
                 updateServiceClient.getUpdates(
@@ -473,11 +474,11 @@ export function createGrpcOperations(
             request: unknown,
             requestOptions?: RequestOptions,
         ): Promise<SubmitAndWaitResponse> {
-            const callOptions = await buildGrpcCallOptionsAsync(
-                options.authProvider,
-                options.defaultRequestTimeoutMs,
-                requestOptions,
-            );
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
 
             return await unwrapUnaryResponse(
                 commandServiceClient.submitAndWait(
@@ -487,6 +488,39 @@ export function createGrpcOperations(
             );
         },
     };
+}
+
+async function buildCallOptionsForLedgerSurfaceAsync(
+    options: CantonClientOptions,
+    requestOptions?: RequestOptions,
+) {
+    return buildGrpcCallOptionsAsync(
+        options.ledgerAuthProvider,
+        options.defaultRequestTimeoutMs,
+        requestOptions,
+    );
+}
+
+async function buildCallOptionsForLedgerAdminSurfaceAsync(
+    options: CantonClientOptions,
+    requestOptions?: RequestOptions,
+) {
+    return buildGrpcCallOptionsAsync(
+        options.ledgerAdminAuthProvider,
+        options.defaultRequestTimeoutMs,
+        requestOptions,
+    );
+}
+
+async function buildCallOptionsForParticipantAdminSurfaceAsync(
+    options: CantonClientOptions,
+    requestOptions?: RequestOptions,
+) {
+    return buildGrpcCallOptionsAsync(
+        options.participantAdminAuthProvider,
+        options.defaultRequestTimeoutMs,
+        requestOptions,
+    );
 }
 
 function normalizeGrpcHost(endpoint: string): string {

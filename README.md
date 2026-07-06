@@ -25,8 +25,15 @@ const client = new CantonClient(
     new CantonClientOptions({
         transportKind: TransportKind.json,
         ledgerEndpoint: "https://ledger.example.com",
-        adminEndpoint: "https://participant-admin.example.com",
-        authProvider: new BearerTokenAuthProvider("token"),
+        ledgerAdminEndpoint: "https://ledger-admin.example.com",
+        participantAdminEndpoint: "https://participant-admin.example.com",
+        ledgerAuthProvider: new BearerTokenAuthProvider("ledger-token"),
+        ledgerAdminAuthProvider: new BearerTokenAuthProvider(
+            "ledger-admin-token",
+        ),
+        participantAdminAuthProvider: new BearerTokenAuthProvider(
+            "participant-admin-token",
+        ),
     }),
 );
 
@@ -55,12 +62,14 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
 `CantonClient` now splits its public surface across the real API boundaries:
 
 - ledger services use `ledgerEndpoint`
-- participant-admin services use `adminEndpoint`
+- ledger admin services use `ledgerAdminEndpoint`
+- participant admin services use `participantAdminEndpoint`
 
 For gRPC, channel security resolves per surface:
 
 - ledger services use `ledgerGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
-- admin services use `adminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- ledger admin services use `ledgerAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- participant admin services use `participantAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 
 ## Service Map
 
@@ -80,11 +89,13 @@ For gRPC, channel security resolves per surface:
 - `eventQueryService`: placeholder, no methods yet
 - `contractService`: placeholder, no methods yet
 
-- Admin endpoint:
+- Ledger Admin endpoint:
 - `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
 - `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
 - `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
-- `participantPackageService.uploadDarFileAsync(...)`: `json`, `grpc`
+- `packageManagementService.uploadDarFileAsync(...)`: `json`, `grpc`
+
+- Participant Admin endpoint:
 - `participantPackageService.listPackagesAsync(...)`: `grpc` only
 - `participantPackageService.getPackageContentsAsync(...)`: `grpc` only
 - `participantPackageService.getPackageReferencesAsync(...)`: `grpc` only
