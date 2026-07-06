@@ -35,10 +35,19 @@ import {
     ParticipantPackageDescription,
     ParticipantPackageServiceClient,
     PartyManagementServiceClient,
+    PartyToParticipant,
     PackageManagementServiceClient,
     PackageServiceClient,
     PackageStatus,
+    ParticipantPermission,
     RequestOptions,
+    TopologyBaseQuery,
+    TopologyBaseResult,
+    TopologyMappingCode,
+    TopologyMappingOperation,
+    TopologyMappingResult,
+    TopologyStoreId,
+    TopologyTransactions,
     TransportKind,
     VersionServiceClient,
 } from "../../../src";
@@ -63,6 +72,17 @@ describe("package surface", () => {
         expect(AdminComponentHealthKind.ok).toBe("ok");
         expect(AdminNotInitializedExternalInputKind.id).toBe("id");
         expect(ConnectedSynchronizerHealth.healthy).toBe("healthy");
+        expect(TopologyBaseQuery).toBeTypeOf("function");
+        expect(TopologyBaseResult).toBeTypeOf("function");
+        expect(TopologyMappingResult).toBeTypeOf("function");
+        expect(TopologyStoreId).toBeTypeOf("function");
+        expect(TopologyMappingOperation.addReplace).toBe("addReplace");
+        expect(TopologyMappingCode.partyToParticipant).toBe(
+            "partyToParticipant",
+        );
+        expect(ParticipantPermission.submission).toBe("submission");
+        expect(PartyToParticipant).toBeTypeOf("function");
+        expect(TopologyTransactions).toBeTypeOf("function");
 
         const listPackagesRequest = new ListPackagesRequest();
 
