@@ -252,6 +252,15 @@ Examples:
 - `ListPartiesRequest`
 - `ListPartiesResponse`
 
+Collision rule:
+
+- when a topology RPC name would collide with an existing public SDK request or response type, use a service-prefixed topology DTO name while keeping the service method name literal
+- examples:
+  - topology aggregation `ListParties` may use `TopologyListPartiesRequest` and `TopologyListPartiesResponse`
+  - topology manager read `ListVettedPackages` may use `TopologyListVettedPackagesRequest` and `TopologyListVettedPackagesResponse`
+
+This keeps the method surface faithful to Canton while avoiding ambiguous or conflicting public type names at the SDK root.
+
 ### Mapping Read Requests
 
 Most `TopologyManagerReadService` requests should compose:
