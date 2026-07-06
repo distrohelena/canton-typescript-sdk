@@ -298,6 +298,206 @@ export class JsonTransport implements ITransport {
         );
     }
 
+    public async listNamespaceDelegationAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListNamespaceDelegation is not supported by json transport",
+        );
+    }
+
+    public async listDecentralizedNamespaceDefinitionAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListDecentralizedNamespaceDefinition is not supported by json transport",
+        );
+    }
+
+    public async listOwnerToKeyMappingAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListOwnerToKeyMapping is not supported by json transport",
+        );
+    }
+
+    public async listPartyToKeyMappingAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListPartyToKeyMapping is not supported by json transport",
+        );
+    }
+
+    public async listSynchronizerTrustCertificateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListSynchronizerTrustCertificate is not supported by json transport",
+        );
+    }
+
+    public async listParticipantSynchronizerPermissionAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListParticipantSynchronizerPermission is not supported by json transport",
+        );
+    }
+
+    public async listPartyHostingLimitsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListPartyHostingLimits is not supported by json transport",
+        );
+    }
+
+    public async topologyListVettedPackagesAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListVettedPackages is not supported by json transport",
+        );
+    }
+
+    public async listPartyToParticipantAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListPartyToParticipant is not supported by json transport",
+        );
+    }
+
+    public async listSynchronizerParametersStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListSynchronizerParametersState is not supported by json transport",
+        );
+    }
+
+    public async listSequencingParametersStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListSequencingParametersState is not supported by json transport",
+        );
+    }
+
+    public async listMediatorSynchronizerStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListMediatorSynchronizerState is not supported by json transport",
+        );
+    }
+
+    public async listSequencerSynchronizerStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListSequencerSynchronizerState is not supported by json transport",
+        );
+    }
+
+    public async listLsuAnnouncementAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListLsuAnnouncement is not supported by json transport",
+        );
+    }
+
+    public async listLsuSequencerConnectionSuccessorAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListLsuSequencerConnectionSuccessor is not supported by json transport",
+        );
+    }
+
+    public async listAvailableStoresAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListAvailableStores is not supported by json transport",
+        );
+    }
+
+    public async listAllAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListAll is not supported by json transport",
+        );
+    }
+
+    public async listAllV2Async(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyManagerReadService.ListAllV2 is not supported by json transport",
+        );
+    }
+
+    public async topologyListPartiesAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyAggregationService.ListParties is not supported by json transport",
+        );
+    }
+
+    public async listKeyOwnersAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new NotSupportedError(
+            "TopologyAggregationService.ListKeyOwners is not supported by json transport",
+        );
+    }
+
     public async getActiveContractsPageAsync(
         request: GetActiveContractsPageRequest,
         options?: RequestOptions,

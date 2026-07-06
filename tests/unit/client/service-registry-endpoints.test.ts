@@ -4,11 +4,15 @@ import {
     EndpointNotConfiguredError,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
     UploadDarFileRequest,
     UploadDarFileResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
     ParticipantNodeStatus,
+    TopologyListPartiesRequest,
+    TopologyListPartiesResponse,
     TransportKind,
 } from "../../../src";
 import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
@@ -37,6 +41,12 @@ describe("service registry endpoint routing", () => {
             getParticipantStatusAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve participant admin calls");
             }),
+            listAvailableStoresAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            topologyListPartiesAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
             uploadDarFileAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve ledger admin calls");
             }),
@@ -56,6 +66,16 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             getParticipantStatusAsync: vi.fn(async () => {
+                throw new Error(
+                    "ledger admin transport should not serve participant admin calls",
+                );
+            }),
+            listAvailableStoresAsync: vi.fn(async () => {
+                throw new Error(
+                    "ledger admin transport should not serve participant admin calls",
+                );
+            }),
+            topologyListPartiesAsync: vi.fn(async () => {
                 throw new Error(
                     "ledger admin transport should not serve participant admin calls",
                 );
@@ -93,6 +113,16 @@ describe("service registry endpoint routing", () => {
                         components: [],
                         ports: {},
                     }),
+                });
+            }),
+            listAvailableStoresAsync: vi.fn(async () => {
+                return new ListAvailableStoresResponse({
+                    storeIds: [],
+                });
+            }),
+            topologyListPartiesAsync: vi.fn(async () => {
+                return new TopologyListPartiesResponse({
+                    results: [],
                 });
             }),
             uploadDarFileAsync: vi.fn(async () => {
@@ -143,6 +173,16 @@ describe("service registry endpoint routing", () => {
                 new GetParticipantStatusRequest(),
             ),
         ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
+        await expect(
+            services.topologyManagerReadService.listAvailableStoresAsync(
+                new ListAvailableStoresRequest(),
+            ),
+        ).resolves.toBeInstanceOf(ListAvailableStoresResponse);
+        await expect(
+            services.topologyAggregationService.listPartiesAsync(
+                new TopologyListPartiesRequest(),
+            ),
+        ).resolves.toBeInstanceOf(TopologyListPartiesResponse);
 
         expect(createJsonTransport).toHaveBeenCalledTimes(3);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
@@ -150,6 +190,12 @@ describe("service registry endpoint routing", () => {
         expect(ledgerAdminTransport.uploadDarFileAsync).toHaveBeenCalledTimes(1);
         expect(
             participantAdminTransport.getParticipantStatusAsync,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+            participantAdminTransport.listAvailableStoresAsync,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+            participantAdminTransport.topologyListPartiesAsync,
         ).toHaveBeenCalledTimes(1);
     });
 
@@ -164,6 +210,12 @@ describe("service registry endpoint routing", () => {
                 throw new Error("ledger transport should not serve ledger admin calls");
             }),
             getParticipantStatusAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            listAvailableStoresAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            topologyListPartiesAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve participant admin calls");
             }),
             uploadDarFileAsync: vi.fn(async () => {
@@ -216,6 +268,20 @@ describe("service registry endpoint routing", () => {
             ),
         ).rejects.toThrow(
             "The participant admin endpoint is not configured for participantStatusService.",
+        );
+        await expect(
+            services.topologyManagerReadService.listAvailableStoresAsync(
+                new ListAvailableStoresRequest(),
+            ),
+        ).rejects.toThrow(
+            "The participant admin endpoint is not configured for topologyManagerReadService.",
+        );
+        await expect(
+            services.topologyAggregationService.listPartiesAsync(
+                new TopologyListPartiesRequest(),
+            ),
+        ).rejects.toThrow(
+            "The participant admin endpoint is not configured for topologyAggregationService.",
         );
     });
 

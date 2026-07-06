@@ -12,8 +12,28 @@ import { GetPackageStatusRequest } from "../types/requests/get-package-status-re
 import { GetParticipantStatusRequest } from "../types/requests/get-participant-status-request.js";
 import { GetUpdatesRequest } from "../types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../types/requests/health-check-request.js";
+import { ListAllRequest } from "../types/requests/list-all-request.js";
+import { ListAllV2Request } from "../types/requests/list-all-v2-request.js";
+import { ListAvailableStoresRequest } from "../types/requests/list-available-stores-request.js";
+import { ListDecentralizedNamespaceDefinitionRequest } from "../types/requests/list-decentralized-namespace-definition-request.js";
+import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
+import { ListLsuAnnouncementRequest } from "../types/requests/list-lsu-announcement-request.js";
+import { ListLsuSequencerConnectionSuccessorRequest } from "../types/requests/list-lsu-sequencer-connection-successor-request.js";
+import { ListMediatorSynchronizerStateRequest } from "../types/requests/list-mediator-synchronizer-state-request.js";
+import { ListNamespaceDelegationRequest } from "../types/requests/list-namespace-delegation-request.js";
+import { ListOwnerToKeyMappingRequest } from "../types/requests/list-owner-to-key-mapping-request.js";
+import { ListParticipantSynchronizerPermissionRequest } from "../types/requests/list-participant-synchronizer-permission-request.js";
+import { ListPartyHostingLimitsRequest } from "../types/requests/list-party-hosting-limits-request.js";
+import { ListPartyToKeyMappingRequest } from "../types/requests/list-party-to-key-mapping-request.js";
+import { ListPartyToParticipantRequest } from "../types/requests/list-party-to-participant-request.js";
 import { ListPackagesRequest } from "../types/requests/list-packages-request.js";
+import { ListSequencerSynchronizerStateRequest } from "../types/requests/list-sequencer-synchronizer-state-request.js";
+import { ListSequencingParametersStateRequest } from "../types/requests/list-sequencing-parameters-state-request.js";
+import { ListSynchronizerParametersStateRequest } from "../types/requests/list-synchronizer-parameters-state-request.js";
+import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListVettedPackagesRequest } from "../types/requests/list-vetted-packages-request.js";
+import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
+import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
 import { UploadDarFileRequest } from "../types/requests/upload-dar-file-request.js";
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
@@ -26,9 +46,29 @@ import { GetActiveContractsPageResponse } from "../types/responses/get-active-co
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../types/responses/health-check-response.js";
+import { ListAllResponse } from "../types/responses/list-all-response.js";
+import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
+import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
+import { ListDecentralizedNamespaceDefinitionResponse } from "../types/responses/list-decentralized-namespace-definition-response.js";
+import { ListKeyOwnersResponse } from "../types/responses/list-key-owners-response.js";
+import { ListLsuAnnouncementResponse } from "../types/responses/list-lsu-announcement-response.js";
+import { ListLsuSequencerConnectionSuccessorResponse } from "../types/responses/list-lsu-sequencer-connection-successor-response.js";
+import { ListMediatorSynchronizerStateResponse } from "../types/responses/list-mediator-synchronizer-state-response.js";
+import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
+import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";
 import { ListPackagesResponse } from "../types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
+import { ListParticipantSynchronizerPermissionResponse } from "../types/responses/list-participant-synchronizer-permission-response.js";
+import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
+import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
+import { ListPartyToParticipantResponse } from "../types/responses/list-party-to-participant-response.js";
+import { ListSequencerSynchronizerStateResponse } from "../types/responses/list-sequencer-synchronizer-state-response.js";
+import { ListSequencingParametersStateResponse } from "../types/responses/list-sequencing-parameters-state-response.js";
+import { ListSynchronizerParametersStateResponse } from "../types/responses/list-synchronizer-parameters-state-response.js";
+import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
+import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
 import { ListVettedPackagesResponse } from "../types/responses/list-vetted-packages-response.js";
+import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
 import { ParticipantListPackagesResponse } from "../types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../types/responses/submit-command-response.js";
 import { UploadDarFileResponse } from "../types/responses/upload-dar-file-response.js";
@@ -127,6 +167,126 @@ export interface ITransport {
         request: GetParticipantStatusRequest,
         options?: RequestOptions,
     ): Promise<GetParticipantStatusResponse>;
+
+    /** Reads namespace delegations. Supported on gRPC; JSON rejects it. */
+    listNamespaceDelegationAsync(
+        request: ListNamespaceDelegationRequest,
+        options?: RequestOptions,
+    ): Promise<ListNamespaceDelegationResponse>;
+
+    /** Reads decentralized namespace definitions. Supported on gRPC; JSON rejects it. */
+    listDecentralizedNamespaceDefinitionAsync(
+        request: ListDecentralizedNamespaceDefinitionRequest,
+        options?: RequestOptions,
+    ): Promise<ListDecentralizedNamespaceDefinitionResponse>;
+
+    /** Reads owner-to-key mappings. Supported on gRPC; JSON rejects it. */
+    listOwnerToKeyMappingAsync(
+        request: ListOwnerToKeyMappingRequest,
+        options?: RequestOptions,
+    ): Promise<ListOwnerToKeyMappingResponse>;
+
+    /** Reads party-to-key mappings. Supported on gRPC; JSON rejects it. */
+    listPartyToKeyMappingAsync(
+        request: ListPartyToKeyMappingRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyToKeyMappingResponse>;
+
+    /** Reads synchronizer trust certificates. Supported on gRPC; JSON rejects it. */
+    listSynchronizerTrustCertificateAsync(
+        request: ListSynchronizerTrustCertificateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSynchronizerTrustCertificateResponse>;
+
+    /** Reads participant synchronizer permissions. Supported on gRPC; JSON rejects it. */
+    listParticipantSynchronizerPermissionAsync(
+        request: ListParticipantSynchronizerPermissionRequest,
+        options?: RequestOptions,
+    ): Promise<ListParticipantSynchronizerPermissionResponse>;
+
+    /** Reads party hosting limits. Supported on gRPC; JSON rejects it. */
+    listPartyHostingLimitsAsync(
+        request: ListPartyHostingLimitsRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyHostingLimitsResponse>;
+
+    /** Reads topology vetted packages. Supported on gRPC; JSON rejects it. */
+    topologyListVettedPackagesAsync(
+        request: TopologyListVettedPackagesRequest,
+        options?: RequestOptions,
+    ): Promise<TopologyListVettedPackagesResponse>;
+
+    /** Reads party-to-participant mappings. Supported on gRPC; JSON rejects it. */
+    listPartyToParticipantAsync(
+        request: ListPartyToParticipantRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyToParticipantResponse>;
+
+    /** Reads synchronizer parameter state. Supported on gRPC; JSON rejects it. */
+    listSynchronizerParametersStateAsync(
+        request: ListSynchronizerParametersStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSynchronizerParametersStateResponse>;
+
+    /** Reads sequencing parameter state. Supported on gRPC; JSON rejects it. */
+    listSequencingParametersStateAsync(
+        request: ListSequencingParametersStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSequencingParametersStateResponse>;
+
+    /** Reads mediator synchronizer state. Supported on gRPC; JSON rejects it. */
+    listMediatorSynchronizerStateAsync(
+        request: ListMediatorSynchronizerStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListMediatorSynchronizerStateResponse>;
+
+    /** Reads sequencer synchronizer state. Supported on gRPC; JSON rejects it. */
+    listSequencerSynchronizerStateAsync(
+        request: ListSequencerSynchronizerStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSequencerSynchronizerStateResponse>;
+
+    /** Reads LSU announcements. Supported on gRPC; JSON rejects it. */
+    listLsuAnnouncementAsync(
+        request: ListLsuAnnouncementRequest,
+        options?: RequestOptions,
+    ): Promise<ListLsuAnnouncementResponse>;
+
+    /** Reads LSU sequencer connection successors. Supported on gRPC; JSON rejects it. */
+    listLsuSequencerConnectionSuccessorAsync(
+        request: ListLsuSequencerConnectionSuccessorRequest,
+        options?: RequestOptions,
+    ): Promise<ListLsuSequencerConnectionSuccessorResponse>;
+
+    /** Lists available topology stores. Supported on gRPC; JSON rejects it. */
+    listAvailableStoresAsync(
+        request: ListAvailableStoresRequest,
+        options?: RequestOptions,
+    ): Promise<ListAvailableStoresResponse>;
+
+    /** Reads raw topology transactions. Supported on gRPC; JSON rejects it. */
+    listAllAsync(
+        request: ListAllRequest,
+        options?: RequestOptions,
+    ): Promise<ListAllResponse>;
+
+    /** Reads raw topology transactions using the preferred V2 API. Supported on gRPC; JSON rejects it. */
+    listAllV2Async(
+        request: ListAllV2Request,
+        options?: RequestOptions,
+    ): Promise<ListAllV2Response>;
+
+    /** Lists aggregated party hosting information. Supported on gRPC; JSON rejects it. */
+    topologyListPartiesAsync(
+        request: TopologyListPartiesRequest,
+        options?: RequestOptions,
+    ): Promise<TopologyListPartiesResponse>;
+
+    /** Lists aggregated key owner information. Supported on gRPC; JSON rejects it. */
+    listKeyOwnersAsync(
+        request: ListKeyOwnersRequest,
+        options?: RequestOptions,
+    ): Promise<ListKeyOwnersResponse>;
 
     /** Reads a page of active contracts. Supported on JSON and gRPC. */
     getActiveContractsPageAsync(

@@ -32,6 +32,8 @@ describe("CantonClient", () => {
         expect(client.packageManagementService).toBeDefined();
         expect(client.participantPackageService).toBeDefined();
         expect(client.participantStatusService).toBeDefined();
+        expect(client.topologyManagerReadService).toBeDefined();
+        expect(client.topologyAggregationService).toBeDefined();
         expect(client.commandService).toBeDefined();
         expect(client.commandSubmissionService).toBeDefined();
         expect(client.commandCompletionService).toBeDefined();
@@ -63,6 +65,8 @@ describe("CantonClient", () => {
             packageManagementService: {},
             participantPackageService: {},
             participantStatusService: {},
+            topologyManagerReadService: {},
+            topologyAggregationService: {},
             commandService: {},
             commandSubmissionService: {},
             commandCompletionService: {},

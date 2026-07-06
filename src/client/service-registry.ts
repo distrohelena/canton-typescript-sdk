@@ -13,11 +13,31 @@ import { GetPackageStatusRequest } from "../core/types/requests/get-package-stat
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
+import { ListAllRequest } from "../core/types/requests/list-all-request.js";
+import { ListAllV2Request } from "../core/types/requests/list-all-v2-request.js";
+import { ListAvailableStoresRequest } from "../core/types/requests/list-available-stores-request.js";
+import { ListDecentralizedNamespaceDefinitionRequest } from "../core/types/requests/list-decentralized-namespace-definition-request.js";
+import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
+import { ListLsuAnnouncementRequest } from "../core/types/requests/list-lsu-announcement-request.js";
+import { ListLsuSequencerConnectionSuccessorRequest } from "../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
+import { ListMediatorSynchronizerStateRequest } from "../core/types/requests/list-mediator-synchronizer-state-request.js";
+import { ListNamespaceDelegationRequest } from "../core/types/requests/list-namespace-delegation-request.js";
+import { ListOwnerToKeyMappingRequest } from "../core/types/requests/list-owner-to-key-mapping-request.js";
+import { ListParticipantSynchronizerPermissionRequest } from "../core/types/requests/list-participant-synchronizer-permission-request.js";
+import { ListPartyHostingLimitsRequest } from "../core/types/requests/list-party-hosting-limits-request.js";
+import { ListPartyToKeyMappingRequest } from "../core/types/requests/list-party-to-key-mapping-request.js";
+import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
 import { ListPackagesRequest } from "../core/types/requests/list-packages-request.js";
+import { ListSequencerSynchronizerStateRequest } from "../core/types/requests/list-sequencer-synchronizer-state-request.js";
+import { ListSequencingParametersStateRequest } from "../core/types/requests/list-sequencing-parameters-state-request.js";
+import { ListSynchronizerParametersStateRequest } from "../core/types/requests/list-synchronizer-parameters-state-request.js";
+import { ListSynchronizerTrustCertificateRequest } from "../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListVettedPackagesRequest } from "../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { ParticipantListPackagesRequest } from "../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
+import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
+import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
 import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
@@ -30,9 +50,29 @@ import { GetActiveContractsPageResponse } from "../core/types/responses/get-acti
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
+import { ListAllResponse } from "../core/types/responses/list-all-response.js";
+import { ListAllV2Response } from "../core/types/responses/list-all-v2-response.js";
+import { ListAvailableStoresResponse } from "../core/types/responses/list-available-stores-response.js";
+import { ListDecentralizedNamespaceDefinitionResponse } from "../core/types/responses/list-decentralized-namespace-definition-response.js";
+import { ListKeyOwnersResponse } from "../core/types/responses/list-key-owners-response.js";
+import { ListLsuAnnouncementResponse } from "../core/types/responses/list-lsu-announcement-response.js";
+import { ListLsuSequencerConnectionSuccessorResponse } from "../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
+import { ListMediatorSynchronizerStateResponse } from "../core/types/responses/list-mediator-synchronizer-state-response.js";
+import { ListNamespaceDelegationResponse } from "../core/types/responses/list-namespace-delegation-response.js";
+import { ListOwnerToKeyMappingResponse } from "../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListPackagesResponse } from "../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
+import { ListParticipantSynchronizerPermissionResponse } from "../core/types/responses/list-participant-synchronizer-permission-response.js";
+import { ListPartyHostingLimitsResponse } from "../core/types/responses/list-party-hosting-limits-response.js";
+import { ListPartyToKeyMappingResponse } from "../core/types/responses/list-party-to-key-mapping-response.js";
+import { ListPartyToParticipantResponse } from "../core/types/responses/list-party-to-participant-response.js";
+import { ListSequencerSynchronizerStateResponse } from "../core/types/responses/list-sequencer-synchronizer-state-response.js";
+import { ListSequencingParametersStateResponse } from "../core/types/responses/list-sequencing-parameters-state-response.js";
+import { ListSynchronizerParametersStateResponse } from "../core/types/responses/list-synchronizer-parameters-state-response.js";
+import { ListSynchronizerTrustCertificateResponse } from "../core/types/responses/list-synchronizer-trust-certificate-response.js";
+import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { ListVettedPackagesResponse } from "../core/types/responses/list-vetted-packages-response.js";
+import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";
 import { ParticipantListPackagesResponse } from "../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse } from "../core/types/responses/upload-dar-file-response.js";
@@ -55,6 +95,8 @@ import { ParticipantPackageServiceClient } from "../services/participant-package
 import { ParticipantStatusServiceClient } from "../services/participant-status/participant-status-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
+import { TopologyAggregationServiceClient } from "../services/topology-aggregation/topology-aggregation-service-client.js";
+import { TopologyManagerReadServiceClient } from "../services/topology-manager-read/topology-manager-read-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
 import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
 import { VersionServiceClient } from "../services/version/version-service-client.js";
@@ -72,6 +114,8 @@ export interface ServiceRegistry {
     readonly packageManagementService: PackageManagementServiceClient;
     readonly participantPackageService: ParticipantPackageServiceClient;
     readonly participantStatusService: ParticipantStatusServiceClient;
+    readonly topologyManagerReadService: TopologyManagerReadServiceClient;
+    readonly topologyAggregationService: TopologyAggregationServiceClient;
     readonly commandService: CommandServiceClient;
     readonly commandSubmissionService: CommandSubmissionServiceClient;
     readonly commandCompletionService: CommandCompletionServiceClient;
@@ -223,6 +267,166 @@ class PlaceholderTransport implements ITransport {
         throw new TransportError("participant status is not available yet");
     }
 
+    public async listNamespaceDelegationAsync(
+        _request: ListNamespaceDelegationRequest,
+        _options?: RequestOptions,
+    ): Promise<ListNamespaceDelegationResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology namespace delegations are not available yet");
+    }
+
+    public async listDecentralizedNamespaceDefinitionAsync(
+        _request: ListDecentralizedNamespaceDefinitionRequest,
+        _options?: RequestOptions,
+    ): Promise<ListDecentralizedNamespaceDefinitionResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology decentralized namespaces are not available yet");
+    }
+
+    public async listOwnerToKeyMappingAsync(
+        _request: ListOwnerToKeyMappingRequest,
+        _options?: RequestOptions,
+    ): Promise<ListOwnerToKeyMappingResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology owner-to-key mappings are not available yet");
+    }
+
+    public async listPartyToKeyMappingAsync(
+        _request: ListPartyToKeyMappingRequest,
+        _options?: RequestOptions,
+    ): Promise<ListPartyToKeyMappingResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party-to-key mappings are not available yet");
+    }
+
+    public async listSynchronizerTrustCertificateAsync(
+        _request: ListSynchronizerTrustCertificateRequest,
+        _options?: RequestOptions,
+    ): Promise<ListSynchronizerTrustCertificateResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology synchronizer trust certificates are not available yet");
+    }
+
+    public async listParticipantSynchronizerPermissionAsync(
+        _request: ListParticipantSynchronizerPermissionRequest,
+        _options?: RequestOptions,
+    ): Promise<ListParticipantSynchronizerPermissionResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology participant synchronizer permissions are not available yet");
+    }
+
+    public async listPartyHostingLimitsAsync(
+        _request: ListPartyHostingLimitsRequest,
+        _options?: RequestOptions,
+    ): Promise<ListPartyHostingLimitsResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party hosting limits are not available yet");
+    }
+
+    public async topologyListVettedPackagesAsync(
+        _request: TopologyListVettedPackagesRequest,
+        _options?: RequestOptions,
+    ): Promise<TopologyListVettedPackagesResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology vetted packages are not available yet");
+    }
+
+    public async listPartyToParticipantAsync(
+        _request: ListPartyToParticipantRequest,
+        _options?: RequestOptions,
+    ): Promise<ListPartyToParticipantResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party-to-participant mappings are not available yet");
+    }
+
+    public async listSynchronizerParametersStateAsync(
+        _request: ListSynchronizerParametersStateRequest,
+        _options?: RequestOptions,
+    ): Promise<ListSynchronizerParametersStateResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology synchronizer parameters are not available yet");
+    }
+
+    public async listSequencingParametersStateAsync(
+        _request: ListSequencingParametersStateRequest,
+        _options?: RequestOptions,
+    ): Promise<ListSequencingParametersStateResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology sequencing parameters are not available yet");
+    }
+
+    public async listMediatorSynchronizerStateAsync(
+        _request: ListMediatorSynchronizerStateRequest,
+        _options?: RequestOptions,
+    ): Promise<ListMediatorSynchronizerStateResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology mediator synchronizer state is not available yet");
+    }
+
+    public async listSequencerSynchronizerStateAsync(
+        _request: ListSequencerSynchronizerStateRequest,
+        _options?: RequestOptions,
+    ): Promise<ListSequencerSynchronizerStateResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology sequencer synchronizer state is not available yet");
+    }
+
+    public async listLsuAnnouncementAsync(
+        _request: ListLsuAnnouncementRequest,
+        _options?: RequestOptions,
+    ): Promise<ListLsuAnnouncementResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology lsu announcements are not available yet");
+    }
+
+    public async listLsuSequencerConnectionSuccessorAsync(
+        _request: ListLsuSequencerConnectionSuccessorRequest,
+        _options?: RequestOptions,
+    ): Promise<ListLsuSequencerConnectionSuccessorResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology lsu sequencer connection successors are not available yet");
+    }
+
+    public async listAvailableStoresAsync(
+        _request: ListAvailableStoresRequest,
+        _options?: RequestOptions,
+    ): Promise<ListAvailableStoresResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology stores are not available yet");
+    }
+
+    public async listAllAsync(
+        _request: ListAllRequest,
+        _options?: RequestOptions,
+    ): Promise<ListAllResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list-all is not available yet");
+    }
+
+    public async listAllV2Async(
+        _request: ListAllV2Request,
+        _options?: RequestOptions,
+    ): Promise<ListAllV2Response> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list-all-v2 is not available yet");
+    }
+
+    public async topologyListPartiesAsync(
+        _request: TopologyListPartiesRequest,
+        _options?: RequestOptions,
+    ): Promise<TopologyListPartiesResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list parties is not available yet");
+    }
+
+    public async listKeyOwnersAsync(
+        _request: ListKeyOwnersRequest,
+        _options?: RequestOptions,
+    ): Promise<ListKeyOwnersResponse> {
+        this.throwIfDisposed();
+        throw new TransportError("topology key owners are not available yet");
+    }
+
     public async getActiveContractsPageAsync(
         _request: GetActiveContractsPageRequest,
         _options?: RequestOptions,
@@ -351,6 +555,86 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
+    public async listNamespaceDelegationAsync(): Promise<ListNamespaceDelegationResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listDecentralizedNamespaceDefinitionAsync(): Promise<ListDecentralizedNamespaceDefinitionResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listOwnerToKeyMappingAsync(): Promise<ListOwnerToKeyMappingResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listPartyToKeyMappingAsync(): Promise<ListPartyToKeyMappingResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listSynchronizerTrustCertificateAsync(): Promise<ListSynchronizerTrustCertificateResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listParticipantSynchronizerPermissionAsync(): Promise<ListParticipantSynchronizerPermissionResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listPartyHostingLimitsAsync(): Promise<ListPartyHostingLimitsResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async topologyListVettedPackagesAsync(): Promise<TopologyListVettedPackagesResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listPartyToParticipantAsync(): Promise<ListPartyToParticipantResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listSynchronizerParametersStateAsync(): Promise<ListSynchronizerParametersStateResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listSequencingParametersStateAsync(): Promise<ListSequencingParametersStateResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listMediatorSynchronizerStateAsync(): Promise<ListMediatorSynchronizerStateResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listSequencerSynchronizerStateAsync(): Promise<ListSequencerSynchronizerStateResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listLsuAnnouncementAsync(): Promise<ListLsuAnnouncementResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listLsuSequencerConnectionSuccessorAsync(): Promise<ListLsuSequencerConnectionSuccessorResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listAvailableStoresAsync(): Promise<ListAvailableStoresResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listAllAsync(): Promise<ListAllResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listAllV2Async(): Promise<ListAllV2Response> {
+        this.throwMissingEndpoint();
+    }
+
+    public async topologyListPartiesAsync(): Promise<TopologyListPartiesResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async listKeyOwnersAsync(): Promise<ListKeyOwnersResponse> {
+        this.throwMissingEndpoint();
+    }
+
     public async getActiveContractsPageAsync(): Promise<GetActiveContractsPageResponse> {
         this.throwMissingEndpoint();
     }
@@ -442,6 +726,86 @@ class CompositeTransport implements ITransport {
     }
 
     public async getParticipantStatusAsync(): Promise<GetParticipantStatusResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listNamespaceDelegationAsync(): Promise<ListNamespaceDelegationResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listDecentralizedNamespaceDefinitionAsync(): Promise<ListDecentralizedNamespaceDefinitionResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listOwnerToKeyMappingAsync(): Promise<ListOwnerToKeyMappingResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listPartyToKeyMappingAsync(): Promise<ListPartyToKeyMappingResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listSynchronizerTrustCertificateAsync(): Promise<ListSynchronizerTrustCertificateResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listParticipantSynchronizerPermissionAsync(): Promise<ListParticipantSynchronizerPermissionResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listPartyHostingLimitsAsync(): Promise<ListPartyHostingLimitsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async topologyListVettedPackagesAsync(): Promise<TopologyListVettedPackagesResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listPartyToParticipantAsync(): Promise<ListPartyToParticipantResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listSynchronizerParametersStateAsync(): Promise<ListSynchronizerParametersStateResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listSequencingParametersStateAsync(): Promise<ListSequencingParametersStateResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listMediatorSynchronizerStateAsync(): Promise<ListMediatorSynchronizerStateResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listSequencerSynchronizerStateAsync(): Promise<ListSequencerSynchronizerStateResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listLsuAnnouncementAsync(): Promise<ListLsuAnnouncementResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listLsuSequencerConnectionSuccessorAsync(): Promise<ListLsuSequencerConnectionSuccessorResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listAvailableStoresAsync(): Promise<ListAvailableStoresResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listAllAsync(): Promise<ListAllResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listAllV2Async(): Promise<ListAllV2Response> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async topologyListPartiesAsync(): Promise<TopologyListPartiesResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async listKeyOwnersAsync(): Promise<ListKeyOwnersResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
@@ -656,6 +1020,20 @@ export function createServiceRegistry(
             "participantStatusService",
         );
 
+    const topologyManagerReadTransport =
+        participantAdminTransport
+        ?? createMissingParticipantAdminTransport(
+            options,
+            "topologyManagerReadService",
+        );
+
+    const topologyAggregationTransport =
+        participantAdminTransport
+        ?? createMissingParticipantAdminTransport(
+            options,
+            "topologyAggregationService",
+        );
+
     const transport = new CompositeTransport(
         [
             ledgerTransport,
@@ -683,6 +1061,12 @@ export function createServiceRegistry(
         ),
         participantStatusService: new ParticipantStatusServiceClient(
             participantStatusTransport,
+        ),
+        topologyManagerReadService: new TopologyManagerReadServiceClient(
+            topologyManagerReadTransport,
+        ),
+        topologyAggregationService: new TopologyAggregationServiceClient(
+            topologyAggregationTransport,
         ),
         commandService: new CommandServiceClient(
             commandTransport,

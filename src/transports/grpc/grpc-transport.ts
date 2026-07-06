@@ -35,6 +35,7 @@ import { ParticipantListPackagesResponse } from "../../core/types/responses/part
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
+import { TransportError } from "../../core/errors/transport-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { PackageFormat } from "../../core/types/package-format.js";
 import { RequestOptions } from "../../core/types/request-options.js";
@@ -359,6 +360,166 @@ export class GrpcTransport implements ITransport {
         return mapGrpcParticipantStatusResponse(
             payload as Partial<ProtobufParticipantStatusResponse>,
         );
+    }
+
+    public async listNamespaceDelegationAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology namespace delegations are not available yet");
+    }
+
+    public async listDecentralizedNamespaceDefinitionAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology decentralized namespaces are not available yet");
+    }
+
+    public async listOwnerToKeyMappingAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology owner-to-key mappings are not available yet");
+    }
+
+    public async listPartyToKeyMappingAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party-to-key mappings are not available yet");
+    }
+
+    public async listSynchronizerTrustCertificateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology synchronizer trust certificates are not available yet");
+    }
+
+    public async listParticipantSynchronizerPermissionAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology participant synchronizer permissions are not available yet");
+    }
+
+    public async listPartyHostingLimitsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party hosting limits are not available yet");
+    }
+
+    public async topologyListVettedPackagesAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology vetted packages are not available yet");
+    }
+
+    public async listPartyToParticipantAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology party-to-participant mappings are not available yet");
+    }
+
+    public async listSynchronizerParametersStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology synchronizer parameters are not available yet");
+    }
+
+    public async listSequencingParametersStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology sequencing parameters are not available yet");
+    }
+
+    public async listMediatorSynchronizerStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology mediator synchronizer state is not available yet");
+    }
+
+    public async listSequencerSynchronizerStateAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology sequencer synchronizer state is not available yet");
+    }
+
+    public async listLsuAnnouncementAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology lsu announcements are not available yet");
+    }
+
+    public async listLsuSequencerConnectionSuccessorAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology lsu sequencer connection successors are not available yet");
+    }
+
+    public async listAvailableStoresAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology stores are not available yet");
+    }
+
+    public async listAllAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list-all is not available yet");
+    }
+
+    public async listAllV2Async(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list-all-v2 is not available yet");
+    }
+
+    public async topologyListPartiesAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology list parties is not available yet");
+    }
+
+    public async listKeyOwnersAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+        throw new TransportError("topology key owners are not available yet");
     }
 
     public async getActiveContractsPageAsync(

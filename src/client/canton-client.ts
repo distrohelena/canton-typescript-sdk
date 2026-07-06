@@ -12,6 +12,8 @@ import { ParticipantPackageServiceClient } from "../services/participant-package
 import { ParticipantStatusServiceClient } from "../services/participant-status/participant-status-service-client.js";
 import { PartyManagementServiceClient } from "../services/party-management/party-management-service-client.js";
 import { StateServiceClient } from "../services/state/state-service-client.js";
+import { TopologyAggregationServiceClient } from "../services/topology-aggregation/topology-aggregation-service-client.js";
+import { TopologyManagerReadServiceClient } from "../services/topology-manager-read/topology-manager-read-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
 import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
 import { VersionServiceClient } from "../services/version/version-service-client.js";
@@ -30,6 +32,8 @@ export class CantonClient {
     public readonly packageManagementService: PackageManagementServiceClient;
     public readonly participantPackageService: ParticipantPackageServiceClient;
     public readonly participantStatusService: ParticipantStatusServiceClient;
+    public readonly topologyManagerReadService: TopologyManagerReadServiceClient;
+    public readonly topologyAggregationService: TopologyAggregationServiceClient;
     public readonly commandService: CommandServiceClient;
     public readonly commandSubmissionService: CommandSubmissionServiceClient;
     public readonly commandCompletionService: CommandCompletionServiceClient;
@@ -60,6 +64,8 @@ export class CantonClient {
         this.packageManagementService = services.packageManagementService;
         this.participantPackageService = services.participantPackageService;
         this.participantStatusService = services.participantStatusService;
+        this.topologyManagerReadService = services.topologyManagerReadService;
+        this.topologyAggregationService = services.topologyAggregationService;
         this.commandService = services.commandService;
         this.commandSubmissionService = services.commandSubmissionService;
         this.commandCompletionService = services.commandCompletionService;
