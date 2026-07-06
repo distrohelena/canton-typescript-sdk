@@ -303,6 +303,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListNamespaceDelegation is not supported by json transport",
         );
@@ -313,6 +314,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListDecentralizedNamespaceDefinition is not supported by json transport",
         );
@@ -323,6 +325,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListOwnerToKeyMapping is not supported by json transport",
         );
@@ -333,6 +336,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListPartyToKeyMapping is not supported by json transport",
         );
@@ -343,6 +347,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListSynchronizerTrustCertificate is not supported by json transport",
         );
@@ -353,6 +358,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListParticipantSynchronizerPermission is not supported by json transport",
         );
@@ -363,6 +369,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListPartyHostingLimits is not supported by json transport",
         );
@@ -373,6 +380,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListVettedPackages is not supported by json transport",
         );
@@ -383,6 +391,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListPartyToParticipant is not supported by json transport",
         );
@@ -393,6 +402,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListSynchronizerParametersState is not supported by json transport",
         );
@@ -403,6 +413,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListSequencingParametersState is not supported by json transport",
         );
@@ -413,6 +424,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListMediatorSynchronizerState is not supported by json transport",
         );
@@ -423,6 +435,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListSequencerSynchronizerState is not supported by json transport",
         );
@@ -433,6 +446,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListLsuAnnouncement is not supported by json transport",
         );
@@ -443,6 +457,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListLsuSequencerConnectionSuccessor is not supported by json transport",
         );
@@ -453,6 +468,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListAvailableStores is not supported by json transport",
         );
@@ -463,6 +479,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListAll is not supported by json transport",
         );
@@ -473,6 +490,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyManagerReadService.ListAllV2 is not supported by json transport",
         );
@@ -483,6 +501,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyAggregationService.ListParties is not supported by json transport",
         );
@@ -493,6 +512,7 @@ export class JsonTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
+
         throw new NotSupportedError(
             "TopologyAggregationService.ListKeyOwners is not supported by json transport",
         );

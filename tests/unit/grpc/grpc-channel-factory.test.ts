@@ -157,6 +157,14 @@ describe("gRPC call-options factory", () => {
 
         let capturedParticipantStatusOptions: unknown;
 
+        let capturedTopologyStoreRequest: unknown;
+
+        let capturedTopologyStoreOptions: unknown;
+
+        let capturedTopologyPartiesRequest: unknown;
+
+        let capturedTopologyPartiesOptions: unknown;
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -306,6 +314,30 @@ describe("gRPC call-options factory", () => {
                         };
                     },
                 },
+                topologyManagerReadServiceClient: {
+                    listAvailableStores: (request: unknown, options?: unknown) => {
+                        capturedTopologyStoreRequest = request;
+                        capturedTopologyStoreOptions = options;
+
+                        return {
+                            response: Promise.resolve({
+                                storeIds: [],
+                            }),
+                        };
+                    },
+                },
+                topologyAggregationServiceClient: {
+                    listParties: (request: unknown, options?: unknown) => {
+                        capturedTopologyPartiesRequest = request;
+                        capturedTopologyPartiesOptions = options;
+
+                        return {
+                            response: Promise.resolve({
+                                results: [],
+                            }),
+                        };
+                    },
+                },
             } as any,
         ) as any;
 
@@ -319,6 +351,10 @@ describe("gRPC call-options factory", () => {
             packageId: "pkg-1",
         });
         await operations.getParticipantStatusAsync!({});
+        await operations.listAvailableStoresAsync!({});
+        await operations.topologyListPartiesAsync!({
+            filterParty: "Alice",
+        });
 
         expect(capturedLedgerRequest).toEqual({});
         expect(capturedLedgerOptions).toMatchObject({
@@ -350,6 +386,24 @@ describe("gRPC call-options factory", () => {
         });
         expect(capturedParticipantStatusRequest).toEqual({});
         expect(capturedParticipantStatusOptions).toMatchObject({
+            meta: {
+                authorization: "Bearer participant-admin-token",
+                "x-canton-surface": "participant-admin",
+            },
+            timeout: 1_500,
+        });
+        expect(capturedTopologyStoreRequest).toEqual({});
+        expect(capturedTopologyStoreOptions).toMatchObject({
+            meta: {
+                authorization: "Bearer participant-admin-token",
+                "x-canton-surface": "participant-admin",
+            },
+            timeout: 1_500,
+        });
+        expect(capturedTopologyPartiesRequest).toEqual({
+            filterParty: "Alice",
+        });
+        expect(capturedTopologyPartiesOptions).toMatchObject({
             meta: {
                 authorization: "Bearer participant-admin-token",
                 "x-canton-surface": "participant-admin",

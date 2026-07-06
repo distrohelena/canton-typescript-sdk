@@ -22,7 +22,9 @@ describe("TopologyManagerReadServiceClient", () => {
         };
 
         const client = new TopologyManagerReadServiceClient(transport as never);
+
         const request = new ListAvailableStoresRequest();
+
         const options = new RequestOptions({
             timeoutMs: 5_000,
         });

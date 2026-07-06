@@ -11,11 +11,31 @@ import { GetParticipantStatusRequest } from "../../core/types/requests/get-parti
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
+import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
+import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
+import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
+import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
+import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
+import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
+import { ListLsuSequencerConnectionSuccessorRequest } from "../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
 import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
+import { ListMediatorSynchronizerStateRequest } from "../../core/types/requests/list-mediator-synchronizer-state-request.js";
 import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
+import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
+import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
+import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
+import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
+import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
+import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
+import { ListSequencerSynchronizerStateRequest } from "../../core/types/requests/list-sequencer-synchronizer-state-request.js";
+import { ListSequencingParametersStateRequest } from "../../core/types/requests/list-sequencing-parameters-state-request.js";
+import { ListSynchronizerParametersStateRequest } from "../../core/types/requests/list-synchronizer-parameters-state-request.js";
+import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
+import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
@@ -28,11 +48,31 @@ import { GetActiveContractsPageResponse } from "../../core/types/responses/get-a
 import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
+import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
+import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
+import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
+import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
+import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
+import { ListLsuAnnouncementResponse } from "../../core/types/responses/list-lsu-announcement-response.js";
+import { ListLsuSequencerConnectionSuccessorResponse } from "../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
+import { ListMediatorSynchronizerStateResponse } from "../../core/types/responses/list-mediator-synchronizer-state-response.js";
+import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
+import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
+import { ListParticipantSynchronizerPermissionResponse } from "../../core/types/responses/list-participant-synchronizer-permission-response.js";
+import { ListPartyHostingLimitsResponse } from "../../core/types/responses/list-party-hosting-limits-response.js";
+import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
+import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
+import { ListSequencerSynchronizerStateResponse } from "../../core/types/responses/list-sequencer-synchronizer-state-response.js";
+import { ListSequencingParametersStateResponse } from "../../core/types/responses/list-sequencing-parameters-state-response.js";
+import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
+import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { ListVettedPackagesResponse } from "../../core/types/responses/list-vetted-packages-response.js";
 import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
+import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
+import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
 import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
@@ -77,6 +117,50 @@ import {
 } from "./mappers/participant-status-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import {
+    mapGrpcListKeyOwnersRequest,
+    mapGrpcListKeyOwnersResponse,
+    mapGrpcTopologyListPartiesRequest,
+    mapGrpcTopologyListPartiesResponse,
+} from "./mappers/topology-aggregation-mapper.js";
+import {
+    mapGrpcListAllRequest,
+    mapGrpcListAllResponse,
+    mapGrpcListAllV2Request,
+    mapGrpcListAllV2Response,
+    mapGrpcListAvailableStoresRequest,
+    mapGrpcListAvailableStoresResponse,
+    mapGrpcListDecentralizedNamespaceDefinitionRequest,
+    mapGrpcListDecentralizedNamespaceDefinitionResponse,
+    mapGrpcListLsuAnnouncementRequest,
+    mapGrpcListLsuAnnouncementResponse,
+    mapGrpcListLsuSequencerConnectionSuccessorRequest,
+    mapGrpcListLsuSequencerConnectionSuccessorResponse,
+    mapGrpcListMediatorSynchronizerStateRequest,
+    mapGrpcListMediatorSynchronizerStateResponse,
+    mapGrpcListNamespaceDelegationRequest,
+    mapGrpcListNamespaceDelegationResponse,
+    mapGrpcListOwnerToKeyMappingRequest,
+    mapGrpcListOwnerToKeyMappingResponse,
+    mapGrpcListParticipantSynchronizerPermissionRequest,
+    mapGrpcListParticipantSynchronizerPermissionResponse,
+    mapGrpcListPartyHostingLimitsRequest,
+    mapGrpcListPartyHostingLimitsResponse,
+    mapGrpcListPartyToKeyMappingRequest,
+    mapGrpcListPartyToKeyMappingResponse,
+    mapGrpcListPartyToParticipantRequest,
+    mapGrpcListPartyToParticipantResponse,
+    mapGrpcListSequencerSynchronizerStateRequest,
+    mapGrpcListSequencerSynchronizerStateResponse,
+    mapGrpcListSequencingParametersStateRequest,
+    mapGrpcListSequencingParametersStateResponse,
+    mapGrpcListSynchronizerParametersStateRequest,
+    mapGrpcListSynchronizerParametersStateResponse,
+    mapGrpcListSynchronizerTrustCertificateRequest,
+    mapGrpcListSynchronizerTrustCertificateResponse,
+    mapGrpcTopologyListVettedPackagesRequest,
+    mapGrpcTopologyListVettedPackagesResponse,
+} from "./mappers/topology-manager-read-mapper.js";
+import {
     mapGrpcGrantUserRights,
     mapGrpcGrantUserRightsRequest,
 } from "./mappers/users-mapper.js";
@@ -99,6 +183,30 @@ import {
     ListPackagesResponse as ProtobufParticipantListPackagesResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import {
+    ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
+    ListPartiesResponse as ProtobufTopologyListPartiesResponse,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
+import {
+    ListAllResponse as ProtobufTopologyListAllResponse,
+    ListAllV2Response as ProtobufTopologyListAllV2Response,
+    ListAvailableStoresResponse as ProtobufListAvailableStoresResponse,
+    ListDecentralizedNamespaceDefinitionResponse as ProtobufListDecentralizedNamespaceDefinitionResponse,
+    ListLsuAnnouncementResponse as ProtobufListLsuAnnouncementResponse,
+    ListLsuSequencerConnectionSuccessorResponse as ProtobufListLsuSequencerConnectionSuccessorResponse,
+    ListMediatorSynchronizerStateResponse as ProtobufListMediatorSynchronizerStateResponse,
+    ListNamespaceDelegationResponse as ProtobufListNamespaceDelegationResponse,
+    ListOwnerToKeyMappingResponse as ProtobufListOwnerToKeyMappingResponse,
+    ListParticipantSynchronizerPermissionResponse as ProtobufListParticipantSynchronizerPermissionResponse,
+    ListPartyHostingLimitsResponse as ProtobufListPartyHostingLimitsResponse,
+    ListPartyToKeyMappingResponse as ProtobufListPartyToKeyMappingResponse,
+    ListPartyToParticipantResponse as ProtobufListPartyToParticipantResponse,
+    ListSequencerSynchronizerStateResponse as ProtobufListSequencerSynchronizerStateResponse,
+    ListSequencingParametersStateResponse as ProtobufListSequencingParametersStateResponse,
+    ListSynchronizerParametersStateResponse as ProtobufListSynchronizerParametersStateResponse,
+    ListSynchronizerTrustCertificateResponse as ProtobufListSynchronizerTrustCertificateResponse,
+    ListVettedPackagesResponse as ProtobufTopologyListVettedPackagesResponse,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 
 export class GrpcTransport implements ITransport {
@@ -363,163 +471,325 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listNamespaceDelegationAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListNamespaceDelegationRequest,
+        options?: RequestOptions,
+    ): Promise<ListNamespaceDelegationResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology namespace delegations are not available yet");
+
+        const payload = await this.operations.listNamespaceDelegationAsync!(
+            mapGrpcListNamespaceDelegationRequest(request),
+            options,
+        );
+
+        return mapGrpcListNamespaceDelegationResponse(
+            payload as Partial<ProtobufListNamespaceDelegationResponse>,
+        );
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListDecentralizedNamespaceDefinitionRequest,
+        options?: RequestOptions,
+    ): Promise<ListDecentralizedNamespaceDefinitionResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology decentralized namespaces are not available yet");
+
+        const payload =
+            await this.operations.listDecentralizedNamespaceDefinitionAsync!(
+                mapGrpcListDecentralizedNamespaceDefinitionRequest(request),
+                options,
+            );
+
+        return mapGrpcListDecentralizedNamespaceDefinitionResponse(
+            payload as Partial<ProtobufListDecentralizedNamespaceDefinitionResponse>,
+        );
     }
 
     public async listOwnerToKeyMappingAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListOwnerToKeyMappingRequest,
+        options?: RequestOptions,
+    ): Promise<ListOwnerToKeyMappingResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology owner-to-key mappings are not available yet");
+
+        const payload = await this.operations.listOwnerToKeyMappingAsync!(
+            mapGrpcListOwnerToKeyMappingRequest(request),
+            options,
+        );
+
+        return mapGrpcListOwnerToKeyMappingResponse(
+            payload as Partial<ProtobufListOwnerToKeyMappingResponse>,
+        );
     }
 
     public async listPartyToKeyMappingAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListPartyToKeyMappingRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyToKeyMappingResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology party-to-key mappings are not available yet");
+
+        const payload = await this.operations.listPartyToKeyMappingAsync!(
+            mapGrpcListPartyToKeyMappingRequest(request),
+            options,
+        );
+
+        return mapGrpcListPartyToKeyMappingResponse(
+            payload as Partial<ProtobufListPartyToKeyMappingResponse>,
+        );
     }
 
     public async listSynchronizerTrustCertificateAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListSynchronizerTrustCertificateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSynchronizerTrustCertificateResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology synchronizer trust certificates are not available yet");
+
+        const payload = await this.operations.listSynchronizerTrustCertificateAsync!(
+            mapGrpcListSynchronizerTrustCertificateRequest(request),
+            options,
+        );
+
+        return mapGrpcListSynchronizerTrustCertificateResponse(
+            payload as Partial<ProtobufListSynchronizerTrustCertificateResponse>,
+        );
     }
 
     public async listParticipantSynchronizerPermissionAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListParticipantSynchronizerPermissionRequest,
+        options?: RequestOptions,
+    ): Promise<ListParticipantSynchronizerPermissionResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology participant synchronizer permissions are not available yet");
+
+        const payload = await this.operations.listParticipantSynchronizerPermissionAsync!(
+            mapGrpcListParticipantSynchronizerPermissionRequest(request),
+            options,
+        );
+
+        return mapGrpcListParticipantSynchronizerPermissionResponse(
+            payload as Partial<ProtobufListParticipantSynchronizerPermissionResponse>,
+        );
     }
 
     public async listPartyHostingLimitsAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListPartyHostingLimitsRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyHostingLimitsResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology party hosting limits are not available yet");
+
+        const payload = await this.operations.listPartyHostingLimitsAsync!(
+            mapGrpcListPartyHostingLimitsRequest(request),
+            options,
+        );
+
+        return mapGrpcListPartyHostingLimitsResponse(
+            payload as Partial<ProtobufListPartyHostingLimitsResponse>,
+        );
     }
 
     public async topologyListVettedPackagesAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: TopologyListVettedPackagesRequest,
+        options?: RequestOptions,
+    ): Promise<TopologyListVettedPackagesResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology vetted packages are not available yet");
+
+        const payload = await this.operations.topologyListVettedPackagesAsync!(
+            mapGrpcTopologyListVettedPackagesRequest(request),
+            options,
+        );
+
+        return mapGrpcTopologyListVettedPackagesResponse(
+            payload as Partial<ProtobufTopologyListVettedPackagesResponse>,
+        );
     }
 
     public async listPartyToParticipantAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListPartyToParticipantRequest,
+        options?: RequestOptions,
+    ): Promise<ListPartyToParticipantResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology party-to-participant mappings are not available yet");
+
+        const payload = await this.operations.listPartyToParticipantAsync!(
+            mapGrpcListPartyToParticipantRequest(request),
+            options,
+        );
+
+        return mapGrpcListPartyToParticipantResponse(
+            payload as Partial<ProtobufListPartyToParticipantResponse>,
+        );
     }
 
     public async listSynchronizerParametersStateAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListSynchronizerParametersStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSynchronizerParametersStateResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology synchronizer parameters are not available yet");
+
+        const payload = await this.operations.listSynchronizerParametersStateAsync!(
+            mapGrpcListSynchronizerParametersStateRequest(request),
+            options,
+        );
+
+        return mapGrpcListSynchronizerParametersStateResponse(
+            payload as Partial<ProtobufListSynchronizerParametersStateResponse>,
+        );
     }
 
     public async listSequencingParametersStateAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListSequencingParametersStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSequencingParametersStateResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology sequencing parameters are not available yet");
+
+        const payload = await this.operations.listSequencingParametersStateAsync!(
+            mapGrpcListSequencingParametersStateRequest(request),
+            options,
+        );
+
+        return mapGrpcListSequencingParametersStateResponse(
+            payload as Partial<ProtobufListSequencingParametersStateResponse>,
+        );
     }
 
     public async listMediatorSynchronizerStateAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListMediatorSynchronizerStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListMediatorSynchronizerStateResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology mediator synchronizer state is not available yet");
+
+        const payload = await this.operations.listMediatorSynchronizerStateAsync!(
+            mapGrpcListMediatorSynchronizerStateRequest(request),
+            options,
+        );
+
+        return mapGrpcListMediatorSynchronizerStateResponse(
+            payload as Partial<ProtobufListMediatorSynchronizerStateResponse>,
+        );
     }
 
     public async listSequencerSynchronizerStateAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListSequencerSynchronizerStateRequest,
+        options?: RequestOptions,
+    ): Promise<ListSequencerSynchronizerStateResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology sequencer synchronizer state is not available yet");
+
+        const payload = await this.operations.listSequencerSynchronizerStateAsync!(
+            mapGrpcListSequencerSynchronizerStateRequest(request),
+            options,
+        );
+
+        return mapGrpcListSequencerSynchronizerStateResponse(
+            payload as Partial<ProtobufListSequencerSynchronizerStateResponse>,
+        );
     }
 
     public async listLsuAnnouncementAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListLsuAnnouncementRequest,
+        options?: RequestOptions,
+    ): Promise<ListLsuAnnouncementResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology lsu announcements are not available yet");
+
+        const payload = await this.operations.listLsuAnnouncementAsync!(
+            mapGrpcListLsuAnnouncementRequest(request),
+            options,
+        );
+
+        return mapGrpcListLsuAnnouncementResponse(
+            payload as Partial<ProtobufListLsuAnnouncementResponse>,
+        );
     }
 
     public async listLsuSequencerConnectionSuccessorAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListLsuSequencerConnectionSuccessorRequest,
+        options?: RequestOptions,
+    ): Promise<ListLsuSequencerConnectionSuccessorResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology lsu sequencer connection successors are not available yet");
+
+        const payload =
+            await this.operations.listLsuSequencerConnectionSuccessorAsync!(
+                mapGrpcListLsuSequencerConnectionSuccessorRequest(request),
+                options,
+            );
+
+        return mapGrpcListLsuSequencerConnectionSuccessorResponse(
+            payload as Partial<ProtobufListLsuSequencerConnectionSuccessorResponse>,
+        );
     }
 
     public async listAvailableStoresAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListAvailableStoresRequest,
+        options?: RequestOptions,
+    ): Promise<ListAvailableStoresResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology stores are not available yet");
+
+        const payload = await this.operations.listAvailableStoresAsync!(
+            mapGrpcListAvailableStoresRequest(request),
+            options,
+        );
+
+        return mapGrpcListAvailableStoresResponse(
+            payload as Partial<ProtobufListAvailableStoresResponse>,
+        );
     }
 
     public async listAllAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListAllRequest,
+        options?: RequestOptions,
+    ): Promise<ListAllResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology list-all is not available yet");
+
+        const payload = await this.operations.listAllAsync!(
+            mapGrpcListAllRequest(request),
+            options,
+        );
+
+        return mapGrpcListAllResponse(
+            payload as Partial<ProtobufTopologyListAllResponse>,
+        );
     }
 
     public async listAllV2Async(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListAllV2Request,
+        options?: RequestOptions,
+    ): Promise<ListAllV2Response> {
         this.throwIfDisposed();
-        throw new TransportError("topology list-all-v2 is not available yet");
+
+        const payload = await this.operations.listAllV2Async!(
+            mapGrpcListAllV2Request(request),
+            options,
+        );
+
+        return mapGrpcListAllV2Response(
+            payload as Partial<ProtobufTopologyListAllV2Response>,
+        );
     }
 
     public async topologyListPartiesAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: TopologyListPartiesRequest,
+        options?: RequestOptions,
+    ): Promise<TopologyListPartiesResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology list parties is not available yet");
+
+        const payload = await this.operations.topologyListPartiesAsync!(
+            mapGrpcTopologyListPartiesRequest(request),
+            options,
+        );
+
+        return mapGrpcTopologyListPartiesResponse(
+            payload as Partial<ProtobufTopologyListPartiesResponse>,
+        );
     }
 
     public async listKeyOwnersAsync(
-        _request: any,
-        _options?: RequestOptions,
-    ): Promise<any> {
+        request: ListKeyOwnersRequest,
+        options?: RequestOptions,
+    ): Promise<ListKeyOwnersResponse> {
         this.throwIfDisposed();
-        throw new TransportError("topology key owners are not available yet");
+
+        const payload = await this.operations.listKeyOwnersAsync!(
+            mapGrpcListKeyOwnersRequest(request),
+            options,
+        );
+
+        return mapGrpcListKeyOwnersResponse(
+            payload as Partial<ProtobufListKeyOwnersResponse>,
+        );
     }
 
     public async getActiveContractsPageAsync(

@@ -22,7 +22,9 @@ describe("TopologyAggregationServiceClient", () => {
         };
 
         const client = new TopologyAggregationServiceClient(transport as never);
+
         const request = new TopologyListPartiesRequest();
+
         const options = new RequestOptions({
             timeoutMs: 5_000,
         });

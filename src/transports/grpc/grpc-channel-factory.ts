@@ -9,6 +9,14 @@ import {
     ParticipantStatusServiceClient,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.client.js";
 import {
+    ITopologyAggregationServiceClient,
+    TopologyAggregationServiceClient,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.client.js";
+import {
+    ITopologyManagerReadServiceClient,
+    TopologyManagerReadServiceClient,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.client.js";
+import {
     IPackageManagementServiceClient,
     PackageManagementServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.client.js";
@@ -58,6 +66,30 @@ import {
     SubmitAndWaitRequest,
     SubmitAndWaitResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/command_service.js";
+import {
+    ListKeyOwnersRequest as GrpcListKeyOwnersRequest,
+    ListPartiesRequest as GrpcTopologyListPartiesRequest,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
+import {
+    ListAllRequest as GrpcTopologyListAllRequest,
+    ListAllV2Request as GrpcTopologyListAllV2Request,
+    ListAvailableStoresRequest as GrpcListAvailableStoresRequest,
+    ListDecentralizedNamespaceDefinitionRequest as GrpcListDecentralizedNamespaceDefinitionRequest,
+    ListLsuAnnouncementRequest as GrpcListLsuAnnouncementRequest,
+    ListLsuSequencerConnectionSuccessorRequest as GrpcListLsuSequencerConnectionSuccessorRequest,
+    ListMediatorSynchronizerStateRequest as GrpcListMediatorSynchronizerStateRequest,
+    ListNamespaceDelegationRequest as GrpcListNamespaceDelegationRequest,
+    ListOwnerToKeyMappingRequest as GrpcListOwnerToKeyMappingRequest,
+    ListParticipantSynchronizerPermissionRequest as GrpcListParticipantSynchronizerPermissionRequest,
+    ListPartyHostingLimitsRequest as GrpcListPartyHostingLimitsRequest,
+    ListPartyToKeyMappingRequest as GrpcListPartyToKeyMappingRequest,
+    ListPartyToParticipantRequest as GrpcListPartyToParticipantRequest,
+    ListSequencerSynchronizerStateRequest as GrpcListSequencerSynchronizerStateRequest,
+    ListSequencingParametersStateRequest as GrpcListSequencingParametersStateRequest,
+    ListSynchronizerParametersStateRequest as GrpcListSynchronizerParametersStateRequest,
+    ListSynchronizerTrustCertificateRequest as GrpcListSynchronizerTrustCertificateRequest,
+    ListVettedPackagesRequest as GrpcTopologyListVettedPackagesRequest,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { UploadDarFileRequest } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import {
     AllocatePartyRequest,
@@ -94,6 +126,26 @@ export interface GrpcOperations {
     getParticipantPackageContentsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getParticipantPackageReferencesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getParticipantStatusAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listNamespaceDelegationAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listDecentralizedNamespaceDefinitionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listOwnerToKeyMappingAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listPartyToKeyMappingAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listSynchronizerTrustCertificateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listParticipantSynchronizerPermissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listPartyHostingLimitsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    topologyListVettedPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listPartyToParticipantAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listSynchronizerParametersStateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listSequencingParametersStateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listMediatorSynchronizerStateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listSequencerSynchronizerStateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listLsuAnnouncementAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listLsuSequencerConnectionSuccessorAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listAvailableStoresAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listAllAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listAllV2Async?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    topologyListPartiesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    listKeyOwnersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     queryContractsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     streamTransactionsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -134,6 +186,31 @@ export interface GrpcOperationDependencies {
     participantStatusServiceClient?: Pick<
         IParticipantStatusServiceClient,
         "participantStatus"
+    >;
+    topologyManagerReadServiceClient?: Pick<
+        ITopologyManagerReadServiceClient,
+        "listNamespaceDelegation"
+        | "listDecentralizedNamespaceDefinition"
+        | "listOwnerToKeyMapping"
+        | "listPartyToKeyMapping"
+        | "listSynchronizerTrustCertificate"
+        | "listParticipantSynchronizerPermission"
+        | "listPartyHostingLimits"
+        | "listVettedPackages"
+        | "listPartyToParticipant"
+        | "listSynchronizerParametersState"
+        | "listSequencingParametersState"
+        | "listMediatorSynchronizerState"
+        | "listSequencerSynchronizerState"
+        | "listLsuAnnouncement"
+        | "listLsuSequencerConnectionSuccessor"
+        | "listAvailableStores"
+        | "listAll"
+        | "listAllV2"
+    >;
+    topologyAggregationServiceClient?: Pick<
+        ITopologyAggregationServiceClient,
+        "listParties" | "listKeyOwners"
     >;
     stateServiceClient?: Pick<IStateServiceClient, "getActiveContractsPage">;
     updateServiceClient?: Pick<IUpdateServiceClient, "getUpdates">;
@@ -187,6 +264,14 @@ export function createGrpcOperations(
     const participantStatusServiceClient =
         dependencies.participantStatusServiceClient
         ?? new ParticipantStatusServiceClient(rpcTransport);
+
+    const topologyManagerReadServiceClient =
+        dependencies.topologyManagerReadServiceClient
+        ?? new TopologyManagerReadServiceClient(rpcTransport);
+
+    const topologyAggregationServiceClient =
+        dependencies.topologyAggregationServiceClient
+        ?? new TopologyAggregationServiceClient(rpcTransport);
 
     const stateServiceClient =
         dependencies.stateServiceClient ?? new StateServiceClient(rpcTransport);
@@ -432,6 +517,346 @@ export function createGrpcOperations(
             return await unwrapUnaryResponse(
                 participantStatusServiceClient.participantStatus(
                     request as Record<string, never>,
+                    callOptions,
+                ),
+            );
+        },
+        async listNamespaceDelegationAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listNamespaceDelegation(
+                    request as GrpcListNamespaceDelegationRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listDecentralizedNamespaceDefinitionAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listDecentralizedNamespaceDefinition(
+                    request as GrpcListDecentralizedNamespaceDefinitionRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listOwnerToKeyMappingAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listOwnerToKeyMapping(
+                    request as GrpcListOwnerToKeyMappingRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listPartyToKeyMappingAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listPartyToKeyMapping(
+                    request as GrpcListPartyToKeyMappingRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listSynchronizerTrustCertificateAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listSynchronizerTrustCertificate(
+                    request as GrpcListSynchronizerTrustCertificateRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listParticipantSynchronizerPermissionAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listParticipantSynchronizerPermission(
+                    request as GrpcListParticipantSynchronizerPermissionRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listPartyHostingLimitsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listPartyHostingLimits(
+                    request as GrpcListPartyHostingLimitsRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async topologyListVettedPackagesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listVettedPackages(
+                    request as GrpcTopologyListVettedPackagesRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listPartyToParticipantAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listPartyToParticipant(
+                    request as GrpcListPartyToParticipantRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listSynchronizerParametersStateAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listSynchronizerParametersState(
+                    request as GrpcListSynchronizerParametersStateRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listSequencingParametersStateAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listSequencingParametersState(
+                    request as GrpcListSequencingParametersStateRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listMediatorSynchronizerStateAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listMediatorSynchronizerState(
+                    request as GrpcListMediatorSynchronizerStateRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listSequencerSynchronizerStateAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listSequencerSynchronizerState(
+                    request as GrpcListSequencerSynchronizerStateRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listLsuAnnouncementAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listLsuAnnouncement(
+                    request as GrpcListLsuAnnouncementRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listLsuSequencerConnectionSuccessorAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listLsuSequencerConnectionSuccessor(
+                    request as GrpcListLsuSequencerConnectionSuccessorRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listAvailableStoresAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listAvailableStores(
+                    request as GrpcListAvailableStoresRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listAllAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listAll(
+                    request as GrpcTopologyListAllRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listAllV2Async(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerReadServiceClient.listAllV2(
+                    request as GrpcTopologyListAllV2Request,
+                    callOptions,
+                ),
+            );
+        },
+        async topologyListPartiesAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyAggregationServiceClient.listParties(
+                    request as GrpcTopologyListPartiesRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async listKeyOwnersAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyAggregationServiceClient.listKeyOwners(
+                    request as GrpcListKeyOwnersRequest,
                     callOptions,
                 ),
             );

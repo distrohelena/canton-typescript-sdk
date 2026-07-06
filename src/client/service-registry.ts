@@ -272,6 +272,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListNamespaceDelegationResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology namespace delegations are not available yet");
     }
 
@@ -280,6 +281,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListDecentralizedNamespaceDefinitionResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology decentralized namespaces are not available yet");
     }
 
@@ -288,6 +290,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListOwnerToKeyMappingResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology owner-to-key mappings are not available yet");
     }
 
@@ -296,6 +299,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListPartyToKeyMappingResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology party-to-key mappings are not available yet");
     }
 
@@ -304,6 +308,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListSynchronizerTrustCertificateResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology synchronizer trust certificates are not available yet");
     }
 
@@ -312,6 +317,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListParticipantSynchronizerPermissionResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology participant synchronizer permissions are not available yet");
     }
 
@@ -320,6 +326,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListPartyHostingLimitsResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology party hosting limits are not available yet");
     }
 
@@ -328,6 +335,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<TopologyListVettedPackagesResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology vetted packages are not available yet");
     }
 
@@ -336,6 +344,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListPartyToParticipantResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology party-to-participant mappings are not available yet");
     }
 
@@ -344,6 +353,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListSynchronizerParametersStateResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology synchronizer parameters are not available yet");
     }
 
@@ -352,6 +362,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListSequencingParametersStateResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology sequencing parameters are not available yet");
     }
 
@@ -360,6 +371,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListMediatorSynchronizerStateResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology mediator synchronizer state is not available yet");
     }
 
@@ -368,6 +380,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListSequencerSynchronizerStateResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology sequencer synchronizer state is not available yet");
     }
 
@@ -376,6 +389,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListLsuAnnouncementResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology lsu announcements are not available yet");
     }
 
@@ -384,6 +398,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListLsuSequencerConnectionSuccessorResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology lsu sequencer connection successors are not available yet");
     }
 
@@ -392,6 +407,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListAvailableStoresResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology stores are not available yet");
     }
 
@@ -400,6 +416,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListAllResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology list-all is not available yet");
     }
 
@@ -408,6 +425,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListAllV2Response> {
         this.throwIfDisposed();
+
         throw new TransportError("topology list-all-v2 is not available yet");
     }
 
@@ -416,6 +434,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<TopologyListPartiesResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology list parties is not available yet");
     }
 
@@ -424,6 +443,7 @@ class PlaceholderTransport implements ITransport {
         _options?: RequestOptions,
     ): Promise<ListKeyOwnersResponse> {
         this.throwIfDisposed();
+
         throw new TransportError("topology key owners are not available yet");
     }
 

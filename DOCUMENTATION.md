@@ -131,6 +131,8 @@ Exposed properties:
 - `packageManagementService`
 - `participantPackageService`
 - `participantStatusService`
+- `topologyManagerReadService`
+- `topologyAggregationService`
 - `commandService`
 - `commandSubmissionService`
 - `commandCompletionService`
@@ -164,6 +166,8 @@ Participant Admin endpoint services use `participantAdminEndpoint`:
 
 - `participantPackageService`
 - `participantStatusService`
+- `topologyManagerReadService`
+- `topologyAggregationService`
 
 ### `new GrpcLedgerClient(operations, signer?)`
 
@@ -945,6 +949,101 @@ if (response.notInitialized) {
 }
 ```
 
+### `topologyManagerReadService.*`
+
+These functions mirror the participant-admin `TopologyManagerReadService` RPC boundary.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError` for every method in this service
+
+Common request model:
+
+- most methods accept `baseQuery?: TopologyBaseQuery`
+- `TopologyBaseQuery` can filter by `storeId`, `includeProposals`, `operation`, time selection, signed key fingerprint, and protocol version
+
+Functions:
+
+- `listNamespaceDelegationAsync(request: ListNamespaceDelegationRequest): Promise<ListNamespaceDelegationResponse>`
+  Request fields: `filterNamespace?: string`, `filterTargetKeyFingerprint?: string`
+  Response payload: `results: TopologyMappingResult<NamespaceDelegation>[]`
+- `listDecentralizedNamespaceDefinitionAsync(request: ListDecentralizedNamespaceDefinitionRequest): Promise<ListDecentralizedNamespaceDefinitionResponse>`
+  Request fields: `filterNamespace?: string`
+  Response payload: `results: TopologyMappingResult<DecentralizedNamespaceDefinition>[]`
+- `listOwnerToKeyMappingAsync(request: ListOwnerToKeyMappingRequest): Promise<ListOwnerToKeyMappingResponse>`
+  Request fields: `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
+  Response payload: `results: TopologyMappingResult<OwnerToKeyMapping>[]`
+- `listPartyToKeyMappingAsync(request: ListPartyToKeyMappingRequest): Promise<ListPartyToKeyMappingResponse>`
+  Request fields: `filterParty?: string`
+  Response payload: `results: TopologyMappingResult<PartyToKeyMapping>[]`
+- `listSynchronizerTrustCertificateAsync(request: ListSynchronizerTrustCertificateRequest): Promise<ListSynchronizerTrustCertificateResponse>`
+  Request fields: `filterUid?: string`
+  Response payload: `results: TopologyMappingResult<SynchronizerTrustCertificate>[]`
+- `listParticipantSynchronizerPermissionAsync(request: ListParticipantSynchronizerPermissionRequest): Promise<ListParticipantSynchronizerPermissionResponse>`
+  Request fields: `filterUid?: string`
+  Response payload: `results: TopologyMappingResult<ParticipantSynchronizerPermission>[]`
+- `listPartyHostingLimitsAsync(request: ListPartyHostingLimitsRequest): Promise<ListPartyHostingLimitsResponse>`
+  Request fields: `filterUid?: string`
+  Response payload: `results: TopologyMappingResult<PartyHostingLimits>[]`
+- `listVettedPackagesAsync(request: TopologyListVettedPackagesRequest): Promise<TopologyListVettedPackagesResponse>`
+  Request fields: `filterParticipant?: string`
+  Response payload: `results: TopologyMappingResult<TopologyVettedPackages>[]`
+- `listPartyToParticipantAsync(request: ListPartyToParticipantRequest): Promise<ListPartyToParticipantResponse>`
+  Request fields: `filterParty?: string`, `filterParticipant?: string`
+  Response payload: `results: TopologyMappingResult<PartyToParticipant>[]`
+- `listSynchronizerParametersStateAsync(request: ListSynchronizerParametersStateRequest): Promise<ListSynchronizerParametersStateResponse>`
+  Request fields: `filterSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<DynamicSynchronizerParameters>[]`
+- `listSequencingParametersStateAsync(request: ListSequencingParametersStateRequest): Promise<ListSequencingParametersStateResponse>`
+  Request fields: `filterSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<DynamicSequencingParameters>[]`
+- `listMediatorSynchronizerStateAsync(request: ListMediatorSynchronizerStateRequest): Promise<ListMediatorSynchronizerStateResponse>`
+  Request fields: `filterSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<MediatorSynchronizerState>[]`
+- `listSequencerSynchronizerStateAsync(request: ListSequencerSynchronizerStateRequest): Promise<ListSequencerSynchronizerStateResponse>`
+  Request fields: `filterSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<SequencerSynchronizerState>[]`
+- `listLsuAnnouncementAsync(request: ListLsuAnnouncementRequest): Promise<ListLsuAnnouncementResponse>`
+  Request fields: `filterSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<LsuAnnouncement>[]`
+- `listLsuSequencerConnectionSuccessorAsync(request: ListLsuSequencerConnectionSuccessorRequest): Promise<ListLsuSequencerConnectionSuccessorResponse>`
+  Request fields: `filterSequencerId?: string`, `filterSuccessorPhysicalSynchronizerId?: string`
+  Response payload: `results: TopologyMappingResult<LsuSequencerConnectionSuccessor>[]`
+- `listAvailableStoresAsync(request: ListAvailableStoresRequest): Promise<ListAvailableStoresResponse>`
+  Request fields: none
+  Response payload: `storeIds: TopologyStoreId[]`
+- `listAllAsync(request: ListAllRequest): Promise<ListAllResponse>`
+  Request fields: `excludeMappings: TopologyMappingCode[]`, `filterNamespace?: string`
+  Response payload: `result?: TopologyTransactions`
+- `listAllV2Async(request: ListAllV2Request): Promise<ListAllV2Response>`
+  Request fields: `includeMappings: TopologyMappingCode[]`, `filterNamespace?: string`
+  Response payload: `result?: TopologyTransactions`
+
+Notes:
+
+- all functions belong to the participant-admin endpoint surface
+- `listAllV2Async` is the preferred raw topology transaction read
+- raw `transaction` bytes are not decoded by the SDK yet
+
+### `topologyAggregationService.*`
+
+These functions mirror the participant-admin `TopologyAggregationService` RPC boundary.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError` for every method in this service
+
+Functions:
+
+- `listPartiesAsync(request: TopologyListPartiesRequest): Promise<TopologyListPartiesResponse>`
+  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds: string[]`, `filterParty?: string`, `filterParticipant?: string`
+  Response payload: `results: TopologyPartyResult[]`
+- `listKeyOwnersAsync(request: ListKeyOwnersRequest): Promise<ListKeyOwnersResponse>`
+  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds: string[]`, `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
+  Response payload: `results: TopologyKeyOwnerResult[]`
+
 ### `commandService.submitAndWaitAsync(request)`
 
 Submits a command and waits for the result.
@@ -1130,6 +1229,26 @@ They do not expose public methods yet.
 | `participantPackageService.getPackageContentsAsync` | Participant Admin | No | Yes |
 | `participantPackageService.getPackageReferencesAsync` | Participant Admin | No | Yes |
 | `participantStatusService.getParticipantStatusAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listNamespaceDelegationAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listDecentralizedNamespaceDefinitionAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listOwnerToKeyMappingAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listPartyToKeyMappingAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listSynchronizerTrustCertificateAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listParticipantSynchronizerPermissionAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listPartyHostingLimitsAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listVettedPackagesAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listPartyToParticipantAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listSynchronizerParametersStateAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listSequencingParametersStateAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listMediatorSynchronizerStateAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listSequencerSynchronizerStateAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listLsuAnnouncementAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listLsuSequencerConnectionSuccessorAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listAvailableStoresAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listAllAsync` | Participant Admin | No | Yes |
+| `topologyManagerReadService.listAllV2Async` | Participant Admin | No | Yes |
+| `topologyAggregationService.listPartiesAsync` | Participant Admin | No | Yes |
+| `topologyAggregationService.listKeyOwnersAsync` | Participant Admin | No | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
 | `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |
