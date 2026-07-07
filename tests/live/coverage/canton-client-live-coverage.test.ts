@@ -21,6 +21,7 @@ describe("canton client live coverage matrix", () => {
 
     it("contains unique entries with valid statuses", () => {
         const members = cantonClientLiveCoverage.map((entry) => entry.member);
+
         const uniqueMembers = new Set(members);
 
         expect(uniqueMembers.size).toBe(members.length);

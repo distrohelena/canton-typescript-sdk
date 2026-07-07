@@ -1,14 +1,37 @@
 import { CreatePartyResponse } from "../../../core/types/responses/create-party-response.js";
+import { AllocatePartyRequest } from "../../../core/types/requests/allocate-party-request.js";
 import { ListPartiesResponse } from "../../../core/types/responses/list-parties-response.js";
 import { PartyDetails } from "../../../core/types/party-details.js";
 
 export function mapJsonCreateParty(payload: {
-    result?: { identifier?: string };
-    identifier?: string;
+    result?: { partyDetails?: { party?: string } };
+    partyDetails?: { party?: string };
 }): CreatePartyResponse {
     return new CreatePartyResponse({
-        party: payload.result?.identifier ?? payload.identifier ?? "",
+        party:
+            payload.result?.partyDetails?.party
+            ?? payload.partyDetails?.party
+            ?? "",
     });
+}
+
+export function mapJsonAllocatePartyRequest(
+    request: AllocatePartyRequest,
+): {
+    partyIdHint?: string;
+    localMetadata?: { attributes: Record<string, string> };
+} {
+    return {
+        partyIdHint: request.partyIdHint,
+        localMetadata:
+            request.displayName === undefined
+                ? undefined
+                : {
+                    attributes: {
+                        displayName: request.displayName,
+                    },
+                },
+    };
 }
 
 export function mapJsonListParties(payload: {

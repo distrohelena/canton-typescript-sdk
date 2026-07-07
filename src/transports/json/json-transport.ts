@@ -127,7 +127,11 @@ import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { mapJsonSubmitCommand } from "./mappers/commands-mapper.js";
 import { mapJsonUploadPackage } from "./mappers/packages-mapper.js";
-import { mapJsonCreateParty, mapJsonListParties } from "./mappers/parties-mapper.js";
+import {
+    mapJsonAllocatePartyRequest,
+    mapJsonCreateParty,
+    mapJsonListParties,
+} from "./mappers/parties-mapper.js";
 import { mapJsonQueryContracts } from "./mappers/contracts-mapper.js";
 import { mapJsonTransactionEvents } from "./mappers/events-mapper.js";
 import { mapJsonGrantRights } from "./mappers/users-mapper.js";
@@ -156,7 +160,7 @@ export class JsonTransport implements ITransport {
     ): Promise<GetLedgerApiVersionResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.httpClient.getAsync("/livez", options);
+        const payload = await this.httpClient.getAsync("/v2/version", options);
 
         return new GetLedgerApiVersionResponse({
             version:
@@ -183,18 +187,15 @@ export class JsonTransport implements ITransport {
         this.throwIfDisposed();
 
         const payload = await this.httpClient.postAsync(
-            "/v1/parties/allocate",
-            {
-                identifierHint: request.partyIdHint,
-                displayName: request.displayName,
-            },
+            "/v2/parties",
+            mapJsonAllocatePartyRequest(request),
             options,
         );
 
         const response = mapJsonCreateParty(
             payload as {
-                result?: { identifier?: string };
-                identifier?: string;
+                result?: { partyDetails?: { party?: string } };
+                partyDetails?: { party?: string };
             },
         );
 

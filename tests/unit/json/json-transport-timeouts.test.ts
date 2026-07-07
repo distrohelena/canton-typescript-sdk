@@ -20,6 +20,6 @@ describe("JsonTransport request timeouts", () => {
 
         await transport.getLedgerApiVersionAsync(undefined, options);
 
-        expect(getAsync).toHaveBeenLastCalledWith("/livez", options);
+        expect(getAsync).toHaveBeenLastCalledWith("/v2/version", options);
     });
 });

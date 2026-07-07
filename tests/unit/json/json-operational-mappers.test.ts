@@ -15,8 +15,8 @@ describe("JSON operational mappers", () => {
 
     it("maps party creation payloads", () => {
         const result = mapJsonCreateParty({
-            result: {
-                identifier: "Alice",
+            partyDetails: {
+                party: "Alice",
             },
         });
 

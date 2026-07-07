@@ -39,6 +39,7 @@ describe("live quickstart connectivity harness", () => {
         const grpcEnvironment = createLiveTestEnvironment({
             transportKind: TransportKind.grpc,
         });
+
         const jsonEnvironment = createLiveTestEnvironment({
             transportKind: TransportKind.json,
         });

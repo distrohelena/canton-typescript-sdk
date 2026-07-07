@@ -60,16 +60,30 @@ export class DarArchiveLoader {
     private parseManifestOrThrow(manifestText: string): DarManifest {
         const properties = new Map<string, string>();
 
+        let currentKey: string | undefined;
+
         for (const rawLine of manifestText.split(/\r?\n/)) {
+            if (rawLine.startsWith(" ") && currentKey !== undefined) {
+                const currentValue = properties.get(currentKey) ?? "";
+
+                properties.set(currentKey, `${currentValue}${rawLine.slice(1)}`);
+
+                continue;
+            }
+
             const line = rawLine.trim();
 
             if (line.length === 0) {
+                currentKey = undefined;
+
                 continue;
             }
 
             const delimiterIndex = line.indexOf(":");
 
             if (delimiterIndex < 0) {
+                currentKey = undefined;
+
                 continue;
             }
 
@@ -78,6 +92,7 @@ export class DarArchiveLoader {
             const value = line.slice(delimiterIndex + 1).trim();
 
             properties.set(key, value);
+            currentKey = key;
         }
 
         const mainDalfPath = properties.get("Main-Dalf");

@@ -17,6 +17,8 @@ npm install @distrohelena/canton-typescript-sdk
 
 The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
 
+The live suite runs single-worker with an extended timeout because it mutates and reads a shared localnet.
+
 Prerequisites:
 
 - CN quickstart is already running on your machine

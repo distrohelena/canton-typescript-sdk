@@ -31,8 +31,8 @@ describe("JSON operational services contract", () => {
         const transport = new JsonTransport({
             getAsync: async () => ({ status: "healthy", version: "1.0.0" }),
             postAsync: async (path: string) => {
-                if (path === "/v1/parties/allocate") {
-                    return { result: { identifier: "Alice" } };
+                if (path === "/v2/parties") {
+                    return { partyDetails: { party: "Alice" } };
                 } else if (path === "/v1/user/rights/grant") {
                     return {
                         result: [{ type: "participantAdmin" }],

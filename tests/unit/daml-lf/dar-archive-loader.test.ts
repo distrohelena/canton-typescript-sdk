@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import {
     DamlLfArchiveException,
@@ -48,5 +49,31 @@ describe("DarArchiveLoader", () => {
         await expect(
             loader.loadDarOrThrowAsync(new Uint8Array([1, 2, 3])),
         ).rejects.toThrow(DamlLfArchiveException);
+    });
+
+    it("parses manifest continuation lines in real dar archives", async () => {
+        const loader = new DarArchiveLoader() as DarArchiveLoader & {
+            loadDarOrThrowAsync(bytes: Uint8Array): Promise<{
+                manifest: { mainDalfPath: string };
+                mainPackageEntry: { path: string };
+                packageEntries: readonly { path: string }[];
+            }>;
+        };
+
+        const darBytes = new Uint8Array(
+            await readFile(
+                new URL(
+                    "../../live/assets/sdk-live-test-model.dar",
+                    import.meta.url,
+                ),
+            ),
+        );
+
+        const archive = await loader.loadDarOrThrowAsync(darBytes);
+
+        expect(archive.mainPackageEntry.path).toBe(
+            archive.manifest.mainDalfPath,
+        );
+        expect(archive.packageEntries.length).toBeGreaterThan(1);
     });
 });

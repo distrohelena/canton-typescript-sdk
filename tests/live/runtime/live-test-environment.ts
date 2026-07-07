@@ -7,10 +7,12 @@ import {
     liveEndpointEnvironmentVariableNames,
     getLiveEndpointDefaults,
 } from "../fixtures/live-endpoint-defaults.js";
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 const defaultRequestTimeoutMs = 5_000;
+
 const grpcConnectTimeoutMs = 3_000;
+
 const sharedRunId = createDefaultRunId();
 
 export interface LiveTestEnvironment {
@@ -67,7 +69,9 @@ export function createLiveTestEnvironment(init: {
 function createDefaultRunId(): string {
     const timestamp = new Date().toISOString().replace(/[-:.TZ]/g, "");
 
-    return `live${timestamp}`;
+    const entropy = randomBytes(4).toString("hex");
+
+    return `live${timestamp}${entropy}`;
 }
 
 function createDefaultAuthProvider(
@@ -82,20 +86,25 @@ function createSharedSecretToken(): string {
     const secret =
         process.env[liveEndpointEnvironmentVariableNames.sharedSecret]
         ?? "unsafe";
+
     const audience =
         process.env[liveEndpointEnvironmentVariableNames.sharedSecretAudience]
         ?? "https://canton.network.global";
+
     const subject =
         process.env[liveEndpointEnvironmentVariableNames.sharedSecretSubject]
         ?? "ledger-api-user";
+
     const header = encodeBase64Url({
         alg: "HS256",
         typ: "JWT",
     });
+
     const payload = encodeBase64Url({
         aud: audience,
         sub: subject,
     });
+
     const signature = createHmac("sha256", secret)
         .update(`${header}.${payload}`)
         .digest("base64url");
