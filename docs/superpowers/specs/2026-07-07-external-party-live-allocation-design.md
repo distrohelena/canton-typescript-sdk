@@ -158,7 +158,11 @@ The SDK should expose small, literal, SDK-owned DTOs.
 
 - `ExternalPartySigningPublicKey`
 - `ExternalPartyOnboardingTransaction`
-- `ExternalPartyMultiHashSignature`
+- `ExternalPartySignature`
+- `ExternalPartyCryptoKeyFormat`
+- `ExternalPartySigningKeySpec`
+- `ExternalPartySignatureFormat`
+- `ExternalPartySigningAlgorithmSpec`
 
 ## DTO Shape
 
@@ -187,12 +191,13 @@ Fields:
 
 Fields:
 
-- `publicKey: Uint8Array`
+- `format: ExternalPartyCryptoKeyFormat`
+- `keyData: Uint8Array`
 - `keySpec`
-- `format`
-- `usage`
 
-The exact enum and value choices should follow the upstream ledger-admin API and should reuse existing SDK topology key enums where practical rather than inventing near-duplicates.
+The exact enum values should mirror the upstream ledger-admin crypto API.
+
+This should be a dedicated DTO family rather than reusing `TopologySigningPublicKey`, because the ledger-admin external-party crypto shape is not identical to the participant-admin topology crypto shape.
 
 ### `AllocateExternalPartyRequest`
 
@@ -200,7 +205,7 @@ Fields:
 
 - `synchronizer: string`
 - `onboardingTransactions: ExternalPartyOnboardingTransaction[]`
-- `multiHashSignatures?: ExternalPartyMultiHashSignature[]`
+- `multiHashSignatures?: ExternalPartySignature[]`
 - `identityProviderId?: string`
 - `waitForAllocation?: boolean`
 - `userId?: string`
@@ -210,21 +215,20 @@ Fields:
 Fields:
 
 - `transaction: Uint8Array`
-- `signatures?: TopologyTransactionSignature[]`
+- `signatures?: ExternalPartySignature[]`
 
-This should reuse the existing SDK signature value model where that model already matches the Canton payload semantics.
+This should use the same dedicated external-party signature DTO as `multiHashSignatures`.
 
-### `ExternalPartyMultiHashSignature`
+### `ExternalPartySignature`
 
 Fields:
 
-- `format`
+- `format: ExternalPartySignatureFormat`
 - `signature: Uint8Array`
 - `signedByFingerprint: string`
-- `signingAlgorithmSpec?: string`
-- `signatureDelegation?`
+- `signingAlgorithmSpec: ExternalPartySigningAlgorithmSpec`
 
-This stays aligned with the ledger-admin API while preserving the SDK rule that public signatures use SDK-owned models.
+This should be a dedicated DTO rather than reusing `TopologyTransactionSignature`, because the ledger-admin external-party signature shape is a different public crypto surface and does not carry topology-specific delegation fields.
 
 ### `AllocateExternalPartyResponse`
 
@@ -330,7 +334,16 @@ This keeps the live suite honest and prevents false-positive coverage.
 
 ### Synchronizer Discovery
 
-The implementation should use existing public SDK reads if possible to discover the synchronizer id needed by `GenerateExternalPartyTopology` and `AllocateExternalParty`.
+The implementation should discover the synchronizer id through the existing public SDK surface:
+
+- call `synchronizerConnectivityService.listConnectedSynchronizersAsync(...)`
+- select the single healthy connected synchronizer in the local quickstart environment
+- use its `synchronizerId` for both external-party RPCs
+
+Fail fast if:
+
+- there are no healthy connected synchronizers
+- there is more than one candidate in a context where the test cannot unambiguously choose one
 
 The design does not require a hard-coded synchronizer id in the test.
 
