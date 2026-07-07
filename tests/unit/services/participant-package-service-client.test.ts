@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    GetDarContentsRequest,
+    GetDarRequest,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
+    ListDarsRequest,
     ParticipantListPackagesRequest,
+    GetDarContentsResponse,
+    GetDarResponse,
+    ListDarsResponse,
     ParticipantPackageServiceClient,
     RequestOptions,
 } from "../../../src";
@@ -22,6 +28,27 @@ describe("ParticipantPackageServiceClient", () => {
         const getParticipantPackageReferencesAsync = vi.fn(async () => ({
             dars: [],
         }));
+
+        const getParticipantDarAsync = vi.fn(
+            async () =>
+                new GetDarResponse({
+                    payload: new Uint8Array([1, 2, 3]),
+                }),
+        );
+
+        const listParticipantDarsAsync = vi.fn(
+            async () =>
+                new ListDarsResponse({
+                    dars: [],
+                }),
+        );
+
+        const getParticipantDarContentsAsync = vi.fn(
+            async () =>
+                new GetDarContentsResponse({
+                    packages: [],
+                }),
+        );
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -59,6 +86,9 @@ describe("ParticipantPackageServiceClient", () => {
             listParticipantPackagesAsync,
             getParticipantPackageContentsAsync,
             getParticipantPackageReferencesAsync,
+            getParticipantDarAsync,
+            listParticipantDarsAsync,
+            getParticipantDarContentsAsync,
             getActiveContractsPageAsync: async () => {
                 throw new Error("not used");
             },
@@ -99,6 +129,24 @@ describe("ParticipantPackageServiceClient", () => {
             }),
             options,
         );
+        await client.getDarAsync(
+            new GetDarRequest({
+                mainPackageId: "pkg-1",
+            }),
+            options,
+        );
+        await client.listDarsAsync(
+            new ListDarsRequest({
+                limit: 10,
+            }),
+            options,
+        );
+        await client.getDarContentsAsync(
+            new GetDarContentsRequest({
+                mainPackageId: "pkg-1",
+            }),
+            options,
+        );
 
         expect(listParticipantPackagesAsync).toHaveBeenLastCalledWith(
             expect.any(ParticipantListPackagesRequest),
@@ -110,6 +158,18 @@ describe("ParticipantPackageServiceClient", () => {
         );
         expect(getParticipantPackageReferencesAsync).toHaveBeenLastCalledWith(
             expect.any(GetPackageReferencesRequest),
+            options,
+        );
+        expect(getParticipantDarAsync).toHaveBeenLastCalledWith(
+            expect.any(GetDarRequest),
+            options,
+        );
+        expect(listParticipantDarsAsync).toHaveBeenLastCalledWith(
+            expect.any(ListDarsRequest),
+            options,
+        );
+        expect(getParticipantDarContentsAsync).toHaveBeenLastCalledWith(
+            expect.any(GetDarContentsRequest),
             options,
         );
     });

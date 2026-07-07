@@ -1201,15 +1201,85 @@ const observer: TransactionObserver = {
 };
 ```
 
-## Placeholder Services
+### `participantInspectionService.lookupSentAcsCommitmentsAsync(request)`
 
-These services are intentionally present on the public client shape so the SDK can keep matching the gRPC service map as implementation expands:
+Reads ACS commitments sent to counter-participants.
 
-- `commandCompletionService`
-- `eventQueryService`
-- `contractService`
+Transport support:
 
-They do not expose public methods yet.
+- `grpc`
+- `json` throws `NotSupportedError`
+
+### `participantInspectionService.lookupReceivedAcsCommitmentsAsync(request)`
+
+Reads ACS commitments received from counter-participants.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+### `participantInspectionService.openCommitmentAsync(request)`
+
+Opens a commitment and returns the raw protobuf chunk payload.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Useful request fields:
+
+- `commitment: Uint8Array`
+- `physicalSynchronizerId: string`
+- `computedForCounterParticipantUid: string`
+- `periodEndTick?: Date`
+
+Useful response fields:
+
+- `chunk: Uint8Array`
+
+### `participantInspectionService.inspectCommitmentContractsAsync(request)`
+
+Reads commitment contract data and returns the raw protobuf chunk payload.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Useful request fields:
+
+- `cids: Uint8Array[]`
+- `expectedSynchronizerId: string`
+- `timestamp?: Date`
+- `downloadPayload: boolean`
+
+Useful response fields:
+
+- `chunk: Uint8Array`
+
+### `synchronizerConnectivityService.listRegisteredSynchronizersAsync(request)`
+
+Lists registered synchronizers, their connection config, and current status.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Useful request fields:
+
+- `allStatuses: boolean`
+
+## Service Surface Notes
+
+The public SDK now mirrors the implemented gRPC service boundaries directly.
+
+Transport behavior:
+
+- unsupported JSON and gRPC combinations throw `NotSupportedError`
+- all public request and response shapes are SDK-owned classes, not generated protobuf classes
 
 ## Transport Support Matrix
 
@@ -1229,6 +1299,23 @@ They do not expose public methods yet.
 | `participantPackageService.getPackageContentsAsync` | Participant Admin | No | Yes |
 | `participantPackageService.getPackageReferencesAsync` | Participant Admin | No | Yes |
 | `participantStatusService.getParticipantStatusAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.lookupOffsetByTimeAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.countInFlightAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.getConfigForSlowCounterParticipantsAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.getIntervalsBehindForCounterParticipantsAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.lookupSentAcsCommitmentsAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.lookupReceivedAcsCommitmentsAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.openCommitmentAsync` | Participant Admin | No | Yes |
+| `participantInspectionService.inspectCommitmentContractsAsync` | Participant Admin | No | Yes |
+| `participantPartyManagementService.getHighestOffsetByTimestampAsync` | Participant Admin | No | Yes |
+| `pruningService.getSafePruningOffsetAsync` | Participant Admin | No | Yes |
+| `pruningService.getPruningScheduleAsync` | Participant Admin | No | Yes |
+| `pruningService.getParticipantPruningScheduleAsync` | Participant Admin | No | Yes |
+| `pruningService.getNoWaitCommitmentsFromAsync` | Participant Admin | No | Yes |
+| `trafficControlService.trafficControlStateAsync` | Participant Admin | No | Yes |
+| `synchronizerConnectivityService.listConnectedSynchronizersAsync` | Participant Admin | No | Yes |
+| `synchronizerConnectivityService.getSynchronizerIdAsync` | Participant Admin | No | Yes |
+| `synchronizerConnectivityService.listRegisteredSynchronizersAsync` | Participant Admin | No | Yes |
 | `topologyManagerReadService.listNamespaceDelegationAsync` | Participant Admin | No | Yes |
 | `topologyManagerReadService.listDecentralizedNamespaceDefinitionAsync` | Participant Admin | No | Yes |
 | `topologyManagerReadService.listOwnerToKeyMappingAsync` | Participant Admin | No | Yes |

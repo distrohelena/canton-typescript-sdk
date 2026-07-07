@@ -1,5 +1,9 @@
 import { ValidationError } from "../../../core/errors/validation-error.js";
+import { GetContractRequest } from "../../../core/types/requests/get-contract-request.js";
+import { GetContractResponse } from "../../../core/types/responses/get-contract-response.js";
 import { QueryContractsResponse } from "../../../core/types/responses/query-contracts-response.js";
+import { GetContractRequest as GrpcGetContractRequest } from "../generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import { GetContractResponse as GrpcGetContractResponse } from "../generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import { GetActiveContractsPageRequest } from "../generated/canton/com/daml/ledger/api/v2/state_service.js";
 import {
     CumulativeFilter,
@@ -36,6 +40,23 @@ export function mapGrpcQueryContracts(payload: {
                     : contract,
             )
             ?? [],
+    });
+}
+
+export function mapGrpcGetContractRequest(
+    request: GetContractRequest,
+): GrpcGetContractRequest {
+    return {
+        contractId: request.contractId,
+        queryingParties: [...request.queryingParties],
+    };
+}
+
+export function mapGrpcGetContract(
+    payload: Partial<GrpcGetContractResponse>,
+): GetContractResponse {
+    return new GetContractResponse({
+        createdEvent: payload.createdEvent,
     });
 }
 

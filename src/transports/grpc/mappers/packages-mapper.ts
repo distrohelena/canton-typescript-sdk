@@ -1,5 +1,6 @@
 import { NotSupportedError } from "../../../core/errors/not-supported-error.js";
 import { HashFunction } from "../../../core/types/hash-function.js";
+import { KnownPackageDetails } from "../../../core/types/known-package-details.js";
 import { PackageFormat } from "../../../core/types/package-format.js";
 import { PackageMetadataFilter } from "../../../core/types/package-metadata-filter.js";
 import { PackageStatus } from "../../../core/types/package-status.js";
@@ -9,32 +10,47 @@ import { ParticipantPackageDescription } from "../../../core/types/participant-p
 import { TopologyStateFilter } from "../../../core/types/topology-state-filter.js";
 import { VettedPackage } from "../../../core/types/vetted-package.js";
 import { VettedPackages } from "../../../core/types/vetted-packages.js";
+import { GetDarContentsRequest } from "../../../core/types/requests/get-dar-contents-request.js";
+import { GetDarRequest } from "../../../core/types/requests/get-dar-request.js";
 import { GetPackageContentsRequest } from "../../../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../../../core/types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../../../core/types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../../../core/types/requests/get-package-status-request.js";
+import { ListKnownPackagesRequest } from "../../../core/types/requests/list-known-packages-request.js";
 import { ListPackagesRequest } from "../../../core/types/requests/list-packages-request.js";
+import { ListDarsRequest } from "../../../core/types/requests/list-dars-request.js";
 import { ListVettedPackagesRequest } from "../../../core/types/requests/list-vetted-packages-request.js";
 import { ParticipantListPackagesRequest } from "../../../core/types/requests/participant-list-packages-request.js";
 import { UploadPackageRequest } from "../../../core/types/requests/upload-package-request.js";
+import { GetDarContentsResponse } from "../../../core/types/responses/get-dar-contents-response.js";
+import { GetDarResponse } from "../../../core/types/responses/get-dar-response.js";
 import { GetPackageContentsResponse } from "../../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../../core/types/responses/get-package-references-response.js";
 import { GetPackageResponse } from "../../../core/types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../../../core/types/responses/get-package-status-response.js";
+import { ListKnownPackagesResponse } from "../../../core/types/responses/list-known-packages-response.js";
 import { ListPackagesResponse } from "../../../core/types/responses/list-packages-response.js";
+import { ListDarsResponse } from "../../../core/types/responses/list-dars-response.js";
 import { ListVettedPackagesResponse } from "../../../core/types/responses/list-vetted-packages-response.js";
 import { ParticipantListPackagesResponse } from "../../../core/types/responses/participant-list-packages-response.js";
 import { UploadPackageResponse } from "../../../core/types/responses/upload-package-response.js";
 import {
+    GetDarContentsRequest as GrpcGetDarContentsRequest,
+    GetDarContentsResponse as GrpcGetDarContentsResponse,
+    GetDarRequest as GrpcGetDarRequest,
+    GetDarResponse as GrpcGetDarResponse,
     GetPackageContentsRequest as GrpcParticipantGetPackageContentsRequest,
     GetPackageContentsResponse as GrpcParticipantGetPackageContentsResponse,
     GetPackageReferencesRequest as GrpcParticipantGetPackageReferencesRequest,
     GetPackageReferencesResponse as GrpcParticipantGetPackageReferencesResponse,
+    ListDarsRequest as GrpcListDarsRequest,
+    ListDarsResponse as GrpcListDarsResponse,
     ListPackagesRequest as GrpcParticipantListPackagesRequest,
     ListPackagesResponse as GrpcParticipantListPackagesResponse,
     PackageDescription as GrpcParticipantPackageDescription,
 } from "../generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import {
+    ListKnownPackagesResponse as GrpcListKnownPackagesResponse,
     UploadDarFileRequest,
     UploadDarFileRequest_VettingChange,
     UploadDarFileResponse,
@@ -88,6 +104,29 @@ export function mapGrpcListPackagesRequest(
     _request: ListPackagesRequest,
 ): GrpcListPackagesRequest {
     return {};
+}
+
+export function mapGrpcListKnownPackagesRequest(
+    _request: ListKnownPackagesRequest,
+): Record<string, never> {
+    return {};
+}
+
+export function mapGrpcListKnownPackages(
+    payload: Partial<GrpcListKnownPackagesResponse>,
+): ListKnownPackagesResponse {
+    return new ListKnownPackagesResponse({
+        packageDetails: (payload.packageDetails ?? []).map(
+            item =>
+                new KnownPackageDetails({
+                    packageId: item.packageId,
+                    packageSize: item.packageSize,
+                    knownSince: mapGrpcTimestamp(item.knownSince),
+                    name: item.name,
+                    version: item.version,
+                }),
+        ),
+    });
 }
 
 export function mapGrpcListPackages(
@@ -226,6 +265,65 @@ export function mapGrpcGetParticipantPackageReferences(
     });
 }
 
+export function mapGrpcGetParticipantDarRequest(
+    request: GetDarRequest,
+): GrpcGetDarRequest {
+    return {
+        mainPackageId: request.mainPackageId,
+    };
+}
+
+export function mapGrpcGetParticipantDar(
+    payload: Partial<GrpcGetDarResponse>,
+): GetDarResponse {
+    return new GetDarResponse({
+        payload: payload.payload ?? new Uint8Array(),
+        data:
+            payload.data === undefined
+                ? undefined
+                : mapGrpcParticipantDarDescription(payload.data),
+    });
+}
+
+export function mapGrpcListParticipantDarsRequest(
+    request: ListDarsRequest,
+): GrpcListDarsRequest {
+    return {
+        limit: request.limit ?? 0,
+        filterName: request.filterName ?? "",
+    };
+}
+
+export function mapGrpcListParticipantDars(
+    payload: Partial<GrpcListDarsResponse>,
+): ListDarsResponse {
+    return new ListDarsResponse({
+        dars: (payload.dars ?? []).map(mapGrpcParticipantDarDescription),
+    });
+}
+
+export function mapGrpcGetParticipantDarContentsRequest(
+    request: GetDarContentsRequest,
+): GrpcGetDarContentsRequest {
+    return {
+        mainPackageId: request.mainPackageId,
+    };
+}
+
+export function mapGrpcGetParticipantDarContents(
+    payload: Partial<GrpcGetDarContentsResponse>,
+): GetDarContentsResponse {
+    return new GetDarContentsResponse({
+        description:
+            payload.description === undefined
+                ? undefined
+                : mapGrpcParticipantDarDescription(payload.description),
+        packages: (payload.packages ?? []).map(
+            mapGrpcParticipantPackageDescription,
+        ),
+    });
+}
+
 function mapGrpcHashFunction(
     value: GrpcHashFunction | undefined,
 ): HashFunction {
@@ -306,6 +404,22 @@ function mapGrpcParticipantPackageDescription(
         version: payload.version,
         uploadedAt: mapGrpcTimestamp(payload.uploadedAt),
         size: payload.size,
+    });
+}
+
+function mapGrpcParticipantDarDescription(
+    payload: {
+        main: string;
+        name: string;
+        version: string;
+        description: string;
+    },
+): ParticipantDarDescription {
+    return new ParticipantDarDescription({
+        main: payload.main,
+        name: payload.name,
+        version: payload.version,
+        description: payload.description,
     });
 }
 

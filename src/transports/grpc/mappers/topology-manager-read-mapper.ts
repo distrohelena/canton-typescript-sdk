@@ -425,7 +425,7 @@ export function mapGrpcListAllV2Request(
 ): GrpcListAllV2Request {
     return {
         baseQuery: mapBaseQueryValue(request.baseQuery),
-        includeMappings: request.includeMappings.map(mapGrpcTopologyMappingCode),
+        includeMappings: [...request.includeMappings],
         filterNamespace: request.filterNamespace ?? "",
     };
 }

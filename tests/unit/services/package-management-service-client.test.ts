@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
     PackageManagementServiceClient,
     RequestOptions,
     UploadDarFileRequest,
@@ -8,6 +10,13 @@ import {
 
 describe("PackageManagementServiceClient", () => {
     it("forwards package management requests through the selected transport", async () => {
+        const listKnownPackagesAsync = vi.fn(
+            async () =>
+                new ListKnownPackagesResponse({
+                    packageDetails: [],
+                }),
+        );
+
         const uploadDarFileAsync = vi.fn(
             async () =>
                 new UploadDarFileResponse({
@@ -33,6 +42,7 @@ describe("PackageManagementServiceClient", () => {
             grantUserRightsAsync: async () => {
                 throw new Error("not used");
             },
+            listKnownPackagesAsync,
             uploadDarFileAsync,
             listPackagesAsync: async () => {
                 throw new Error("not used");
@@ -85,7 +95,17 @@ describe("PackageManagementServiceClient", () => {
         await expect(
             client.uploadDarFileAsync(request, options),
         ).resolves.toBeInstanceOf(UploadDarFileResponse);
+        await expect(
+            client.listKnownPackagesAsync(
+                new ListKnownPackagesRequest(),
+                options,
+            ),
+        ).resolves.toBeInstanceOf(ListKnownPackagesResponse);
 
         expect(uploadDarFileAsync).toHaveBeenCalledWith(request, options);
+        expect(listKnownPackagesAsync).toHaveBeenCalledWith(
+            expect.any(ListKnownPackagesRequest),
+            options,
+        );
     });
 });

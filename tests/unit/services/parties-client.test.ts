@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    GetParticipantIdRequest,
+    GetParticipantIdResponse,
+    GetPartiesRequest,
+    GetPartiesResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
     PartyDetails,
@@ -9,6 +13,20 @@ import { PartyManagementServiceClient } from "../../../src/services/party-manage
 
 describe("PartyManagementServiceClient", () => {
     it("lists parties through the selected transport", async () => {
+        const getParticipantIdAsync = vi.fn(
+            async () =>
+                new GetParticipantIdResponse({
+                    participantId: "participant::sandbox",
+                }),
+        );
+
+        const getPartiesAsync = vi.fn(
+            async () =>
+                new GetPartiesResponse({
+                    partyDetails: [],
+                }),
+        );
+
         const listKnownPartiesAsync = vi.fn(
             async () =>
                 new ListKnownPartiesResponse({
@@ -26,6 +44,8 @@ describe("PartyManagementServiceClient", () => {
             getLedgerApiVersionAsync: async () => {
                 throw new Error("not used");
             },
+            getParticipantIdAsync,
+            getPartiesAsync,
             allocatePartyAsync: async () => {
                 throw new Error("not used");
             },
@@ -69,9 +89,31 @@ describe("PartyManagementServiceClient", () => {
         });
 
         await client.listKnownPartiesAsync(request, options);
+        await expect(
+            client.getParticipantIdAsync(
+                new GetParticipantIdRequest(),
+                options,
+            ),
+        ).resolves.toBeInstanceOf(GetParticipantIdResponse);
+        await expect(
+            client.getPartiesAsync(
+                new GetPartiesRequest({
+                    parties: ["Alice"],
+                }),
+                options,
+            ),
+        ).resolves.toBeInstanceOf(GetPartiesResponse);
 
         expect(listKnownPartiesAsync).toHaveBeenLastCalledWith(
             request,
+            options,
+        );
+        expect(getParticipantIdAsync).toHaveBeenLastCalledWith(
+            expect.any(GetParticipantIdRequest),
+            options,
+        );
+        expect(getPartiesAsync).toHaveBeenLastCalledWith(
+            expect.any(GetPartiesRequest),
             options,
         );
     });

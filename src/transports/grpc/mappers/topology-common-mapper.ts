@@ -50,8 +50,8 @@ import {
     ListAvailableStoresResponse,
     ListPartyToParticipantResponse,
     ListVettedPackagesResponse,
-    StoreId,
 } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import { StoreId as GrpcStoreId } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/common.js";
 import {
     ListKeyOwnersResponse,
     ListPartiesResponse,
@@ -73,8 +73,8 @@ import {
     AcsCommitmentsCatchUpConfig,
     DynamicSynchronizerParameters,
     OnboardingRestriction,
-    TrafficControlParameters,
 } from "../generated/canton/com/digitalasset/canton/protocol/v30/synchronizer_parameters.js";
+import { TrafficControlParameters } from "../generated/canton/com/digitalasset/canton/protocol/v30/traffic_control_parameters.js";
 import {
     DecentralizedNamespaceDefinition,
     Enums_ParticipantPermission,
@@ -84,10 +84,12 @@ import {
     LsuAnnouncement,
     LsuSequencerConnectionSuccessor,
     MediatorSynchronizerState,
-    NamespaceDelegation,
+    NamespaceDelegation as GrpcNamespaceDelegation,
     OwnerToKeyMapping,
     PartyHostingLimits,
     PartyToKeyMapping,
+    PartyToParticipant as GrpcPartyToParticipant,
+    ParticipantSynchronizerPermission as GrpcParticipantSynchronizerPermission,
     SequencerSynchronizerState,
     SynchronizerTrustCertificate,
 } from "../generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
@@ -130,7 +132,7 @@ export function mapGrpcTopologyBaseQuery(
             query.snapshot !== undefined
                 ? {
                     oneofKind: "snapshot",
-                    snapshot: mapGrpcTimestamp(query.snapshot),
+                    snapshot: mapGrpcTimestamp(query.snapshot)!,
                 }
                 : query.headState
                   ? {
@@ -262,7 +264,7 @@ export function mapGrpcListKeyOwnersResponse(
 
 export function mapGrpcTopologyStoreId(
     value?: TopologyStoreId,
-): StoreId | undefined {
+): GrpcStoreId | undefined {
     if (value === undefined) {
         return undefined;
     }
@@ -308,9 +310,11 @@ export function mapGrpcTopologyStoreId(
 }
 
 export function mapSdkTopologyStoreId(
-    payload?: Partial<StoreId>,
+    payload?: Partial<GrpcStoreId>,
 ): TopologyStoreId | undefined {
-    switch (payload?.store.oneofKind) {
+    const store = payload?.store;
+
+    switch (store?.oneofKind) {
         case "authorized":
             return new TopologyStoreId({
                 kind: TopologyStoreKind.authorized,
@@ -321,12 +325,12 @@ export function mapSdkTopologyStoreId(
                 kind: TopologyStoreKind.synchronizer,
                 synchronizer: new TopologyStoreSynchronizer({
                     id:
-                        payload.store.synchronizer.kind.oneofKind === "id"
-                            ? payload.store.synchronizer.kind.id
+                        store.synchronizer.kind.oneofKind === "id"
+                            ? store.synchronizer.kind.id
                             : undefined,
                     physicalId:
-                        payload.store.synchronizer.kind.oneofKind === "physicalId"
-                            ? payload.store.synchronizer.kind.physicalId
+                        store.synchronizer.kind.oneofKind === "physicalId"
+                            ? store.synchronizer.kind.physicalId
                             : undefined,
                 }),
             });
@@ -334,7 +338,7 @@ export function mapSdkTopologyStoreId(
             return new TopologyStoreId({
                 kind: TopologyStoreKind.temporary,
                 temporary: new TopologyStoreTemporary({
-                    name: payload.store.temporary.name,
+                    name: store.temporary.name,
                 }),
             });
         default:
@@ -545,14 +549,16 @@ export function mapSdkEncryptionPublicKey(
 export function mapSdkPublicKey(
     value?: Partial<PublicKey>,
 ): TopologyPublicKey {
+    const key = value?.key;
+
     return new TopologyPublicKey({
         signingPublicKey:
-            value?.key.oneofKind === "signingPublicKey"
-                ? mapSdkSigningPublicKey(value.key.signingPublicKey)
+            key?.oneofKind === "signingPublicKey"
+                ? mapSdkSigningPublicKey(key.signingPublicKey)
                 : undefined,
         encryptionPublicKey:
-            value?.key.oneofKind === "encryptionPublicKey"
-                ? mapSdkEncryptionPublicKey(value.key.encryptionPublicKey)
+            key?.oneofKind === "encryptionPublicKey"
+                ? mapSdkEncryptionPublicKey(key.encryptionPublicKey)
                 : undefined,
     });
 }
@@ -571,8 +577,10 @@ export function mapSdkSigningKeysWithThreshold(
 }
 
 export function mapSdkNamespaceDelegation(
-    value?: Partial<NamespaceDelegation>,
+    value?: Partial<GrpcNamespaceDelegation>,
 ): SdkNamespaceDelegation {
+    const restriction = value?.restriction;
+
     return new SdkNamespaceDelegation({
         namespace: value?.namespace ?? "",
         targetKey:
@@ -581,15 +589,15 @@ export function mapSdkNamespaceDelegation(
                 : mapSdkSigningPublicKey(value.targetKey),
         isRootDelegation: value?.isRootDelegation ?? false,
         restriction:
-            value?.restriction.oneofKind === undefined
+            restriction?.oneofKind === undefined
                 ? undefined
                 : new NamespaceDelegationRestriction({
                     kind: mapSdkNamespaceDelegationRestrictionKind(
-                        value.restriction.oneofKind,
+                        restriction.oneofKind,
                     ),
                     mappings:
-                        value.restriction.oneofKind === "canSignSpecificMapings"
-                            ? value.restriction.canSignSpecificMapings.mappings.map(
+                        restriction.oneofKind === "canSignSpecificMapings"
+                            ? restriction.canSignSpecificMapings.mappings.map(
                                 mapSdkTopologyMappingCode,
                             )
                             : [],
@@ -639,7 +647,7 @@ export function mapSdkSynchronizerTrustCertificate(
 }
 
 export function mapSdkParticipantSynchronizerPermission(
-    value?: Partial<ParticipantSynchronizerPermission>,
+    value?: Partial<GrpcParticipantSynchronizerPermission>,
 ): ParticipantSynchronizerPermission {
     return new ParticipantSynchronizerPermission({
         synchronizerId: value?.synchronizerId ?? "",
@@ -683,7 +691,7 @@ export function mapSdkTopologyVettedPackages(
 }
 
 export function mapSdkPartyToParticipant(
-    value?: Partial<PartyToParticipant>,
+    value?: Partial<GrpcPartyToParticipant>,
 ): PartyToParticipant {
     return new PartyToParticipant({
         party: value?.party ?? "",
@@ -826,7 +834,7 @@ function mapSdkParticipantFeatureFlag(
 }
 
 function mapSdkNamespaceDelegationRestrictionKind(
-    value: NamespaceDelegation["restriction"]["oneofKind"],
+    value: GrpcNamespaceDelegation["restriction"]["oneofKind"],
 ): NamespaceDelegationRestrictionKind {
     switch (value) {
         case "canSignAllMappings":

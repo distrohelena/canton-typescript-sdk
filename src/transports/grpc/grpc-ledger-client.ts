@@ -7,10 +7,16 @@ import { EventQueryServiceClient } from "../../services/event-query/event-query-
 import { HealthServiceClient } from "../../services/health/health-service-client.js";
 import { PackageManagementServiceClient } from "../../services/package-management/package-management-service-client.js";
 import { PackageServiceClient } from "../../services/package/package-service-client.js";
+import { ParticipantInspectionServiceClient } from "../../services/participant-inspection/participant-inspection-service-client.js";
+import { ParticipantPartyManagementServiceClient } from "../../services/participant-party-management/participant-party-management-service-client.js";
 import { ParticipantPackageServiceClient } from "../../services/participant-package/participant-package-service-client.js";
+import { ParticipantRepairServiceClient } from "../../services/participant-repair/participant-repair-service-client.js";
 import { ParticipantStatusServiceClient } from "../../services/participant-status/participant-status-service-client.js";
 import { PartyManagementServiceClient } from "../../services/party-management/party-management-service-client.js";
+import { PruningServiceClient } from "../../services/pruning/pruning-service-client.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
+import { SynchronizerConnectivityServiceClient } from "../../services/synchronizer-connectivity/synchronizer-connectivity-service-client.js";
+import { TrafficControlServiceClient } from "../../services/traffic-control/traffic-control-service-client.js";
 import { UpdateServiceClient } from "../../services/update/update-service-client.js";
 import { UserManagementServiceClient } from "../../services/user-management/user-management-service-client.js";
 import { VersionServiceClient } from "../../services/version/version-service-client.js";
@@ -25,7 +31,13 @@ export class GrpcLedgerClient {
     public readonly packageService: PackageServiceClient;
     public readonly packageManagementService: PackageManagementServiceClient;
     public readonly participantPackageService: ParticipantPackageServiceClient;
+    public readonly participantInspectionService: ParticipantInspectionServiceClient;
+    public readonly participantPartyManagementService: ParticipantPartyManagementServiceClient;
+    public readonly participantRepairService: ParticipantRepairServiceClient;
     public readonly participantStatusService: ParticipantStatusServiceClient;
+    public readonly pruningService: PruningServiceClient;
+    public readonly synchronizerConnectivityService: SynchronizerConnectivityServiceClient;
+    public readonly trafficControlService: TrafficControlServiceClient;
     public readonly commandService: CommandServiceClient;
     public readonly commandSubmissionService: CommandSubmissionServiceClient;
     public readonly commandCompletionService: CommandCompletionServiceClient;
@@ -48,9 +60,20 @@ export class GrpcLedgerClient {
         this.participantPackageService = new ParticipantPackageServiceClient(
             transport,
         );
+        this.participantInspectionService =
+            new ParticipantInspectionServiceClient(transport);
+        this.participantPartyManagementService =
+            new ParticipantPartyManagementServiceClient(transport);
+        this.participantRepairService = new ParticipantRepairServiceClient(
+            transport,
+        );
         this.participantStatusService = new ParticipantStatusServiceClient(
             transport,
         );
+        this.pruningService = new PruningServiceClient(transport);
+        this.synchronizerConnectivityService =
+            new SynchronizerConnectivityServiceClient(transport);
+        this.trafficControlService = new TrafficControlServiceClient(transport);
         this.commandService = new CommandServiceClient(transport, signer);
         this.commandSubmissionService = new CommandSubmissionServiceClient(
             transport,
