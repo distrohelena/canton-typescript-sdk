@@ -43,11 +43,21 @@ import {
     RequestOptions,
     TopologyBaseQuery,
     TopologyBaseResult,
+    TopologySignatureFormat,
+    TopologyTransactionSignature,
+    MultiTopologyTransactionSignature,
+    SignedTopologyTransaction,
+    GeneratedTopologyTransaction,
+    PreparedTopologyTransaction,
+    ExternalTopologySignature,
     TopologyMappingCode,
     TopologyMappingOperation,
     TopologyMappingResult,
     TopologyStoreId,
     TopologyTransactions,
+    GenerateTopologyTransactionsRequest,
+    GenerateTopologyTransactionsResponse,
+    AssembleSignedTopologyTransactionsRequest,
     TransportKind,
     VersionServiceClient,
 } from "../../../src";
@@ -76,6 +86,13 @@ describe("package surface", () => {
         expect(TopologyBaseResult).toBeTypeOf("function");
         expect(TopologyMappingResult).toBeTypeOf("function");
         expect(TopologyStoreId).toBeTypeOf("function");
+        expect(TopologySignatureFormat.ed25519).toBe("ed25519");
+        expect(TopologyTransactionSignature).toBeTypeOf("function");
+        expect(MultiTopologyTransactionSignature).toBeTypeOf("function");
+        expect(SignedTopologyTransaction).toBeTypeOf("function");
+        expect(GeneratedTopologyTransaction).toBeTypeOf("function");
+        expect(PreparedTopologyTransaction).toBeTypeOf("function");
+        expect(ExternalTopologySignature).toBeTypeOf("function");
         expect(TopologyMappingOperation.addReplace).toBe("addReplace");
         expect(TopologyMappingCode.partyToParticipant).toBe(
             "partyToParticipant",
@@ -83,6 +100,11 @@ describe("package surface", () => {
         expect(ParticipantPermission.submission).toBe("submission");
         expect(PartyToParticipant).toBeTypeOf("function");
         expect(TopologyTransactions).toBeTypeOf("function");
+        expect(GenerateTopologyTransactionsRequest).toBeTypeOf("function");
+        expect(GenerateTopologyTransactionsResponse).toBeTypeOf("function");
+        expect(AssembleSignedTopologyTransactionsRequest).toBeTypeOf(
+            "function",
+        );
 
         const listPackagesRequest = new ListPackagesRequest();
 
