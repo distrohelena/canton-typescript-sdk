@@ -13,6 +13,46 @@ TypeScript SDK for Canton with:
 npm install @distrohelena/canton-typescript-sdk
 ```
 
+## Live Integration Tests
+
+The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
+
+Prerequisites:
+
+- CN quickstart is already running on your machine
+- the suite is expected to fail fast if the configured node is unreachable
+
+Default local endpoints:
+
+- gRPC ledger: `http://localhost:3901`
+- gRPC ledger admin: `http://localhost:3902`
+- gRPC participant admin: `http://localhost:3902`
+- JSON ledger and ledger admin: `http://localhost:3975`
+
+Override environment variables:
+
+- `SDK_TEST_LEDGER_ENDPOINT`
+- `SDK_TEST_LEDGER_ADMIN_ENDPOINT`
+- `SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT`
+
+The live harness also supports bearer-token overrides:
+
+- `SDK_TEST_LEDGER_BEARER_TOKEN`
+- `SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN`
+- `SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN`
+
+For CN quickstart shared-secret mode, the harness generates a default bearer token automatically using:
+
+- subject `ledger-api-user`
+- audience `https://canton.network.global`
+- shared secret `unsafe`
+
+Run:
+
+```bash
+npm run test:live
+```
+
 ## Shared Client
 
 ```ts
