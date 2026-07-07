@@ -1,4 +1,5 @@
 import { TransportFeatures } from "./transport-features.interface.js";
+import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
@@ -46,6 +47,7 @@ import { GetUpdatesPageRequest } from "../types/requests/get-updates-page-reques
 import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
+import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
 import { HealthCheckRequest } from "../types/requests/health-check-request.js";
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
@@ -112,6 +114,7 @@ import { GetParticipantPruningScheduleResponse } from "../types/responses/get-pa
 import { GetParticipantIdResponse } from "../types/responses/get-participant-id-response.js";
 import { GetParticipantStatusResponse } from "../types/responses/get-participant-status-response.js";
 import { GetPartiesResponse } from "../types/responses/get-parties-response.js";
+import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-pruning-offset-response.js";
@@ -125,6 +128,7 @@ import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-v
 import { GetUpdatesPageResponse } from "../types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
+import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
@@ -204,6 +208,18 @@ export interface ITransport {
         request: AllocatePartyRequest,
         options?: RequestOptions,
     ): Promise<AllocatePartyResponse>;
+
+    /** Generates external-party topology through the ledger-admin API. Supported on gRPC; JSON rejects it. */
+    generateExternalPartyTopologyAsync(
+        request: GenerateExternalPartyTopologyRequest,
+        options?: RequestOptions,
+    ): Promise<GenerateExternalPartyTopologyResponse>;
+
+    /** Allocates an external party through the ledger-admin API. Supported on gRPC; JSON rejects it. */
+    allocateExternalPartyAsync(
+        request: AllocateExternalPartyRequest,
+        options?: RequestOptions,
+    ): Promise<AllocateExternalPartyResponse>;
 
     /** Lists known parties. Supported on JSON and gRPC. */
     listKnownPartiesAsync(

@@ -1,6 +1,7 @@
 import { CantonClientOptions } from "./canton-client-options.js";
 import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
+import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetCompletionsRequest } from "../core/types/requests/get-completions-request.js";
@@ -48,6 +49,7 @@ import { HealthCheckRequest } from "../core/types/requests/health-check-request.
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
+import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../core/types/requests/list-all-request.js";
@@ -91,12 +93,14 @@ import { TopologyListVettedPackagesRequest } from "../core/types/requests/topolo
 import { TrafficControlStateRequest } from "../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
+import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { CountInFlightResponse } from "../core/types/responses/count-in-flight-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
+import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import { GetPackageContentsResponse } from "../core/types/responses/get-package-contents-response.js";
 import { GetConnectedSynchronizersResponse } from "../core/types/responses/get-connected-synchronizers-response.js";
@@ -291,6 +295,28 @@ class PlaceholderTransport implements ITransport {
         this.throwIfDisposed();
 
         throw new TransportError("party allocation is not available yet");
+    }
+
+    public async generateExternalPartyTopologyAsync(
+        _request: GenerateExternalPartyTopologyRequest,
+        _options?: RequestOptions,
+    ): Promise<GenerateExternalPartyTopologyResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "external party topology generation is not available yet",
+        );
+    }
+
+    public async allocateExternalPartyAsync(
+        _request: AllocateExternalPartyRequest,
+        _options?: RequestOptions,
+    ): Promise<AllocateExternalPartyResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "external party allocation is not available yet",
+        );
     }
 
     public async listKnownPartiesAsync(
@@ -1134,6 +1160,14 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
+    public async generateExternalPartyTopologyAsync(): Promise<GenerateExternalPartyTopologyResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async allocateExternalPartyAsync(): Promise<AllocateExternalPartyResponse> {
+        this.throwMissingEndpoint();
+    }
+
     public async listKnownPartiesAsync(): Promise<ListKnownPartiesResponse> {
         this.throwMissingEndpoint();
     }
@@ -1509,6 +1543,14 @@ class CompositeTransport implements ITransport {
     }
 
     public async allocatePartyAsync(): Promise<AllocatePartyResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async generateExternalPartyTopologyAsync(): Promise<GenerateExternalPartyTopologyResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async allocateExternalPartyAsync(): Promise<AllocateExternalPartyResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
