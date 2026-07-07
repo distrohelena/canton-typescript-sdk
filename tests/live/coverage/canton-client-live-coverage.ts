@@ -36,26 +36,32 @@ export const cantonClientLiveCoverage: readonly LiveCoverageEntry[] = [
     },
     {
         member: "partyManagementService.listKnownPartiesAsync",
-        transports: ["json"],
+        transports: ["grpc", "json"],
         status: "covered",
     },
     {
         member: "partyManagementService.getParticipantIdAsync",
         transports: ["grpc"],
-        status: "grpc-only",
-        reason:
-            "Current quickstart does not expose the Ledger Admin gRPC PartyManagementService methods on a reachable endpoint.",
+        status: "covered",
     },
     {
         member: "partyManagementService.getPartiesAsync",
         transports: ["grpc"],
-        status: "grpc-only",
-        reason:
-            "Current quickstart does not expose the Ledger Admin gRPC PartyManagementService methods on a reachable endpoint.",
+        status: "covered",
     },
     {
         member: "partyManagementService.allocatePartyAsync",
         transports: ["json"],
+        status: "covered",
+    },
+    {
+        member: "partyManagementService.generateExternalPartyTopologyAsync",
+        transports: ["grpc"],
+        status: "covered",
+    },
+    {
+        member: "partyManagementService.allocateExternalPartyAsync",
+        transports: ["grpc"],
         status: "covered",
     },
     {

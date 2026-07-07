@@ -25,7 +25,7 @@ export function getLiveEndpointDefaults(
     if (transportKind === TransportKind.grpc) {
         return {
             ledgerEndpoint: "http://localhost:3901",
-            ledgerAdminEndpoint: "http://localhost:3902",
+            ledgerAdminEndpoint: "http://localhost:3901",
             participantAdminEndpoint: "http://localhost:3902",
             grpcChannelSecurity: GrpcChannelSecurity.insecure,
         };

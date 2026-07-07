@@ -1,4 +1,5 @@
 import { CantonClientOptions } from "../../client/canton-client-options.js";
+import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
@@ -37,6 +38,7 @@ import { GetUpdateByHashRequest } from "../../core/types/requests/get-update-by-
 import { GetUpdateByIdRequest } from "../../core/types/requests/get-update-by-id-request.js";
 import { GetUpdateByOffsetRequest } from "../../core/types/requests/get-update-by-offset-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
+import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { GetUpdatesPageRequest } from "../../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
@@ -82,6 +84,7 @@ import { TrafficControlStateRequest } from "../../core/types/requests/traffic-co
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
+import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
@@ -119,6 +122,7 @@ import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update
 import { GetUpdatesPageResponse } from "../../core/types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
+import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
@@ -191,6 +195,12 @@ import {
     mapGrpcGetEventsByContractId,
     mapGrpcGetEventsByContractIdRequest,
 } from "./mappers/event-query-mapper.js";
+import {
+    mapGrpcAllocateExternalPartyRequest,
+    mapGrpcAllocateExternalPartyResponse,
+    mapGrpcGenerateExternalPartyTopologyRequest,
+    mapGrpcGenerateExternalPartyTopologyResponse,
+} from "./mappers/external-party-management-mapper.js";
 import {
     mapGrpcCurrentTime,
     mapGrpcCurrentTimeRequest,
@@ -403,7 +413,12 @@ import {
     ListPackagesResponse as ProtobufListPackagesResponse,
     ListVettedPackagesResponse as ProtobufListVettedPackagesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/package_service.js";
-import { AllocatePartyResponse, ListKnownPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import {
+    AllocateExternalPartyResponse as ProtobufAllocateExternalPartyResponse,
+    AllocatePartyResponse,
+    GenerateExternalPartyTopologyResponse as ProtobufGenerateExternalPartyTopologyResponse,
+    ListKnownPartiesResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GrantUserRightsResponse as ProtobufGrantUserRightsResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import {
     GetUserResponse as ProtobufGetUserResponse,
@@ -579,6 +594,38 @@ export class GrpcTransport implements ITransport {
             partyDetails: [...response.partyDetails],
             nextPageToken: response.nextPageToken,
         });
+    }
+
+    public async generateExternalPartyTopologyAsync(
+        request: GenerateExternalPartyTopologyRequest,
+        options?: RequestOptions,
+    ): Promise<GenerateExternalPartyTopologyResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.generateExternalPartyTopologyAsync!(
+            mapGrpcGenerateExternalPartyTopologyRequest(request),
+            options,
+        );
+
+        return mapGrpcGenerateExternalPartyTopologyResponse(
+            payload as ProtobufGenerateExternalPartyTopologyResponse,
+        );
+    }
+
+    public async allocateExternalPartyAsync(
+        request: AllocateExternalPartyRequest,
+        options?: RequestOptions,
+    ): Promise<AllocateExternalPartyResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.allocateExternalPartyAsync!(
+            mapGrpcAllocateExternalPartyRequest(request),
+            options,
+        );
+
+        return mapGrpcAllocateExternalPartyResponse(
+            payload as ProtobufAllocateExternalPartyResponse,
+        );
     }
 
     public async getParticipantIdAsync(

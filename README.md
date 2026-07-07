@@ -27,7 +27,7 @@ Prerequisites:
 Default local endpoints:
 
 - gRPC ledger: `http://localhost:3901`
-- gRPC ledger admin: `http://localhost:3902`
+- gRPC ledger admin: `http://localhost:3901`
 - gRPC participant admin: `http://localhost:3902`
 - JSON ledger and ledger admin: `http://localhost:3975`
 
@@ -140,6 +140,10 @@ For gRPC, channel security resolves per surface:
 - Ledger Admin endpoint:
 - `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
 - `partyManagementService.listKnownPartiesAsync(...)`: `json`, `grpc`
+- `partyManagementService.getParticipantIdAsync(...)`: `grpc` only
+- `partyManagementService.getPartiesAsync(...)`: `grpc` only
+- `partyManagementService.generateExternalPartyTopologyAsync(...)`: `grpc` only
+- `partyManagementService.allocateExternalPartyAsync(...)`: `grpc` only
 - `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
 - `packageManagementService.uploadDarFileAsync(...)`: `json`, `grpc`
 
@@ -175,6 +179,7 @@ Subpath exports are available when you want to construct directly over a transpo
 
 JSON does not provide a `grpc.health.v1.Health.Check` equivalent. The shared SDK still exposes `healthService`, but JSON rejects calls with `NotSupportedError`.
 JSON also does not provide a participant-admin status equivalent, so `participantStatusService` is currently `grpc` only.
+JSON also does not expose the ledger-admin external-party RPCs, so `partyManagementService.generateExternalPartyTopologyAsync(...)` and `partyManagementService.allocateExternalPartyAsync(...)` are `grpc` only.
 
 ## DAML-LF Parser
 

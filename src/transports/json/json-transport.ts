@@ -1,3 +1,4 @@
+import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
@@ -42,6 +43,7 @@ import {
 import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
 import { GetUpdatesPageRequest } from "../../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
+import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
 import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
@@ -64,6 +66,7 @@ import { TrafficControlStateRequest } from "../../core/types/requests/traffic-co
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
+import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
@@ -101,6 +104,7 @@ import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update
 import { GetUpdatesPageResponse } from "../../core/types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
+import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
@@ -270,6 +274,28 @@ export class JsonTransport implements ITransport {
 
         throw new NotSupportedError(
             "PartyManagementService.GetParties is not supported by json transport",
+        );
+    }
+
+    public async generateExternalPartyTopologyAsync(
+        _request: GenerateExternalPartyTopologyRequest,
+        _options?: RequestOptions,
+    ): Promise<GenerateExternalPartyTopologyResponse> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "PartyManagementService.GenerateExternalPartyTopology is not supported by json transport",
+        );
+    }
+
+    public async allocateExternalPartyAsync(
+        _request: AllocateExternalPartyRequest,
+        _options?: RequestOptions,
+    ): Promise<AllocateExternalPartyResponse> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "PartyManagementService.AllocateExternalParty is not supported by json transport",
         );
     }
 

@@ -1,6 +1,8 @@
 import {
+    GetParticipantIdRequest,
     GetParticipantStatusRequest,
     HealthCheckRequest,
+    ListConnectedSynchronizersRequest,
     ListKnownPartiesRequest,
     TransportKind,
 } from "../../../src/index.js";
@@ -9,18 +11,32 @@ import { LiveTestEnvironment } from "./live-test-environment.js";
 
 export async function assertLiveConnectivityAsync(
     environment: LiveTestEnvironment,
+    init: {
+        requireExternalPartyGrpcSupport?: boolean;
+    } = {},
 ): Promise<void> {
     const client = createLiveClient(environment);
 
     try {
         if (environment.transportKind === TransportKind.grpc) {
             await assertGrpcLedgerConnectivityAsync(environment, client);
+
+            if (init.requireExternalPartyGrpcSupport) {
+                await assertGrpcLedgerAdminConnectivityAsync(
+                    environment,
+                    client,
+                );
+            }
         } else {
             await assertLedgerAdminConnectivityAsync(environment, client);
         }
 
         if (environment.options.participantAdminEndpoint !== undefined) {
             await assertParticipantAdminConnectivityAsync(environment, client);
+
+            if (init.requireExternalPartyGrpcSupport) {
+                await assertSynchronizerConnectivityAsync(environment, client);
+            }
         }
     } finally {
         await client.disposeAsync();
@@ -61,6 +77,23 @@ async function assertLedgerAdminConnectivityAsync(
     }
 }
 
+async function assertGrpcLedgerAdminConnectivityAsync(
+    environment: LiveTestEnvironment,
+    client: ReturnType<typeof createLiveClient>,
+): Promise<void> {
+    try {
+        await client.partyManagementService.getParticipantIdAsync(
+            new GetParticipantIdRequest(),
+        );
+    } catch (error) {
+        throw createConnectivityError(
+            "ledger admin grpc",
+            environment.options.ledgerAdminEndpoint,
+            error,
+        );
+    }
+}
+
 async function assertParticipantAdminConnectivityAsync(
     environment: LiveTestEnvironment,
     client: ReturnType<typeof createLiveClient>,
@@ -72,6 +105,23 @@ async function assertParticipantAdminConnectivityAsync(
     } catch (error) {
         throw createConnectivityError(
             "participant admin",
+            environment.options.participantAdminEndpoint,
+            error,
+        );
+    }
+}
+
+async function assertSynchronizerConnectivityAsync(
+    environment: LiveTestEnvironment,
+    client: ReturnType<typeof createLiveClient>,
+): Promise<void> {
+    try {
+        await client.synchronizerConnectivityService.listConnectedSynchronizersAsync(
+            new ListConnectedSynchronizersRequest(),
+        );
+    } catch (error) {
+        throw createConnectivityError(
+            "participant admin synchronizer connectivity",
             environment.options.participantAdminEndpoint,
             error,
         );

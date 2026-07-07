@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { AllocatePartyRequest, ListKnownPartiesRequest } from "../../../src";
+import {
+    AllocateExternalPartyRequest,
+    AllocatePartyRequest,
+    ExternalPartyCryptoKeyFormat,
+    ExternalPartySigningKeySpec,
+    ExternalPartySigningPublicKey,
+    GenerateExternalPartyTopologyRequest,
+    ListKnownPartiesRequest,
+} from "../../../src";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
@@ -76,5 +84,40 @@ describe("PartyManagementServiceClient with JSON transport", () => {
             partyIdHint: "sdk-live-party-json",
         });
         expect(result.party).toBe("sdk-live-party-json");
+    });
+
+    it("rejects external-party ledger-admin methods on json transport", async () => {
+        const transport = new JsonTransport({
+            getAsync: async () => ({}),
+            postAsync: async () => ({}),
+        });
+
+        const client = new PartyManagementServiceClient(transport);
+
+        await expect(
+            client.generateExternalPartyTopologyAsync(
+                new GenerateExternalPartyTopologyRequest({
+                    synchronizer: "sync::sandbox",
+                    partyHint: "ed25519_party",
+                    publicKey: new ExternalPartySigningPublicKey({
+                        format: ExternalPartyCryptoKeyFormat.raw,
+                        keyData: new Uint8Array([1, 2, 3]),
+                        keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                    }),
+                }),
+            ),
+        ).rejects.toThrow(
+            "PartyManagementService.GenerateExternalPartyTopology is not supported by json transport",
+        );
+
+        await expect(
+            client.allocateExternalPartyAsync(
+                new AllocateExternalPartyRequest({
+                    synchronizer: "sync::sandbox",
+                }),
+            ),
+        ).rejects.toThrow(
+            "PartyManagementService.AllocateExternalParty is not supported by json transport",
+        );
     });
 });

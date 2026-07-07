@@ -247,8 +247,12 @@ import {
 } from "./generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 import { ListKnownPackagesRequest as GrpcListKnownPackagesRequest, ListKnownPackagesResponse as GrpcListKnownPackagesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import {
+    AllocateExternalPartyRequest as GrpcAllocateExternalPartyRequest,
+    AllocateExternalPartyResponse as GrpcAllocateExternalPartyResponse,
     AllocatePartyRequest,
     AllocatePartyResponse,
+    GenerateExternalPartyTopologyRequest as GrpcGenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse as GrpcGenerateExternalPartyTopologyResponse,
     GetParticipantIdRequest as GrpcGetParticipantIdRequest,
     GetParticipantIdResponse as GrpcGetParticipantIdResponse,
     GetPartiesRequest as GrpcGetPartiesRequest,
@@ -285,6 +289,8 @@ export interface GrpcOperations {
     getHealthAsync(options?: RequestOptions): Promise<unknown>;
     createPartyAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     listPartiesAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    generateExternalPartyTopologyAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    allocateExternalPartyAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getParticipantIdAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getPartiesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     grantUserRightsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -385,7 +391,12 @@ export interface GrpcOperationDependencies {
     healthClient?: Pick<IHealthClient, "check">;
     partyManagementServiceClient?: Pick<
         IPartyManagementServiceClient,
-        "allocateParty" | "listKnownParties" | "getParticipantId" | "getParties"
+        | "allocateParty"
+        | "listKnownParties"
+        | "generateExternalPartyTopology"
+        | "allocateExternalParty"
+        | "getParticipantId"
+        | "getParties"
     >;
     userManagementServiceClient?: Pick<
         IUserManagementServiceClient,
@@ -695,6 +706,40 @@ export function createGrpcOperations(
             return await unwrapUnaryResponse(
                 partyManagementServiceClient.listKnownParties(
                     request as ListKnownPartiesRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async generateExternalPartyTopologyAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<GrpcGenerateExternalPartyTopologyResponse> {
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                partyManagementServiceClient.generateExternalPartyTopology(
+                    request as GrpcGenerateExternalPartyTopologyRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async allocateExternalPartyAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<GrpcAllocateExternalPartyResponse> {
+            const callOptions =
+                await buildCallOptionsForLedgerAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                partyManagementServiceClient.allocateExternalParty(
+                    request as GrpcAllocateExternalPartyRequest,
                     callOptions,
                 ),
             );

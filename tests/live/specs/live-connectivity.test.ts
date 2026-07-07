@@ -12,7 +12,7 @@ describe("live quickstart connectivity harness", () => {
         expect(environment.options.transportKind).toBe(TransportKind.grpc);
         expect(environment.options.ledgerEndpoint).toBe("http://localhost:3901");
         expect(environment.options.ledgerAdminEndpoint).toBe(
-            "http://localhost:3902",
+            "http://localhost:3901",
         );
         expect(environment.options.participantAdminEndpoint).toBe(
             "http://localhost:3902",

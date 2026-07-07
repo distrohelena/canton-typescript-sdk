@@ -608,6 +608,117 @@ Useful response fields:
 - `localMetadata?: Record<string, string>`
 - `identityProviderId?: string`
 
+### `partyManagementService.getParticipantIdAsync(request)`
+
+Reads the host participant identifier from the ledger-admin API.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetParticipantIdRequest`
+
+Return type:
+
+- `Promise<GetParticipantIdResponse>`
+
+Useful response fields:
+
+- `participantId: string`
+
+### `partyManagementService.getPartiesAsync(request)`
+
+Reads party details for specific parties from the ledger-admin API.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Parameters:
+
+- `request: GetPartiesRequest`
+
+Request fields:
+
+- `parties: string[]`
+- `identityProviderId?: string`
+
+Return type:
+
+- `Promise<GetPartiesResponse>`
+
+Useful response fields:
+
+- `partyDetails: PartyDetails[]`
+
+### `partyManagementService.generateExternalPartyTopologyAsync(request)`
+
+Builds the ledger-admin external-party topology payload that must be signed before allocation.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Parameters:
+
+- `request: GenerateExternalPartyTopologyRequest`
+
+Request fields:
+
+- `synchronizer: string`
+- `partyHint: string`
+- `publicKey?: ExternalPartySigningPublicKey`
+- `localParticipantObservationOnly?: boolean`
+- `otherConfirmingParticipantUids?: string[]`
+- `confirmationThreshold?: number`
+- `observingParticipantUids?: string[]`
+
+Return type:
+
+- `Promise<GenerateExternalPartyTopologyResponse>`
+
+Useful response fields:
+
+- `partyId: string`
+- `publicKeyFingerprint: string`
+- `topologyTransactions: Uint8Array[]`
+- `multiHash: Uint8Array`
+
+### `partyManagementService.allocateExternalPartyAsync(request)`
+
+Allocates an external party through the ledger-admin API using signed onboarding transactions.
+
+Transport support:
+
+- `grpc`
+- `json` throws `NotSupportedError`
+
+Parameters:
+
+- `request: AllocateExternalPartyRequest`
+
+Request fields:
+
+- `synchronizer: string`
+- `onboardingTransactions: ExternalPartyOnboardingTransaction[]`
+- `multiHashSignatures: ExternalPartySignature[]`
+- `identityProviderId?: string`
+- `waitForAllocation?: boolean`
+- `userId?: string`
+
+Return type:
+
+- `Promise<AllocateExternalPartyResponse>`
+
+Useful response fields:
+
+- `partyId: string`
+
 ### `userManagementService.grantUserRightsAsync(request)`
 
 Grants user rights.
@@ -1345,6 +1456,10 @@ Transport behavior:
 | `healthService.checkAsync` | Ledger | No | Yes |
 | `partyManagementService.allocatePartyAsync` | Ledger Admin | Yes | Yes |
 | `partyManagementService.listKnownPartiesAsync` | Ledger Admin | Yes | Yes |
+| `partyManagementService.getParticipantIdAsync` | Ledger Admin | No | Yes |
+| `partyManagementService.getPartiesAsync` | Ledger Admin | No | Yes |
+| `partyManagementService.generateExternalPartyTopologyAsync` | Ledger Admin | No | Yes |
+| `partyManagementService.allocateExternalPartyAsync` | Ledger Admin | No | Yes |
 | `userManagementService.grantUserRightsAsync` | Ledger Admin | Yes | Yes |
 | `packageService.listPackagesAsync` | Ledger | No | Yes |
 | `packageService.getPackageAsync` | Ledger | No | Yes |
