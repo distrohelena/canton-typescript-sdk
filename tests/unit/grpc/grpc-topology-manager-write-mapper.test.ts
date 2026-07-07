@@ -1,0 +1,110 @@
+import { describe, expect, it } from "vitest";
+import {
+    AddTopologyTransactionsRequest,
+    GenerateTopologyTransactionsRequest,
+    GeneratedTopologyTransaction,
+    PartyToParticipant,
+    PartyToParticipantOnboarding,
+    PartyToParticipantParticipant,
+    ParticipantPermission,
+    SignedTopologyTransaction,
+    TopologyMappingOperation,
+    TopologySignatureFormat,
+    TopologySigningKeysWithThreshold,
+    TopologySigningPublicKey,
+    TopologyTransactionSignature,
+} from "../../../src";
+import {
+    mapGrpcAddTopologyTransactionsRequest,
+    mapGrpcGenerateTopologyTransactionsRequest,
+    mapGrpcGenerateTopologyTransactionsResponse,
+} from "../../../src/transports/grpc/mappers/topology-manager-write-mapper.js";
+
+describe("gRPC topology manager write mappers", () => {
+    it("maps topology transaction generation requests", () => {
+        const request = new GenerateTopologyTransactionsRequest({
+            proposals: [
+                {
+                    operation: TopologyMappingOperation.addReplace,
+                    serial: 1,
+                    mapping: new PartyToParticipant({
+                        party: "ExternalParty::default",
+                        threshold: 1,
+                        participants: [
+                            new PartyToParticipantParticipant({
+                                participantUid: "participant1::example",
+                                permission: ParticipantPermission.submission,
+                                onboarding: new PartyToParticipantOnboarding(),
+                            }),
+                        ],
+                        partySigningKeys: new TopologySigningKeysWithThreshold({
+                            threshold: 1,
+                            keys: [
+                                new TopologySigningPublicKey({
+                                    format: "raw",
+                                    scheme: "ed25519",
+                                    usage: ["protocol"],
+                                    keySpec: "ecCurve25519",
+                                    publicKey: new Uint8Array([1, 2, 3]),
+                                }),
+                            ],
+                        }),
+                    }),
+                },
+            ],
+        });
+
+        const result = mapGrpcGenerateTopologyTransactionsRequest(request);
+
+        expect(result.proposals).toHaveLength(1);
+        expect(result.proposals[0].mapping?.mapping.oneofKind).toBe(
+            "partyToParticipant",
+        );
+        expect(
+            result.proposals[0].mapping?.mapping.partyToParticipant
+                .partySigningKeys?.keys[0].usage,
+        ).toEqual([4]);
+    });
+
+    it("maps signed topology transaction requests and generated responses", () => {
+        const addRequest = mapGrpcAddTopologyTransactionsRequest(
+            new AddTopologyTransactionsRequest({
+                transactions: [
+                    new SignedTopologyTransaction({
+                        transaction: new Uint8Array([1, 2, 3]),
+                        signatures: [
+                            new TopologyTransactionSignature({
+                                format: "concat",
+                                signature: new Uint8Array([4, 5, 6]),
+                                signedByFingerprint: "fingerprint::1",
+                                signingAlgorithmSpec: "ed25519",
+                            }),
+                        ],
+                    }),
+                ],
+            }),
+        );
+
+        const response = mapGrpcGenerateTopologyTransactionsResponse({
+            generatedTransactions: [
+                {
+                    serializedTransaction: new Uint8Array([1, 2, 3]),
+                    transactionHash: new Uint8Array([4, 5, 6]),
+                },
+            ],
+        });
+
+        expect(addRequest.transactions).toHaveLength(1);
+        expect(addRequest.transactions[0].signatures[0].signedBy).toBe(
+            "fingerprint::1",
+        );
+        expect(addRequest.transactions[0].signatures[0].format).toBe(3);
+        expect(response.generatedTransactions[0]).toBeInstanceOf(
+            GeneratedTopologyTransaction,
+        );
+        expect(response.generatedTransactions[0].transactionHash).toEqual(
+            new Uint8Array([4, 5, 6]),
+        );
+        expect(TopologySignatureFormat.ed25519).toBe("ed25519");
+    });
+});

@@ -49,6 +49,10 @@ import {
     TopologyManagerReadServiceClient,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.client.js";
 import {
+    ITopologyManagerWriteServiceClient,
+    TopologyManagerWriteServiceClient,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.client.js";
+import {
     ICommandInspectionServiceClient,
     CommandInspectionServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.client.js";
@@ -330,6 +334,14 @@ export interface GrpcOperations {
     listPartyToKeyMappingAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     listSynchronizerTrustCertificateAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     listParticipantSynchronizerPermissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    authorizeTopologyTransactionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    addTopologyTransactionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    importTopologySnapshotAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    importTopologySnapshotV2Async?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    signTopologyTransactionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    generateTopologyTransactionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    createTemporaryTopologyStoreAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    dropTemporaryTopologyStoreAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     listPartyHostingLimitsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     topologyListVettedPackagesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     listPartyToParticipantAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -471,6 +483,17 @@ export interface GrpcOperationDependencies {
         | "listAll"
         | "listAllV2"
     >;
+    topologyManagerWriteServiceClient?: Pick<
+        ITopologyManagerWriteServiceClient,
+        | "authorize"
+        | "addTransactions"
+        | "importTopologySnapshot"
+        | "importTopologySnapshotV2"
+        | "signTransactions"
+        | "generateTransactions"
+        | "createTemporaryTopologyStore"
+        | "dropTemporaryTopologyStore"
+    >;
     topologyAggregationServiceClient?: Pick<
         ITopologyAggregationServiceClient,
         "listParties" | "listKeyOwners"
@@ -580,6 +603,10 @@ export function createGrpcOperations(
     const topologyManagerReadServiceClient =
         dependencies.topologyManagerReadServiceClient
         ?? new TopologyManagerReadServiceClient(rpcTransport);
+
+    const topologyManagerWriteServiceClient =
+        dependencies.topologyManagerWriteServiceClient
+        ?? new TopologyManagerWriteServiceClient(rpcTransport);
 
     const topologyAggregationServiceClient =
         dependencies.topologyAggregationServiceClient
@@ -1712,6 +1739,142 @@ export function createGrpcOperations(
                 ),
             );
         },
+        async authorizeTopologyTransactionsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.authorize(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
+        async addTopologyTransactionsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.addTransactions(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
+        async importTopologySnapshotAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await sendClientStreamRequestAndReadResponseAsync(
+                topologyManagerWriteServiceClient.importTopologySnapshot(
+                    callOptions,
+                ),
+                request,
+            );
+        },
+        async importTopologySnapshotV2Async(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await sendClientStreamRequestAndReadResponseAsync(
+                topologyManagerWriteServiceClient.importTopologySnapshotV2(
+                    callOptions,
+                ),
+                request,
+            );
+        },
+        async signTopologyTransactionsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.signTransactions(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
+        async generateTopologyTransactionsAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.generateTransactions(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
+        async createTemporaryTopologyStoreAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.createTemporaryTopologyStore(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
+        async dropTemporaryTopologyStoreAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<unknown> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                topologyManagerWriteServiceClient.dropTemporaryTopologyStore(
+                    request as never,
+                    callOptions,
+                ),
+            );
+        },
         async topologyListPartiesAsync(
             request: unknown,
             requestOptions?: RequestOptions,
@@ -2014,6 +2177,16 @@ function normalizeGrpcHost(endpoint: string): string {
 async function unwrapUnaryResponse<TResponse>(
     call: UnaryCallLike<TResponse>,
 ): Promise<TResponse> {
+    return await call.response;
+}
+
+async function sendClientStreamRequestAndReadResponseAsync<TRequest, TResponse>(
+    call: any,
+    request: TRequest,
+): Promise<TResponse> {
+    await call.requests.send(request);
+    await call.requests.complete();
+
     return await call.response;
 }
 

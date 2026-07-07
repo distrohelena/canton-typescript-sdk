@@ -165,6 +165,10 @@ describe("gRPC call-options factory", () => {
 
         let capturedTopologyPartiesOptions: unknown;
 
+        let capturedTopologyWriteRequest: unknown;
+
+        let capturedTopologyWriteOptions: unknown;
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -338,6 +342,21 @@ describe("gRPC call-options factory", () => {
                         };
                     },
                 },
+                topologyManagerWriteServiceClient: {
+                    generateTransactions: (
+                        request: unknown,
+                        options?: unknown,
+                    ) => {
+                        capturedTopologyWriteRequest = request;
+                        capturedTopologyWriteOptions = options;
+
+                        return {
+                            response: Promise.resolve({
+                                generatedTransactions: [],
+                            }),
+                        };
+                    },
+                },
             } as any,
         ) as any;
 
@@ -354,6 +373,9 @@ describe("gRPC call-options factory", () => {
         await operations.listAvailableStoresAsync!({});
         await operations.topologyListPartiesAsync!({
             filterParty: "Alice",
+        });
+        await operations.generateTopologyTransactionsAsync!({
+            proposals: [],
         });
 
         expect(capturedLedgerRequest).toEqual({});
@@ -404,6 +426,16 @@ describe("gRPC call-options factory", () => {
             filterParty: "Alice",
         });
         expect(capturedTopologyPartiesOptions).toMatchObject({
+            meta: {
+                authorization: "Bearer participant-admin-token",
+                "x-canton-surface": "participant-admin",
+            },
+            timeout: 1_500,
+        });
+        expect(capturedTopologyWriteRequest).toEqual({
+            proposals: [],
+        });
+        expect(capturedTopologyWriteOptions).toMatchObject({
             meta: {
                 authorization: "Bearer participant-admin-token",
                 "x-canton-surface": "participant-admin",

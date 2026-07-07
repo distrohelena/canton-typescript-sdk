@@ -354,6 +354,24 @@ import {
     mapGrpcTopologyListVettedPackagesResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
+    mapGrpcAddTopologyTransactionsRequest,
+    mapGrpcAddTopologyTransactionsResponse,
+    mapGrpcAuthorizeTopologyTransactionsRequest,
+    mapGrpcAuthorizeTopologyTransactionsResponse,
+    mapGrpcCreateTemporaryTopologyStoreRequest,
+    mapGrpcCreateTemporaryTopologyStoreResponse,
+    mapGrpcDropTemporaryTopologyStoreRequest,
+    mapGrpcDropTemporaryTopologyStoreResponse,
+    mapGrpcGenerateTopologyTransactionsRequest,
+    mapGrpcGenerateTopologyTransactionsResponse,
+    mapGrpcImportTopologySnapshotRequest,
+    mapGrpcImportTopologySnapshotResponse,
+    mapGrpcImportTopologySnapshotV2Request,
+    mapGrpcImportTopologySnapshotV2Response,
+    mapGrpcSignTopologyTransactionsRequest,
+    mapGrpcSignTopologyTransactionsResponse,
+} from "./mappers/topology-manager-write-mapper.js";
+import {
     mapGrpcGetUser,
     mapGrpcGetUserRequest,
     mapGrpcGrantUserRights,
@@ -1409,91 +1427,116 @@ export class GrpcTransport implements ITransport {
     }
 
     public async authorizeTopologyTransactionsAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.Authorize is not available yet",
+        const payload = await this.operations.authorizeTopologyTransactionsAsync!(
+            mapGrpcAuthorizeTopologyTransactionsRequest(request),
+            options,
         );
+
+        return mapGrpcAuthorizeTopologyTransactionsResponse(payload as any);
     }
 
     public async addTopologyTransactionsAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.AddTransactions is not available yet",
+        const payload = await this.operations.addTopologyTransactionsAsync!(
+            mapGrpcAddTopologyTransactionsRequest(request),
+            options,
         );
+
+        return mapGrpcAddTopologyTransactionsResponse(payload as any);
     }
 
     public async importTopologySnapshotAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.ImportTopologySnapshot is not available yet",
+        const payload = await this.operations.importTopologySnapshotAsync!(
+            mapGrpcImportTopologySnapshotRequest(request),
+            options,
         );
+
+        return mapGrpcImportTopologySnapshotResponse(payload as any);
     }
 
     public async importTopologySnapshotV2Async(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.ImportTopologySnapshotV2 is not available yet",
+        const payload = await this.operations.importTopologySnapshotV2Async!(
+            mapGrpcImportTopologySnapshotV2Request(request),
+            options,
         );
+
+        return mapGrpcImportTopologySnapshotV2Response(payload as any);
     }
 
     public async signTopologyTransactionsAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.SignTransactions is not available yet",
+        const payload = await this.operations.signTopologyTransactionsAsync!(
+            mapGrpcSignTopologyTransactionsRequest(request),
+            options,
         );
+
+        return mapGrpcSignTopologyTransactionsResponse(payload as any);
     }
 
     public async generateTopologyTransactionsAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.GenerateTransactions is not available yet",
+        const payload = await this.operations.generateTopologyTransactionsAsync!(
+            mapGrpcGenerateTopologyTransactionsRequest(request),
+            options,
         );
+
+        return mapGrpcGenerateTopologyTransactionsResponse(payload as any);
     }
 
     public async createTemporaryTopologyStoreAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.CreateTemporaryTopologyStore is not available yet",
-        );
+        const payload =
+            await this.operations.createTemporaryTopologyStoreAsync!(
+                mapGrpcCreateTemporaryTopologyStoreRequest(request),
+                options,
+            );
+
+        return mapGrpcCreateTemporaryTopologyStoreResponse(payload as any);
     }
 
     public async dropTemporaryTopologyStoreAsync(
-        _request: any,
-        _options?: RequestOptions,
+        request: any,
+        options?: RequestOptions,
     ): Promise<any> {
         this.throwIfDisposed();
 
-        throw new TransportError(
-            "TopologyManagerWriteService.DropTemporaryTopologyStore is not available yet",
+        const payload = await this.operations.dropTemporaryTopologyStoreAsync!(
+            mapGrpcDropTemporaryTopologyStoreRequest(request),
+            options,
         );
+
+        return mapGrpcDropTemporaryTopologyStoreResponse(payload as any);
     }
 
     public async listPartyHostingLimitsAsync(
