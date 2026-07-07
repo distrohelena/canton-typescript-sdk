@@ -11,6 +11,8 @@ import {
     ConnectedSynchronizerStatus,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
+    GenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse,
     GetPackageContentsRequest,
     GetPackageContentsResponse,
     GetPackageReferencesRequest,
@@ -19,7 +21,16 @@ import {
     GetPackageResponse,
     GetPackageStatusRequest,
     GetPackageStatusResponse,
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyResponse,
     EndpointNotConfiguredError,
+    ExternalPartyCryptoKeyFormat,
+    ExternalPartyOnboardingTransaction,
+    ExternalPartySignature,
+    ExternalPartySignatureFormat,
+    ExternalPartySigningAlgorithmSpec,
+    ExternalPartySigningKeySpec,
+    ExternalPartySigningPublicKey,
     HashFunction,
     HealthCheckStatus,
     HealthServiceClient,
@@ -105,6 +116,19 @@ describe("package surface", () => {
         expect(AssembleSignedTopologyTransactionsRequest).toBeTypeOf(
             "function",
         );
+        expect(GenerateExternalPartyTopologyRequest).toBeTypeOf("function");
+        expect(GenerateExternalPartyTopologyResponse).toBeTypeOf("function");
+        expect(AllocateExternalPartyRequest).toBeTypeOf("function");
+        expect(AllocateExternalPartyResponse).toBeTypeOf("function");
+        expect(ExternalPartySigningPublicKey).toBeTypeOf("function");
+        expect(ExternalPartySignature).toBeTypeOf("function");
+        expect(ExternalPartyOnboardingTransaction).toBeTypeOf("function");
+        expect(ExternalPartyCryptoKeyFormat.raw).toBe("raw");
+        expect(ExternalPartySigningKeySpec.ecCurve25519).toBe(
+            "ecCurve25519",
+        );
+        expect(ExternalPartySignatureFormat.concat).toBe("concat");
+        expect(ExternalPartySigningAlgorithmSpec.ed25519).toBe("ed25519");
 
         const listPackagesRequest = new ListPackagesRequest();
 

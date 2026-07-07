@@ -37,6 +37,13 @@ export { SignCommandResult } from "./core/signing/sign-command-result.js";
 export type { ITransport } from "./core/transports/transport.interface.js";
 export { TransportCapability } from "./core/transports/transport-capability.js";
 export { TransportKind } from "./core/types/transport-kind.js";
+export { ExternalPartyCryptoKeyFormat } from "./core/types/external-party/external-party-crypto-key-format.js";
+export { ExternalPartyOnboardingTransaction } from "./core/types/external-party/external-party-onboarding-transaction.js";
+export { ExternalPartySignature } from "./core/types/external-party/external-party-signature.js";
+export { ExternalPartySignatureFormat } from "./core/types/external-party/external-party-signature-format.js";
+export { ExternalPartySigningAlgorithmSpec } from "./core/types/external-party/external-party-signing-algorithm-spec.js";
+export { ExternalPartySigningKeySpec } from "./core/types/external-party/external-party-signing-key-spec.js";
+export { ExternalPartySigningPublicKey } from "./core/types/external-party/external-party-signing-public-key.js";
 export { GrpcChannelSecurity } from "./core/types/grpc-channel-security.js";
 export { SubmissionMode } from "./core/types/submission-mode.js";
 export { AdminComponentHealthKind } from "./core/types/admin-component-health-kind.js";
@@ -170,6 +177,7 @@ export { PreparedTopologyTransaction } from "./core/types/topology/prepared-topo
 export { SignedTopologyTransaction } from "./core/types/topology/signed-topology-transaction.js";
 export { CreateCommand } from "./core/types/commands/create-command.js";
 export { AddTopologyTransactionsRequest } from "./core/types/requests/add-topology-transactions-request.js";
+export { AllocateExternalPartyRequest } from "./core/types/requests/allocate-external-party-request.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
@@ -180,6 +188,7 @@ export { CurrentTimeRequest } from "./core/types/requests/current-time-request.j
 export { DropTemporaryTopologyStoreRequest } from "./core/types/requests/drop-temporary-topology-store-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
+export { GenerateExternalPartyTopologyRequest } from "./core/types/requests/generate-external-party-topology-request.js";
 export { GetDarContentsRequest } from "./core/types/requests/get-dar-contents-request.js";
 export { GetDarRequest } from "./core/types/requests/get-dar-request.js";
 export { GetActiveContractsPageRequest } from "./core/types/requests/get-active-contracts-page-request.js";
@@ -262,6 +271,7 @@ export { TrafficControlStateRequest } from "./core/types/requests/traffic-contro
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
 export type { UserRightAssignment } from "./core/types/requests/grant-user-rights-request.js";
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
+export { AllocateExternalPartyResponse } from "./core/types/responses/allocate-external-party-response.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
 export { CountInFlightResponse } from "./core/types/responses/count-in-flight-response.js";
 export { CurrentTimeResponse } from "./core/types/responses/current-time-response.js";
@@ -304,6 +314,7 @@ export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topo
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";
 export { CreateTemporaryTopologyStoreResponse } from "./core/types/responses/create-temporary-topology-store-response.js";
 export { DropTemporaryTopologyStoreResponse } from "./core/types/responses/drop-temporary-topology-store-response.js";
+export { GenerateExternalPartyTopologyResponse } from "./core/types/responses/generate-external-party-topology-response.js";
 export { GenerateTopologyTransactionsResponse } from "./core/types/responses/generate-topology-transactions-response.js";
 export { ImportTopologySnapshotResponse } from "./core/types/responses/import-topology-snapshot-response.js";
 export { ImportTopologySnapshotV2Response } from "./core/types/responses/import-topology-snapshot-v2-response.js";
