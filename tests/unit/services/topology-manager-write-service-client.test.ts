@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
     AddTopologyTransactionsRequest,
     AddTopologyTransactionsResponse,
+    AssembleSignedTopologyTransactionsRequest,
+    ExternalTopologySignature,
     GenerateTopologyTransactionsRequest,
     GenerateTopologyTransactionsResponse,
+    PreparedTopologyTransaction,
     RequestOptions,
     TopologyManagerWriteServiceClient,
+    TopologySignatureFormat,
 } from "../../../src";
 
 describe("TopologyManagerWriteServiceClient", () => {
@@ -50,5 +54,33 @@ describe("TopologyManagerWriteServiceClient", () => {
             addRequest,
             options,
         );
+    });
+
+    it("assembles signed topology transactions without using the transport", () => {
+        const client = new TopologyManagerWriteServiceClient({} as never);
+
+        const result = client.assembleSignedTransactions(
+            new AssembleSignedTopologyTransactionsRequest({
+                preparedTransactions: [
+                    new PreparedTopologyTransaction({
+                        serializedTransaction: new Uint8Array([1, 2]),
+                        transactionHash: new Uint8Array([3, 4]),
+                        proposal: true,
+                    }),
+                ],
+                signatures: [
+                    new ExternalTopologySignature({
+                        transactionHash: new Uint8Array([3, 4]),
+                        signature: new Uint8Array([5, 6]),
+                        signedByFingerprint: "fingerprint::1",
+                        signatureFormat: TopologySignatureFormat.ed25519,
+                    }),
+                ],
+            }),
+        );
+
+        expect(result).toHaveLength(1);
+        expect(result[0].proposal).toBe(true);
+        expect(result[0].signatures).toHaveLength(1);
     });
 });
