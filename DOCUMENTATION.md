@@ -1046,6 +1046,60 @@ Functions:
   Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds?: string[]`, `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
   Response payload: `results: TopologyKeyOwnerResult[]`
 
+### `topologyManagerWriteService.*`
+
+These functions mirror the participant-admin `TopologyManagerWriteService` RPC boundary.
+
+Transport support:
+
+- `grpc`
+- `json` currently throws `NotSupportedError` for every transport-backed method in this service
+- `assembleSignedTransactions(...)` is SDK-local and available on any client
+
+Current raw mapping coverage:
+
+- proposal mapping support currently starts with `PartyToParticipant`
+- detached ED25519 onboarding is modeled through `PartyToParticipant.partySigningKeys`
+- unsupported raw mapping types throw `ValidationError` before any gRPC request is sent
+
+Functions:
+
+- `authorizeAsync(request: AuthorizeTopologyTransactionsRequest): Promise<AuthorizeTopologyTransactionsResponse>`
+  Request fields: `proposal?: AuthorizeTopologyTransactionsProposal`, `transactionHash?: string`, `mustFullyAuthorize: boolean`, `forceChanges: TopologyForceFlag[]`, `signedBy: string[]`, `store?: TopologyStoreId`, `waitToBecomeEffective?: TopologyDuration`
+  Response payload: `transaction?: SignedTopologyTransaction`
+- `addTransactionsAsync(request: AddTopologyTransactionsRequest): Promise<AddTopologyTransactionsResponse>`
+  Request fields: `transactions: SignedTopologyTransaction[]`, `forceChanges: TopologyForceFlag[]`, `store?: TopologyStoreId`, `waitToBecomeEffective?: TopologyDuration`
+  Response payload: empty
+- `importTopologySnapshotAsync(request: ImportTopologySnapshotRequest): Promise<ImportTopologySnapshotResponse>`
+  Request fields: `topologySnapshot: Uint8Array`, `store?: TopologyStoreId`, `waitToBecomeEffective?: TopologyDuration`
+  Response payload: empty
+- `importTopologySnapshotV2Async(request: ImportTopologySnapshotV2Request): Promise<ImportTopologySnapshotV2Response>`
+  Request fields: `topologySnapshot: Uint8Array`, `store?: TopologyStoreId`, `waitToBecomeEffective?: TopologyDuration`
+  Response payload: empty
+- `signTransactionsAsync(request: SignTopologyTransactionsRequest): Promise<SignTopologyTransactionsResponse>`
+  Request fields: `transactions: SignedTopologyTransaction[]`, `signedBy: string[]`, `store?: TopologyStoreId`, `forceFlags: TopologyForceFlag[]`
+  Response payload: `transactions: SignedTopologyTransaction[]`
+- `generateTransactionsAsync(request: GenerateTopologyTransactionsRequest): Promise<GenerateTopologyTransactionsResponse>`
+  Request fields: `proposals: GenerateTopologyTransactionsProposal[]`
+  Proposal fields: `operation: TopologyMappingOperation`, `serial: number`, `mapping?: TopologyMapping`, `store?: TopologyStoreId`
+  Response payload: `generatedTransactions: GeneratedTopologyTransaction[]`
+- `createTemporaryTopologyStoreAsync(request: CreateTemporaryTopologyStoreRequest): Promise<CreateTemporaryTopologyStoreResponse>`
+  Request fields: `name: string`, `protocolVersion: number`
+  Response payload: `storeId?: TopologyStoreTemporary`
+- `dropTemporaryTopologyStoreAsync(request: DropTemporaryTopologyStoreRequest): Promise<DropTemporaryTopologyStoreResponse>`
+  Request fields: `storeId?: TopologyStoreTemporary`
+  Response payload: empty
+- `assembleSignedTransactions(request: AssembleSignedTopologyTransactionsRequest): SignedTopologyTransaction[]`
+  Request fields: `preparedTransactions: PreparedTopologyTransaction[]`, `signatures: ExternalTopologySignature[]`
+  Response payload: `SignedTopologyTransaction[]`
+
+Detached-signature assembly notes:
+
+- signatures are matched by `transactionHash`
+- each signature requires `transactionHash`, `signature`, `signedByFingerprint`, and `signatureFormat`
+- duplicate signers for the same transaction are rejected
+- `TopologySignatureFormat.ed25519` defaults the raw signature format to `concat` and the algorithm spec to `ed25519`
+
 ### `commandService.submitAndWaitAsync(request)`
 
 Submits a command and waits for the result.
@@ -1338,6 +1392,15 @@ Transport behavior:
 | `topologyManagerReadService.listAllV2Async` | Participant Admin | No | Yes |
 | `topologyAggregationService.listPartiesAsync` | Participant Admin | No | Yes |
 | `topologyAggregationService.listKeyOwnersAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.authorizeAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.addTransactionsAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.importTopologySnapshotAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.importTopologySnapshotV2Async` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.signTransactionsAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.generateTransactionsAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.createTemporaryTopologyStoreAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.dropTemporaryTopologyStoreAsync` | Participant Admin | No | Yes |
+| `topologyManagerWriteService.assembleSignedTransactions` | SDK Local | Yes | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
 | `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |

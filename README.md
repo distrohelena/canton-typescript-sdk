@@ -148,6 +148,19 @@ For gRPC, channel security resolves per surface:
 - `participantPackageService.getPackageContentsAsync(...)`: `grpc` only
 - `participantPackageService.getPackageReferencesAsync(...)`: `grpc` only
 - `participantStatusService.getParticipantStatusAsync(...)`: `grpc` only
+- `topologyManagerReadService.*`: `grpc` only
+- `topologyAggregationService.*`: `grpc` only
+- `topologyManagerWriteService.authorizeAsync(...)`: `grpc` only
+- `topologyManagerWriteService.addTransactionsAsync(...)`: `grpc` only
+- `topologyManagerWriteService.importTopologySnapshotAsync(...)`: `grpc` only
+- `topologyManagerWriteService.importTopologySnapshotV2Async(...)`: `grpc` only
+- `topologyManagerWriteService.signTransactionsAsync(...)`: `grpc` only
+- `topologyManagerWriteService.generateTransactionsAsync(...)`: `grpc` only
+- `topologyManagerWriteService.createTemporaryTopologyStoreAsync(...)`: `grpc` only
+- `topologyManagerWriteService.dropTemporaryTopologyStoreAsync(...)`: `grpc` only
+- `topologyManagerWriteService.assembleSignedTransactions(...)`: SDK-local on any client
+
+Raw topology-write mapping support currently starts with `PartyToParticipant`. The detached-signature assembler is transport-independent, but the actual participant-admin write RPCs are `grpc` only and JSON rejects them with `NotSupportedError`.
 
 ## Protocol-Specific Clients
 

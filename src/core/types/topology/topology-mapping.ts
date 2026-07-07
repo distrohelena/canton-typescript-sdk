@@ -12,7 +12,7 @@ import { PartyToKeyMapping } from "./party-to-key-mapping.js";
 import { PartyToParticipant } from "./party-to-participant.js";
 import { SequencerSynchronizerState } from "./sequencer-synchronizer-state.js";
 import { SynchronizerTrustCertificate } from "./synchronizer-trust-certificate.js";
-import { VettedPackages } from "./vetted-packages.js";
+import { TopologyVettedPackages } from "./vetted-packages.js";
 
 export type TopologyMapping =
     | DecentralizedNamespaceDefinition
@@ -29,4 +29,4 @@ export type TopologyMapping =
     | PartyToParticipant
     | SequencerSynchronizerState
     | SynchronizerTrustCertificate
-    | VettedPackages;
+    | TopologyVettedPackages;

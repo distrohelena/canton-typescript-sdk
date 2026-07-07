@@ -1,5 +1,6 @@
 import { AssembleSignedTopologyTransactionsRequest } from "../../core/types/requests/assemble-signed-topology-transactions-request.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
+import { ExternalTopologySignature } from "../../core/types/topology/external-topology-signature.js";
 import { SignedTopologyTransaction } from "../../core/types/topology/signed-topology-transaction.js";
 import { TopologySignatureFormat } from "../../core/types/topology/topology-signature-format.js";
 import { TopologyTransactionSignature } from "../../core/types/topology/topology-transaction-signature.js";
@@ -15,12 +16,16 @@ export function assembleSignedTopologyTransactions(
     );
 
     const signaturesByHash = new Map<string, TopologyTransactionSignature[]>();
+
     const seenSignerPairs = new Set<string>();
 
     for (const signature of request.signatures) {
         validateExternalSignature(signature);
 
+        const signatureFormat = signature.signatureFormat;
+
         const hashKey = toHex(signature.transactionHash);
+
         const preparedTransaction = preparedTransactionsByHash.get(hashKey);
 
         if (preparedTransaction === undefined) {
@@ -40,16 +45,12 @@ export function assembleSignedTopologyTransactions(
         seenSignerPairs.add(signerKey);
 
         const mappedSignature = new TopologyTransactionSignature({
-            format: mapExternalSignatureFormatToRawFormat(
-                signature.signatureFormat,
-            ),
+            format: mapExternalSignatureFormatToRawFormat(signatureFormat),
             signature: signature.signature,
             signedByFingerprint: signature.signedByFingerprint,
             signingAlgorithmSpec:
                 signature.signingAlgorithmSpec
-                ?? mapExternalSignatureFormatToAlgorithmSpec(
-                    signature.signatureFormat,
-                ),
+                ?? mapExternalSignatureFormatToAlgorithmSpec(signatureFormat),
             signatureDelegation: signature.signatureDelegation,
         });
 
@@ -73,31 +74,24 @@ export function assembleSignedTopologyTransactions(
     );
 }
 
-function validateExternalSignature(signature: {
-    transactionHash: Uint8Array;
-    signature: Uint8Array;
-    signedByFingerprint: string;
-    signatureFormat?: TopologySignatureFormat;
-}): void {
+function validateExternalSignature(
+    signature: ExternalTopologySignature,
+): asserts signature is ExternalTopologySignature & {
+    signatureFormat: TopologySignatureFormat;
+} {
     if (signature.transactionHash.length === 0) {
         throw new ValidationError(
             "Detached topology signatures require a transactionHash.",
         );
-    }
-
-    if (signature.signature.length === 0) {
+    } else if (signature.signature.length === 0) {
         throw new ValidationError(
             "Detached topology signatures require signature bytes.",
         );
-    }
-
-    if (signature.signedByFingerprint.length === 0) {
+    } else if (signature.signedByFingerprint.length === 0) {
         throw new ValidationError(
             "Detached topology signatures require signedByFingerprint.",
         );
-    }
-
-    if (signature.signatureFormat === undefined) {
+    } else if (signature.signatureFormat === undefined) {
         throw new ValidationError(
             "Detached topology signatures require signatureFormat.",
         );

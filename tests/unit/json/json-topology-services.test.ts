@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+    AddTopologyTransactionsRequest,
+    AssembleSignedTopologyTransactionsRequest,
+    AuthorizeTopologyTransactionsRequest,
     CantonClient,
     CantonClientOptions,
+    CreateTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreRequest,
+    GenerateTopologyTransactionsRequest,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotV2Request,
     ListAllRequest,
     ListAllV2Request,
     ListAvailableStoresRequest,
@@ -21,6 +29,7 @@ import {
     ListSynchronizerParametersStateRequest,
     ListSynchronizerTrustCertificateRequest,
     NotSupportedError,
+    SignTopologyTransactionsRequest,
     TopologyListPartiesRequest,
     TopologyListVettedPackagesRequest,
     TransportKind,
@@ -201,5 +210,85 @@ describe("Topology services with JSON transport", () => {
             await expect(invoke()).rejects.toThrow(NotSupportedError);
             await expect(invoke()).rejects.toThrow(message);
         }
+    });
+
+    it("rejects topology manager write RPCs on JSON and keeps assembly local", async () => {
+        const client = new CantonClient(
+            new CantonClientOptions({
+                transportKind: TransportKind.json,
+                ledgerEndpoint: "https://ledger.example.com",
+                participantAdminEndpoint: "https://participant-admin.example.com",
+            }),
+        );
+
+        const calls = [
+            [
+                "TopologyManagerWriteService.Authorize",
+                () =>
+                    client.topologyManagerWriteService.authorizeAsync(
+                        new AuthorizeTopologyTransactionsRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.AddTransactions",
+                () =>
+                    client.topologyManagerWriteService.addTransactionsAsync(
+                        new AddTopologyTransactionsRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.ImportTopologySnapshot",
+                () =>
+                    client.topologyManagerWriteService.importTopologySnapshotAsync(
+                        new ImportTopologySnapshotRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.ImportTopologySnapshotV2",
+                () =>
+                    client.topologyManagerWriteService.importTopologySnapshotV2Async(
+                        new ImportTopologySnapshotV2Request(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.SignTransactions",
+                () =>
+                    client.topologyManagerWriteService.signTransactionsAsync(
+                        new SignTopologyTransactionsRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.GenerateTransactions",
+                () =>
+                    client.topologyManagerWriteService.generateTransactionsAsync(
+                        new GenerateTopologyTransactionsRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.CreateTemporaryTopologyStore",
+                () =>
+                    client.topologyManagerWriteService.createTemporaryTopologyStoreAsync(
+                        new CreateTemporaryTopologyStoreRequest(),
+                    ),
+            ],
+            [
+                "TopologyManagerWriteService.DropTemporaryTopologyStore",
+                () =>
+                    client.topologyManagerWriteService.dropTemporaryTopologyStoreAsync(
+                        new DropTemporaryTopologyStoreRequest(),
+                    ),
+            ],
+        ] as const;
+
+        for (const [message, invoke] of calls) {
+            await expect(invoke()).rejects.toThrow(NotSupportedError);
+            await expect(invoke()).rejects.toThrow(message);
+        }
+
+        expect(
+            client.topologyManagerWriteService.assembleSignedTransactions(
+                new AssembleSignedTopologyTransactionsRequest(),
+            ),
+        ).toEqual([]);
     });
 });

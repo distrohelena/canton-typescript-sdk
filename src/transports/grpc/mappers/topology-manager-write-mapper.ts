@@ -21,7 +21,6 @@ import { GenerateTopologyTransactionsResponse } from "../../../core/types/respon
 import { ImportTopologySnapshotResponse } from "../../../core/types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../../../core/types/responses/import-topology-snapshot-v2-response.js";
 import { SignTopologyTransactionsResponse } from "../../../core/types/responses/sign-topology-transactions-response.js";
-import { ExternalTopologySignature } from "../../../core/types/topology/external-topology-signature.js";
 import { GeneratedTopologyTransaction } from "../../../core/types/topology/generated-topology-transaction.js";
 import { MultiTopologyTransactionSignature } from "../../../core/types/topology/multi-topology-transaction-signature.js";
 import {
@@ -56,6 +55,7 @@ import {
     AddTransactionsRequest as GrpcAddTransactionsRequest,
     AddTransactionsResponse as GrpcAddTransactionsResponse,
     AuthorizeRequest as GrpcAuthorizeRequest,
+    AuthorizeRequest_Proposal as GrpcAuthorizeRequestProposal,
     AuthorizeResponse as GrpcAuthorizeResponse,
     CreateTemporaryTopologyStoreRequest as GrpcCreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse as GrpcCreateTemporaryTopologyStoreResponse,
@@ -265,7 +265,7 @@ function mapGrpcGenerateTopologyTransactionsProposal(
 
 function mapGrpcAuthorizeTopologyTransactionsProposal(
     proposal: AuthorizeTopologyTransactionsProposal,
-): GrpcAuthorizeRequest["type"] & { oneofKind: "proposal" }["proposal"] {
+): GrpcAuthorizeRequestProposal {
     return {
         change: mapGrpcTopologyChangeOp(proposal.operation),
         serial: proposal.serial,
@@ -278,9 +278,7 @@ function mapGrpcTopologyMapping(
 ): GrpcTopologyMapping | undefined {
     if (mapping === undefined) {
         return undefined;
-    }
-
-    if (mapping instanceof PartyToParticipant) {
+    } else if (mapping instanceof PartyToParticipant) {
         return {
             mapping: {
                 oneofKind: "partyToParticipant",
@@ -333,7 +331,7 @@ function mapGrpcSigningKeysWithThreshold(
 
 function mapGrpcSigningPublicKey(
     value: TopologySigningPublicKey,
-): GrpcPartyToParticipant["partySigningKeys"]["keys"][number] {
+): SigningKeysWithThreshold["keys"][number] {
     return {
         format: mapGrpcCryptoKeyFormat(value.format),
         publicKey: new Uint8Array(value.publicKey),
@@ -372,7 +370,7 @@ function mapSdkSignedTopologyTransaction(
 }
 
 function mapGrpcTopologyTransactionSignature(
-    value: TopologyTransactionSignature | ExternalTopologySignature,
+    value: TopologyTransactionSignature,
 ): GrpcSignature {
     return {
         format: mapGrpcSignatureFormat(value.format),

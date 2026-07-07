@@ -20,6 +20,7 @@ describe("TopologyManagerWriteServiceClient", () => {
                     generatedTransactions: [],
                 }),
         );
+
         const addTopologyTransactionsAsync = vi.fn(
             async () => new AddTopologyTransactionsResponse(),
         );
@@ -34,7 +35,9 @@ describe("TopologyManagerWriteServiceClient", () => {
         const client = new TopologyManagerWriteServiceClient(transport as never);
 
         const generateRequest = new GenerateTopologyTransactionsRequest();
+
         const addRequest = new AddTopologyTransactionsRequest();
+
         const options = new RequestOptions({
             timeoutMs: 5_000,
         });
