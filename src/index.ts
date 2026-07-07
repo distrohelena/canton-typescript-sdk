@@ -23,6 +23,7 @@ export { ResourceManagementServiceClient } from "./services/resource-management/
 export { StateServiceClient } from "./services/state/state-service-client.js";
 export { TopologyAggregationServiceClient } from "./services/topology-aggregation/topology-aggregation-service-client.js";
 export { TopologyManagerReadServiceClient } from "./services/topology-manager-read/topology-manager-read-service-client.js";
+export { TopologyManagerWriteServiceClient } from "./services/topology-manager-write/topology-manager-write-service-client.js";
 export { TrafficControlServiceClient } from "./services/traffic-control/traffic-control-service-client.js";
 export { UpdateServiceClient } from "./services/update/update-service-client.js";
 export { UserManagementServiceClient } from "./services/user-management/user-management-service-client.js";

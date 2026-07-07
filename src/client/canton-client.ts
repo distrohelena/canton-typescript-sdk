@@ -22,6 +22,7 @@ import { ResourceManagementServiceClient } from "../services/resource-management
 import { StateServiceClient } from "../services/state/state-service-client.js";
 import { TopologyAggregationServiceClient } from "../services/topology-aggregation/topology-aggregation-service-client.js";
 import { TopologyManagerReadServiceClient } from "../services/topology-manager-read/topology-manager-read-service-client.js";
+import { TopologyManagerWriteServiceClient } from "../services/topology-manager-write/topology-manager-write-service-client.js";
 import { TrafficControlServiceClient } from "../services/traffic-control/traffic-control-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
 import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
@@ -52,6 +53,7 @@ export class CantonClient {
     public readonly identityInitializationService: IdentityInitializationServiceClient;
     public readonly synchronizerConnectivityService: SynchronizerConnectivityServiceClient;
     public readonly topologyManagerReadService: TopologyManagerReadServiceClient;
+    public readonly topologyManagerWriteService: TopologyManagerWriteServiceClient;
     public readonly trafficControlService: TrafficControlServiceClient;
     public readonly topologyAggregationService: TopologyAggregationServiceClient;
     public readonly commandService: CommandServiceClient;
@@ -97,6 +99,7 @@ export class CantonClient {
         this.synchronizerConnectivityService =
             services.synchronizerConnectivityService;
         this.topologyManagerReadService = services.topologyManagerReadService;
+        this.topologyManagerWriteService = services.topologyManagerWriteService;
         this.trafficControlService = services.trafficControlService;
         this.topologyAggregationService = services.topologyAggregationService;
         this.commandService = services.commandService;

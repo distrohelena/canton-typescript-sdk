@@ -1408,6 +1408,94 @@ export class GrpcTransport implements ITransport {
         );
     }
 
+    public async authorizeTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.Authorize is not available yet",
+        );
+    }
+
+    public async addTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.AddTransactions is not available yet",
+        );
+    }
+
+    public async importTopologySnapshotAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.ImportTopologySnapshot is not available yet",
+        );
+    }
+
+    public async importTopologySnapshotV2Async(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.ImportTopologySnapshotV2 is not available yet",
+        );
+    }
+
+    public async signTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.SignTransactions is not available yet",
+        );
+    }
+
+    public async generateTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.GenerateTransactions is not available yet",
+        );
+    }
+
+    public async createTemporaryTopologyStoreAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.CreateTemporaryTopologyStore is not available yet",
+        );
+    }
+
+    public async dropTemporaryTopologyStoreAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new TransportError(
+            "TopologyManagerWriteService.DropTemporaryTopologyStore is not available yet",
+        );
+    }
+
     public async listPartyHostingLimitsAsync(
         request: ListPartyHostingLimitsRequest,
         options?: RequestOptions,

@@ -2,6 +2,7 @@ import { CantonClientOptions } from "./canton-client-options.js";
 import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
+import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetCompletionsRequest } from "../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
@@ -16,6 +17,7 @@ import { GetEventsByContractIdRequest } from "../core/types/requests/get-events-
 import { GetConfigForSlowCounterParticipantsRequest } from "../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
+import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
 import { GetLatestPrunedOffsetsRequest } from "../core/types/requests/get-latest-pruned-offsets-request.js";
 import { GetLedgerEndRequest } from "../core/types/requests/get-ledger-end-request.js";
@@ -43,6 +45,11 @@ import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js
 import { GetUpdatesPageRequest } from "../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../core/types/requests/get-user-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
+import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
+import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
+import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
+import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
+import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../core/types/requests/list-available-stores-request.js";
@@ -78,13 +85,19 @@ import { LookupOffsetByTimeRequest } from "../core/types/requests/lookup-offset-
 import { OpenCommitmentRequest } from "../core/types/requests/open-commitment-request.js";
 import { ParticipantListPackagesRequest } from "../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
+import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
+import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
+import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { CountInFlightResponse } from "../core/types/responses/count-in-flight-response.js";
+import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
+import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
+import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import { GetPackageContentsResponse } from "../core/types/responses/get-package-contents-response.js";
 import { GetConnectedSynchronizersResponse } from "../core/types/responses/get-connected-synchronizers-response.js";
 import { CurrentTimeResponse } from "../core/types/responses/current-time-response.js";
@@ -122,6 +135,8 @@ import { GetUpdatesPageResponse } from "../core/types/responses/get-updates-page
 import { GetUserResponse } from "../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
+import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
+import { ImportTopologySnapshotV2Response } from "../core/types/responses/import-topology-snapshot-v2-response.js";
 import { ListAllResponse } from "../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../core/types/responses/list-available-stores-response.js";
@@ -156,6 +171,7 @@ import { LookupOffsetByTimeResponse } from "../core/types/responses/lookup-offse
 import { OpenCommitmentResponse } from "../core/types/responses/open-commitment-response.js";
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { ListVettedPackagesResponse } from "../core/types/responses/list-vetted-packages-response.js";
+import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";
 import { TrafficControlStateResponse } from "../core/types/responses/traffic-control-state-response.js";
 import { ParticipantListPackagesResponse } from "../core/types/responses/participant-list-packages-response.js";
@@ -192,6 +208,7 @@ import { ResourceManagementServiceClient } from "../services/resource-management
 import { StateServiceClient } from "../services/state/state-service-client.js";
 import { TopologyAggregationServiceClient } from "../services/topology-aggregation/topology-aggregation-service-client.js";
 import { TopologyManagerReadServiceClient } from "../services/topology-manager-read/topology-manager-read-service-client.js";
+import { TopologyManagerWriteServiceClient } from "../services/topology-manager-write/topology-manager-write-service-client.js";
 import { TrafficControlServiceClient } from "../services/traffic-control/traffic-control-service-client.js";
 import { UpdateServiceClient } from "../services/update/update-service-client.js";
 import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
@@ -221,6 +238,7 @@ export interface ServiceRegistry {
     readonly identityInitializationService: IdentityInitializationServiceClient;
     readonly synchronizerConnectivityService: SynchronizerConnectivityServiceClient;
     readonly topologyManagerReadService: TopologyManagerReadServiceClient;
+    readonly topologyManagerWriteService: TopologyManagerWriteServiceClient;
     readonly trafficControlService: TrafficControlServiceClient;
     readonly topologyAggregationService: TopologyAggregationServiceClient;
     readonly commandService: CommandServiceClient;
@@ -745,6 +763,78 @@ class PlaceholderTransport implements ITransport {
         throw new TransportError("topology participant synchronizer permissions are not available yet");
     }
 
+    public async authorizeTopologyTransactionsAsync(
+        _request: AuthorizeTopologyTransactionsRequest,
+        _options?: RequestOptions,
+    ): Promise<AuthorizeTopologyTransactionsResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology transaction authorization is not available yet");
+    }
+
+    public async addTopologyTransactionsAsync(
+        _request: AddTopologyTransactionsRequest,
+        _options?: RequestOptions,
+    ): Promise<AddTopologyTransactionsResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology transaction writes are not available yet");
+    }
+
+    public async importTopologySnapshotAsync(
+        _request: ImportTopologySnapshotRequest,
+        _options?: RequestOptions,
+    ): Promise<ImportTopologySnapshotResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology snapshot import is not available yet");
+    }
+
+    public async importTopologySnapshotV2Async(
+        _request: ImportTopologySnapshotV2Request,
+        _options?: RequestOptions,
+    ): Promise<ImportTopologySnapshotV2Response> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology snapshot import v2 is not available yet");
+    }
+
+    public async signTopologyTransactionsAsync(
+        _request: SignTopologyTransactionsRequest,
+        _options?: RequestOptions,
+    ): Promise<SignTopologyTransactionsResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology transaction signing is not available yet");
+    }
+
+    public async generateTopologyTransactionsAsync(
+        _request: GenerateTopologyTransactionsRequest,
+        _options?: RequestOptions,
+    ): Promise<GenerateTopologyTransactionsResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("topology transaction generation is not available yet");
+    }
+
+    public async createTemporaryTopologyStoreAsync(
+        _request: CreateTemporaryTopologyStoreRequest,
+        _options?: RequestOptions,
+    ): Promise<CreateTemporaryTopologyStoreResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("temporary topology stores are not available yet");
+    }
+
+    public async dropTemporaryTopologyStoreAsync(
+        _request: DropTemporaryTopologyStoreRequest,
+        _options?: RequestOptions,
+    ): Promise<DropTemporaryTopologyStoreResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("temporary topology store deletion is not available yet");
+    }
+
     public async listPartyHostingLimitsAsync(
         _request: ListPartyHostingLimitsRequest,
         _options?: RequestOptions,
@@ -1252,6 +1342,38 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
+    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeTopologyTransactionsResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async addTopologyTransactionsAsync(): Promise<AddTopologyTransactionsResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async importTopologySnapshotAsync(): Promise<ImportTopologySnapshotResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async importTopologySnapshotV2Async(): Promise<ImportTopologySnapshotV2Response> {
+        this.throwMissingEndpoint();
+    }
+
+    public async signTopologyTransactionsAsync(): Promise<SignTopologyTransactionsResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async generateTopologyTransactionsAsync(): Promise<GenerateTopologyTransactionsResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async createTemporaryTopologyStoreAsync(): Promise<CreateTemporaryTopologyStoreResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async dropTemporaryTopologyStoreAsync(): Promise<DropTemporaryTopologyStoreResponse> {
+        this.throwMissingEndpoint();
+    }
+
     public async listPartyHostingLimitsAsync(): Promise<ListPartyHostingLimitsResponse> {
         this.throwMissingEndpoint();
     }
@@ -1595,6 +1717,38 @@ class CompositeTransport implements ITransport {
     }
 
     public async listParticipantSynchronizerPermissionAsync(): Promise<ListParticipantSynchronizerPermissionResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeTopologyTransactionsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async addTopologyTransactionsAsync(): Promise<AddTopologyTransactionsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async importTopologySnapshotAsync(): Promise<ImportTopologySnapshotResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async importTopologySnapshotV2Async(): Promise<ImportTopologySnapshotV2Response> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async signTopologyTransactionsAsync(): Promise<SignTopologyTransactionsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async generateTopologyTransactionsAsync(): Promise<GenerateTopologyTransactionsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async createTemporaryTopologyStoreAsync(): Promise<CreateTemporaryTopologyStoreResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async dropTemporaryTopologyStoreAsync(): Promise<DropTemporaryTopologyStoreResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
@@ -1974,6 +2128,13 @@ export function createServiceRegistry(
             "topologyManagerReadService",
         );
 
+    const topologyManagerWriteTransport =
+        participantAdminTransport
+        ?? createMissingParticipantAdminTransport(
+            options,
+            "topologyManagerWriteService",
+        );
+
     const topologyAggregationTransport =
         participantAdminTransport
         ?? createMissingParticipantAdminTransport(
@@ -2040,6 +2201,9 @@ export function createServiceRegistry(
             ),
         topologyManagerReadService: new TopologyManagerReadServiceClient(
             topologyManagerReadTransport,
+        ),
+        topologyManagerWriteService: new TopologyManagerWriteServiceClient(
+            topologyManagerWriteTransport,
         ),
         trafficControlService: new TrafficControlServiceClient(
             trafficControlTransport,

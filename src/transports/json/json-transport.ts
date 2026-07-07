@@ -839,6 +839,94 @@ export class JsonTransport implements ITransport {
         );
     }
 
+    public async authorizeTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.Authorize is not supported by json transport",
+        );
+    }
+
+    public async addTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.AddTransactions is not supported by json transport",
+        );
+    }
+
+    public async importTopologySnapshotAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.ImportTopologySnapshot is not supported by json transport",
+        );
+    }
+
+    public async importTopologySnapshotV2Async(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.ImportTopologySnapshotV2 is not supported by json transport",
+        );
+    }
+
+    public async signTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.SignTransactions is not supported by json transport",
+        );
+    }
+
+    public async generateTopologyTransactionsAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.GenerateTransactions is not supported by json transport",
+        );
+    }
+
+    public async createTemporaryTopologyStoreAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.CreateTemporaryTopologyStore is not supported by json transport",
+        );
+    }
+
+    public async dropTemporaryTopologyStoreAsync(
+        _request: any,
+        _options?: RequestOptions,
+    ): Promise<any> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "TopologyManagerWriteService.DropTemporaryTopologyStore is not supported by json transport",
+        );
+    }
+
     public async listPartyHostingLimitsAsync(
         _request: any,
         _options?: RequestOptions,

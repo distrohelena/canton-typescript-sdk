@@ -1,6 +1,9 @@
 import { TransportFeatures } from "./transport-features.interface.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
+import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
+import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
 import { GrantUserRightsRequest } from "../types/requests/grant-user-rights-request.js";
+import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { GetCompletionsRequest } from "../types/requests/get-completions-request.js";
@@ -41,7 +44,11 @@ import { GetUpdateByOffsetRequest } from "../types/requests/get-update-by-offset
 import { GetUpdatesRequest } from "../types/requests/get-updates-request.js";
 import { GetUpdatesPageRequest } from "../types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../types/requests/get-user-request.js";
+import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
+import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { HealthCheckRequest } from "../types/requests/health-check-request.js";
+import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
+import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../types/requests/list-all-request.js";
 import { ListAllV2Request } from "../types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../types/requests/list-available-stores-request.js";
@@ -79,6 +86,7 @@ import { TopologyListVettedPackagesRequest } from "../types/requests/topology-li
 import { TrafficControlStateRequest } from "../types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../types/requests/upload-dar-file-request.js";
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
+import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
 import { GetConnectedSynchronizersResponse } from "../types/responses/get-connected-synchronizers-response.js";
 import { CountInFlightResponse } from "../types/responses/count-in-flight-response.js";
@@ -116,8 +124,15 @@ import { GetActiveContractsPageResponse } from "../types/responses/get-active-co
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
 import { GetUpdatesPageResponse } from "../types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
+import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
+import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
+import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
+import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
+import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
 import { GrantUserRightsResponse } from "../types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../types/responses/health-check-response.js";
+import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
+import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
 import { ListAllResponse } from "../types/responses/list-all-response.js";
 import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
@@ -150,6 +165,7 @@ import { LookupReceivedAcsCommitmentsResponse } from "../types/responses/lookup-
 import { LookupSentAcsCommitmentsResponse } from "../types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../types/responses/lookup-offset-by-time-response.js";
 import { OpenCommitmentResponse } from "../types/responses/open-commitment-response.js";
+import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
 import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
 import { ListVettedPackagesResponse } from "../types/responses/list-vetted-packages-response.js";
 import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
@@ -502,6 +518,54 @@ export interface ITransport {
         request: ListParticipantSynchronizerPermissionRequest,
         options?: RequestOptions,
     ): Promise<ListParticipantSynchronizerPermissionResponse>;
+
+    /** Authorizes topology transactions. Supported on gRPC; JSON rejects it. */
+    authorizeTopologyTransactionsAsync(
+        request: AuthorizeTopologyTransactionsRequest,
+        options?: RequestOptions,
+    ): Promise<AuthorizeTopologyTransactionsResponse>;
+
+    /** Adds topology transactions to a topology store. Supported on gRPC; JSON rejects it. */
+    addTopologyTransactionsAsync(
+        request: AddTopologyTransactionsRequest,
+        options?: RequestOptions,
+    ): Promise<AddTopologyTransactionsResponse>;
+
+    /** Imports a serialized topology snapshot. Supported on gRPC; JSON rejects it. */
+    importTopologySnapshotAsync(
+        request: ImportTopologySnapshotRequest,
+        options?: RequestOptions,
+    ): Promise<ImportTopologySnapshotResponse>;
+
+    /** Imports a serialized topology snapshot using the V2 RPC. Supported on gRPC; JSON rejects it. */
+    importTopologySnapshotV2Async(
+        request: ImportTopologySnapshotV2Request,
+        options?: RequestOptions,
+    ): Promise<ImportTopologySnapshotV2Response>;
+
+    /** Adds local signatures to topology transactions. Supported on gRPC; JSON rejects it. */
+    signTopologyTransactionsAsync(
+        request: SignTopologyTransactionsRequest,
+        options?: RequestOptions,
+    ): Promise<SignTopologyTransactionsResponse>;
+
+    /** Generates topology transactions from raw proposals. Supported on gRPC; JSON rejects it. */
+    generateTopologyTransactionsAsync(
+        request: GenerateTopologyTransactionsRequest,
+        options?: RequestOptions,
+    ): Promise<GenerateTopologyTransactionsResponse>;
+
+    /** Creates a temporary topology store. Supported on gRPC; JSON rejects it. */
+    createTemporaryTopologyStoreAsync(
+        request: CreateTemporaryTopologyStoreRequest,
+        options?: RequestOptions,
+    ): Promise<CreateTemporaryTopologyStoreResponse>;
+
+    /** Drops a temporary topology store. Supported on gRPC; JSON rejects it. */
+    dropTemporaryTopologyStoreAsync(
+        request: DropTemporaryTopologyStoreRequest,
+        options?: RequestOptions,
+    ): Promise<DropTemporaryTopologyStoreResponse>;
 
     /** Reads party hosting limits. Supported on gRPC; JSON rejects it. */
     listPartyHostingLimitsAsync(

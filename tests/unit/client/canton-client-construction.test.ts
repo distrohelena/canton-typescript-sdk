@@ -38,6 +38,7 @@ describe("CantonClient", () => {
         expect(client.pruningService).toBeDefined();
         expect(client.synchronizerConnectivityService).toBeDefined();
         expect(client.topologyManagerReadService).toBeDefined();
+        expect(client.topologyManagerWriteService).toBeDefined();
         expect(client.trafficControlService).toBeDefined();
         expect(client.topologyAggregationService).toBeDefined();
         expect(client.commandService).toBeDefined();
@@ -77,6 +78,7 @@ describe("CantonClient", () => {
             pruningService: {},
             synchronizerConnectivityService: {},
             topologyManagerReadService: {},
+            topologyManagerWriteService: {},
             trafficControlService: {},
             topologyAggregationService: {},
             commandService: {},

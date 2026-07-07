@@ -6,6 +6,8 @@ import {
     GetParticipantStatusResponse,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
+    GenerateTopologyTransactionsRequest,
+    GenerateTopologyTransactionsResponse,
     UploadDarFileRequest,
     UploadDarFileResponse,
     ListKnownPartiesRequest,
@@ -47,6 +49,9 @@ describe("service registry endpoint routing", () => {
             topologyListPartiesAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve participant admin calls");
             }),
+            generateTopologyTransactionsAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
             uploadDarFileAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve ledger admin calls");
             }),
@@ -76,6 +81,11 @@ describe("service registry endpoint routing", () => {
                 );
             }),
             topologyListPartiesAsync: vi.fn(async () => {
+                throw new Error(
+                    "ledger admin transport should not serve participant admin calls",
+                );
+            }),
+            generateTopologyTransactionsAsync: vi.fn(async () => {
                 throw new Error(
                     "ledger admin transport should not serve participant admin calls",
                 );
@@ -123,6 +133,11 @@ describe("service registry endpoint routing", () => {
             topologyListPartiesAsync: vi.fn(async () => {
                 return new TopologyListPartiesResponse({
                     results: [],
+                });
+            }),
+            generateTopologyTransactionsAsync: vi.fn(async () => {
+                return new GenerateTopologyTransactionsResponse({
+                    generatedTransactions: [],
                 });
             }),
             uploadDarFileAsync: vi.fn(async () => {
@@ -183,6 +198,11 @@ describe("service registry endpoint routing", () => {
                 new TopologyListPartiesRequest(),
             ),
         ).resolves.toBeInstanceOf(TopologyListPartiesResponse);
+        await expect(
+            services.topologyManagerWriteService.generateTransactionsAsync(
+                new GenerateTopologyTransactionsRequest(),
+            ),
+        ).resolves.toBeInstanceOf(GenerateTopologyTransactionsResponse);
 
         expect(createJsonTransport).toHaveBeenCalledTimes(3);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
@@ -196,6 +216,9 @@ describe("service registry endpoint routing", () => {
         ).toHaveBeenCalledTimes(1);
         expect(
             participantAdminTransport.topologyListPartiesAsync,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+            participantAdminTransport.generateTopologyTransactionsAsync,
         ).toHaveBeenCalledTimes(1);
     });
 
@@ -216,6 +239,9 @@ describe("service registry endpoint routing", () => {
                 throw new Error("ledger transport should not serve participant admin calls");
             }),
             topologyListPartiesAsync: vi.fn(async () => {
+                throw new Error("ledger transport should not serve participant admin calls");
+            }),
+            generateTopologyTransactionsAsync: vi.fn(async () => {
                 throw new Error("ledger transport should not serve participant admin calls");
             }),
             uploadDarFileAsync: vi.fn(async () => {
@@ -282,6 +308,13 @@ describe("service registry endpoint routing", () => {
             ),
         ).rejects.toThrow(
             "The participant admin endpoint is not configured for topologyAggregationService.",
+        );
+        await expect(
+            services.topologyManagerWriteService.generateTransactionsAsync(
+                new GenerateTopologyTransactionsRequest(),
+            ),
+        ).rejects.toThrow(
+            "The participant admin endpoint is not configured for topologyManagerWriteService.",
         );
     });
 
