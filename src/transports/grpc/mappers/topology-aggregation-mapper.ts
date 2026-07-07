@@ -11,7 +11,7 @@ export function mapGrpcTopologyListPartiesRequest(
     return {
         asOf: mapGrpcTimestamp(request.asOf),
         limit: request.limit ?? 0,
-        synchronizerIds: [...request.synchronizerIds],
+        synchronizerIds: [...(request.synchronizerIds ?? [])],
         filterParty: request.filterParty ?? "",
         filterParticipant: request.filterParticipant ?? "",
     };
@@ -31,7 +31,7 @@ export function mapGrpcListKeyOwnersRequest(
     return {
         asOf: mapGrpcTimestamp(request.asOf),
         limit: request.limit ?? 0,
-        synchronizerIds: [...request.synchronizerIds],
+        synchronizerIds: [...(request.synchronizerIds ?? [])],
         filterKeyOwnerType: request.filterKeyOwnerType ?? "",
         filterKeyOwnerUid: request.filterKeyOwnerUid ?? "",
     };

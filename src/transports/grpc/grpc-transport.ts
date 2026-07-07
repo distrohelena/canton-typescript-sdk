@@ -1357,10 +1357,19 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListPartyToKeyMappingResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listPartyToKeyMappingAsync!(
-            mapGrpcListPartyToKeyMappingRequest(request),
-            options,
-        );
+        let payload: unknown;
+
+        try {
+            payload = await this.operations.listPartyToKeyMappingAsync!(
+                mapGrpcListPartyToKeyMappingRequest(request),
+                options,
+            );
+        } catch (error) {
+            this.throwPartyTopologyReadCompatibilityError(
+                error,
+                "topologyManagerReadService.listPartyToKeyMappingAsync",
+            );
+        }
 
         return mapGrpcListPartyToKeyMappingResponse(
             payload as Partial<ProtobufListPartyToKeyMappingResponse>,
@@ -1437,10 +1446,19 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListPartyToParticipantResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listPartyToParticipantAsync!(
-            mapGrpcListPartyToParticipantRequest(request),
-            options,
-        );
+        let payload: unknown;
+
+        try {
+            payload = await this.operations.listPartyToParticipantAsync!(
+                mapGrpcListPartyToParticipantRequest(request),
+                options,
+            );
+        } catch (error) {
+            this.throwPartyTopologyReadCompatibilityError(
+                error,
+                "topologyManagerReadService.listPartyToParticipantAsync",
+            );
+        }
 
         return mapGrpcListPartyToParticipantResponse(
             payload as Partial<ProtobufListPartyToParticipantResponse>,
@@ -1837,6 +1855,37 @@ export class GrpcTransport implements ITransport {
                 "The client or transport has been disposed.",
             );
         }
+    }
+
+    private throwPartyTopologyReadCompatibilityError(
+        error: unknown,
+        sdkMethodName: string,
+    ): never {
+        if (!this.isProtobufDeserializationFailure(error)) {
+            throw error;
+        }
+
+        const message =
+            error instanceof Error ? error.message : String(error);
+
+        throw new TransportError(
+            `${sdkMethodName} failed while decoding a raw participant-admin party topology mapping response. `
+            + "This usually indicates a Canton/protobuf compatibility mismatch on low-level topology read payloads. "
+            + "For party-topology summary views, prefer topologyAggregationService.listPartiesAsync() "
+            + "and topologyAggregationService.listKeyOwnersAsync(). "
+            + `Original error: ${message}`,
+        );
+    }
+
+    private isProtobufDeserializationFailure(error: unknown): boolean {
+        if (!(error instanceof Error)) {
+            return false;
+        }
+
+        return error.message.includes("PROTO_DESERIALIZATION_FAILURE")
+            || error.message.includes(
+                "Deserialization of protobuf message failed",
+            );
     }
 }
 

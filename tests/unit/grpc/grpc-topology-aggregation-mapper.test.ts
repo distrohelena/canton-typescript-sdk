@@ -45,6 +45,19 @@ describe("gRPC topology aggregation mappers", () => {
         });
     });
 
+    it("defaults omitted synchronizer ids to an empty array for plain-object requests", () => {
+        const listPartiesRequest = mapGrpcTopologyListPartiesRequest({
+            filterParty: "Alice",
+        } as TopologyListPartiesRequest);
+
+        const listKeyOwnersRequest = mapGrpcListKeyOwnersRequest({
+            filterKeyOwnerUid: "participant::sandbox",
+        } as ListKeyOwnersRequest);
+
+        expect(listPartiesRequest.synchronizerIds).toEqual([]);
+        expect(listKeyOwnersRequest.synchronizerIds).toEqual([]);
+    });
+
     it("maps topology aggregation responses", () => {
         const listPartiesResponse = mapGrpcTopologyListPartiesResponse({
             results: [

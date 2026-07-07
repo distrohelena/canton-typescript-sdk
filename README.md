@@ -7,6 +7,12 @@ TypeScript SDK for Canton with:
 - `grpc`-only external signing
 - gRPC Ledger API service boundaries as the public SDK shape
 
+## Install
+
+```bash
+npm install @distrohelena/canton-typescript-sdk
+```
+
 ## Shared Client
 
 ```ts
@@ -19,7 +25,7 @@ import {
     HealthCheckRequest,
     GetLedgerApiVersionRequest,
     TransportKind,
-} from "canton-typescript-sdk";
+} from "@distrohelena/canton-typescript-sdk";
 
 const client = new CantonClient(
     new CantonClientOptions({
@@ -105,10 +111,10 @@ For gRPC, channel security resolves per surface:
 
 Subpath exports are available when you want to construct directly over a transport adapter:
 
-- `canton-typescript-sdk/grpc`
-- `canton-typescript-sdk/json`
-- `canton-typescript-sdk/daml-lf`
-- `canton-typescript-sdk/daml-interface`
+- `@distrohelena/canton-typescript-sdk/grpc`
+- `@distrohelena/canton-typescript-sdk/json`
+- `@distrohelena/canton-typescript-sdk/daml-lf`
+- `@distrohelena/canton-typescript-sdk/daml-interface`
 
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
 
@@ -117,7 +123,7 @@ JSON also does not provide a participant-admin status equivalent, so `participan
 
 ## DAML-LF Parser
 
-The package also exposes a separate DAML-LF front-end at `canton-typescript-sdk/daml-lf`.
+The package also exposes a separate DAML-LF front-end at `@distrohelena/canton-typescript-sdk/daml-lf`.
 
 Current scope:
 
@@ -136,7 +142,7 @@ import {
     DamlLfCompilation,
     DamlLfPackageLoader,
     DamlLfWorkspace,
-} from "canton-typescript-sdk/daml-lf";
+} from "@distrohelena/canton-typescript-sdk/daml-lf";
 
 const archive = await new DarArchiveLoader().loadDarOrThrowAsync(darBytes);
 const packageLoader = new DamlLfPackageLoader();
@@ -150,7 +156,7 @@ const semanticModel = compilation.createSemanticModel();
 
 ## DAML Interface Generator
 
-The `canton-typescript-sdk/daml-interface` subpath exposes a generator that turns compiled `DAR` or `DALF` artifacts into an in-memory TypeScript binding project.
+The `@distrohelena/canton-typescript-sdk/daml-interface` subpath exposes a generator that turns compiled `DAR` or `DALF` artifacts into an in-memory TypeScript binding project.
 
 Current generated output shape:
 
@@ -162,7 +168,7 @@ Current generated output shape:
 Example:
 
 ```ts
-import { DamlInterfaceGenerator } from "canton-typescript-sdk/daml-interface";
+import { DamlInterfaceGenerator } from "@distrohelena/canton-typescript-sdk/daml-interface";
 
 const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
     dalfBytes,
@@ -179,7 +185,7 @@ You can also write the generated project to disk:
 import {
     DamlInterfaceGenerator,
     DamlInterfaceWriter,
-} from "canton-typescript-sdk/daml-interface";
+} from "@distrohelena/canton-typescript-sdk/daml-interface";
 
 const generator = new DamlInterfaceGenerator();
 const writer = new DamlInterfaceWriter();
@@ -209,7 +215,7 @@ import {
     ICommandSigner,
     SignCommandRequest,
     SignCommandResult,
-} from "canton-typescript-sdk";
+} from "@distrohelena/canton-typescript-sdk";
 
 class ExampleSigner implements ICommandSigner {
     public async signAsync(
@@ -223,4 +229,4 @@ class ExampleSigner implements ICommandSigner {
 }
 ```
 
-See [DOCUMENTATION.md](/home/helena/env/daml/typescript-sdk/DOCUMENTATION.md:1) for the full function-by-function reference.
+See [DOCUMENTATION.md](./DOCUMENTATION.md) for the full function-by-function reference.

@@ -977,6 +977,7 @@ Functions:
 - `listPartyToKeyMappingAsync(request: ListPartyToKeyMappingRequest): Promise<ListPartyToKeyMappingResponse>`
   Request fields: `filterParty?: string`
   Response payload: `results: TopologyMappingResult<PartyToKeyMapping>[]`
+  Note: this is a raw participant-admin topology read. Some Canton versions can fail with protobuf deserialization errors on this response shape. For party-topology summary views, prefer `topologyAggregationService.listPartiesAsync()` and `topologyAggregationService.listKeyOwnersAsync()`.
 - `listSynchronizerTrustCertificateAsync(request: ListSynchronizerTrustCertificateRequest): Promise<ListSynchronizerTrustCertificateResponse>`
   Request fields: `filterUid?: string`
   Response payload: `results: TopologyMappingResult<SynchronizerTrustCertificate>[]`
@@ -992,6 +993,7 @@ Functions:
 - `listPartyToParticipantAsync(request: ListPartyToParticipantRequest): Promise<ListPartyToParticipantResponse>`
   Request fields: `filterParty?: string`, `filterParticipant?: string`
   Response payload: `results: TopologyMappingResult<PartyToParticipant>[]`
+  Note: this is a raw participant-admin topology read. Some Canton versions can fail with protobuf deserialization errors on this response shape. For party-topology summary views, prefer `topologyAggregationService.listPartiesAsync()` and `topologyAggregationService.listKeyOwnersAsync()`.
 - `listSynchronizerParametersStateAsync(request: ListSynchronizerParametersStateRequest): Promise<ListSynchronizerParametersStateResponse>`
   Request fields: `filterSynchronizerId?: string`
   Response payload: `results: TopologyMappingResult<DynamicSynchronizerParameters>[]`
@@ -1038,10 +1040,10 @@ Transport support:
 Functions:
 
 - `listPartiesAsync(request: TopologyListPartiesRequest): Promise<TopologyListPartiesResponse>`
-  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds: string[]`, `filterParty?: string`, `filterParticipant?: string`
+  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds?: string[]`, `filterParty?: string`, `filterParticipant?: string`
   Response payload: `results: TopologyPartyResult[]`
 - `listKeyOwnersAsync(request: ListKeyOwnersRequest): Promise<ListKeyOwnersResponse>`
-  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds: string[]`, `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
+  Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds?: string[]`, `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
   Response payload: `results: TopologyKeyOwnerResult[]`
 
 ### `commandService.submitAndWaitAsync(request)`

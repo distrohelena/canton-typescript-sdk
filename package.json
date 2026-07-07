@@ -1,10 +1,33 @@
 {
-    "name": "canton-typescript-sdk",
+    "name": "@distrohelena/canton-typescript-sdk",
     "version": "0.1.0",
-    "private": true,
+    "license": "Apache-2.0",
     "type": "module",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "keywords": [
+        "canton",
+        "daml",
+        "grpc",
+        "json-rpc",
+        "typescript"
+    ],
+    "homepage": "https://github.com/distrohelena/canton-typescript-sdk#readme",
+    "bugs": {
+        "url": "https://github.com/distrohelena/canton-typescript-sdk/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/distrohelena/canton-typescript-sdk.git"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
@@ -28,7 +51,7 @@
         }
     },
     "scripts": {
-        "build": "tsc -p tsconfig.json",
+        "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
         "generate:daml-interface": "node ./dist/daml-interface/cli/daml-interface-cli-main.js",
         "generate:grpc": "node ./scripts/generate-grpc-bindings.mjs",
         "lint": "eslint . --max-warnings=0",
@@ -36,7 +59,8 @@
         "start:local-ledger": "bash node/start-local.sh",
         "stop:local-ledger": "bash node/stop-local.sh",
         "test": "vitest run",
-        "test:unit": "vitest run tests/unit"
+        "test:unit": "vitest run tests/unit",
+        "verify:pack": "node ./scripts/verify-npm-pack.mjs"
     },
     "dependencies": {
         "@grpc/grpc-js": "^1.14.4",
