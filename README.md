@@ -36,6 +36,12 @@ Override environment variables:
 - `SDK_TEST_LEDGER_ENDPOINT`
 - `SDK_TEST_LEDGER_ADMIN_ENDPOINT`
 - `SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT`
+- `SDK_TEST_SECONDARY_LEDGER_ENDPOINT`
+- `SDK_TEST_SECONDARY_LEDGER_ADMIN_ENDPOINT`
+- `SDK_TEST_SECONDARY_PARTICIPANT_ADMIN_ENDPOINT`
+- `SDK_TEST_TERTIARY_LEDGER_ENDPOINT`
+- `SDK_TEST_TERTIARY_LEDGER_ADMIN_ENDPOINT`
+- `SDK_TEST_TERTIARY_PARTICIPANT_ADMIN_ENDPOINT`
 
 The live harness also supports bearer-token overrides:
 
@@ -54,6 +60,12 @@ Run:
 ```bash
 npm run test:live
 ```
+
+Experimental multi-host external-party coverage is opt-in:
+
+- set `SDK_TEST_ENABLE_MULTI_HOST_EXTERNAL_PARTY=1` to enable the multi-host live spec
+- the default quickstart assumptions cover 2 nodes (`390x` and `490x`)
+- configure the tertiary endpoint variables above to enable the 3-host scenario
 
 ## Shared Client
 
@@ -106,6 +118,10 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
     }),
 );
 ```
+
+`stateService.getActiveContractsPageAsync(...)` keeps `templateId` as the simple helper path, and on gRPC also supports interface-based ACS reads with `interfaceId`, `includeInterfaceView`, `includeCreatedEventBlob`, `activeAtOffset`, `maxPageSize`, and `pageToken`. JSON remains template-query only.
+
+For interface views, do not use `contractService.getContractAsync(...)`. That contract lookup surface cannot return interface views; use `stateService` or `updateService` instead.
 
 `CantonClient` now splits its public surface across the real API boundaries:
 

@@ -8,6 +8,7 @@ import { GetActiveContractsPageRequest } from "../generated/canton/com/daml/ledg
 import {
     CumulativeFilter,
     EventFormat,
+    Filters,
 } from "../generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 import { Identifier } from "../generated/canton/com/daml/ledger/api/v2/value.js";
 
@@ -15,10 +16,19 @@ export function mapGrpcQueryContractsRequest(
     request: {
         party: string;
         templateId?: string;
+        interfaceId?: string;
+        includeInterfaceView?: boolean;
+        includeCreatedEventBlob?: boolean;
+        activeAtOffset?: string;
+        maxPageSize?: number;
+        pageToken?: Uint8Array;
     },
 ): GetActiveContractsPageRequest {
     return {
-        eventFormat: createEventFormat(request.party, request.templateId),
+        activeAtOffset: request.activeAtOffset,
+        eventFormat: createEventFormat(request),
+        maxPageSize: request.maxPageSize,
+        pageToken: request.pageToken,
     };
 }
 
@@ -61,44 +71,83 @@ export function mapGrpcGetContract(
 }
 
 function createEventFormat(
-    party: string,
-    templateId?: string,
+    request: {
+        party: string;
+        templateId?: string;
+        interfaceId?: string;
+        includeInterfaceView?: boolean;
+        includeCreatedEventBlob?: boolean;
+    },
 ): EventFormat {
     return {
         filtersByParty: {
-            [party]: {
-                cumulative: [createTemplateFilter(templateId)],
-            },
+            [request.party]: createFilters(request),
         },
         verbose: true,
     };
 }
 
-function createTemplateFilter(templateId?: string): CumulativeFilter {
-    if (!templateId) {
-        return {
+function createFilters(
+    request: {
+        templateId?: string;
+        interfaceId?: string;
+        includeInterfaceView?: boolean;
+        includeCreatedEventBlob?: boolean;
+    },
+): Filters {
+    const cumulative: CumulativeFilter[] = [];
+    const includeCreatedEventBlob = request.includeCreatedEventBlob ?? false;
+
+    if (request.templateId) {
+        cumulative.push({
             identifierFilter: {
-                oneofKind: "wildcardFilter",
-                wildcardFilter: {
-                    includeCreatedEventBlob: false,
+                oneofKind: "templateFilter",
+                templateFilter: {
+                    templateId: parseIdentifier(request.templateId, "templateId"),
+                    includeCreatedEventBlob,
                 },
             },
-        };
+        });
     }
 
+    if (request.interfaceId) {
+        cumulative.push({
+            identifierFilter: {
+                oneofKind: "interfaceFilter",
+                interfaceFilter: {
+                    interfaceId: parseIdentifier(request.interfaceId, "interfaceId"),
+                    includeInterfaceView: request.includeInterfaceView ?? false,
+                    includeCreatedEventBlob,
+                },
+            },
+        });
+    }
+
+    if (cumulative.length === 0) {
+        cumulative.push(createWildcardFilter(includeCreatedEventBlob));
+    }
+
+    return { cumulative };
+}
+
+function createWildcardFilter(
+    includeCreatedEventBlob: boolean,
+): CumulativeFilter {
     return {
         identifierFilter: {
-            oneofKind: "templateFilter",
-            templateFilter: {
-                templateId: parseTemplateIdentifier(templateId),
-                includeCreatedEventBlob: false,
+            oneofKind: "wildcardFilter",
+            wildcardFilter: {
+                includeCreatedEventBlob,
             },
         },
     };
 }
 
-function parseTemplateIdentifier(templateId: string): Identifier {
-    const parts = templateId.split(":");
+function parseIdentifier(
+    value: string,
+    propertyName: string,
+): Identifier {
+    const parts = value.split(":");
 
     if (parts.length === 2) {
         return {
@@ -117,6 +166,6 @@ function parseTemplateIdentifier(templateId: string): Identifier {
     }
 
     throw new ValidationError(
-        `templateId must be '<module>:<entity>' or '<package>:<module>:<entity>', but was '${templateId}'.`,
+        `${propertyName} must be '<module>:<entity>' or '<package>:<module>:<entity>', but was '${value}'.`,
     );
 }

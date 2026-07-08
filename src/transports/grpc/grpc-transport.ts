@@ -1,10 +1,12 @@
 import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
+import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
+import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
@@ -85,6 +87,7 @@ import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
+import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
@@ -124,6 +127,7 @@ import { GetUserResponse } from "../../core/types/responses/get-user-response.js
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
+import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
@@ -276,6 +280,10 @@ import {
     mapGrpcOpenCommitmentRequest,
 } from "./mappers/participant-inspection-mapper.js";
 import {
+    mapGrpcAddPartyAsyncRequest,
+    mapGrpcAddPartyAsyncResponse,
+    mapGrpcClearPartyOnboardingFlagRequest,
+    mapGrpcClearPartyOnboardingFlagResponse,
     mapGrpcGetHighestOffsetByTimestamp,
     mapGrpcGetHighestOffsetByTimestampRequest,
 } from "./mappers/participant-party-management-mapper.js";
@@ -461,6 +469,8 @@ import {
     OpenCommitmentResponse as ProtobufOpenCommitmentResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
+    AddPartyAsyncResponse as ProtobufAddPartyAsyncResponse,
+    ClearPartyOnboardingFlagResponse as ProtobufClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampResponse as ProtobufGetHighestOffsetByTimestampResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 import {
@@ -1123,6 +1133,38 @@ export class GrpcTransport implements ITransport {
 
         return mapGrpcLookupReceivedAcsCommitments(
             payload as Partial<ProtobufLookupReceivedAcsCommitmentsResponse>,
+        );
+    }
+
+    public async addPartyAsync(
+        request: AddPartyAsyncRequest,
+        options?: RequestOptions,
+    ): Promise<AddPartyAsyncResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.addPartyAsync!(
+            mapGrpcAddPartyAsyncRequest(request),
+            options,
+        );
+
+        return mapGrpcAddPartyAsyncResponse(
+            payload as Partial<ProtobufAddPartyAsyncResponse>,
+        );
+    }
+
+    public async clearPartyOnboardingFlagAsync(
+        request: ClearPartyOnboardingFlagRequest,
+        options?: RequestOptions,
+    ): Promise<ClearPartyOnboardingFlagResponse> {
+        this.throwIfDisposed();
+
+        const payload = await this.operations.clearPartyOnboardingFlagAsync!(
+            mapGrpcClearPartyOnboardingFlagRequest(request),
+            options,
+        );
+
+        return mapGrpcClearPartyOnboardingFlagResponse(
+            payload as Partial<ProtobufClearPartyOnboardingFlagResponse>,
         );
     }
 
@@ -1830,14 +1872,28 @@ export class GrpcTransport implements ITransport {
             mapGrpcQueryContractsRequest({
                 party: request.party,
                 templateId: request.templateId,
+                interfaceId: request.interfaceId,
+                includeInterfaceView: request.includeInterfaceView,
+                includeCreatedEventBlob: request.includeCreatedEventBlob,
+                activeAtOffset: request.activeAtOffset,
+                maxPageSize: request.maxPageSize,
+                pageToken: request.pageToken,
             }),
             options,
         );
 
-        const response = mapGrpcQueryContracts(payload as { contracts?: unknown[] });
+        const response = mapGrpcQueryContracts(
+            payload as { contracts?: unknown[] },
+        );
+        const pagePayload = payload as {
+            activeAtOffset?: string;
+            nextPageToken?: Uint8Array;
+        };
 
         return new GetActiveContractsPageResponse({
             contracts: response.contracts,
+            activeAtOffset: pagePayload.activeAtOffset,
+            nextPageToken: pagePayload.nextPageToken,
         });
     }
 

@@ -115,4 +115,27 @@ describe("json transport entrypoint", () => {
         });
         expect(nextAsync).toHaveBeenCalledWith({ contractId: "c2" });
     });
+
+    it("rejects interface-filter active contract page reads on json", async () => {
+        const jsonModule = await import("../../../src/json/index.js");
+
+        const client = new jsonModule.JsonLedgerClient(
+            {
+                getAsync: async () => ({}),
+                postAsync: async () => {
+                    throw new Error("not used");
+                },
+            },
+        );
+
+        await expect(
+            client.stateService.getActiveContractsPageAsync(
+                new GetActiveContractsPageRequest({
+                    party: "Alice",
+                    interfaceId: "Main:IAsset",
+                    includeInterfaceView: true,
+                }),
+            ),
+        ).rejects.toThrow(NotSupportedError);
+    });
 });

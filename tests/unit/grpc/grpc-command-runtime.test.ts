@@ -19,7 +19,11 @@ describe("GrpcTransport live ledger shapes", () => {
                 queryContractsAsync: async request => {
                     capturedQuery = request;
 
-                    return { activeContracts: [] };
+                    return {
+                        activeContracts: [],
+                        activeAtOffset: "42",
+                        nextPageToken: new Uint8Array([1, 2, 3]),
+                    };
                 },
                 streamTransactionsAsync: async request => {
                     capturedStream = request;
@@ -34,10 +38,16 @@ describe("GrpcTransport live ledger shapes", () => {
             }),
         );
 
-        await transport.getActiveContractsPageAsync(
+        const activeContractsPage = await transport.getActiveContractsPageAsync(
             new GetActiveContractsPageRequest({
                 party: "Alice",
                 templateId: "Main:Iou",
+                interfaceId: "Main:IAsset",
+                includeInterfaceView: true,
+                includeCreatedEventBlob: true,
+                activeAtOffset: "42",
+                maxPageSize: 100,
+                pageToken: new Uint8Array([9, 8, 7]),
             }),
         );
 
@@ -66,9 +76,42 @@ describe("GrpcTransport live ledger shapes", () => {
         );
 
         expect(capturedQuery).toMatchObject({
+            activeAtOffset: "42",
+            maxPageSize: 100,
+            pageToken: new Uint8Array([9, 8, 7]),
             eventFormat: {
                 filtersByParty: {
-                    Alice: expect.any(Object),
+                    Alice: {
+                        cumulative: [
+                            {
+                                identifierFilter: {
+                                    oneofKind: "templateFilter",
+                                    templateFilter: {
+                                        templateId: {
+                                            packageId: "",
+                                            moduleName: "Main",
+                                            entityName: "Iou",
+                                        },
+                                        includeCreatedEventBlob: true,
+                                    },
+                                },
+                            },
+                            {
+                                identifierFilter: {
+                                    oneofKind: "interfaceFilter",
+                                    interfaceFilter: {
+                                        interfaceId: {
+                                            packageId: "",
+                                            moduleName: "Main",
+                                            entityName: "IAsset",
+                                        },
+                                        includeInterfaceView: true,
+                                        includeCreatedEventBlob: true,
+                                    },
+                                },
+                            },
+                        ],
+                    },
                 },
             },
         });
@@ -85,6 +128,10 @@ describe("GrpcTransport live ledger shapes", () => {
                 commandId: expect.any(String),
             },
         });
+        expect(activeContractsPage.activeAtOffset).toBe("42");
+        expect(activeContractsPage.nextPageToken).toEqual(
+            new Uint8Array([1, 2, 3]),
+        );
         expect(result.transactionId).toBe("tx-1");
     });
 });

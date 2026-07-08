@@ -1288,8 +1288,8 @@ Reads a page of active contracts.
 
 Transport support:
 
-- `json`
-- `grpc`
+- `grpc`: supports template filters, interface filters, created-event blobs, and ACS paging
+- `json`: supports template queries only
 
 Parameters:
 
@@ -1299,6 +1299,18 @@ Request fields:
 
 - `party: string`
 - `templateId?: string`
+- `interfaceId?: string`
+- `includeInterfaceView?: boolean`
+- `includeCreatedEventBlob?: boolean`
+- `activeAtOffset?: string`
+- `maxPageSize?: number`
+- `pageToken?: Uint8Array`
+
+Notes:
+
+- `templateId` remains the convenience helper for template-scoped ACS reads.
+- If both `templateId` and `interfaceId` are set on gRPC, both filters are applied to the ACS event format.
+- `contractService.getContractAsync(...)` cannot return interface views. For interface-view reads, use `stateService` or `updateService`.
 
 Return type:
 
@@ -1307,6 +1319,8 @@ Return type:
 Useful response fields:
 
 - `contracts: readonly TContract[]`
+- `activeAtOffset?: string`
+- `nextPageToken?: Uint8Array`
 
 ### `stateService.getActiveContractsAsync(request, observer)`
 

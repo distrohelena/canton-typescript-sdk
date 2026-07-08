@@ -1,9 +1,11 @@
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
+import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
+import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
@@ -67,6 +69,7 @@ import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
+import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
@@ -106,6 +109,7 @@ import { GetUserResponse } from "../../core/types/responses/get-user-response.js
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
+import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
 import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
@@ -634,6 +638,28 @@ export class JsonTransport implements ITransport {
         );
     }
 
+    public async addPartyAsync(
+        _request: AddPartyAsyncRequest,
+        _options?: RequestOptions,
+    ): Promise<AddPartyAsyncResponse> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "ParticipantPartyManagementService.AddPartyAsync is not supported by json transport",
+        );
+    }
+
+    public async clearPartyOnboardingFlagAsync(
+        _request: ClearPartyOnboardingFlagRequest,
+        _options?: RequestOptions,
+    ): Promise<ClearPartyOnboardingFlagResponse> {
+        this.throwIfDisposed();
+
+        throw new NotSupportedError(
+            "ParticipantPartyManagementService.ClearPartyOnboardingFlag is not supported by json transport",
+        );
+    }
+
     public async getHighestOffsetByTimestampAsync(
         _request: GetHighestOffsetByTimestampRequest,
         _options?: RequestOptions,
@@ -1112,6 +1138,19 @@ export class JsonTransport implements ITransport {
         options?: RequestOptions,
     ): Promise<GetActiveContractsPageResponse> {
         this.throwIfDisposed();
+
+        if (
+            request.interfaceId !== undefined
+            || request.includeInterfaceView !== undefined
+            || request.includeCreatedEventBlob === true
+            || request.activeAtOffset !== undefined
+            || request.maxPageSize !== undefined
+            || request.pageToken !== undefined
+        ) {
+            throw new NotSupportedError(
+                "StateService.GetActiveContractsPage interface filters, event blobs, and page tokens are not supported by json transport",
+            );
+        }
 
         const payload = await this.httpClient.postAsync(
             "/v1/query",

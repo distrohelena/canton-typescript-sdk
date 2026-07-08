@@ -11,6 +11,12 @@ describe("StateServiceClient", () => {
         const request = new GetActiveContractsPageRequest({
             party: "Alice",
             templateId: "Main:Iou",
+            interfaceId: "Main:IAsset",
+            includeInterfaceView: true,
+            includeCreatedEventBlob: true,
+            activeAtOffset: "42",
+            maxPageSize: 25,
+            pageToken: new Uint8Array([1, 2, 3]),
         });
 
         const transport = {
@@ -31,7 +37,11 @@ describe("StateServiceClient", () => {
                 throw new Error("not used");
             },
             getActiveContractsPageAsync: async () =>
-                new GetActiveContractsPageResponse({ contracts: [] }),
+                new GetActiveContractsPageResponse({
+                    contracts: [],
+                    activeAtOffset: "42",
+                    nextPageToken: new Uint8Array([9, 8, 7]),
+                }),
             getActiveContractsAsync: async () => {
                 throw new Error("not used");
             },
@@ -47,11 +57,18 @@ describe("StateServiceClient", () => {
 
         expect(request.party).toBe("Alice");
         expect(request.templateId).toBe("Main:Iou");
-        await expect(
-            client.getActiveContractsPageAsync(request),
-        ).resolves.toBeInstanceOf(
-            GetActiveContractsPageResponse,
-        );
+        expect(request.interfaceId).toBe("Main:IAsset");
+        expect(request.includeInterfaceView).toBe(true);
+        expect(request.includeCreatedEventBlob).toBe(true);
+        expect(request.activeAtOffset).toBe("42");
+        expect(request.maxPageSize).toBe(25);
+        expect(request.pageToken).toEqual(new Uint8Array([1, 2, 3]));
+
+        const response = await client.getActiveContractsPageAsync(request);
+
+        expect(response).toBeInstanceOf(GetActiveContractsPageResponse);
+        expect(response.activeAtOffset).toBe("42");
+        expect(response.nextPageToken).toEqual(new Uint8Array([9, 8, 7]));
     });
 
     it("reads active contracts through the selected transport", async () => {
