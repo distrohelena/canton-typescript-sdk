@@ -1,4 +1,5 @@
 import { ParticipantPermission } from "../../../core/types/topology/participant-permission.js";
+import { computeCantonPublicKeyFingerprint } from "../../../core/hashing/canton-hash.js";
 import {
     ParticipantSynchronizerLimits,
     ParticipantSynchronizerPermission,
@@ -527,6 +528,7 @@ export function mapSdkSigningPublicKey(
     value?: Partial<SigningPublicKey>,
 ): TopologySigningPublicKey {
     return new TopologySigningPublicKey({
+        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey),
         format: mapSdkCryptoKeyFormat(value?.format),
         publicKey: value?.publicKey,
         scheme: undefined,
@@ -539,6 +541,7 @@ export function mapSdkEncryptionPublicKey(
     value?: Partial<EncryptionPublicKey>,
 ): TopologyEncryptionPublicKey {
     return new TopologyEncryptionPublicKey({
+        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey),
         format: mapSdkCryptoKeyFormat(value?.format),
         publicKey: value?.publicKey,
         scheme: undefined,

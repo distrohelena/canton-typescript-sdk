@@ -48,6 +48,7 @@ describe("CantonClient", () => {
         expect(client.updateService).toBeDefined();
         expect(client.eventQueryService).toBeDefined();
         expect(client.contractService).toBeDefined();
+        expect(client.hashing).toBeDefined();
         expect(client).not.toHaveProperty("system");
         expect(client).not.toHaveProperty("parties");
         expect(client).not.toHaveProperty("users");

@@ -24,6 +24,7 @@ import {
     AllocatePartyRequest,
     BearerTokenAuthProvider,
     CantonClient,
+    CantonHashPurpose,
     CantonClientOptions,
     CreateCommand,
     GetPackageContentsRequest,
@@ -140,6 +141,53 @@ Exposed properties:
 - `updateService`
 - `eventQueryService`
 - `contractService`
+- `hashing`
+
+### `hashing.computeHash(content, purpose)`
+
+Computes a Canton multihash for arbitrary bytes and a Canton hash purpose.
+
+This is SDK-local and transport-independent.
+
+Arguments:
+
+- `content: Uint8Array`
+- `purpose: number`
+
+Return value:
+
+- `Uint8Array`
+
+Use `CantonHashPurpose` when the SDK exposes a named purpose constant.
+
+### `hashing.computeHashHex(content, purpose)`
+
+Computes a Canton multihash and returns lowercase hexadecimal text.
+
+This is SDK-local and transport-independent.
+
+Arguments:
+
+- `content: Uint8Array`
+- `purpose: number`
+
+Return value:
+
+- `string`
+
+### `hashing.computePublicKeyFingerprint(publicKey)`
+
+Computes the canonical Canton public-key fingerprint from serialized public key bytes.
+
+This is SDK-local and transport-independent.
+
+Arguments:
+
+- `publicKey: Uint8Array`
+
+Return value:
+
+- `string`
 
 ## Endpoint Surfaces
 
@@ -1156,6 +1204,9 @@ Functions:
 - `listKeyOwnersAsync(request: ListKeyOwnersRequest): Promise<ListKeyOwnersResponse>`
   Request fields: `asOf?: Date`, `limit?: number`, `synchronizerIds?: string[]`, `filterKeyOwnerType?: string`, `filterKeyOwnerUid?: string`
   Response payload: `results: TopologyKeyOwnerResult[]`
+  Each returned signing or encryption key exposes `fingerprint?: string`.
+  On gRPC, the SDK computes this as the canonical Canton public-key fingerprint from the returned key bytes, because the current aggregation protobuf does not transmit a separate fingerprint field.
+  This uses the same hashing logic exposed on `client.hashing.computePublicKeyFingerprint(...)`.
 
 ### `topologyManagerWriteService.*`
 

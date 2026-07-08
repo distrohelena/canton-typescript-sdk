@@ -28,6 +28,7 @@ import { UpdateServiceClient } from "../services/update/update-service-client.js
 import { UserManagementServiceClient } from "../services/user-management/user-management-service-client.js";
 import { VersionServiceClient } from "../services/version/version-service-client.js";
 import { SynchronizerConnectivityServiceClient } from "../services/synchronizer-connectivity/synchronizer-connectivity-service-client.js";
+import { CantonHashingClient } from "./canton-hashing-client.js";
 import { CantonClientOptions } from "./canton-client-options.js";
 import { createServiceRegistry } from "./service-registry.js";
 
@@ -63,6 +64,7 @@ export class CantonClient {
     public readonly updateService: UpdateServiceClient;
     public readonly eventQueryService: EventQueryServiceClient;
     public readonly contractService: ContractServiceClient;
+    public readonly hashing: CantonHashingClient;
 
     public constructor(private readonly options: CantonClientOptions) {
         if (
@@ -109,6 +111,7 @@ export class CantonClient {
         this.updateService = services.updateService;
         this.eventQueryService = services.eventQueryService;
         this.contractService = services.contractService;
+        this.hashing = new CantonHashingClient();
     }
 
     /** Disposes transport-owned resources for this client instance. */

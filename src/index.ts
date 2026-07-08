@@ -1,4 +1,5 @@
 export { CantonClient } from "./client/canton-client.js";
+export { CantonHashingClient } from "./client/canton-hashing-client.js";
 export { CantonClientOptions } from "./client/canton-client-options.js";
 export { ExternalPartyActivationClient } from "./client/external-party-activation-client.js";
 export { ExternalPartyActivationRequest } from "./client/external-party-activation-request.js";
@@ -80,6 +81,7 @@ export { ObjectMeta } from "./core/types/object-meta.js";
 export { OffsetCheckpoint } from "./core/types/offset-checkpoint.js";
 export { PackageFormat } from "./core/types/package-format.js";
 export { HashFunction } from "./core/types/hash-function.js";
+export { CantonHashPurpose } from "./core/types/canton-hash-purpose.js";
 export { HealthCheckStatus } from "./core/types/health-check-status.js";
 export { PackageStatus } from "./core/types/package-status.js";
 export { PendingOperationMetadata } from "./core/types/pending-operation-metadata.js";
