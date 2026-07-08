@@ -19,9 +19,9 @@ const describeIfMultiHostExternalPartyEnabled =
     isMultiHostExternalPartyTestEnabled ? describe : describe.skip;
 const runIfMultiHostExternalPartyEnabled =
     isMultiHostExternalPartyTestEnabled ? it : it.skip;
-const runIfThreeHostsConfigured =
+const runIfFiveHostsConfigured =
     isMultiHostExternalPartyTestEnabled
-        && getConfiguredLiveMultiNodeCount() >= 3
+        && getConfiguredLiveMultiNodeCount() >= 5
         ? it
         : it.skip;
 
@@ -35,8 +35,7 @@ describeIfMultiHostExternalPartyEnabled("live multi-host party-to-participant to
         });
 
         await assertLiveMultiNodeConnectivityAsync(environment, {
-            requiredNodeCount: 3,
-            participantAdminOnlyNodeIndexes: [1, 2],
+            requiredNodeCount: 5,
         });
 
         clients = createLiveMultiNodeClients(environment);
@@ -46,63 +45,61 @@ describeIfMultiHostExternalPartyEnabled("live multi-host party-to-participant to
         await disposeLiveMultiNodeClientsAsync(clients);
     });
 
-    runIfMultiHostExternalPartyEnabled("creates and reads back a fresh stored_on_2 party", async () => {
+    runIfMultiHostExternalPartyEnabled("creates and reads back a fresh threshold_2_of_3 party", async () => {
         const result = await createLiveMultiHostPartyToParticipantAsync(
             clients,
             {
-                topologyPatternName: "stored_on_2",
-                hostCount: 2,
+                scenarioName: "ptp_c123_t2",
+                confirmingHostIndexes: [0, 1, 2],
                 threshold: 2,
+                observingHostIndexes: [],
+                localParticipantObservationOnly: false,
             },
         );
 
-        expect(result.partyId.startsWith("stored_on_2::")).toBe(true);
+        expect(result.partyId.startsWith("ptp_c123_t2::")).toBe(true);
         expect(result.readBack.threshold).toBe(2);
-        expect(result.readBack.participants).toHaveLength(2);
-        expect(
-            result.readBack.participants
-                .map((item) => item.participantUid)
-                .sort(),
-        ).toEqual([...result.expectedParticipantUids].sort());
+        expect(result.readBack.participants).toHaveLength(3);
+        expect(result.expectedConfirmingParticipantUids).toHaveLength(3);
+        expect(result.expectedObservingParticipantUids).toHaveLength(0);
     }, 60_000);
 
-    runIfThreeHostsConfigured("creates and reads back a fresh stored_on_3 party", async () => {
+    runIfFiveHostsConfigured("creates and reads back a fresh threshold_3_of_5 party", async () => {
         const result = await createLiveMultiHostPartyToParticipantAsync(
             clients,
             {
-                topologyPatternName: "stored_on_3",
-                hostCount: 3,
+                scenarioName: "ptp_c12345_t3",
+                confirmingHostIndexes: [0, 1, 2, 3, 4],
                 threshold: 3,
+                observingHostIndexes: [],
+                localParticipantObservationOnly: false,
             },
         );
 
-        expect(result.partyId.startsWith("stored_on_3::")).toBe(true);
+        expect(result.partyId.startsWith("ptp_c12345_t3::")).toBe(true);
         expect(result.readBack.threshold).toBe(3);
-        expect(result.readBack.participants).toHaveLength(3);
-        expect(
-            result.readBack.participants
-                .map((item) => item.participantUid)
-                .sort(),
-        ).toEqual([...result.expectedParticipantUids].sort());
+        expect(result.readBack.participants).toHaveLength(5);
+        expect(result.expectedConfirmingParticipantUids).toHaveLength(5);
+        expect(result.expectedObservingParticipantUids).toHaveLength(0);
     }, 60_000);
 
-    runIfThreeHostsConfigured("creates and reads back a fresh threshold_2_of_3 party", async () => {
+    runIfFiveHostsConfigured("creates and reads back a fresh threshold_2_of_3 party with a fourth observer", async () => {
         const result = await createLiveMultiHostPartyToParticipantAsync(
             clients,
             {
-                topologyPatternName: "threshold_2_of_3",
-                hostCount: 3,
+                scenarioName: "ptp_c123_t2_o4",
+                confirmingHostIndexes: [0, 1, 2],
                 threshold: 2,
+                observingHostIndexes: [3],
+                localParticipantObservationOnly: false,
             },
         );
 
-        expect(result.partyId.startsWith("threshold_2_of_3::")).toBe(true);
+        expect(result.partyId.startsWith("ptp_c123_t2_o4::")).toBe(true);
         expect(result.readBack.threshold).toBe(2);
-        expect(result.readBack.participants).toHaveLength(3);
-        expect(
-            result.readBack.participants
-                .map((item) => item.participantUid)
-                .sort(),
-        ).toEqual([...result.expectedParticipantUids].sort());
+        expect(result.readBack.participants).toHaveLength(4);
+        expect(result.expectedConfirmingParticipantUids).toHaveLength(3);
+        expect(result.expectedObservingParticipantUids).toHaveLength(1);
+        expect(result.explorerUrl).toContain("/parties/");
     }, 60_000);
 });
