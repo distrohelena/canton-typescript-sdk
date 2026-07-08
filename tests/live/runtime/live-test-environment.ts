@@ -101,6 +101,10 @@ function getLedgerEndpointVariableName(nodeIndex: number): string {
             return liveEndpointEnvironmentVariableNames.secondaryLedger;
         case 2:
             return liveEndpointEnvironmentVariableNames.tertiaryLedger;
+        case 3:
+            return liveEndpointEnvironmentVariableNames.quaternaryLedger;
+        case 4:
+            return liveEndpointEnvironmentVariableNames.quinaryLedger;
         default:
             return liveEndpointEnvironmentVariableNames.ledger;
     }
@@ -112,6 +116,10 @@ function getLedgerAdminEndpointVariableName(nodeIndex: number): string {
             return liveEndpointEnvironmentVariableNames.secondaryLedgerAdmin;
         case 2:
             return liveEndpointEnvironmentVariableNames.tertiaryLedgerAdmin;
+        case 3:
+            return liveEndpointEnvironmentVariableNames.quaternaryLedgerAdmin;
+        case 4:
+            return liveEndpointEnvironmentVariableNames.quinaryLedgerAdmin;
         default:
             return liveEndpointEnvironmentVariableNames.ledgerAdmin;
     }
@@ -123,6 +131,10 @@ function getParticipantAdminEndpointVariableName(nodeIndex: number): string {
             return liveEndpointEnvironmentVariableNames.secondaryParticipantAdmin;
         case 2:
             return liveEndpointEnvironmentVariableNames.tertiaryParticipantAdmin;
+        case 3:
+            return liveEndpointEnvironmentVariableNames.quaternaryParticipantAdmin;
+        case 4:
+            return liveEndpointEnvironmentVariableNames.quinaryParticipantAdmin;
         default:
             return liveEndpointEnvironmentVariableNames.participantAdmin;
     }

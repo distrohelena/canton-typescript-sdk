@@ -40,5 +40,5 @@ export function createLiveMultiNodeEnvironment(init: {
 }
 
 export function getConfiguredLiveMultiNodeCount(): number {
-    return 3;
+    return 5;
 }

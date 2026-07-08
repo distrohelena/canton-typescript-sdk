@@ -58,6 +58,7 @@
         "lint:fix": "eslint . --fix --max-warnings=0",
         "start:local-ledger": "bash node/start-local.sh",
         "stop:local-ledger": "bash node/stop-local.sh",
+        "test:start-local-script": "bash node/test-start-local.sh",
         "test": "vitest run --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run tests/live --maxWorkers=1 --testTimeout=15000",
         "test:unit": "vitest run tests/unit",

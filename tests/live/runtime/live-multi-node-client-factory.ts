@@ -6,6 +6,8 @@ export interface LiveMultiNodeClients {
     readonly primary: CantonClient;
     readonly secondary?: CantonClient;
     readonly tertiary?: CantonClient;
+    readonly quaternary?: CantonClient;
+    readonly quinary?: CantonClient;
     readonly all: readonly CantonClient[];
 }
 
@@ -18,6 +20,8 @@ export function createLiveMultiNodeClients(
         primary: all[0],
         secondary: all[1],
         tertiary: all[2],
+        quaternary: all[3],
+        quinary: all[4],
         all,
     };
 }

@@ -10,6 +10,13 @@ export const liveEndpointEnvironmentVariableNames = {
     tertiaryLedger: "SDK_TEST_TERTIARY_LEDGER_ENDPOINT",
     tertiaryLedgerAdmin: "SDK_TEST_TERTIARY_LEDGER_ADMIN_ENDPOINT",
     tertiaryParticipantAdmin: "SDK_TEST_TERTIARY_PARTICIPANT_ADMIN_ENDPOINT",
+    quaternaryLedger: "SDK_TEST_QUATERNARY_LEDGER_ENDPOINT",
+    quaternaryLedgerAdmin: "SDK_TEST_QUATERNARY_LEDGER_ADMIN_ENDPOINT",
+    quaternaryParticipantAdmin:
+        "SDK_TEST_QUATERNARY_PARTICIPANT_ADMIN_ENDPOINT",
+    quinaryLedger: "SDK_TEST_QUINARY_LEDGER_ENDPOINT",
+    quinaryLedgerAdmin: "SDK_TEST_QUINARY_LEDGER_ADMIN_ENDPOINT",
+    quinaryParticipantAdmin: "SDK_TEST_QUINARY_PARTICIPANT_ADMIN_ENDPOINT",
     ledgerBearerToken: "SDK_TEST_LEDGER_BEARER_TOKEN",
     ledgerAdminBearerToken: "SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN",
     participantAdminBearerToken: "SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN",
@@ -48,6 +55,24 @@ export function getLiveEndpointDefaults(
             };
         }
 
+        if (nodeIndex === 3) {
+            return {
+                ledgerEndpoint: "http://localhost:6901",
+                ledgerAdminEndpoint: "http://localhost:6901",
+                participantAdminEndpoint: "http://localhost:6902",
+                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+            };
+        }
+
+        if (nodeIndex === 4) {
+            return {
+                ledgerEndpoint: "http://localhost:7901",
+                ledgerAdminEndpoint: "http://localhost:7901",
+                participantAdminEndpoint: "http://localhost:7902",
+                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+            };
+        }
+
         return {
             ledgerEndpoint: "http://localhost:3901",
             ledgerAdminEndpoint: "http://localhost:3901",
@@ -69,6 +94,24 @@ export function getLiveEndpointDefaults(
         return {
             ledgerEndpoint: "http://localhost:5975",
             ledgerAdminEndpoint: "http://localhost:5975",
+            participantAdminEndpoint: undefined,
+            grpcChannelSecurity: GrpcChannelSecurity.insecure,
+        };
+    }
+
+    if (nodeIndex === 3) {
+        return {
+            ledgerEndpoint: "http://localhost:6975",
+            ledgerAdminEndpoint: "http://localhost:6975",
+            participantAdminEndpoint: undefined,
+            grpcChannelSecurity: GrpcChannelSecurity.insecure,
+        };
+    }
+
+    if (nodeIndex === 4) {
+        return {
+            ledgerEndpoint: "http://localhost:7975",
+            ledgerAdminEndpoint: "http://localhost:7975",
             participantAdminEndpoint: undefined,
             grpcChannelSecurity: GrpcChannelSecurity.insecure,
         };
