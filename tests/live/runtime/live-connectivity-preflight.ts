@@ -7,6 +7,7 @@ import {
     TransportKind,
 } from "../../../src/index.js";
 import { createLiveClient } from "./live-client-factory.js";
+import { LiveMultiNodeEnvironment } from "./live-multi-node-test-environment.js";
 import { LiveTestEnvironment } from "./live-test-environment.js";
 
 export async function assertLiveConnectivityAsync(
@@ -40,6 +41,56 @@ export async function assertLiveConnectivityAsync(
         }
     } finally {
         await client.disposeAsync();
+    }
+}
+
+export async function assertLiveMultiNodeConnectivityAsync(
+    environment: LiveMultiNodeEnvironment,
+    init: {
+        requiredNodeCount: number;
+        requireExternalPartyGrpcSupport?: boolean;
+        participantAdminOnlyNodeIndexes?: number[];
+    } = {
+        requiredNodeCount: 1,
+    },
+): Promise<void> {
+    const availableNodeCount = environment.nodes.length;
+
+    if (availableNodeCount < init.requiredNodeCount) {
+        throw new Error(
+            `Live multi-node environment requires ${init.requiredNodeCount} node(s), but only ${availableNodeCount} node environment(s) were created.`,
+        );
+    }
+
+    for (const [index, nodeEnvironment] of environment.nodes
+        .slice(0, init.requiredNodeCount)
+        .entries()) {
+        try {
+            if (init.participantAdminOnlyNodeIndexes?.includes(index)) {
+                const client = createLiveClient(nodeEnvironment);
+
+                try {
+                    await assertParticipantAdminConnectivityAsync(
+                        nodeEnvironment,
+                        client,
+                    );
+                } finally {
+                    await client.disposeAsync();
+                }
+            } else {
+                await assertLiveConnectivityAsync(nodeEnvironment, {
+                    requireExternalPartyGrpcSupport:
+                        init.requireExternalPartyGrpcSupport,
+                });
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+
+            throw new Error(
+                `Live multi-node connectivity failed for node ${index + 1}: ${message}`,
+            );
+        }
     }
 }
 

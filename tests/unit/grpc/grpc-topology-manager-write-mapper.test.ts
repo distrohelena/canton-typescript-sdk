@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     AddTopologyTransactionsRequest,
+    AuthorizeTopologyTransactionsRequest,
     GenerateTopologyTransactionsRequest,
     GeneratedTopologyTransaction,
     PartyToParticipant,
@@ -15,7 +16,11 @@ import {
     TopologyTransactionSignature,
 } from "../../../src";
 import {
+    AuthorizeRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
+import {
     mapGrpcAddTopologyTransactionsRequest,
+    mapGrpcAuthorizeTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsResponse,
 } from "../../../src/transports/grpc/mappers/topology-manager-write-mapper.js";
@@ -106,5 +111,47 @@ describe("gRPC topology manager write mappers", () => {
             new Uint8Array([4, 5, 6]),
         );
         expect(TopologySignatureFormat.ed25519).toBe("ed25519");
+    });
+
+    it("serializes authorize requests with raw party signing keys", () => {
+        const request = new AuthorizeTopologyTransactionsRequest({
+            proposal: {
+                operation: TopologyMappingOperation.addReplace,
+                mapping: new PartyToParticipant({
+                    party: "ed25519_party::fingerprint",
+                    threshold: 2,
+                    participants: [
+                        new PartyToParticipantParticipant({
+                            participantUid: "participant1::example",
+                            permission: ParticipantPermission.confirmation,
+                        }),
+                        new PartyToParticipantParticipant({
+                            participantUid: "participant2::example",
+                            permission: ParticipantPermission.confirmation,
+                        }),
+                    ],
+                    partySigningKeys: new TopologySigningKeysWithThreshold({
+                        threshold: 1,
+                        keys: [
+                            new TopologySigningPublicKey({
+                                format: "derX509SubjectPublicKeyInfo",
+                                usage: [
+                                    "namespace",
+                                    "proofOfOwnership",
+                                    "protocol",
+                                ],
+                                keySpec: "ecCurve25519",
+                                publicKey: new Uint8Array([1, 2, 3]),
+                            }),
+                        ],
+                    }),
+                }),
+            },
+            mustFullyAuthorize: true,
+        });
+
+        const mapped = mapGrpcAuthorizeTopologyTransactionsRequest(request);
+
+        expect(() => AuthorizeRequest.toBinary(mapped)).not.toThrow();
     });
 });

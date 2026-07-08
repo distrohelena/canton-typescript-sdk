@@ -151,6 +151,10 @@ import {
     ListPartiesRequest as GrpcTopologyListPartiesRequest,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import {
+    AddPartyAsyncRequest as GrpcAddPartyAsyncRequest,
+    AddPartyAsyncResponse as GrpcAddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest as GrpcClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse as GrpcClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampRequest as GrpcGetHighestOffsetByTimestampRequest,
     GetHighestOffsetByTimestampResponse as GrpcGetHighestOffsetByTimestampResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
@@ -321,6 +325,8 @@ export interface GrpcOperations {
     getIntervalsBehindForCounterParticipantsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     lookupSentAcsCommitmentsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     lookupReceivedAcsCommitmentsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    addPartyAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    clearPartyOnboardingFlagAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getHighestOffsetByTimestampAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getSafePruningOffsetAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getPruningScheduleAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -440,7 +446,9 @@ export interface GrpcOperationDependencies {
     >;
     participantPartyManagementServiceClient?: Pick<
         IParticipantPartyManagementServiceClient,
-        "getHighestOffsetByTimestamp"
+        | "addPartyAsync"
+        | "clearPartyOnboardingFlag"
+        | "getHighestOffsetByTimestamp"
     >;
     participantRepairServiceClient?: Pick<
         IParticipantRepairServiceClient,
@@ -1253,6 +1261,40 @@ export function createGrpcOperations(
             return await unwrapUnaryResponse(
                 participantInspectionServiceClient.lookupReceivedAcsCommitments(
                     request as GrpcLookupReceivedAcsCommitmentsRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async addPartyAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<GrpcAddPartyAsyncResponse> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                participantPartyManagementServiceClient.addPartyAsync(
+                    request as GrpcAddPartyAsyncRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async clearPartyOnboardingFlagAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<GrpcClearPartyOnboardingFlagResponse> {
+            const callOptions =
+                await buildCallOptionsForParticipantAdminSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                participantPartyManagementServiceClient.clearPartyOnboardingFlag(
+                    request as GrpcClearPartyOnboardingFlagRequest,
                     callOptions,
                 ),
             );

@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AllocateExternalPartyRequest,
     AllocateExternalPartyResponse,
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
     CantonClientOptions,
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
     EndpointNotConfiguredError,
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
@@ -15,6 +19,7 @@ import {
     GenerateTopologyTransactionsResponse,
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
+    ParticipantPermission,
     UploadDarFileRequest,
     UploadDarFileResponse,
     ListKnownPartiesRequest,
@@ -166,6 +171,16 @@ describe("service registry endpoint routing", () => {
                     generatedTransactions: [],
                 });
             }),
+            addPartyAsync: vi.fn(async () => {
+                return new AddPartyAsyncResponse({
+                    addPartyRequestId: "request-1",
+                });
+            }),
+            clearPartyOnboardingFlagAsync: vi.fn(async () => {
+                return new ClearPartyOnboardingFlagResponse({
+                    onboarded: true,
+                });
+            }),
             uploadDarFileAsync: vi.fn(async () => {
                 throw new Error(
                     "participant admin transport should not serve ledger admin calls",
@@ -249,6 +264,29 @@ describe("service registry endpoint routing", () => {
                 new GenerateTopologyTransactionsRequest(),
             ),
         ).resolves.toBeInstanceOf(GenerateTopologyTransactionsResponse);
+        await expect(
+            services.participantPartyManagementService.addPartyAsync(
+                new AddPartyAsyncRequest({
+                    arguments: {
+                        partyId: "Alice",
+                        synchronizerId: "sync::sandbox",
+                        sourceParticipantUid: "participant::source",
+                        topologySerial: 1,
+                        participantPermission:
+                            ParticipantPermission.confirmation,
+                    },
+                }),
+            ),
+        ).resolves.toBeInstanceOf(AddPartyAsyncResponse);
+        await expect(
+            services.participantPartyManagementService.clearPartyOnboardingFlagAsync(
+                new ClearPartyOnboardingFlagRequest({
+                    partyId: "Alice",
+                    synchronizerId: "sync::sandbox",
+                    beginOffsetExclusive: "42",
+                }),
+            ),
+        ).resolves.toBeInstanceOf(ClearPartyOnboardingFlagResponse);
 
         expect(createJsonTransport).toHaveBeenCalledTimes(3);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
@@ -271,6 +309,10 @@ describe("service registry endpoint routing", () => {
         ).toHaveBeenCalledTimes(1);
         expect(
             participantAdminTransport.generateTopologyTransactionsAsync,
+        ).toHaveBeenCalledTimes(1);
+        expect(participantAdminTransport.addPartyAsync).toHaveBeenCalledTimes(1);
+        expect(
+            participantAdminTransport.clearPartyOnboardingFlagAsync,
         ).toHaveBeenCalledTimes(1);
     });
 

@@ -25,45 +25,66 @@ export function createLiveTestEnvironment(init: {
     transportKind: TransportKind;
     runId?: string;
 }): LiveTestEnvironment {
-    const defaults = getLiveEndpointDefaults(init.transportKind);
-
     return {
         runId: init.runId ?? sharedRunId,
         transportKind: init.transportKind,
-        options: new CantonClientOptions({
+        options: createLiveNodeClientOptions({
             transportKind: init.transportKind,
-            ledgerEndpoint:
-                process.env[liveEndpointEnvironmentVariableNames.ledger]
-                ?? defaults.ledgerEndpoint,
-            ledgerAdminEndpoint:
-                process.env[liveEndpointEnvironmentVariableNames.ledgerAdmin]
-                ?? defaults.ledgerAdminEndpoint,
-            participantAdminEndpoint:
-                process.env[
-                    liveEndpointEnvironmentVariableNames.participantAdmin
-                ]
-                ?? defaults.participantAdminEndpoint,
-            grpcChannelSecurity: defaults.grpcChannelSecurity,
-            defaultRequestTimeoutMs,
-            grpcConnectTimeoutMs,
-            ledgerAuthProvider: createDefaultAuthProvider(
-                process.env[
-                    liveEndpointEnvironmentVariableNames.ledgerBearerToken
-                ],
-            ),
-            ledgerAdminAuthProvider: createDefaultAuthProvider(
-                process.env[
-                    liveEndpointEnvironmentVariableNames.ledgerAdminBearerToken
-                ],
-            ),
-            participantAdminAuthProvider: createDefaultAuthProvider(
-                process.env[
-                    liveEndpointEnvironmentVariableNames
-                        .participantAdminBearerToken
-                ],
-            ),
+            nodeIndex: 0,
         }),
     };
+}
+
+export function createLiveNodeTestEnvironment(init: {
+    transportKind: TransportKind;
+    nodeIndex: number;
+    runId?: string;
+}): LiveTestEnvironment {
+    return {
+        runId: init.runId ?? sharedRunId,
+        transportKind: init.transportKind,
+        options: createLiveNodeClientOptions({
+            transportKind: init.transportKind,
+            nodeIndex: init.nodeIndex,
+        }),
+    };
+}
+
+export function createLiveNodeClientOptions(init: {
+    transportKind: TransportKind;
+    nodeIndex: number;
+}): CantonClientOptions {
+    const defaults = getLiveEndpointDefaults(init.transportKind, init.nodeIndex);
+
+    return new CantonClientOptions({
+        transportKind: init.transportKind,
+        ledgerEndpoint:
+            process.env[getLedgerEndpointVariableName(init.nodeIndex)]
+            ?? defaults.ledgerEndpoint,
+        ledgerAdminEndpoint:
+            process.env[getLedgerAdminEndpointVariableName(init.nodeIndex)]
+            ?? defaults.ledgerAdminEndpoint,
+        participantAdminEndpoint:
+            process.env[getParticipantAdminEndpointVariableName(init.nodeIndex)]
+            ?? defaults.participantAdminEndpoint,
+        grpcChannelSecurity: defaults.grpcChannelSecurity,
+        defaultRequestTimeoutMs,
+        grpcConnectTimeoutMs,
+        ledgerAuthProvider: createDefaultAuthProvider(
+            process.env[liveEndpointEnvironmentVariableNames.ledgerBearerToken],
+        ),
+        ledgerAdminAuthProvider: createDefaultAuthProvider(
+            process.env[
+                liveEndpointEnvironmentVariableNames.ledgerAdminBearerToken
+            ],
+        ),
+        participantAdminAuthProvider: createDefaultAuthProvider(
+            process.env[
+                liveEndpointEnvironmentVariableNames
+                    .participantAdminBearerToken
+            ],
+        ),
+    });
 }
 
 function createDefaultRunId(): string {
@@ -72,6 +93,39 @@ function createDefaultRunId(): string {
     const entropy = randomBytes(4).toString("hex");
 
     return `live${timestamp}${entropy}`;
+}
+
+function getLedgerEndpointVariableName(nodeIndex: number): string {
+    switch (nodeIndex) {
+        case 1:
+            return liveEndpointEnvironmentVariableNames.secondaryLedger;
+        case 2:
+            return liveEndpointEnvironmentVariableNames.tertiaryLedger;
+        default:
+            return liveEndpointEnvironmentVariableNames.ledger;
+    }
+}
+
+function getLedgerAdminEndpointVariableName(nodeIndex: number): string {
+    switch (nodeIndex) {
+        case 1:
+            return liveEndpointEnvironmentVariableNames.secondaryLedgerAdmin;
+        case 2:
+            return liveEndpointEnvironmentVariableNames.tertiaryLedgerAdmin;
+        default:
+            return liveEndpointEnvironmentVariableNames.ledgerAdmin;
+    }
+}
+
+function getParticipantAdminEndpointVariableName(nodeIndex: number): string {
+    switch (nodeIndex) {
+        case 1:
+            return liveEndpointEnvironmentVariableNames.secondaryParticipantAdmin;
+        case 2:
+            return liveEndpointEnvironmentVariableNames.tertiaryParticipantAdmin;
+        default:
+            return liveEndpointEnvironmentVariableNames.participantAdmin;
+    }
 }
 
 function createDefaultAuthProvider(

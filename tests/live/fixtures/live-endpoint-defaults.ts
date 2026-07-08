@@ -4,6 +4,12 @@ export const liveEndpointEnvironmentVariableNames = {
     ledger: "SDK_TEST_LEDGER_ENDPOINT",
     ledgerAdmin: "SDK_TEST_LEDGER_ADMIN_ENDPOINT",
     participantAdmin: "SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT",
+    secondaryLedger: "SDK_TEST_SECONDARY_LEDGER_ENDPOINT",
+    secondaryLedgerAdmin: "SDK_TEST_SECONDARY_LEDGER_ADMIN_ENDPOINT",
+    secondaryParticipantAdmin: "SDK_TEST_SECONDARY_PARTICIPANT_ADMIN_ENDPOINT",
+    tertiaryLedger: "SDK_TEST_TERTIARY_LEDGER_ENDPOINT",
+    tertiaryLedgerAdmin: "SDK_TEST_TERTIARY_LEDGER_ADMIN_ENDPOINT",
+    tertiaryParticipantAdmin: "SDK_TEST_TERTIARY_PARTICIPANT_ADMIN_ENDPOINT",
     ledgerBearerToken: "SDK_TEST_LEDGER_BEARER_TOKEN",
     ledgerAdminBearerToken: "SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN",
     participantAdminBearerToken: "SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN",
@@ -21,12 +27,49 @@ export interface LiveEndpointDefaults {
 
 export function getLiveEndpointDefaults(
     transportKind: TransportKind,
+    nodeIndex = 0,
 ): LiveEndpointDefaults {
     if (transportKind === TransportKind.grpc) {
+        if (nodeIndex === 1) {
+            return {
+                ledgerEndpoint: "http://localhost:4901",
+                ledgerAdminEndpoint: "http://localhost:4901",
+                participantAdminEndpoint: "http://localhost:4902",
+                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+            };
+        }
+
+        if (nodeIndex === 2) {
+            return {
+                ledgerEndpoint: "http://localhost:5901",
+                ledgerAdminEndpoint: "http://localhost:5901",
+                participantAdminEndpoint: "http://localhost:5902",
+                grpcChannelSecurity: GrpcChannelSecurity.insecure,
+            };
+        }
+
         return {
             ledgerEndpoint: "http://localhost:3901",
             ledgerAdminEndpoint: "http://localhost:3901",
             participantAdminEndpoint: "http://localhost:3902",
+            grpcChannelSecurity: GrpcChannelSecurity.insecure,
+        };
+    }
+
+    if (nodeIndex === 1) {
+        return {
+            ledgerEndpoint: "http://localhost:4975",
+            ledgerAdminEndpoint: "http://localhost:4975",
+            participantAdminEndpoint: undefined,
+            grpcChannelSecurity: GrpcChannelSecurity.insecure,
+        };
+    }
+
+    if (nodeIndex === 2) {
+        return {
+            ledgerEndpoint: "http://localhost:5975",
+            ledgerAdminEndpoint: "http://localhost:5975",
+            participantAdminEndpoint: undefined,
             grpcChannelSecurity: GrpcChannelSecurity.insecure,
         };
     }

@@ -26,10 +26,24 @@ export interface LiveExternalPartyResult {
     readonly knownPartyDetails: PartyDetails;
 }
 
-/** Creates a fresh ED25519 external party through the public gRPC SDK surface. */
-export async function createLiveExternalPartyAsync(
+export interface LiveExternalPartyAllocationResult {
+    readonly partyId: string;
+    readonly publicKeyFingerprint: string;
+    readonly synchronizerId: string;
+    readonly participantId: string;
+}
+
+/** Allocates a fresh ED25519 external party through the public gRPC SDK surface. */
+export async function allocateLiveExternalPartyAsync(
     client: CantonClient,
-): Promise<LiveExternalPartyResult> {
+    init: {
+        partyHint?: string;
+        localParticipantObservationOnly?: boolean;
+        otherConfirmingParticipantUids?: string[];
+        confirmationThreshold?: number;
+        observingParticipantUids?: string[];
+    } = {},
+): Promise<LiveExternalPartyAllocationResult> {
     const participantIdResponse =
         await client.partyManagementService.getParticipantIdAsync(
             new GetParticipantIdRequest(),
@@ -50,7 +64,7 @@ export async function createLiveExternalPartyAsync(
         await client.partyManagementService.generateExternalPartyTopologyAsync(
             new GenerateExternalPartyTopologyRequest({
                 synchronizer: synchronizerId,
-                partyHint: "ed25519_party",
+                partyHint: init.partyHint ?? "ed25519_party",
                 publicKey: new ExternalPartySigningPublicKey({
                     format:
                         ExternalPartyCryptoKeyFormat
@@ -58,6 +72,12 @@ export async function createLiveExternalPartyAsync(
                     keyData: publicKeyBytes,
                     keySpec: ExternalPartySigningKeySpec.ecCurve25519,
                 }),
+                localParticipantObservationOnly:
+                    init.localParticipantObservationOnly,
+                otherConfirmingParticipantUids:
+                    init.otherConfirmingParticipantUids,
+                confirmationThreshold: init.confirmationThreshold,
+                observingParticipantUids: init.observingParticipantUids,
             }),
         );
 
@@ -88,6 +108,27 @@ export async function createLiveExternalPartyAsync(
                 waitForAllocation: true,
             }),
         );
+
+    return {
+        partyId: allocation.partyId,
+        publicKeyFingerprint: generatedTopology.publicKeyFingerprint,
+        synchronizerId,
+        participantId: participantIdResponse.participantId,
+    };
+}
+
+/** Creates a fresh ED25519 external party through the public gRPC SDK surface. */
+export async function createLiveExternalPartyAsync(
+    client: CantonClient,
+    init: {
+        partyHint?: string;
+        localParticipantObservationOnly?: boolean;
+        otherConfirmingParticipantUids?: string[];
+        confirmationThreshold?: number;
+        observingParticipantUids?: string[];
+    } = {},
+): Promise<LiveExternalPartyResult> {
+    const allocation = await allocateLiveExternalPartyAsync(client, init);
 
     const knownParties =
         await client.partyManagementService.listKnownPartiesAsync(
@@ -125,9 +166,9 @@ export async function createLiveExternalPartyAsync(
 
     return {
         partyId: allocation.partyId,
-        publicKeyFingerprint: generatedTopology.publicKeyFingerprint,
-        synchronizerId,
-        participantId: participantIdResponse.participantId,
+        publicKeyFingerprint: allocation.publicKeyFingerprint,
+        synchronizerId: allocation.synchronizerId,
+        participantId: allocation.participantId,
         partyDetails,
         knownPartyDetails,
     };

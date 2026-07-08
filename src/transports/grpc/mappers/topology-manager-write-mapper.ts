@@ -43,6 +43,7 @@ import {
     SignatureDelegation as GrpcSignatureDelegation,
     SignatureFormat as GrpcSignatureFormat,
     SigningAlgorithmSpec,
+    SigningKeyScheme,
     SigningKeySpec,
     SigningKeysWithThreshold,
     SigningKeyUsage,
@@ -335,7 +336,7 @@ function mapGrpcSigningPublicKey(
     return {
         format: mapGrpcCryptoKeyFormat(value.format),
         publicKey: new Uint8Array(value.publicKey),
-        scheme: undefined as never,
+        scheme: mapGrpcSigningKeyScheme(value.scheme, value.keySpec),
         usage: value.usage.map(mapGrpcSigningKeyUsage),
         keySpec: mapGrpcSigningKeySpec(value.keySpec),
     };
@@ -617,6 +618,25 @@ function mapGrpcSigningKeySpec(value?: string): SigningKeySpec {
             return SigningKeySpec.ML_DSA_65;
         default:
             return SigningKeySpec.UNSPECIFIED;
+    }
+}
+
+function mapGrpcSigningKeyScheme(
+    scheme?: string,
+    keySpec?: string,
+): SigningKeyScheme {
+    switch (scheme ?? keySpec) {
+        case "ed25519":
+        case "ecCurve25519":
+            return SigningKeyScheme.ED25519;
+        case "ecDsaP256":
+        case "ecP256":
+            return SigningKeyScheme.EC_DSA_P256;
+        case "ecDsaP384":
+        case "ecP384":
+            return SigningKeyScheme.EC_DSA_P384;
+        default:
+            return SigningKeyScheme.UNSPECIFIED;
     }
 }
 

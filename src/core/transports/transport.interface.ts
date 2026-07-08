@@ -1,8 +1,10 @@
 import { TransportFeatures } from "./transport-features.interface.js";
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
+import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
+import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { GrantUserRightsRequest } from "../types/requests/grant-user-rights-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
@@ -127,9 +129,11 @@ import { GetActiveContractsPageResponse } from "../types/responses/get-active-co
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
 import { GetUpdatesPageResponse } from "../types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
+import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
+import { ClearPartyOnboardingFlagResponse } from "../types/responses/clear-party-onboarding-flag-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
@@ -408,6 +412,18 @@ export interface ITransport {
         request: LookupReceivedAcsCommitmentsRequest,
         options?: RequestOptions,
     ): Promise<LookupReceivedAcsCommitmentsResponse>;
+
+    /** Starts online party replication on the target participant. Supported on gRPC; JSON rejects it. */
+    addPartyAsync(
+        request: AddPartyAsyncRequest,
+        options?: RequestOptions,
+    ): Promise<AddPartyAsyncResponse>;
+
+    /** Clears an onboarding flag on the target participant. Supported on gRPC; JSON rejects it. */
+    clearPartyOnboardingFlagAsync(
+        request: ClearPartyOnboardingFlagRequest,
+        options?: RequestOptions,
+    ): Promise<ClearPartyOnboardingFlagResponse>;
 
     /** Reads the highest participant ledger offset before or at a timestamp. Supported on gRPC; JSON rejects it. */
     getHighestOffsetByTimestampAsync(

@@ -3,11 +3,13 @@ import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
 import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
+import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetCompletionsRequest } from "../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../core/types/requests/current-time-request.js";
+import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../core/types/requests/get-active-contracts-page-request.js";
@@ -95,8 +97,10 @@ import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-req
 import { SignCommandResult } from "../core/signing/sign-command-result.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
+import { AddPartyAsyncResponse } from "../core/types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
+import { ClearPartyOnboardingFlagResponse } from "../core/types/responses/clear-party-onboarding-flag-response.js";
 import { CountInFlightResponse } from "../core/types/responses/count-in-flight-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
@@ -598,6 +602,24 @@ class PlaceholderTransport implements ITransport {
         this.throwIfDisposed();
 
         throw new TransportError("received ACS commitment inspection is not available yet");
+    }
+
+    public async addPartyAsync(
+        _request: AddPartyAsyncRequest,
+        _options?: RequestOptions,
+    ): Promise<AddPartyAsyncResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("participant party replication is not available yet");
+    }
+
+    public async clearPartyOnboardingFlagAsync(
+        _request: ClearPartyOnboardingFlagRequest,
+        _options?: RequestOptions,
+    ): Promise<ClearPartyOnboardingFlagResponse> {
+        this.throwIfDisposed();
+
+        throw new TransportError("party onboarding flag clearing is not available yet");
     }
 
     public async getHighestOffsetByTimestampAsync(
@@ -1292,6 +1314,14 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
+    public async addPartyAsync(): Promise<AddPartyAsyncResponse> {
+        this.throwMissingEndpoint();
+    }
+
+    public async clearPartyOnboardingFlagAsync(): Promise<ClearPartyOnboardingFlagResponse> {
+        this.throwMissingEndpoint();
+    }
+
     public async getHighestOffsetByTimestampAsync(): Promise<GetHighestOffsetByTimestampResponse> {
         this.throwMissingEndpoint();
     }
@@ -1675,6 +1705,14 @@ class CompositeTransport implements ITransport {
     }
 
     public async lookupReceivedAcsCommitmentsAsync(): Promise<LookupReceivedAcsCommitmentsResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async addPartyAsync(): Promise<AddPartyAsyncResponse> {
+        throw new TransportError("Composite transport does not forward service calls.");
+    }
+
+    public async clearPartyOnboardingFlagAsync(): Promise<ClearPartyOnboardingFlagResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
