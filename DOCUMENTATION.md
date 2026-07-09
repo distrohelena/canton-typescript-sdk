@@ -233,7 +233,8 @@ Creates a gRPC-only client over low-level gRPC operations.
 Notes:
 
 - exposes the same service properties as `CantonClient`
-- `signer` enables external command signing
+- `signer` enables gRPC external command signing through the Ledger API interactive submission flow
+- current external command signing limitation: exactly one `actAs` party
 
 ### `new JsonLedgerClient(httpClient)`
 
@@ -1287,6 +1288,7 @@ Parameters:
 Request fields:
 
 - `applicationId: string`
+- `userId?: string`
 - `actAs: readonly string[]`
 - `readAs: readonly string[]`
 - `command: LedgerCommand`
@@ -1314,8 +1316,11 @@ Useful response fields:
 Notes:
 
 - `actAs` must contain at least one party
-- external signing is applied here on `grpc` when `commandSigner` is configured
+- when unsigned, `grpc` uses `CommandService.SubmitAndWait`
+- when `commandSigner` is configured, `grpc` uses Ledger API interactive submission under the hood
+- current gRPC external signing limitation: exactly one `actAs` party
 - `json` uses the Ledger API V2 command endpoint and supports the same four command shapes
+- `json` does not support external command signing
 - `transactionId` carries the ledger update id returned by the transport
 
 Example:
@@ -1324,6 +1329,7 @@ Example:
 const response = await client.commandService.submitAndWaitAsync(
     new SubmitCommandRequest({
         applicationId: "app-1",
+        userId: "wallet-user",
         actAs: ["Alice"],
         readAs: ["Bob"],
         command: new CreateCommand({

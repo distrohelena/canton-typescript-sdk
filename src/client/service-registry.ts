@@ -94,7 +94,7 @@ import { TopologyListPartiesRequest } from "../core/types/requests/topology-list
 import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
-import { SignCommandResult } from "../core/signing/sign-command-result.js";
+import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { AddPartyAsyncResponse } from "../core/types/responses/add-party-async-response.js";
@@ -1133,7 +1133,7 @@ class PlaceholderTransport implements ITransport {
 
     public async submitCommandAsync(
         _request: SubmitCommandRequest,
-        _signed?: SignCommandResult,
+        _signer?: ICommandSigner,
         _options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
         this.throwIfDisposed();
