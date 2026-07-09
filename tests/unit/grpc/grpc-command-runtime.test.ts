@@ -9,6 +9,13 @@ import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport live ledger shapes", () => {
+    it("exposes interactive submission operations on fake grpc services", () => {
+        const operations = createFakeGrpcOperations();
+
+        expect(operations).toHaveProperty("prepareSubmissionAsync");
+        expect(operations).toHaveProperty("executeSubmissionAndWaitAsync");
+    });
+
     it("submits real ledger-shaped requests through grpc operations", async () => {
         let capturedQuery: unknown,
             capturedStream: unknown,

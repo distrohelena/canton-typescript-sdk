@@ -15,6 +15,15 @@ export function createFakeGrpcOperations(
         uploadPackageAsync: async () => ({ packageId: "unused" }),
         queryContractsAsync: async () => ({ activeContracts: [] }),
         streamTransactionsAsync: async () => [],
+        prepareSubmissionAsync: async () => ({
+            preparedTransaction: {},
+            preparedTransactionHash: new Uint8Array([9, 9, 9]),
+            hashingSchemeVersion: 3,
+        }),
+        executeSubmissionAndWaitAsync: async () => ({
+            updateId: "tx-1",
+            completionOffset: "10",
+        }),
         submitCommandAsync: async () => ({
             updateId: "tx-1",
             completionOffset: "10",

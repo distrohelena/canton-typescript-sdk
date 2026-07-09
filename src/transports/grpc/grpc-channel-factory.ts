@@ -85,6 +85,10 @@ import {
     CommandServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/command_service.client.js";
 import {
+    IInteractiveSubmissionServiceClient,
+    InteractiveSubmissionServiceClient,
+} from "./generated/canton/com/daml/ledger/api/v2/interactive/interactive_submission_service.client.js";
+import {
     ICommandCompletionServiceClient,
     CommandCompletionServiceClient,
 } from "./generated/canton/com/daml/ledger/api/v2/command_completion_service.client.js";
@@ -146,6 +150,12 @@ import {
     SubmitAndWaitRequest,
     SubmitAndWaitResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/command_service.js";
+import {
+    ExecuteSubmissionAndWaitRequest,
+    ExecuteSubmissionAndWaitResponse,
+    PrepareSubmissionRequest,
+    PrepareSubmissionResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/interactive/interactive_submission_service.js";
 import {
     ListKeyOwnersRequest as GrpcListKeyOwnersRequest,
     ListPartiesRequest as GrpcTopologyListPartiesRequest,
@@ -380,6 +390,8 @@ export interface GrpcOperations {
     getUpdateByHashAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getUpdatesPageAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getCompletionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    prepareSubmissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    executeSubmissionAndWaitAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
 }
 
@@ -528,6 +540,10 @@ export interface GrpcOperationDependencies {
         "getUpdates" | "getUpdateByOffset" | "getUpdateById" | "getUpdateByHash" | "getUpdatesPage"
     >;
     commandCompletionServiceClient?: Pick<ICommandCompletionServiceClient, "getCompletions">;
+    interactiveSubmissionServiceClient?: Pick<
+        IInteractiveSubmissionServiceClient,
+        "prepareSubmission" | "executeSubmissionAndWait"
+    >;
     commandServiceClient?: Pick<ICommandServiceClient, "submitAndWait">;
 }
 
@@ -648,6 +664,10 @@ export function createGrpcOperations(
     const commandCompletionServiceClient =
         dependencies.commandCompletionServiceClient
         ?? new CommandCompletionServiceClient(rpcTransport);
+
+    const interactiveSubmissionServiceClient =
+        dependencies.interactiveSubmissionServiceClient
+        ?? new InteractiveSubmissionServiceClient(rpcTransport);
 
     const commandServiceClient =
         dependencies.commandServiceClient
@@ -2213,6 +2233,40 @@ export function createGrpcOperations(
             return await unwrapUnaryResponse(
                 commandServiceClient.submitAndWait(
                     request as SubmitAndWaitRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async prepareSubmissionAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<PrepareSubmissionResponse> {
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                interactiveSubmissionServiceClient.prepareSubmission(
+                    request as PrepareSubmissionRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async executeSubmissionAndWaitAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<ExecuteSubmissionAndWaitResponse> {
+            const callOptions =
+                await buildCallOptionsForLedgerSurfaceAsync(
+                    options,
+                    requestOptions,
+                );
+
+            return await unwrapUnaryResponse(
+                interactiveSubmissionServiceClient.executeSubmissionAndWait(
+                    request as ExecuteSubmissionAndWaitRequest,
                     callOptions,
                 ),
             );
