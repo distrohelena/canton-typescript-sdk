@@ -1,17 +1,17 @@
-import { CreateCommand } from "../commands/create-command.js";
+import { LedgerCommand } from "../commands/ledger-command.js";
 import { ValidationError } from "../../errors/validation-error.js";
 
 export class SubmitCommandRequest {
     public readonly applicationId: string;
     public readonly actAs: readonly string[];
     public readonly readAs: readonly string[];
-    public readonly command: CreateCommand;
+    public readonly command: LedgerCommand;
 
     public constructor(init: {
         applicationId: string;
         actAs: readonly string[];
         readAs?: readonly string[];
-        command: CreateCommand;
+        command: LedgerCommand;
     }) {
         if (init.actAs.length === 0) {
             throw new ValidationError(
