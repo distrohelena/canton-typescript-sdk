@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { CantonClientOptions } from "../../client/canton-client-options.js";
+import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
@@ -84,7 +86,8 @@ import { TopologyListPartiesRequest } from "../../core/types/requests/topology-l
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
-import { SignCommandResult } from "../../core/signing/sign-command-result.js";
+import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
+import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
@@ -181,6 +184,11 @@ import {
     mapGrpcSubmitCommand,
     mapGrpcSubmitCommandRequest,
 } from "./mappers/commands-mapper.js";
+import {
+    mapGrpcExecuteSubmissionAndWaitRequest,
+    mapGrpcInteractiveSubmitCommand,
+    mapGrpcPrepareSubmissionRequest,
+} from "./mappers/interactive-command-mapper.js";
 import {
     mapGrpcGetContract,
     mapGrpcGetContractRequest,
@@ -2068,18 +2076,85 @@ export class GrpcTransport implements ITransport {
 
     public async submitCommandAsync(
         request: SubmitCommandRequest,
-        signed?: SignCommandResult,
+        signer?: ICommandSigner,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.submitCommandAsync(
-            mapGrpcSubmitCommandRequest(request, signed),
+        if (!signer) {
+            const payload = await this.operations.submitCommandAsync(
+                mapGrpcSubmitCommandRequest(request),
+                options,
+            );
+
+            return mapGrpcSubmitCommand(
+                payload as { commandId?: string; transactionId?: string },
+            );
+        }
+
+        if (request.actAs.length !== 1) {
+            throw new ValidationError(
+                "interactive gRPC command signing currently requires exactly one actAs party",
+            );
+        }
+
+        if (!this.operations.prepareSubmissionAsync) {
+            throw new NotSupportedError(
+                "interactive gRPC command signing is not available on this transport",
+            );
+        }
+
+        if (!this.operations.executeSubmissionAndWaitAsync) {
+            throw new NotSupportedError(
+                "interactive gRPC command signing is not available on this transport",
+            );
+        }
+
+        const commandId = randomUUID();
+        const submissionId = randomUUID();
+
+        const prepared = await this.operations.prepareSubmissionAsync(
+            mapGrpcPrepareSubmissionRequest(request, commandId),
+            options,
+        ) as {
+            preparedTransaction?: {};
+            preparedTransactionHash: Uint8Array;
+            hashingSchemeVersion: number;
+        };
+
+        if (!prepared.preparedTransaction) {
+            throw new ValidationError(
+                "interactive prepare submission did not return a preparedTransaction",
+            );
+        }
+
+        else if (prepared.preparedTransactionHash.length === 0) {
+            throw new ValidationError(
+                "interactive prepare submission did not return a preparedTransactionHash",
+            );
+        }
+
+        const signerResult = await signer.signAsync(
+            new SignCommandRequest({
+                payload: prepared.preparedTransactionHash,
+                party: request.actAs[0],
+                algorithmHint: "ed25519",
+            }),
+        );
+
+        const executed = await this.operations.executeSubmissionAndWaitAsync(
+            mapGrpcExecuteSubmissionAndWaitRequest({
+                request,
+                preparedTransaction: prepared.preparedTransaction,
+                hashingSchemeVersion: prepared.hashingSchemeVersion,
+                submissionId,
+                signerResult,
+            }),
             options,
         );
 
-        return mapGrpcSubmitCommand(
-            payload as { commandId?: string; transactionId?: string },
+        return mapGrpcInteractiveSubmitCommand(
+            executed as { updateId: string; completionOffset: string },
         );
     }
 

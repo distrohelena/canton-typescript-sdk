@@ -6,6 +6,7 @@ import {
     HealthCheckRequest,
     HealthCheckStatus,
     NotSupportedError,
+    SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
@@ -77,6 +78,33 @@ describe("grpc transport entrypoint", () => {
         ).rejects.toThrow(NotSupportedError);
         await expect(
             client.commandService.submitAndWaitAsync(
+                new SubmitCommandRequest({
+                    applicationId: "app-1",
+                    actAs: ["Alice"],
+                    command: new ExerciseCommand({
+                        templateId: "Main:Iou",
+                        contractId: "00abc",
+                        choice: "Archive",
+                        argument: {},
+                    }),
+                }),
+            ),
+        ).resolves.toBeDefined();
+
+        const signedClient = new grpcModule.GrpcLedgerClient(
+            createFakeGrpcOperations(),
+            {
+                signAsync: async () =>
+                    new SignCommandResult({
+                        algorithm: "ed25519",
+                        signature: new Uint8Array([1, 2, 3]),
+                        signedBy: "fingerprint::1",
+                    }),
+            },
+        );
+
+        await expect(
+            signedClient.commandService.submitAndWaitAsync(
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],

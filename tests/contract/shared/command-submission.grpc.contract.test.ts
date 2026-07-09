@@ -15,6 +15,7 @@ describe("grpc command submission contract", () => {
                 new SignCommandResult({
                     algorithm: "ed25519",
                     signature: new Uint8Array([1, 2, 3]),
+                    signedBy: "fingerprint::1",
                 }),
         );
 
@@ -30,10 +31,18 @@ describe("grpc command submission contract", () => {
                 uploadPackageAsync: async () => ({ packageId: "unused" }),
                 queryContractsAsync: async () => ({ contracts: [] }),
                 streamTransactionsAsync: async () => [],
-                submitCommandAsync: async () => ({
-                    commandId: "cmd-1",
-                    transactionId: "tx-1",
+                prepareSubmissionAsync: async () => ({
+                    preparedTransaction: {},
+                    preparedTransactionHash: new Uint8Array([9, 9, 9]),
+                    hashingSchemeVersion: 3,
                 }),
+                executeSubmissionAndWaitAsync: async () => ({
+                    updateId: "tx-1",
+                    completionOffset: "10",
+                }),
+                submitCommandAsync: async () => {
+                    throw new Error("plain submit should not be used");
+                },
             }),
             { signAsync },
         );
@@ -50,7 +59,6 @@ describe("grpc command submission contract", () => {
                 }),
             ),
         ).resolves.toMatchObject({
-            commandId: "cmd-1",
             transactionId: "tx-1",
         });
 
@@ -63,6 +71,7 @@ describe("grpc command submission contract", () => {
                 new SignCommandResult({
                     algorithm: "ed25519",
                     signature: new Uint8Array([1, 2, 3]),
+                    signedBy: "fingerprint::1",
                 }),
         );
 
@@ -78,10 +87,18 @@ describe("grpc command submission contract", () => {
                 uploadPackageAsync: async () => ({ packageId: "unused" }),
                 queryContractsAsync: async () => ({ contracts: [] }),
                 streamTransactionsAsync: async () => [],
-                submitCommandAsync: async () => ({
-                    commandId: "cmd-2",
-                    transactionId: "tx-2",
+                prepareSubmissionAsync: async () => ({
+                    preparedTransaction: {},
+                    preparedTransactionHash: new Uint8Array([9, 9, 9]),
+                    hashingSchemeVersion: 3,
                 }),
+                executeSubmissionAndWaitAsync: async () => ({
+                    updateId: "tx-2",
+                    completionOffset: "11",
+                }),
+                submitCommandAsync: async () => {
+                    throw new Error("plain submit should not be used");
+                },
             }),
             { signAsync },
         );
@@ -91,16 +108,13 @@ describe("grpc command submission contract", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new ExerciseCommand({
+                    command: new CreateCommand({
                         templateId: "Main:Iou",
-                        contractId: "00abc",
-                        choice: "Archive",
-                        argument: {},
+                        payload: { issuer: "Alice" },
                     }),
                 }),
             ),
         ).resolves.toMatchObject({
-            commandId: "cmd-2",
             transactionId: "tx-2",
         });
 

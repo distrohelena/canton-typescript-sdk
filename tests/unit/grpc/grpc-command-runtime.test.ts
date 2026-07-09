@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+    CreateCommand,
     ExerciseCommand,
+    SignCommandResult,
     GetActiveContractsPageRequest,
     GetUpdatesRequest,
     SubmitCommandRequest,
@@ -152,5 +154,74 @@ describe("GrpcTransport live ledger shapes", () => {
             new Uint8Array([1, 2, 3]),
         );
         expect(result.transactionId).toBe("tx-1");
+    });
+
+    it("uses interactive grpc submission for signed commands", async () => {
+        let capturedPrepare: unknown,
+            capturedExecute: unknown,
+            signerPayload: Uint8Array | undefined;
+
+        const transport = new GrpcTransport(
+            createFakeGrpcOperations({
+                prepareSubmissionAsync: async request => {
+                    capturedPrepare = request;
+
+                    return {
+                        preparedTransaction: {},
+                        preparedTransactionHash: new Uint8Array([9, 9, 9]),
+                        hashingSchemeVersion: 3,
+                    };
+                },
+                executeSubmissionAndWaitAsync: async request => {
+                    capturedExecute = request;
+
+                    return { updateId: "tx-2", completionOffset: "11" };
+                },
+                submitCommandAsync: async () => {
+                    throw new Error("plain submit should not be used");
+                },
+            }),
+        );
+
+        const result = await transport.submitCommandAsync(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                userId: "wallet-user",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: "Main:Iou",
+                    payload: { issuer: "Alice" },
+                }),
+            }),
+            {
+                signAsync: async request => {
+                    signerPayload = request.payload;
+
+                    return new SignCommandResult({
+                        algorithm: "ed25519",
+                        signature: new Uint8Array([1, 2, 3]),
+                        signedBy: "fingerprint::1",
+                    });
+                },
+            },
+        );
+
+        expect(capturedPrepare).toMatchObject({
+            userId: "wallet-user",
+            actAs: ["Alice"],
+        });
+        expect(signerPayload).toEqual(new Uint8Array([9, 9, 9]));
+        expect(capturedExecute).toMatchObject({
+            userId: "wallet-user",
+            submissionId: expect.any(String),
+            partySignatures: {
+                signatures: [
+                    {
+                        party: "Alice",
+                    },
+                ],
+            },
+        });
+        expect(result.transactionId).toBe("tx-2");
     });
 });
