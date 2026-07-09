@@ -3,12 +3,14 @@ import { ValidationError } from "../../errors/validation-error.js";
 
 export class SubmitCommandRequest {
     public readonly applicationId: string;
+    public readonly userId?: string;
     public readonly actAs: readonly string[];
     public readonly readAs: readonly string[];
     public readonly command: LedgerCommand;
 
     public constructor(init: {
         applicationId: string;
+        userId?: string;
         actAs: readonly string[];
         readAs?: readonly string[];
         command: LedgerCommand;
@@ -20,6 +22,7 @@ export class SubmitCommandRequest {
         }
 
         this.applicationId = init.applicationId;
+        this.userId = init.userId;
         this.actAs = init.actAs;
         this.readAs = init.readAs ?? [];
         this.command = init.command;

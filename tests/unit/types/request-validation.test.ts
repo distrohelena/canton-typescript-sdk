@@ -26,6 +26,7 @@ describe("request validation", () => {
             () =>
                 new SubmitCommandRequest({
                     applicationId: "app-1",
+                    userId: "wallet-user",
                     actAs: ["Alice"],
                     command: new ExerciseCommand({
                         templateId: "Main:Iou",
@@ -35,5 +36,19 @@ describe("request validation", () => {
                     }),
                 }),
         ).not.toThrow();
+    });
+
+    it("stores a submit request userId when provided", () => {
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            userId: "wallet-user",
+            actAs: ["Alice"],
+            command: new CreateCommand({
+                templateId: "Main:Iou",
+                payload: {},
+            }),
+        });
+
+        expect(request.userId).toBe("wallet-user");
     });
 });
