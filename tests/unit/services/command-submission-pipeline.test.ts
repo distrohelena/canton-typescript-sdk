@@ -1,22 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
-    ExerciseCommand,
     RequestOptions,
-    SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
 
 describe("CommandSubmissionPipeline", () => {
-    it("passes canonical command payloads to the signer before grpc submission", async () => {
-        const signAsync = vi.fn(
-            async () =>
-                new SignCommandResult({
-                    algorithm: "ed25519",
-                    signature: new Uint8Array([1, 2, 3]),
-                }),
-        );
+    it("passes the signer through to the transport for grpc submissions", async () => {
+        const signAsync = vi.fn(async () => {
+            throw new Error("transport should own signing orchestration");
+        });
 
         const submitCommandAsync = vi.fn(async () => ({
             commandId: "cmd-1",
@@ -70,11 +64,15 @@ describe("CommandSubmissionPipeline", () => {
         expect(request.command.templateId).toBe("Main:Iou");
         await pipeline.submitAsync(request);
 
-        expect(signAsync).toHaveBeenCalledOnce();
-        expect(signAsync.mock.calls[0]?.[0].payload).toBeInstanceOf(Uint8Array);
-        expect(
-            new TextDecoder().decode(signAsync.mock.calls[0]?.[0].payload),
-        ).toContain("\"templateId\":\"Main:Iou\"");
+        expect(signAsync).not.toHaveBeenCalled();
+        expect(submitCommandAsync).toHaveBeenNthCalledWith(
+            1,
+            request,
+            expect.objectContaining({
+                signAsync,
+            }),
+            undefined,
+        );
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -84,19 +82,17 @@ describe("CommandSubmissionPipeline", () => {
 
         expect(submitCommandAsync).toHaveBeenLastCalledWith(
             request,
-            expect.any(SignCommandResult),
+            expect.objectContaining({
+                signAsync,
+            }),
             options,
         );
     });
 
-    it("passes exercise command payloads with kind discriminators to the signer", async () => {
-        const signAsync = vi.fn(
-            async () =>
-                new SignCommandResult({
-                    algorithm: "ed25519",
-                    signature: new Uint8Array([1, 2, 3]),
-                }),
-        );
+    it("does not pre-sign command payloads inside the pipeline", async () => {
+        const signAsync = vi.fn(async () => {
+            throw new Error("transport should own signing orchestration");
+        });
 
         const submitCommandAsync = vi.fn(async () => ({
             commandId: "cmd-1",
@@ -139,22 +135,24 @@ describe("CommandSubmissionPipeline", () => {
             applicationId: "app-1",
             actAs: ["Alice"],
             readAs: ["Bob"],
-            command: new ExerciseCommand({
-                templateId: "Main:Vault",
-                contractId: "00abc",
-                choice: "Deposit",
-                argument: {
-                    amount: "10.0",
+            command: new CreateCommand({
+                templateId: "Main:Iou",
+                payload: {
+                    issuer: "Alice",
+                    owner: "Bob",
                 },
             }),
         });
 
         await pipeline.submitAsync(request);
 
-        const payload = new TextDecoder().decode(signAsync.mock.calls[0]?.[0].payload);
-
-        expect(payload).toContain("\"kind\":\"exercise\"");
-        expect(payload).toContain("\"contractId\":\"00abc\"");
-        expect(payload).toContain("\"choice\":\"Deposit\"");
+        expect(signAsync).not.toHaveBeenCalled();
+        expect(submitCommandAsync).toHaveBeenCalledWith(
+            request,
+            expect.objectContaining({
+                signAsync,
+            }),
+            undefined,
+        );
     });
 });

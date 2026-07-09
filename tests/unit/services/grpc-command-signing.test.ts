@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
     NotSupportedError,
-    SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
 import { CommandServiceClient } from "../../../src/services/command/command-service-client.js";
@@ -45,11 +44,9 @@ describe("CommandServiceClient grpc signing", () => {
                 submitCommandAsync,
             },
             {
-                signAsync: async () =>
-                    new SignCommandResult({
-                        algorithm: "ed25519",
-                        signature: new Uint8Array([1, 2, 3]),
-                    }),
+                signAsync: async () => {
+                    throw new Error("transport should own signing orchestration");
+                },
             },
         );
 
@@ -66,6 +63,13 @@ describe("CommandServiceClient grpc signing", () => {
 
         expect(result.commandId).toBe("cmd-1");
         expect(submitCommandAsync).toHaveBeenCalledOnce();
+        expect(submitCommandAsync).toHaveBeenCalledWith(
+            expect.any(SubmitCommandRequest),
+            expect.objectContaining({
+                signAsync: expect.any(Function),
+            }),
+            undefined,
+        );
     });
 
     it("keeps command submission service unsupported for now", async () => {

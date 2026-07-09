@@ -66,7 +66,6 @@ import { ParticipantListPackagesRequest } from "../../core/types/requests/partic
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
-import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
@@ -132,6 +131,7 @@ import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-fil
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import {
     mapJsonSubmitCommand,
@@ -1298,12 +1298,12 @@ export class JsonTransport implements ITransport {
 
     public async submitCommandAsync(
         request: SubmitCommandRequest,
-        signed?: SignCommandResult,
+        signer?: ICommandSigner,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
         this.throwIfDisposed();
 
-        if (signed) {
+        if (signer) {
             throw new NotSupportedError(
                 "command signing is not supported by json transport",
             );

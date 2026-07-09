@@ -185,7 +185,7 @@ import { CompletionObserver } from "../../services/command-completion/completion
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
-import { SignCommandResult } from "../signing/sign-command-result.js";
+import { ICommandSigner } from "../signing/command-signer.interface.js";
 import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
 
@@ -758,7 +758,7 @@ export interface ITransport {
      */
     submitCommandAsync(
         request: SubmitCommandRequest,
-        signed?: SignCommandResult,
+        signer?: ICommandSigner,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse>;
 }

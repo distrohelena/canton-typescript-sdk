@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
     NotSupportedError,
-    SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
@@ -41,11 +40,9 @@ describe("JSON command signing", () => {
                 }),
             },
             signer: {
-                signAsync: async () =>
-                    new SignCommandResult({
-                        algorithm: "ed25519",
-                        signature: new Uint8Array([1, 2, 3]),
-                    }),
+                signAsync: async () => {
+                    throw new Error("not used");
+                },
             },
         });
 
