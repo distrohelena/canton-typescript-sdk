@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    CreateCommand,
+    ExerciseCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     HealthCheckRequest,
@@ -28,9 +28,10 @@ describe("json transport entrypoint", () => {
                         return { events: [{ contractId: "c2" }] };
                     }
 
-                    else if (path === "/v1/create") {
+                    else if (path === "/v2/commands/submit-and-wait") {
                         return {
-                            result: { commandId: "cmd-1", transactionId: "tx-1" },
+                            updateId: "tx-1",
+                            completionOffset: "10",
                         };
                     }
 
@@ -89,25 +90,30 @@ describe("json transport entrypoint", () => {
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     readAs: ["Bob"],
-                    command: new CreateCommand({
+                    command: new ExerciseCommand({
                         templateId: "Main:Iou",
-                        payload: {
-                            issuer: "Alice",
-                            owner: "Bob",
-                        },
+                        contractId: "00abc",
+                        choice: "Archive",
+                        argument: {},
                     }),
                 }),
             ),
         ).resolves.toBeDefined();
-        expect(capturedBodies["/v1/create"]).toEqual({
-            templateId: "Main:Iou",
-            payload: {
-                issuer: "Alice",
-                owner: "Bob",
-            },
+        expect(capturedBodies["/v2/commands/submit-and-wait"]).toEqual({
+            commandId: expect.any(String),
             applicationId: "app-1",
             actAs: ["Alice"],
             readAs: ["Bob"],
+            commands: [
+                {
+                    ExerciseCommand: {
+                        templateId: "Main:Iou",
+                        contractId: "00abc",
+                        choice: "Archive",
+                        choiceArgument: {},
+                    },
+                },
+            ],
         });
         expect(capturedBodies["/v1/stream/query"]).toEqual({
             party: "Alice",

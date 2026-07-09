@@ -16,9 +16,7 @@ export class CreateAndExerciseCommand {
             throw new ValidationError(
                 "create-and-exercise commands require a templateId",
             );
-        }
-
-        if (!init.choice) {
+        } else if (!init.choice) {
             throw new ValidationError(
                 "create-and-exercise commands require a choice",
             );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    CreateCommand,
+    ExerciseCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     HealthCheckRequest,
@@ -80,9 +80,11 @@ describe("grpc transport entrypoint", () => {
                 new SubmitCommandRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new CreateCommand({
+                    command: new ExerciseCommand({
                         templateId: "Main:Iou",
-                        payload: { issuer: "Alice" },
+                        contractId: "00abc",
+                        choice: "Archive",
+                        argument: {},
                     }),
                 }),
             ),

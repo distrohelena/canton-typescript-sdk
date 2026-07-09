@@ -133,7 +133,10 @@ import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { mapJsonSubmitCommand } from "./mappers/commands-mapper.js";
+import {
+    mapJsonSubmitCommand,
+    mapJsonSubmitCommandRequest,
+} from "./mappers/commands-mapper.js";
 import { mapJsonUploadPackage } from "./mappers/packages-mapper.js";
 import {
     mapJsonAllocatePartyRequest,
@@ -1307,22 +1310,22 @@ export class JsonTransport implements ITransport {
         }
 
         const payload = await this.httpClient.postAsync(
-            "/v1/create",
-            {
-                templateId: request.command.templateId,
-                payload: request.command.payload,
-                applicationId: request.applicationId,
-                actAs: request.actAs,
-                readAs: request.readAs,
-            },
+            "/v2/commands/submit-and-wait",
+            mapJsonSubmitCommandRequest(request),
             options,
         );
 
         return mapJsonSubmitCommand(
             payload as {
-                result?: { commandId?: string; transactionId?: string };
+                result?: {
+                    commandId?: string;
+                    transactionId?: string;
+                    updateId?: string;
+                };
                 commandId?: string;
                 transactionId?: string;
+                updateId?: string;
+                completionOffset?: string;
             },
         );
     }

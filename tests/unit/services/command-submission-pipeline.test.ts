@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    ExerciseCommand,
     RequestOptions,
     SignCommandResult,
     SubmitCommandRequest,
@@ -86,5 +87,74 @@ describe("CommandSubmissionPipeline", () => {
             expect.any(SignCommandResult),
             options,
         );
+    });
+
+    it("passes exercise command payloads with kind discriminators to the signer", async () => {
+        const signAsync = vi.fn(
+            async () =>
+                new SignCommandResult({
+                    algorithm: "ed25519",
+                    signature: new Uint8Array([1, 2, 3]),
+                }),
+        );
+
+        const submitCommandAsync = vi.fn(async () => ({
+            commandId: "cmd-1",
+            transactionId: "tx-1",
+        }));
+
+        const pipeline = new CommandSubmissionPipeline({
+            transport: {
+                features: { supportsCommandSigning: true },
+                getLedgerApiVersionAsync: async () => {
+                    throw new Error("not used");
+                },
+                allocatePartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                listKnownPartiesAsync: async () => {
+                    throw new Error("not used");
+                },
+                grantUserRightsAsync: async () => {
+                    throw new Error("not used");
+                },
+                uploadDarFileAsync: async () => {
+                    throw new Error("not used");
+                },
+                getActiveContractsPageAsync: async () => {
+                    throw new Error("not used");
+                },
+                getActiveContractsAsync: async () => {
+                    throw new Error("not used");
+                },
+                getUpdatesAsync: async () => {
+                    throw new Error("not used");
+                },
+                submitCommandAsync,
+            },
+            signer: { signAsync },
+        });
+
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            readAs: ["Bob"],
+            command: new ExerciseCommand({
+                templateId: "Main:Vault",
+                contractId: "00abc",
+                choice: "Deposit",
+                argument: {
+                    amount: "10.0",
+                },
+            }),
+        });
+
+        await pipeline.submitAsync(request);
+
+        const payload = new TextDecoder().decode(signAsync.mock.calls[0]?.[0].payload);
+
+        expect(payload).toContain("\"kind\":\"exercise\"");
+        expect(payload).toContain("\"contractId\":\"00abc\"");
+        expect(payload).toContain("\"choice\":\"Deposit\"");
     });
 });

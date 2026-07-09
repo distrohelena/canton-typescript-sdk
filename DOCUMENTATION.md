@@ -26,7 +26,10 @@ import {
     CantonClient,
     CantonHashPurpose,
     CantonClientOptions,
+    CreateAndExerciseCommand,
     CreateCommand,
+    ExerciseByKeyCommand,
+    ExerciseCommand,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
     GetPackageRequest,
@@ -1286,12 +1289,18 @@ Request fields:
 - `applicationId: string`
 - `actAs: readonly string[]`
 - `readAs: readonly string[]`
-- `command: CreateCommand`
+- `command: LedgerCommand`
 
-`CreateCommand` fields:
+Supported command types:
 
-- `templateId: string`
-- `payload: Record<string, unknown>`
+- `CreateCommand`
+  Fields: `templateId: string`, `payload: Record<string, unknown>`
+- `ExerciseCommand`
+  Fields: `templateId: string`, `contractId: string`, `choice: string`, `argument: unknown`
+- `ExerciseByKeyCommand`
+  Fields: `templateId: string`, `contractKey: unknown`, `choice: string`, `argument: unknown`
+- `CreateAndExerciseCommand`
+  Fields: `templateId: string`, `payload: Record<string, unknown>`, `choice: string`, `argument: unknown`
 
 Return type:
 
@@ -1306,6 +1315,8 @@ Notes:
 
 - `actAs` must contain at least one party
 - external signing is applied here on `grpc` when `commandSigner` is configured
+- `json` uses the Ledger API V2 command endpoint and supports the same four command shapes
+- `transactionId` carries the ledger update id returned by the transport
 
 Example:
 
@@ -1321,6 +1332,19 @@ const response = await client.commandService.submitAndWaitAsync(
                 issuer: "Alice",
                 owner: "Bob",
             },
+        }),
+    }),
+);
+
+await client.commandService.submitAndWaitAsync(
+    new SubmitCommandRequest({
+        applicationId: "app-1",
+        actAs: ["Alice"],
+        command: new ExerciseCommand({
+            templateId: "Main:Iou",
+            contractId: "00abc",
+            choice: "Archive",
+            argument: {},
         }),
     }),
 );

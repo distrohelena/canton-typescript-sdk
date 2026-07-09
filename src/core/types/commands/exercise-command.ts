@@ -16,15 +16,11 @@ export class ExerciseCommand {
             throw new ValidationError(
                 "exercise commands require a templateId",
             );
-        }
-
-        if (!init.contractId) {
+        } else if (!init.contractId) {
             throw new ValidationError(
                 "exercise commands require a contractId",
             );
-        }
-
-        if (!init.choice) {
+        } else if (!init.choice) {
             throw new ValidationError(
                 "exercise commands require a choice",
             );

@@ -16,15 +16,11 @@ export class ExerciseByKeyCommand {
             throw new ValidationError(
                 "exercise-by-key commands require a templateId",
             );
-        }
-
-        if (init.contractKey === undefined) {
+        } else if (init.contractKey === undefined) {
             throw new ValidationError(
                 "exercise-by-key commands require a contractKey",
             );
-        }
-
-        if (!init.choice) {
+        } else if (!init.choice) {
             throw new ValidationError(
                 "exercise-by-key commands require a choice",
             );

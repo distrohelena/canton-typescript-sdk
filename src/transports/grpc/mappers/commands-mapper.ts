@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { ValidationError } from "../../../core/errors/validation-error.js";
 import { SignCommandResult } from "../../../core/signing/sign-command-result.js";
+import { CreateAndExerciseCommand } from "../../../core/types/commands/create-and-exercise-command.js";
+import { CreateCommand } from "../../../core/types/commands/create-command.js";
+import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
+import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
+import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
 import { SubmitCommandRequest } from "../../../core/types/requests/submit-command-request.js";
 import { SubmitCommandResponse } from "../../../core/types/responses/submit-command-response.js";
 import { Command, Commands } from "../generated/canton/com/daml/ledger/api/v2/commands.js";
@@ -23,7 +28,7 @@ export function mapGrpcSubmitCommandRequest(
             workflowId: "",
             userId: "",
             commandId: randomUUID(),
-            commands: [mapCreateCommand(request)],
+            commands: [mapCommand(request.command)],
             deduplicationPeriod: {
                 oneofKind: undefined,
             },
@@ -52,15 +57,59 @@ export function mapGrpcSubmitCommand(payload: {
     });
 }
 
-function mapCreateCommand(request: SubmitCommandRequest): Command {
+function mapCommand(command: LedgerCommand): Command {
+    if (command instanceof CreateCommand) {
+        return mapCreateCommand(command);
+    } else if (command instanceof ExerciseCommand) {
+        return {
+            command: {
+                oneofKind: "exercise",
+                exercise: {
+                    templateId: parseTemplateIdentifier(command.templateId),
+                    contractId: command.contractId,
+                    choice: command.choice,
+                    choiceArgument: mapValue(command.argument),
+                },
+            },
+        };
+    } else if (command instanceof ExerciseByKeyCommand) {
+        return {
+            command: {
+                oneofKind: "exerciseByKey",
+                exerciseByKey: {
+                    templateId: parseTemplateIdentifier(command.templateId),
+                    contractKey: mapValue(command.contractKey),
+                    choice: command.choice,
+                    choiceArgument: mapValue(command.argument),
+                },
+            },
+        };
+    } else if (command instanceof CreateAndExerciseCommand) {
+        return {
+            command: {
+                oneofKind: "createAndExercise",
+                createAndExercise: {
+                    templateId: parseTemplateIdentifier(command.templateId),
+                    createArguments: mapRecord(command.payload),
+                    choice: command.choice,
+                    choiceArgument: mapValue(command.argument),
+                },
+            },
+        };
+    }
+
+    throw new ValidationError("unsupported submit command type");
+}
+
+function mapCreateCommand(command: CreateCommand): Command {
     return {
         command: {
             oneofKind: "create",
             create: {
                 templateId: parseTemplateIdentifier(
-                    request.command.templateId,
+                    command.templateId,
                 ),
-                createArguments: mapRecord(request.command.payload),
+                createArguments: mapRecord(command.payload),
             },
         },
     };

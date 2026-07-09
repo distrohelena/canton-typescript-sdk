@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    CreateCommand,
+    ExerciseCommand,
     GetActiveContractsPageRequest,
     GetUpdatesRequest,
     SubmitCommandRequest,
@@ -68,9 +68,11 @@ describe("GrpcTransport live ledger shapes", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                command: new CreateCommand({
+                command: new ExerciseCommand({
                     templateId: "Main:Iou",
-                    payload: { issuer: "Alice" },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
                 }),
             }),
         );
@@ -124,7 +126,17 @@ describe("GrpcTransport live ledger shapes", () => {
             commands: {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                commands: expect.any(Array),
+                commands: [
+                    {
+                        command: {
+                            oneofKind: "exercise",
+                            exercise: {
+                                contractId: "00abc",
+                                choice: "Archive",
+                            },
+                        },
+                    },
+                ],
                 commandId: expect.any(String),
             },
         });
