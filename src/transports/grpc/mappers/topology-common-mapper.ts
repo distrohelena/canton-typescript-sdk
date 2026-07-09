@@ -527,9 +527,11 @@ export function mapSdkDuration(
 export function mapSdkSigningPublicKey(
     value?: Partial<SigningPublicKey>,
 ): TopologySigningPublicKey {
+    const format = mapSdkCryptoKeyFormat(value?.format);
+
     return new TopologySigningPublicKey({
-        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey),
-        format: mapSdkCryptoKeyFormat(value?.format),
+        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey, format),
+        format,
         publicKey: value?.publicKey,
         scheme: undefined,
         usage: (value?.usage ?? []).map(mapSdkSigningKeyUsage),
@@ -540,9 +542,11 @@ export function mapSdkSigningPublicKey(
 export function mapSdkEncryptionPublicKey(
     value?: Partial<EncryptionPublicKey>,
 ): TopologyEncryptionPublicKey {
+    const format = mapSdkCryptoKeyFormat(value?.format);
+
     return new TopologyEncryptionPublicKey({
-        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey),
-        format: mapSdkCryptoKeyFormat(value?.format),
+        fingerprint: computeCantonPublicKeyFingerprint(value?.publicKey, format),
+        format,
         publicKey: value?.publicKey,
         scheme: undefined,
         keySpec: mapSdkEncryptionKeySpec(value?.keySpec),

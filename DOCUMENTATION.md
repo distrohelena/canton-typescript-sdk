@@ -175,7 +175,7 @@ Return value:
 
 - `string`
 
-### `hashing.computePublicKeyFingerprint(publicKey)`
+### `hashing.computePublicKeyFingerprint(publicKey, format?)`
 
 Computes the canonical Canton public-key fingerprint from serialized public key bytes.
 
@@ -184,10 +184,16 @@ This is SDK-local and transport-independent.
 Arguments:
 
 - `publicKey: Uint8Array`
+- `format?: ExternalPartyCryptoKeyFormat`
 
 Return value:
 
 - `string`
+
+Notes:
+
+- for raw key bytes, the helper hashes the supplied bytes directly
+- for `ExternalPartyCryptoKeyFormat.derX509SubjectPublicKeyInfo`, the helper normalizes Ed25519 SPKI wrappers to the 32-byte subject public key payload before hashing
 
 ## Endpoint Surfaces
 
