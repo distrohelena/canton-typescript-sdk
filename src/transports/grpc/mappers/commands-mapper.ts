@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { ValidationError } from "../../../core/errors/validation-error.js";
-import { SignCommandResult } from "../../../core/signing/sign-command-result.js";
 import { CreateAndExerciseCommand } from "../../../core/types/commands/create-and-exercise-command.js";
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
@@ -21,14 +20,13 @@ import {
 
 export function mapGrpcSubmitCommandRequest(
     request: SubmitCommandRequest,
-    _signed?: SignCommandResult,
 ): SubmitAndWaitRequest {
     return {
         commands: {
             workflowId: "",
-            userId: "",
+            userId: request.userId ?? "",
             commandId: randomUUID(),
-            commands: [mapCommand(request.command)],
+            commands: [mapGrpcLedgerCommand(request.command)],
             deduplicationPeriod: {
                 oneofKind: undefined,
             },
@@ -57,9 +55,9 @@ export function mapGrpcSubmitCommand(payload: {
     });
 }
 
-function mapCommand(command: LedgerCommand): Command {
+export function mapGrpcLedgerCommand(command: LedgerCommand): Command {
     if (command instanceof CreateCommand) {
-        return mapCreateCommand(command);
+        return mapGrpcCreateCommand(command);
     } else if (command instanceof ExerciseCommand) {
         return {
             command: {
@@ -101,7 +99,7 @@ function mapCommand(command: LedgerCommand): Command {
     throw new ValidationError("unsupported submit command type");
 }
 
-function mapCreateCommand(command: CreateCommand): Command {
+export function mapGrpcCreateCommand(command: CreateCommand): Command {
     return {
         command: {
             oneofKind: "create",
@@ -115,7 +113,7 @@ function mapCreateCommand(command: CreateCommand): Command {
     };
 }
 
-function mapRecord(payload: Record<string, unknown>): GrpcRecord {
+export function mapRecord(payload: Record<string, unknown>): GrpcRecord {
     return {
         fields: Object.entries(payload).map(([label, value]) => ({
             label,
@@ -124,7 +122,7 @@ function mapRecord(payload: Record<string, unknown>): GrpcRecord {
     };
 }
 
-function mapValue(value: unknown): Value {
+export function mapValue(value: unknown): Value {
     if (value === null || value === undefined) {
         return {
             sum: {
@@ -187,7 +185,7 @@ function mapValue(value: unknown): Value {
     };
 }
 
-function parseTemplateIdentifier(templateId: string): Identifier {
+export function parseTemplateIdentifier(templateId: string): Identifier {
     const parts = templateId.split(":");
 
     if (parts.length === 2) {

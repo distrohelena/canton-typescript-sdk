@@ -13,6 +13,7 @@ describe("grpc command mapper", () => {
         const payload = mapGrpcSubmitCommandRequest(
             new SubmitCommandRequest({
                 applicationId: "app-1",
+                userId: "wallet-user",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new CreateCommand({
@@ -29,6 +30,7 @@ describe("grpc command mapper", () => {
             commands: {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
+                userId: "wallet-user",
                 commandId: expect.any(String),
                 commands: [
                     {
@@ -52,6 +54,7 @@ describe("grpc command mapper", () => {
         const payload = mapGrpcSubmitCommandRequest(
             new SubmitCommandRequest({
                 applicationId: "app-1",
+                userId: "wallet-user",
                 actAs: ["Alice"],
                 command: new ExerciseCommand({
                     templateId: "Main:Vault",
@@ -78,6 +81,7 @@ describe("grpc command mapper", () => {
                 },
             },
         });
+        expect(payload.commands.userId).toBe("wallet-user");
     });
 
     it("maps exercise-by-key commands", () => {
