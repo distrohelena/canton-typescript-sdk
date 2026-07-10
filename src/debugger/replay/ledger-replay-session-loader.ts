@@ -4,6 +4,7 @@ import {
     IDamlLfTraceSink,
     IDamlLfTraceStep,
 } from "../../daml-lf/interpreter/daml-lf-trace-sink.interface.js";
+import { IDamlLfRuntimeValue } from "../../daml-lf/interpreter/daml-lf-runtime-value.js";
 import {
     IDamlLfReplayEnvironment,
     IDamlLfReplayEvaluationResult,
@@ -23,6 +24,7 @@ import {
 import { ResolvedReplayEntrypointDefinition } from "./replay-entrypoint-definition-resolver.js";
 import { ReplaySessionRequest } from "../session/replay-session-request.js";
 import { DamlSourceMapper } from "../source/daml-source-mapper.js";
+import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
 
 interface IReplayUpdateLoader {
     loadOrThrowAsync(offset: string): Promise<IReplayTransactionSnapshot>;
@@ -37,6 +39,10 @@ interface IReplayEnvironmentBuilder {
 interface IReplayDefinitionResolver {
     resolveEntrypointDefinitionOrThrow(
         entrypoint: IReplayTransactionSnapshot["entrypoint"],
+    ): ResolvedReplayEntrypointDefinition;
+    resolveChoiceDefinitionOrThrow?(
+        templateId: DamlLfTemplateId,
+        choiceName: string,
     ): ResolvedReplayEntrypointDefinition;
 }
 
@@ -99,7 +105,10 @@ export class LedgerReplaySessionLoader {
         const evaluation =
             this.dependencies.evaluator.evaluateReplayEntrypointOrThrow(
                 definition.definition,
-                environment,
+                {
+                    ...environment,
+                    definitionResolver: this.dependencies.definitionResolver,
+                },
                 {
                     onStep: (step) => {
                         traceSteps.push(step);
@@ -240,7 +249,7 @@ export class LedgerReplaySessionLoader {
         });
     }
 
-    private stringifyRuntimeValue(value: Record<string, unknown>): string {
+    private stringifyRuntimeValue(value: IDamlLfRuntimeValue): string {
         if ("value" in value && typeof value.value === "string") {
             return value.value;
         }
@@ -249,7 +258,7 @@ export class LedgerReplaySessionLoader {
             return JSON.stringify(value.value);
         }
 
-        return value.kind ?? "value";
+        return typeof value.kind === "string" ? value.kind : "value";
     }
 
     private rememberFrameScope(

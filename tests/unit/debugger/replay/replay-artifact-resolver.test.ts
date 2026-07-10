@@ -1,3 +1,4 @@
+import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { GetDarRequest } from "../../../../src/core/types/requests/get-dar-request.js";
 import { GetPackageReferencesRequest } from "../../../../src/core/types/requests/get-package-references-request.js";
@@ -36,6 +37,55 @@ describe("ReplayArtifactResolver", () => {
         const resolution = await resolver.resolveAsync(["pkg-main"]);
 
         expect(resolution.packageIds).toContain("pkg-dependency");
+    });
+
+    it("prefers a sibling debug dar when a standard dar lacks source maps", async () => {
+        const packagesByDarName: Record<string, Uint8Array> = {
+            "pkg-main.dar": createDarFixtureWithoutSourceMap(),
+            "pkg-main-debug.dar": createSourceMappedDarFixture({
+                packageId: "pkg-main",
+            }),
+        };
+
+        const resolver = new ReplayArtifactResolver({
+            participantPackageService: {
+                async getPackageReferencesAsync(
+                    request: GetPackageReferencesRequest,
+                ): Promise<GetPackageReferencesResponse> {
+                    if (request.packageId !== "pkg-main") {
+                        return new GetPackageReferencesResponse({ dars: [] });
+                    }
+
+                    return new GetPackageReferencesResponse({
+                        dars: [
+                            new ParticipantDarDescription({
+                                main: "pkg-main.dar",
+                                name: "pkg-main.dar",
+                                version: "1.0.0",
+                                description: "standard",
+                            }),
+                            new ParticipantDarDescription({
+                                main: "pkg-main-debug.dar",
+                                name: "pkg-main-debug.dar",
+                                version: "1.0.0",
+                                description: "debug",
+                            }),
+                        ],
+                    });
+                },
+                async getDarAsync(request: GetDarRequest): Promise<GetDarResponse> {
+                    return new GetDarResponse({
+                        payload: packagesByDarName[request.mainPackageId],
+                    });
+                },
+            },
+        });
+
+        const resolution = await resolver.resolveAsync(["pkg-main"]);
+
+        expect(resolution.dars).toHaveLength(1);
+        expect(resolution.dars[0]?.name).toBe("pkg-main-debug.dar");
+        expect(resolution.packageIds).toContain("pkg-main");
     });
 
     it("rejects conflicting duplicate package provenance across dars", async () => {
@@ -84,6 +134,18 @@ describe("ReplayArtifactResolver", () => {
         );
     });
 });
+
+function createDarFixtureWithoutSourceMap(): Uint8Array {
+    return zipSync({
+        "META-INF/MANIFEST.MF": strToU8(
+            "Manifest-Version: 1.0\nMain-Dalf: Sample.dalf\n",
+        ),
+        "Sample.dalf": new Uint8Array([1, 2, 3, 4]),
+        "src/Main.daml": strToU8(
+            "module Main where\n\narchive : ()\narchive = ()\n",
+        ),
+    });
+}
 
 function createResolver(
     packagesByMainPackageId: Record<string, Uint8Array>,

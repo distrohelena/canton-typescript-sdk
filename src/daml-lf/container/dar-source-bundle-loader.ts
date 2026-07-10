@@ -27,6 +27,8 @@ export class DarSourceBundleLoader {
         const metadata = JSON.parse(
             strFromU8(metadataEntry.bytes),
         ) as Partial<{
+            packageId: string;
+            importedPackages: unknown[];
             executables: DarSourceBundleMetadataExecutable[];
         }>;
 
@@ -45,7 +47,8 @@ export class DarSourceBundleLoader {
                         : undefined,
                 importedPackages: Array.isArray(metadata.importedPackages)
                     ? metadata.importedPackages.filter(
-                          (entry): entry is string => typeof entry === "string",
+                          (entry: unknown): entry is string =>
+                              typeof entry === "string",
                       )
                     : [],
                 executables: metadata.executables,

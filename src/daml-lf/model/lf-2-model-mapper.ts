@@ -11,6 +11,7 @@ import {
     TemplateChoice,
     Type,
     TypeConId,
+    Update,
     VarWithType,
 } from "../../transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 import { DamlLfLanguageVersion } from "../decoding/daml-lf-language-version.js";
@@ -376,6 +377,12 @@ export class Lf2ModelMapper {
                     ),
                 });
             }
+
+            if (rawLiteral.sum.oneofKind === "int64") {
+                return new DamlLfExpression({
+                    int64Literal: rawLiteral.sum.int64,
+                });
+            }
         }
 
         if (rawExpression?.sum.oneofKind === "builtinCon") {
@@ -394,6 +401,11 @@ export class Lf2ModelMapper {
                 builtinFunction:
                     rawExpression.sum.builtin === BuiltinFunction.EQUAL
                         ? "equal"
+                        : rawExpression.sum.builtin === BuiltinFunction.GREATER
+                            ? "greater"
+                            : rawExpression.sum.builtin
+                                === BuiltinFunction.APPEND_TEXT
+                                ? "appendText"
                         : "unsupported",
             });
         }
@@ -538,6 +550,18 @@ export class Lf2ModelMapper {
                         rawPackage,
                     ),
                 },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "update") {
+            return new DamlLfExpression({
+                updateExpression: Lf2ModelMapper.mapUpdateExpression(
+                    rawExpression.sum.update,
+                    internedStrings,
+                    internedDottedNames,
+                    currentPackageId,
+                    rawPackage,
+                ),
             });
         }
 
@@ -698,6 +722,158 @@ export class Lf2ModelMapper {
         }
 
         return new DamlLfExpression({});
+    }
+
+    private static mapUpdateExpression(
+        rawUpdate: Update,
+        internedStrings: readonly string[],
+        internedDottedNames: readonly { segmentsInternedStr: readonly number[] }[],
+        currentPackageId: string,
+        rawPackage: LfArchivePackage,
+    ): DamlLfExpression["updateExpression"] {
+        switch (rawUpdate.sum.oneofKind) {
+            case "pure":
+                return {
+                    kind: "pure",
+                    expression: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.pure.expr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "block":
+                return {
+                    kind: "block",
+                    bindings: rawUpdate.sum.block.bindings.map((binding) => ({
+                        name: Lf2ModelMapper.resolveInternedString(
+                            internedStrings,
+                            binding.binder?.varInternedStr,
+                        ),
+                        value: Lf2ModelMapper.mapExpression(
+                            binding.bound,
+                            internedStrings,
+                            internedDottedNames,
+                            currentPackageId,
+                            rawPackage,
+                        ),
+                    })),
+                    body: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.block.body,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "embedExpr":
+                return {
+                    kind: "embedExpr",
+                    expression: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.embedExpr.body,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "create":
+                return {
+                    kind: "create",
+                    templateId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.create.template,
+                    ),
+                    argument: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.create.expr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "fetch":
+                return {
+                    kind: "fetch",
+                    templateId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.fetch.template,
+                    ),
+                    contractId: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.fetch.cid,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "exercise":
+                return {
+                    kind: "exercise",
+                    templateId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.exercise.template,
+                    ),
+                    choiceName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawUpdate.sum.exercise.choiceInternedStr,
+                    ),
+                    contractId: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.exercise.cid,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    argument: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.exercise.arg,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            default:
+                return {
+                    kind: "embedExpr",
+                    expression: new DamlLfExpression({}),
+                };
+        }
+    }
+
+    private static mapTemplateReferenceOrThrow(
+        currentPackageId: string,
+        rawPackage: LfArchivePackage,
+        rawTypeConId: TypeConId | undefined,
+    ): {
+        packageId: string;
+        moduleName: string;
+        templateName: string;
+    } {
+        const reference = Lf2ModelMapper.mapTypeConReferenceOrThrow(
+            currentPackageId,
+            rawPackage,
+            rawTypeConId,
+            {
+                sum: {
+                    oneofKind: "con",
+                    con: {
+                        tycon: rawTypeConId,
+                        args: [],
+                    },
+                },
+            },
+        );
+
+        return {
+            packageId: reference.packageId,
+            moduleName: reference.moduleName,
+            templateName: reference.name,
+        };
     }
 
     private static resolveInternedString(

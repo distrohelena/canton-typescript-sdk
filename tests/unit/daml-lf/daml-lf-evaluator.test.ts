@@ -680,4 +680,127 @@ describe("DamlLfEvaluator", () => {
             value: "head",
         });
     });
+
+    it("evaluates int64 comparison builtins through application", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "isPositive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                caseExpression: {
+                    scrutinee: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                builtinFunction: "greater",
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    int64Literal: "5",
+                                }),
+                                new DamlLfExpression({
+                                    int64Literal: "0",
+                                }),
+                            ],
+                        },
+                    }),
+                    alternatives: [
+                        {
+                            patternKind: "builtinCon",
+                            builtinConstructor: "true",
+                            body: new DamlLfExpression({
+                                textLiteral: "positive",
+                            }),
+                        },
+                        {
+                            patternKind: "default",
+                            body: new DamlLfExpression({
+                                textLiteral: "not-positive",
+                            }),
+                        },
+                    ],
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "positive",
+        });
+    });
+
+    it("evaluates appendText builtin through application", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "fullName",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                application: {
+                    function: new DamlLfExpression({
+                        builtinFunction: "appendText",
+                    }),
+                    arguments: [
+                        new DamlLfExpression({
+                            textLiteral: "Alice",
+                        }),
+                        new DamlLfExpression({
+                            textLiteral: " Smith",
+                        }),
+                    ],
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "Alice Smith",
+        });
+    });
 });

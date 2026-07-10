@@ -7,15 +7,20 @@ import { ReplayStackFrame } from "./replay-stack-frame.js";
 import { ReplayStep } from "./replay-step.js";
 import { ReplayStepAdvanceResult } from "./replay-step-advance-result.js";
 
-interface IStoredReplaySession extends ILoadedReplaySession {}
+interface IStoredReplaySession extends Omit<ILoadedReplaySession, "currentStepIndex"> {
+    currentStepIndex: number;
+}
 
 export class InMemoryReplaySessionStore {
     private readonly sessions = new Map<string, IStoredReplaySession>();
 
     public put(session: ILoadedReplaySession): ReplaySession {
-        this.sessions.set(session.sessionId, session);
+        this.sessions.set(session.sessionId, {
+            ...session,
+            currentStepIndex: session.currentStepIndex,
+        });
 
-        return this.toReplaySession(session);
+        return this.toReplaySession(this.getRecordOrThrow(session.sessionId));
     }
 
     public getSessionMetadataOrThrow(sessionId: string): ReplaySessionMetadata {

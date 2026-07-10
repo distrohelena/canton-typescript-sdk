@@ -3,6 +3,7 @@ import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update
 import { ReplayUnsupportedUpdateException } from "../errors/replay-unsupported-update.exception.js";
 import { ReplayEntrypoint } from "./replay-entrypoint.js";
 import { validateReplayVisibilityOrThrow } from "./replay-update-visibility-validator.js";
+import { TransactionShape } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 
 interface IReplayUpdateService {
     getUpdateByOffsetAsync(
@@ -14,6 +15,7 @@ export class ReplayUpdateLoader {
     public constructor(
         private readonly dependencies: {
             updateService: IReplayUpdateService;
+            visibleParties?: readonly string[];
         },
     ) {}
 
@@ -30,11 +32,9 @@ export class ReplayUpdateLoader {
             await this.dependencies.updateService.getUpdateByOffsetAsync(
                 new GetUpdateByOffsetRequest({
                     offset,
-                    updateFormat: {
-                        includeTransactions: true,
-                        includeCreatedEventBlob: true,
-                        includeExercises: true,
-                    },
+                    updateFormat: createReplayUpdateFormat(
+                        this.dependencies.visibleParties,
+                    ),
                 }),
             );
         const transaction = response.update as
@@ -152,4 +152,49 @@ export class ReplayUpdateLoader {
             "could not derive a replay entrypoint from the visible update payload",
         );
     }
+}
+
+function createReplayUpdateFormat(
+    visibleParties?: readonly string[],
+): Record<string, unknown> {
+    return {
+        includeTransactions: {
+            eventFormat: createReplayEventFormat(visibleParties),
+            transactionShape: TransactionShape.LEDGER_EFFECTS,
+        },
+    };
+}
+
+function createReplayEventFormat(
+    visibleParties?: readonly string[],
+): Record<string, unknown> {
+    const wildcardFilter = {
+        cumulative: [
+            {
+                identifierFilter: {
+                    oneofKind: "wildcardFilter",
+                    wildcardFilter: {
+                        includeCreatedEventBlob: true,
+                    },
+                },
+            },
+        ],
+    };
+
+    if (Array.isArray(visibleParties) && visibleParties.length > 0) {
+        return {
+            filtersByParty: Object.fromEntries(
+                [...new Set(visibleParties)]
+                    .filter((party) => typeof party === "string" && party.length > 0)
+                    .map((party) => [party, wildcardFilter]),
+            ),
+            verbose: true,
+        };
+    }
+
+    return {
+        filtersByParty: {},
+        filtersForAnyParty: wildcardFilter,
+        verbose: true,
+    };
 }

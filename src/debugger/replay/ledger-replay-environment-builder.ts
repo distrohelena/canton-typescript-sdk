@@ -95,6 +95,7 @@ export class LedgerReplayEnvironmentBuilder {
         private readonly dependencies: {
             contractService: IReplayContractService;
             eventQueryService: IReplayEventQueryService;
+            queryingParties?: readonly string[];
         },
     ) {}
 
@@ -217,6 +218,7 @@ export class LedgerReplayEnvironmentBuilder {
             await this.dependencies.eventQueryService.getEventsByContractIdAsync(
                 new GetEventsByContractIdRequest({
                     contractId,
+                    eventFormat: createReplayEventFormat(queryingParties),
                 }),
             );
         const createdHistory = this.asCreatedEvent(
@@ -259,6 +261,12 @@ export class LedgerReplayEnvironmentBuilder {
     private getQueryingParties(
         snapshot: IReplayTransactionSnapshot,
     ): readonly string[] {
+        const configuredParties = this.dependencies.queryingParties ?? [];
+
+        if (configuredParties.length > 0) {
+            return [...new Set(configuredParties)];
+        }
+
         return [
             ...new Set([...(snapshot.actAs ?? []), ...(snapshot.readAs ?? [])]),
         ];
@@ -457,4 +465,38 @@ export class LedgerReplayEnvironmentBuilder {
         const property = this.readObjectProperty(value, propertyName);
         return typeof property === "string" ? property : "";
     }
+}
+
+function createReplayEventFormat(
+    visibleParties?: readonly string[],
+): Record<string, unknown> {
+    const wildcardFilter = {
+        cumulative: [
+            {
+                identifierFilter: {
+                    oneofKind: "wildcardFilter",
+                    wildcardFilter: {
+                        includeCreatedEventBlob: true,
+                    },
+                },
+            },
+        ],
+    };
+
+    if (Array.isArray(visibleParties) && visibleParties.length > 0) {
+        return {
+            filtersByParty: Object.fromEntries(
+                [...new Set(visibleParties)]
+                    .filter((party) => typeof party === "string" && party.length > 0)
+                    .map((party) => [party, wildcardFilter]),
+            ),
+            verbose: true,
+        };
+    }
+
+    return {
+        filtersByParty: {},
+        filtersForAnyParty: wildcardFilter,
+        verbose: true,
+    };
 }

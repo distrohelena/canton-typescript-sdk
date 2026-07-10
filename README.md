@@ -241,6 +241,7 @@ Current scope:
 - load a replay session from a committed update offset
 - hydrate referenced contracts through the gRPC contract and event-query services
 - precompute a stepwise LF trace and expose stepping/session APIs
+- replay LF update bodies for the supported evaluator subset, including nested exercise-driven effects
 - validate replay determinism against the observed update payload
 
 Current limits:
@@ -248,7 +249,7 @@ Current limits:
 - replay depends on gRPC-visible create/exercise payloads
 - source-aware replay expects DAR provenance with debugger source-map metadata
 - unsupported LF constructs still fail fast with `ReplayUnsupportedLfConstructException`
-- source locations are not emitted on trace steps yet
+- source locations currently map to executable definition spans from the DAR source map
 
 Example:
 

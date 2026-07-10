@@ -13,6 +13,7 @@ import {
     Case,
     Expr,
     Package,
+    TypeConId,
     VarWithType,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 
@@ -225,6 +226,67 @@ describe("LF 2.x model mapper", () => {
                 patternKind: "cons",
                 headBinderName: "head",
                 tailBinderName: "tail",
+            }),
+        );
+    });
+
+    it("maps int64 literals and comparison builtins", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createBuiltinComparisonArchiveBytes(),
+        );
+        const definition = packageModel.modules[0].definitions[0];
+
+        expect(
+            definition.expression.application?.function.builtinFunction,
+        ).toBe("greater");
+        expect(
+            definition.expression.application?.arguments[0]?.int64Literal,
+        ).toBe("5");
+        expect(
+            definition.expression.application?.arguments[1]?.int64Literal,
+        ).toBe("0");
+    });
+
+    it("maps appendText builtin applications", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createAppendTextArchiveBytes(),
+        );
+        const definition = packageModel.modules[0].definitions[0];
+
+        expect(
+            definition.expression.application?.function.builtinFunction,
+        ).toBe("appendText");
+    });
+
+    it("maps update create, fetch, and exercise expressions", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createUpdateArchiveBytes(),
+        );
+        const createDefinition = packageModel.modules[0].definitions[0];
+        const fetchDefinition = packageModel.modules[0].definitions[1];
+        const exerciseDefinition = packageModel.modules[0].definitions[2];
+
+        expect(createDefinition.expression.updateExpression).toEqual(
+            expect.objectContaining({
+                kind: "create",
+            }),
+        );
+        expect(createDefinition.expression.updateExpression?.templateId).toEqual(
+            expect.objectContaining({
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                templateName: "Vault",
+            }),
+        );
+        expect(fetchDefinition.expression.updateExpression).toEqual(
+            expect.objectContaining({
+                kind: "fetch",
+            }),
+        );
+        expect(exerciseDefinition.expression.updateExpression).toEqual(
+            expect.objectContaining({
+                kind: "exercise",
+                choiceName: "Archive",
             }),
         );
     });
@@ -1192,6 +1254,437 @@ function createListCaseArchiveBytes(): Uint8Array {
         payload: payloadBytes,
         hash: "sample-hash",
     });
+}
+
+function createBuiltinComparisonArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "app",
+                                app: {
+                                    fun: {
+                                        sum: {
+                                            oneofKind: "builtin",
+                                            builtin: BuiltinFunction.GREATER,
+                                        },
+                                    },
+                                    args: [
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "int64",
+                                                        int64: "5",
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "int64",
+                                                        int64: "0",
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "isPositive",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createAppendTextArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "app",
+                                app: {
+                                    fun: {
+                                        sum: {
+                                            oneofKind: "builtin",
+                                            builtin: BuiltinFunction.APPEND_TEXT,
+                                        },
+                                    },
+                                    args: [
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "textInternedStr",
+                                                        textInternedStr: 5,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "textInternedStr",
+                                                        textInternedStr: 6,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "fullName",
+            "Alice",
+            " Smith",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createUpdateArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "update",
+                                update: {
+                                    sum: {
+                                        oneofKind: "create",
+                                        create: {
+                                            template: createTemplateTypeConId(),
+                                            expr: {
+                                                sum: {
+                                                    oneofKind: "builtinLit",
+                                                    builtinLit: {
+                                                        sum: {
+                                                            oneofKind: "textInternedStr",
+                                                            textInternedStr: 7,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        nameWithType: {
+                            nameInternedDname: 2,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "update",
+                                update: {
+                                    sum: {
+                                        oneofKind: "fetch",
+                                        fetch: {
+                                            template: createTemplateTypeConId(),
+                                            cid: {
+                                                sum: {
+                                                    oneofKind: "builtinLit",
+                                                    builtinLit: {
+                                                        sum: {
+                                                            oneofKind: "textInternedStr",
+                                                            textInternedStr: 8,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    {
+                        nameWithType: {
+                            nameInternedDname: 4,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "update",
+                                update: {
+                                    sum: {
+                                        oneofKind: "exercise",
+                                        exercise: {
+                                            template: createTemplateTypeConId(),
+                                            choiceInternedStr: 10,
+                                            cid: {
+                                                sum: {
+                                                    oneofKind: "builtinLit",
+                                                    builtinLit: {
+                                                        sum: {
+                                                            oneofKind: "textInternedStr",
+                                                            textInternedStr: 8,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                            arg: {
+                                                sum: {
+                                                    oneofKind: "builtinLit",
+                                                    builtinLit: {
+                                                        sum: {
+                                                            oneofKind: "textInternedStr",
+                                                            textInternedStr: 7,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "CreateVault",
+            "FetchVault",
+            "Vault",
+            "Alice",
+            "00abc",
+            "ExerciseVault",
+            "Archive",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+            {
+                segmentsInternedStr: [5],
+            },
+            {
+                segmentsInternedStr: [6],
+            },
+            {
+                segmentsInternedStr: [9],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createTemplateTypeConId(): TypeConId {
+    return {
+        module: {
+            packageId: {
+                sum: {
+                    oneofKind: "selfPackageId",
+                    selfPackageId: {},
+                },
+            },
+            moduleNameInternedDname: 0,
+        },
+        nameInternedDname: 3,
+    };
 }
 
 function createLambdaApplicationArchiveBytes(): Uint8Array {

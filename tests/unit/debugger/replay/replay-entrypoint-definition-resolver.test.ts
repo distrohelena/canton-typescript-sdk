@@ -5,6 +5,7 @@ import {
     DamlLfLanguageVersion,
     DamlLfModule,
     DamlLfPackage,
+    DamlLfTemplateId,
     DamlLfType,
     DamlLfValueDefinition,
     DamlLfWorkspace,
@@ -59,6 +60,26 @@ describe("ReplayEntrypointDefinitionResolver", () => {
                 choice: "Archive",
                 argument: {},
             }),
+        );
+
+        expect(resolved.packageId).toBe("pkg-sample");
+        expect(resolved.moduleName).toBe("Main");
+        expect(resolved.definition.name).toBe("archiveVaultHandler");
+    });
+
+    it("resolves nested choice handlers from template and choice metadata", async () => {
+        const indexedCompilation = await createIndexedCompilation();
+        const resolver = new ReplayEntrypointDefinitionResolver(
+            indexedCompilation,
+        );
+
+        const resolved = resolver.resolveChoiceDefinitionOrThrow(
+            new DamlLfTemplateId({
+                packageId: "pkg-sample",
+                moduleName: "Main",
+                templateName: "Vault",
+            }),
+            "Archive",
         );
 
         expect(resolved.packageId).toBe("pkg-sample");

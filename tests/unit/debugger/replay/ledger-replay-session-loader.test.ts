@@ -445,4 +445,237 @@ describe("LedgerReplaySessionLoader", () => {
             ),
         ).toBe(true);
     });
+
+    it("replays nested exercise choice bodies through the session loader", async () => {
+        const archiveMirrorHandler = new DamlLfValueDefinition({
+            name: "archiveMirrorHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self", "choiceArg"],
+                    body: new DamlLfExpression({
+                        updateExpression: {
+                            kind: "create",
+                            templateId: {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                templateName: "Audit",
+                            },
+                            argument: new DamlLfExpression({
+                                recordConstruction: {
+                                    fields: [
+                                        {
+                                            name: "owner",
+                                            value: new DamlLfExpression({
+                                                recordProjection: {
+                                                    fieldName: "owner",
+                                                    record: new DamlLfExpression({
+                                                        variableName: "self",
+                                                    }),
+                                                },
+                                            }),
+                                        },
+                                        {
+                                            name: "note",
+                                            value: new DamlLfExpression({
+                                                variableName: "choiceArg",
+                                            }),
+                                        },
+                                    ],
+                                },
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const archiveVaultRoot = new DamlLfValueDefinition({
+            name: "archiveVaultRoot",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self", "choiceArg"],
+                    body: new DamlLfExpression({
+                        updateExpression: {
+                            kind: "exercise",
+                            templateId: {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                templateName: "MirrorVault",
+                            },
+                            choiceName: "ArchiveMirror",
+                            contractId: new DamlLfExpression({
+                                variableName: "choiceArg",
+                            }),
+                            argument: new DamlLfExpression({
+                                textLiteral: "nested",
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const compilation = DamlLfCompilation.createOrThrow(
+            new DamlLfWorkspace([
+                new DamlLfPackage({
+                    packageId: "pkg-sample",
+                    packageName: "sample",
+                    packageVersion: "1.0.0",
+                    languageVersion: new DamlLfLanguageVersion({
+                        major: 2,
+                        minor: "dev",
+                        patch: 0,
+                    }),
+                    modules: [
+                        new DamlLfModule({
+                            name: "Main",
+                            definitions: [archiveVaultRoot, archiveMirrorHandler],
+                        }),
+                    ],
+                }),
+            ]),
+        );
+        const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+            compilation,
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-sample",
+                        executables: [
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archiveVaultRoot",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 6,
+                                endColumn: 20,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "Archive",
+                            },
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archiveMirrorHandler",
+                                path: "src/Main.daml",
+                                startLine: 8,
+                                startColumn: 1,
+                                endLine: 12,
+                                endColumn: 20,
+                                entrypointKind: "exercise",
+                                templateName: "MirrorVault",
+                                choiceName: "ArchiveMirror",
+                            },
+                        ],
+                    }),
+                ),
+            ],
+        );
+        const snapshot: IReplayTransactionSnapshot = {
+            kind: "transaction",
+            offset: "42",
+            actAs: ["Alice"],
+            readAs: [],
+            events: [
+                {
+                    event: {
+                        oneofKind: "exercised",
+                        exercised: {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            choice: "Archive",
+                            choiceArgument: "00def",
+                        },
+                    },
+                },
+            ],
+            entrypoint: new ReplayEntrypoint({
+                kind: "exercise",
+                templateId: {
+                    packageId: "pkg-sample",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                contractId: "00abc",
+                choice: "Archive",
+                argument: "00def",
+            }),
+        };
+        const loader = new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                    return snapshot;
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(): Promise<ILedgerReplayEnvironment> {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map([
+                            [
+                                "00abc",
+                                {
+                                    contractId: "00abc",
+                                    payload: {
+                                        owner: "Alice",
+                                    },
+                                    history: {},
+                                },
+                            ],
+                            [
+                                "00def",
+                                {
+                                    contractId: "00def",
+                                    payload: {
+                                        owner: "Bob",
+                                    },
+                                    history: {},
+                                },
+                            ],
+                        ]),
+                        packageIds: ["pkg-sample"],
+                    };
+                },
+            },
+            definitionResolver: new ReplayEntrypointDefinitionResolver(
+                indexedCompilation,
+            ),
+            sourceMapper: new DamlSourceMapper(indexedCompilation),
+            evaluator: new DamlLfEvaluator(compilation),
+            determinismValidator: {
+                validateOrThrow(): void {}
+            },
+            sessionIdFactory: () => "session-nested",
+        });
+
+        const session = await loader.loadOrThrowAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+
+        expect(
+            session.steps.some(
+                (step) => step.stateDelta?.kind === "exercise",
+            ),
+        ).toBe(true);
+        expect(
+            session.steps.some(
+                (step) => step.stateDelta?.kind === "create",
+            ),
+        ).toBe(true);
+        expect(
+            session.steps.some(
+                (step) => step.sourceLocation?.startLine === 8,
+            ),
+        ).toBe(true);
+    });
 });

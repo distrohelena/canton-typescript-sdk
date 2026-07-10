@@ -41,7 +41,11 @@ export interface IDamlLfRecordProjectionExpression {
 }
 
 export type DamlLfBuiltinConstructor = "unit" | "false" | "true";
-export type DamlLfBuiltinFunction = "equal" | "unsupported";
+export type DamlLfBuiltinFunction =
+    | "equal"
+    | "greater"
+    | "appendText"
+    | "unsupported";
 
 export interface IDamlLfVariantConstructionExpression {
     readonly constructorName: string;
@@ -59,6 +63,32 @@ export interface IDamlLfEnumConstructionExpression {
 export interface IDamlLfListConstructionExpression {
     readonly front: readonly DamlLfExpression[];
     readonly tail?: DamlLfExpression;
+}
+
+export interface IDamlLfUpdateBinding {
+    readonly name: string;
+    readonly value: DamlLfExpression;
+}
+
+export interface IDamlLfUpdateExpression {
+    readonly kind:
+        | "pure"
+        | "block"
+        | "embedExpr"
+        | "create"
+        | "fetch"
+        | "exercise";
+    readonly expression?: DamlLfExpression;
+    readonly bindings?: readonly IDamlLfUpdateBinding[];
+    readonly body?: DamlLfExpression;
+    readonly templateId?: {
+        readonly packageId: string;
+        readonly moduleName: string;
+        readonly templateName: string;
+    };
+    readonly choiceName?: string;
+    readonly contractId?: DamlLfExpression;
+    readonly argument?: DamlLfExpression;
 }
 
 export interface IDamlLfCaseAlternative {
@@ -87,6 +117,7 @@ export interface IDamlLfCaseExpression {
 export class DamlLfExpression {
     public readonly nodeKind = DamlLfNodeKind.expression;
     public readonly textLiteral?: string;
+    public readonly int64Literal?: string;
     public readonly valueReference?: IDamlLfValueReference;
     public readonly variableName?: string;
     public readonly lambda?: IDamlLfLambdaExpression;
@@ -101,9 +132,11 @@ export class DamlLfExpression {
     public readonly optionalConstruction?: IDamlLfOptionalConstructionExpression;
     public readonly enumConstruction?: IDamlLfEnumConstructionExpression;
     public readonly listConstruction?: IDamlLfListConstructionExpression;
+    public readonly updateExpression?: IDamlLfUpdateExpression;
 
     public constructor(init: {
         textLiteral?: string;
+        int64Literal?: string;
         valueReference?: IDamlLfValueReference;
         variableName?: string;
         lambda?: IDamlLfLambdaExpression;
@@ -118,8 +151,10 @@ export class DamlLfExpression {
         optionalConstruction?: IDamlLfOptionalConstructionExpression;
         enumConstruction?: IDamlLfEnumConstructionExpression;
         listConstruction?: IDamlLfListConstructionExpression;
+        updateExpression?: IDamlLfUpdateExpression;
     }) {
         this.textLiteral = init.textLiteral;
+        this.int64Literal = init.int64Literal;
         this.valueReference = init.valueReference;
         this.variableName = init.variableName;
         this.lambda = init.lambda;
@@ -134,5 +169,6 @@ export class DamlLfExpression {
         this.optionalConstruction = init.optionalConstruction;
         this.enumConstruction = init.enumConstruction;
         this.listConstruction = init.listConstruction;
+        this.updateExpression = init.updateExpression;
     }
 }
