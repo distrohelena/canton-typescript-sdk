@@ -40,12 +40,18 @@ export interface IDamlLfRecordProjectionExpression {
     readonly record: DamlLfExpression;
 }
 
+export interface IDamlLfRecordUpdateExpression {
+    readonly fieldName: string;
+    readonly record: DamlLfExpression;
+    readonly value: DamlLfExpression;
+}
+
 export type DamlLfBuiltinConstructor = "unit" | "false" | "true";
 export type DamlLfBuiltinFunction =
     | "equal"
     | "greater"
     | "appendText"
-    | "unsupported";
+    | string;
 
 export interface IDamlLfVariantConstructionExpression {
     readonly constructorName: string;
@@ -125,6 +131,7 @@ export class DamlLfExpression {
     public readonly letExpression?: IDamlLfLetExpression;
     public readonly recordConstruction?: IDamlLfRecordConstructionExpression;
     public readonly recordProjection?: IDamlLfRecordProjectionExpression;
+    public readonly recordUpdate?: IDamlLfRecordUpdateExpression;
     public readonly builtinConstructor?: DamlLfBuiltinConstructor;
     public readonly builtinFunction?: DamlLfBuiltinFunction;
     public readonly caseExpression?: IDamlLfCaseExpression;
@@ -133,6 +140,7 @@ export class DamlLfExpression {
     public readonly enumConstruction?: IDamlLfEnumConstructionExpression;
     public readonly listConstruction?: IDamlLfListConstructionExpression;
     public readonly updateExpression?: IDamlLfUpdateExpression;
+    public readonly unsupportedNodeKind?: string;
 
     public constructor(init: {
         textLiteral?: string;
@@ -144,6 +152,7 @@ export class DamlLfExpression {
         letExpression?: IDamlLfLetExpression;
         recordConstruction?: IDamlLfRecordConstructionExpression;
         recordProjection?: IDamlLfRecordProjectionExpression;
+        recordUpdate?: IDamlLfRecordUpdateExpression;
         builtinConstructor?: DamlLfBuiltinConstructor;
         builtinFunction?: DamlLfBuiltinFunction;
         caseExpression?: IDamlLfCaseExpression;
@@ -152,6 +161,7 @@ export class DamlLfExpression {
         enumConstruction?: IDamlLfEnumConstructionExpression;
         listConstruction?: IDamlLfListConstructionExpression;
         updateExpression?: IDamlLfUpdateExpression;
+        unsupportedNodeKind?: string;
     }) {
         this.textLiteral = init.textLiteral;
         this.int64Literal = init.int64Literal;
@@ -162,6 +172,7 @@ export class DamlLfExpression {
         this.letExpression = init.letExpression;
         this.recordConstruction = init.recordConstruction;
         this.recordProjection = init.recordProjection;
+        this.recordUpdate = init.recordUpdate;
         this.builtinConstructor = init.builtinConstructor;
         this.builtinFunction = init.builtinFunction;
         this.caseExpression = init.caseExpression;
@@ -170,5 +181,6 @@ export class DamlLfExpression {
         this.enumConstruction = init.enumConstruction;
         this.listConstruction = init.listConstruction;
         this.updateExpression = init.updateExpression;
+        this.unsupportedNodeKind = init.unsupportedNodeKind;
     }
 }

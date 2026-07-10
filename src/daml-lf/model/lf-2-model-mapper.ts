@@ -63,6 +63,33 @@ export class Lf2ModelMapper {
         rawPackage: LfArchivePackage,
         rawType?: Type,
     ): DamlLfType {
+        if (
+            rawType?.sum.oneofKind === "internedType"
+            && rawType.sum.internedType >= 0
+        ) {
+            return Lf2ModelMapper.mapType(
+                currentPackageId,
+                rawPackage,
+                rawPackage.internedTypes[rawType.sum.internedType],
+            );
+        }
+
+        if (rawType?.sum.oneofKind === "tapp") {
+            return Lf2ModelMapper.mapType(
+                currentPackageId,
+                rawPackage,
+                rawType.sum.tapp.lhs,
+            );
+        }
+
+        if (rawType?.sum.oneofKind === "forall") {
+            return Lf2ModelMapper.mapType(
+                currentPackageId,
+                rawPackage,
+                rawType.sum.forall.body,
+            );
+        }
+
         if (rawType?.sum.oneofKind === "con") {
             return new DamlLfType({
                 typeConReference: Lf2ModelMapper.mapTypeConReferenceOrThrow(
@@ -149,9 +176,17 @@ export class Lf2ModelMapper {
         rawDataType: DefDataType,
         rawPackage: LfArchivePackage,
     ): DamlLfDataType | undefined {
-        if (rawDataType.dataCons.oneofKind !== "record") {
-            return undefined;
-        }
+        const fields =
+            rawDataType.dataCons.oneofKind === "record"
+                ? rawDataType.dataCons.record.fields.map((item) =>
+                    Lf2ModelMapper.mapField(
+                        packageId,
+                        item.fieldInternedStr,
+                        item.type,
+                        rawPackage,
+                    ),
+                )
+                : [];
 
         return new DamlLfDataType({
             name: Lf2ModelMapper.resolveInternedDottedName(
@@ -159,14 +194,7 @@ export class Lf2ModelMapper {
                 rawPackage.internedDottedNames,
                 rawDataType.nameInternedDname,
             ),
-            fields: rawDataType.dataCons.record.fields.map((item) =>
-                Lf2ModelMapper.mapField(
-                    packageId,
-                    item.fieldInternedStr,
-                    item.type,
-                    rawPackage,
-                ),
-            ),
+            fields,
         });
     }
 
@@ -200,6 +228,10 @@ export class Lf2ModelMapper {
                 templateName,
             }),
             name: templateName,
+            parameterName: Lf2ModelMapper.resolveInternedString(
+                rawPackage.internedStrings,
+                rawTemplate.paramInternedStr,
+            ),
             fields: matchingDataType.fields,
             choices: rawTemplate.choices.map((item) =>
                 Lf2ModelMapper.mapChoice(packageId, item, rawPackage),
@@ -218,6 +250,10 @@ export class Lf2ModelMapper {
                 rawChoice.nameInternedStr,
             ),
             consuming: rawChoice.consuming,
+            selfBinderName: Lf2ModelMapper.resolveInternedString(
+                rawPackage.internedStrings,
+                rawChoice.selfBinderInternedStr,
+            ),
             parameter: Lf2ModelMapper.mapChoiceParameterOrThrow(
                 packageId,
                 rawChoice.argBinder,
@@ -228,6 +264,16 @@ export class Lf2ModelMapper {
                 rawPackage,
                 rawChoice.retType,
             ),
+            updateExpression:
+                rawChoice.update === undefined
+                    ? undefined
+                    : Lf2ModelMapper.mapExpression(
+                        rawChoice.update,
+                        rawPackage.internedStrings,
+                        rawPackage.internedDottedNames,
+                        packageId,
+                        rawPackage,
+                    ),
         });
     }
 
@@ -383,6 +429,27 @@ export class Lf2ModelMapper {
                     int64Literal: rawLiteral.sum.int64,
                 });
             }
+
+            if (rawLiteral.sum.oneofKind === "numericInternedStr") {
+                return new DamlLfExpression({
+                    textLiteral: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawLiteral.sum.numericInternedStr,
+                    ),
+                });
+            }
+
+            if (rawLiteral.sum.oneofKind === "timestamp") {
+                return new DamlLfExpression({
+                    textLiteral: rawLiteral.sum.timestamp,
+                });
+            }
+
+            if (rawLiteral.sum.oneofKind === "date") {
+                return new DamlLfExpression({
+                    textLiteral: String(rawLiteral.sum.date),
+                });
+            }
         }
 
         if (rawExpression?.sum.oneofKind === "builtinCon") {
@@ -406,7 +473,8 @@ export class Lf2ModelMapper {
                             : rawExpression.sum.builtin
                                 === BuiltinFunction.APPEND_TEXT
                                 ? "appendText"
-                        : "unsupported",
+                                : (BuiltinFunction[rawExpression.sum.builtin]
+                                    ?? "unsupported"),
             });
         }
 
@@ -515,6 +583,31 @@ export class Lf2ModelMapper {
             });
         }
 
+        if (rawExpression?.sum.oneofKind === "recUpd") {
+            return new DamlLfExpression({
+                recordUpdate: {
+                    fieldName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawExpression.sum.recUpd.fieldInternedStr,
+                    ),
+                    record: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.recUpd.record,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    value: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.recUpd.update,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
         if (rawExpression?.sum.oneofKind === "variantCon") {
             return new DamlLfExpression({
                 variantConstruction: {
@@ -524,6 +617,69 @@ export class Lf2ModelMapper {
                     ),
                     argument: Lf2ModelMapper.mapExpression(
                         rawExpression.sum.variantCon.variantArg,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "structCon") {
+            return new DamlLfExpression({
+                recordConstruction: {
+                    fields: rawExpression.sum.structCon.fields.map((field) => ({
+                        name: Lf2ModelMapper.resolveInternedString(
+                            internedStrings,
+                            field.fieldInternedStr,
+                        ),
+                        value: Lf2ModelMapper.mapExpression(
+                            field.expr,
+                            internedStrings,
+                            internedDottedNames,
+                            currentPackageId,
+                            rawPackage,
+                        ),
+                    })),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "structProj") {
+            return new DamlLfExpression({
+                recordProjection: {
+                    fieldName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawExpression.sum.structProj.fieldInternedStr,
+                    ),
+                    record: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.structProj.struct,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "structUpd") {
+            return new DamlLfExpression({
+                recordUpdate: {
+                    fieldName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawExpression.sum.structUpd.fieldInternedStr,
+                    ),
+                    record: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.structUpd.struct,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    value: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.structUpd.update,
                         internedStrings,
                         internedDottedNames,
                         currentPackageId,
@@ -563,6 +719,26 @@ export class Lf2ModelMapper {
                     rawPackage,
                 ),
             });
+        }
+
+        if (rawExpression?.sum.oneofKind === "tyApp") {
+            return Lf2ModelMapper.mapExpression(
+                rawExpression.sum.tyApp.expr,
+                internedStrings,
+                internedDottedNames,
+                currentPackageId,
+                rawPackage,
+            );
+        }
+
+        if (rawExpression?.sum.oneofKind === "tyAbs") {
+            return Lf2ModelMapper.mapExpression(
+                rawExpression.sum.tyAbs.body,
+                internedStrings,
+                internedDottedNames,
+                currentPackageId,
+                rawPackage,
+            );
         }
 
         if (rawExpression?.sum.oneofKind === "enumCon") {
@@ -694,6 +870,16 @@ export class Lf2ModelMapper {
             });
         }
 
+        if (rawExpression?.sum.oneofKind === "internedExpr") {
+            return Lf2ModelMapper.mapExpression(
+                rawPackage.internedExprs[rawExpression.sum.internedExpr],
+                internedStrings,
+                internedDottedNames,
+                currentPackageId,
+                rawPackage,
+            );
+        }
+
         if (rawExpression?.sum.oneofKind === "let") {
             return new DamlLfExpression({
                 letExpression: {
@@ -721,7 +907,9 @@ export class Lf2ModelMapper {
             });
         }
 
-        return new DamlLfExpression({});
+        return new DamlLfExpression({
+            unsupportedNodeKind: rawExpression?.sum.oneofKind,
+        });
     }
 
     private static mapUpdateExpression(

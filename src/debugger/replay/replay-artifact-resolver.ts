@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { ParticipantDarDescription } from "../../core/types/participant-dar-description.js";
+import { DarArchiveLoader } from "../../daml-lf/container/dar-archive-loader.js";
+import { DamlLfPackageLoader } from "../../daml-lf/daml-lf-package-loader.js";
 import { DarSourceBundleLoader } from "../../daml-lf/container/dar-source-bundle-loader.js";
 import { DamlLfArchiveException } from "../../daml-lf/errors/daml-lf-archive.exception.js";
 import { DarSourceMapMetadata } from "../source/dar-source-map-metadata.js";
@@ -17,6 +19,8 @@ interface IParticipantPackageReadService {
 }
 
 export class ReplayArtifactResolver {
+    private readonly archiveLoader = new DarArchiveLoader();
+    private readonly packageLoader = new DamlLfPackageLoader();
     private readonly sourceBundleLoader = new DarSourceBundleLoader();
 
     public constructor(
@@ -30,6 +34,7 @@ export class ReplayArtifactResolver {
         packageIds: readonly string[];
     }> {
         const pending = [...requiredPackageIds];
+        const replayPackageIds = new Set<string>();
         const seenPackageIds = new Set<string>();
         const resolvedDars = new Map<string, ParticipantDarDescription>();
         const packageFingerprints = new Map<string, string>();
@@ -58,8 +63,11 @@ export class ReplayArtifactResolver {
                 );
 
             resolvedDars.set(candidate.dar.main, candidate.dar);
+            for (const containedPackageId of candidate.containedPackageIds) {
+                replayPackageIds.add(containedPackageId);
+            }
 
-            for (const importedPackageId of candidate.metadata.importedPackages) {
+            for (const importedPackageId of candidate.importedPackageIds) {
                 if (!seenPackageIds.has(importedPackageId)) {
                     pending.push(importedPackageId);
                 }
@@ -68,7 +76,7 @@ export class ReplayArtifactResolver {
 
         return {
             dars: [...resolvedDars.values()],
-            packageIds: [...seenPackageIds.values()],
+            packageIds: [...replayPackageIds.values()],
         };
     }
 
@@ -93,11 +101,15 @@ export class ReplayArtifactResolver {
     ): Promise<{
         dar: ParticipantDarDescription;
         metadata: DarSourceMapMetadata;
+        containedPackageIds: readonly string[];
+        importedPackageIds: readonly string[];
     }> {
         let selectedCandidate:
             | {
                   dar: ParticipantDarDescription;
                   metadata: DarSourceMapMetadata;
+                  containedPackageIds: readonly string[];
+                  importedPackageIds: readonly string[];
               }
             | undefined;
         let missingSourceMapError: DamlLfArchiveException | undefined;
@@ -111,6 +123,9 @@ export class ReplayArtifactResolver {
                 );
 
             try {
+                const archive = await this.archiveLoader.loadDarOrThrowAsync(
+                    response.payload,
+                );
                 const bundle =
                     await this.sourceBundleLoader.loadSourceBundleOrThrowAsync(
                         response.payload,
@@ -139,9 +154,21 @@ export class ReplayArtifactResolver {
                 packageFingerprints.set(metadataPackageId, fingerprint);
 
                 if (selectedCandidate === undefined) {
+                    const packageGraph = this.readPackageGraph(
+                        archive.packageEntries.map((entry) => entry.bytes),
+                        metadataPackageId,
+                    );
+
                     selectedCandidate = {
                         dar,
                         metadata,
+                        containedPackageIds: packageGraph.containedPackageIds,
+                        importedPackageIds: [
+                            ...new Set([
+                                ...metadata.importedPackages,
+                                ...packageGraph.importedPackageIds,
+                            ]),
+                        ],
                     };
                 }
             } catch (error) {
@@ -168,5 +195,132 @@ export class ReplayArtifactResolver {
         throw new ReplayMissingSourceException(
             `missing source-mapped dar for package '${packageId}'`,
         );
+    }
+
+    private readPackageGraph(
+        packageArchives: readonly Uint8Array[],
+        fallbackPackageId: string,
+    ): {
+        containedPackageIds: readonly string[];
+        importedPackageIds: readonly string[];
+    } {
+        const containedPackageIds = new Set<string>([fallbackPackageId]);
+        const importedPackageIds = new Set<string>();
+
+        for (const packageArchive of packageArchives) {
+            try {
+                const packageLoadResult =
+                    this.packageLoader.loadRawPackageOrThrow(packageArchive);
+
+                containedPackageIds.add(packageLoadResult.packageId);
+
+                for (const importedPackageId of this.readImportedPackageIds(
+                    packageLoadResult.rawPackage,
+                )) {
+                    if (importedPackageId !== packageLoadResult.packageId) {
+                        importedPackageIds.add(importedPackageId);
+                    }
+                }
+            }
+
+            catch {
+                continue;
+            }
+        }
+
+        return {
+            containedPackageIds: [...containedPackageIds.values()],
+            importedPackageIds: [...importedPackageIds.values()],
+        };
+    }
+
+    private readImportedPackageIds(rawPackage: {
+        internedStrings: readonly string[];
+        importsSum?: {
+            oneofKind?: string;
+            packageImports?: {
+                importedPackages: readonly string[];
+            };
+        };
+    }): readonly string[] {
+        const importedPackageIds = new Set<string>();
+        const visited = new Set<object>();
+
+        const visit = (value: unknown): void => {
+            if (value === null || typeof value !== "object") {
+                return;
+            }
+
+            if (visited.has(value)) {
+                return;
+            }
+
+            visited.add(value);
+
+            const importedPackageId =
+                this.tryResolveImportedPackageId(rawPackage, value);
+
+            if (importedPackageId !== undefined) {
+                importedPackageIds.add(importedPackageId);
+            }
+
+            if (Array.isArray(value)) {
+                for (const item of value) {
+                    visit(item);
+                }
+
+                return;
+            }
+
+            for (const child of Object.values(value)) {
+                visit(child);
+            }
+        };
+
+        visit(rawPackage);
+
+        return [...importedPackageIds.values()];
+    }
+
+    private tryResolveImportedPackageId(
+        rawPackage: {
+            internedStrings: readonly string[];
+            importsSum?: {
+                oneofKind?: string;
+                packageImports?: {
+                    importedPackages: readonly string[];
+                };
+            };
+        },
+        value: object,
+    ): string | undefined {
+        const candidate = value as {
+            sum?: {
+                oneofKind?: string;
+                importedPackageIdInternedStr?: number;
+                packageImportId?: number;
+            };
+        };
+
+        if (candidate.sum?.oneofKind === "importedPackageIdInternedStr") {
+            const index = candidate.sum.importedPackageIdInternedStr;
+
+            return index === undefined
+                ? undefined
+                : rawPackage.internedStrings[index];
+        }
+
+        if (
+            candidate.sum?.oneofKind === "packageImportId" &&
+            rawPackage.importsSum?.oneofKind === "packageImports"
+        ) {
+            const index = candidate.sum.packageImportId;
+
+            return index === undefined
+                ? undefined
+                : rawPackage.importsSum.packageImports?.importedPackages[index];
+        }
+
+        return undefined;
     }
 }

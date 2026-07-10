@@ -23,6 +23,7 @@ describe("DamlLfSemanticModel template queries", () => {
         const template = new DamlLfTemplate({
             templateId,
             name: "Iou",
+            parameterName: "self",
             fields: [
                 new DamlLfField({
                     name: "issuer",
@@ -46,6 +47,7 @@ describe("DamlLfSemanticModel template queries", () => {
             choices: [
                 new DamlLfChoice({
                     name: "Transfer",
+                    selfBinderName: "self",
                     parameter: new DamlLfChoiceParameter({
                         name: "newOwner",
                         type: new DamlLfType({

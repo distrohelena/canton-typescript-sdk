@@ -6,7 +6,22 @@ export class DamlLfLexicalScope {
     public constructor(private readonly parent?: DamlLfLexicalScope) {}
 
     public getBinding(name: string): IDamlLfRuntimeValue | undefined {
-        return this.bindings.get(name) ?? this.parent?.getBinding(name);
+        const visited = new Set<DamlLfLexicalScope>();
+        let current: DamlLfLexicalScope | undefined = this;
+
+        while (current !== undefined && !visited.has(current)) {
+            visited.add(current);
+
+            const binding = current.bindings.get(name);
+
+            if (binding !== undefined) {
+                return binding;
+            }
+
+            current = current.parent;
+        }
+
+        return undefined;
     }
 
     public setBinding(name: string, value: IDamlLfRuntimeValue): void {
@@ -21,14 +36,21 @@ export class DamlLfLexicalScope {
         name: string;
         value: IDamlLfRuntimeValue;
     }[] {
+        const scopes: DamlLfLexicalScope[] = [];
         const resolved = new Map<string, IDamlLfRuntimeValue>();
+        const visited = new Set<DamlLfLexicalScope>();
+        let current: DamlLfLexicalScope | undefined = this;
 
-        for (const binding of this.parent?.snapshotBindings() ?? []) {
-            resolved.set(binding.name, binding.value);
+        while (current !== undefined && !visited.has(current)) {
+            visited.add(current);
+            scopes.push(current);
+            current = current.parent;
         }
 
-        for (const [name, value] of this.bindings.entries()) {
-            resolved.set(name, value);
+        for (let index = scopes.length - 1; index >= 0; index -= 1) {
+            for (const [name, value] of scopes[index]!.bindings.entries()) {
+                resolved.set(name, value);
+            }
         }
 
         return [...resolved.entries()].map(([name, value]) => ({

@@ -7,7 +7,10 @@ import { GetDarResponse } from "../../../../src/core/types/responses/get-dar-res
 import { GetPackageReferencesResponse } from "../../../../src/core/types/responses/get-package-references-response.js";
 import { ReplayMissingSourceException } from "../../../../src/debugger/index.js";
 import { ReplayArtifactResolver } from "../../../../src/debugger/replay/replay-artifact-resolver.js";
+import { SampleLfPackageFixture } from "../../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { createSourceMappedDarFixture } from "../../../fixtures/daml-lf/source-mapped-dar-fixture.js";
+import { Archive, ArchivePayload, HashFunction } from "../../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
+import { Package } from "../../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 
 describe("ReplayArtifactResolver", () => {
     it("resolves required package ids to dar bytes through package references", async () => {
@@ -37,6 +40,42 @@ describe("ReplayArtifactResolver", () => {
         const resolution = await resolver.resolveAsync(["pkg-main"]);
 
         expect(resolution.packageIds).toContain("pkg-dependency");
+    });
+
+    it("discovers transitive dependencies from dalf imports when source-map metadata omits them", async () => {
+        const resolver = createResolver({
+            "pkg-main": createSourceMappedDarFixture({
+                packageId: "pkg-main",
+                mainDalfBytes: createArchiveBytesWithImportedPackageId(
+                    "pkg-main",
+                    "pkg-dependency",
+                ),
+            }),
+            "pkg-dependency": createSourceMappedDarFixture({
+                packageId: "pkg-dependency",
+            }),
+        });
+
+        const resolution = await resolver.resolveAsync(["pkg-main"]);
+
+        expect(resolution.packageIds).toContain("pkg-dependency");
+    });
+
+    it("includes valid package ids contained in the selected dar", async () => {
+        const resolver = createResolver({
+            "pkg-main": createSourceMappedDarFixture({
+                packageId: "pkg-main",
+                additionalEntries: {
+                    "extra/Contained.dalf":
+                        SampleLfPackageFixture.createLf2ArchiveBytes(),
+                },
+            }),
+        });
+
+        const resolution = await resolver.resolveAsync(["pkg-main"]);
+
+        expect(resolution.packageIds).toContain("pkg-main");
+        expect(resolution.packageIds).toContain("sample-hash");
     });
 
     it("prefers a sibling debug dar when a standard dar lacks source maps", async () => {
@@ -176,5 +215,108 @@ function createResolver(
                 });
             },
         },
+    });
+}
+
+function createArchiveBytesWithImportedPackageId(
+    packageId: string,
+    importedPackageId: string,
+): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "con",
+                                    con: {
+                                        tycon: {
+                                            module: {
+                                                packageId: {
+                                                    sum: {
+                                                        oneofKind:
+                                                            "importedPackageIdInternedStr",
+                                                        importedPackageIdInternedStr: 4,
+                                                    },
+                                                },
+                                                moduleNameInternedDname: 2,
+                                            },
+                                            nameInternedDname: 2,
+                                        },
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "builtinLit",
+                                builtinLit: {
+                                    sum: {
+                                        oneofKind: "textInternedStr",
+                                        textInternedStr: 5,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            `${packageId}-package`,
+            "1.0.0",
+            "Dependency",
+            "Module",
+            importedPackageId,
+            "hello",
+            "usesDependency",
+            "ForeignType",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [6],
+            },
+            {
+                segmentsInternedStr: [7],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: packageId,
     });
 }

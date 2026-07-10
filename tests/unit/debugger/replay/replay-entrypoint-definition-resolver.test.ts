@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+    DamlLfChoice,
+    DamlLfChoiceParameter,
     DamlLfCompilation,
+    DamlLfDataType,
     DamlLfExpression,
     DamlLfLanguageVersion,
     DamlLfModule,
     DamlLfPackage,
+    DamlLfTemplate,
     DamlLfTemplateId,
     DamlLfType,
     DamlLfValueDefinition,
@@ -40,6 +44,7 @@ describe("ReplayEntrypointDefinitionResolver", () => {
         expect(resolved.packageId).toBe("pkg-sample");
         expect(resolved.moduleName).toBe("Main");
         expect(resolved.definition.name).toBe("createVaultHandler");
+        expect(resolved.replayBindingMode).toBe("standard");
     });
 
     it("resolves exercised entrypoints from template and choice metadata", async () => {
@@ -65,6 +70,15 @@ describe("ReplayEntrypointDefinitionResolver", () => {
         expect(resolved.packageId).toBe("pkg-sample");
         expect(resolved.moduleName).toBe("Main");
         expect(resolved.definition.name).toBe("archiveVaultHandler");
+        expect(resolved.replayBindingMode).toBe("templateChoice");
+        expect(resolved.replayExpression.lambda?.parameters).toEqual([
+            "self",
+            "this",
+            "choiceArg",
+        ]);
+        expect(resolved.replayExpression.lambda?.body.updateExpression?.kind).toBe(
+            "fetch",
+        );
     });
 
     it("resolves nested choice handlers from template and choice metadata", async () => {
@@ -85,6 +99,15 @@ describe("ReplayEntrypointDefinitionResolver", () => {
         expect(resolved.packageId).toBe("pkg-sample");
         expect(resolved.moduleName).toBe("Main");
         expect(resolved.definition.name).toBe("archiveVaultHandler");
+        expect(resolved.replayBindingMode).toBe("templateChoice");
+        expect(resolved.replayExpression.lambda?.parameters).toEqual([
+            "self",
+            "this",
+            "choiceArg",
+        ]);
+        expect(resolved.replayExpression.lambda?.body.updateExpression?.kind).toBe(
+            "fetch",
+        );
     });
 });
 
@@ -116,8 +139,78 @@ async function createIndexedCompilation(): Promise<SourceIndexedCompilation> {
                                     name: "archiveVaultHandler",
                                     type: new DamlLfType({}),
                                     expression: new DamlLfExpression({
-                                        textLiteral: "archived",
+                                        recordConstruction: {
+                                            fields: [
+                                                {
+                                                    name: "m_exercise",
+                                                    value: new DamlLfExpression({
+                                                        lambda: {
+                                                            parameters: [
+                                                                "_",
+                                                                "this",
+                                                                "arg",
+                                                            ],
+                                                            body: new DamlLfExpression({
+                                                                updateExpression: {
+                                                                    kind: "exercise",
+                                                                    templateId: {
+                                                                        packageId: "pkg-sample",
+                                                                        moduleName: "Main",
+                                                                        templateName: "Vault",
+                                                                    },
+                                                                    choiceName: "Archive",
+                                                                    contractId: new DamlLfExpression({
+                                                                        variableName: "this",
+                                                                    }),
+                                                                    argument: new DamlLfExpression({
+                                                                        variableName: "arg",
+                                                                    }),
+                                                                },
+                                                            }),
+                                                        },
+                                                    }),
+                                                },
+                                            ],
+                                        },
                                     }),
+                                }),
+                                new DamlLfDataType({
+                                    name: "Vault",
+                                    fields: [],
+                                }),
+                                new DamlLfTemplate({
+                                    name: "Vault",
+                                    parameterName: "this",
+                                    templateId: new DamlLfTemplateId({
+                                        packageId: "pkg-sample",
+                                        moduleName: "Main",
+                                        templateName: "Vault",
+                                    }),
+                                    fields: [],
+                                    choices: [
+                                        new DamlLfChoice({
+                                            name: "Archive",
+                                            selfBinderName: "self",
+                                            parameter: new DamlLfChoiceParameter({
+                                                name: "choiceArg",
+                                                type: new DamlLfType({}),
+                                            }),
+                                            returnType: new DamlLfType({}),
+                                            updateExpression: new DamlLfExpression({
+                                                updateExpression: {
+                                                    kind: "fetch",
+                                                    templateId: {
+                                                        packageId: "pkg-sample",
+                                                        moduleName: "Main",
+                                                        templateName: "Vault",
+                                                    },
+                                                    contractId: new DamlLfExpression({
+                                                        variableName: "self",
+                                                    }),
+                                                },
+                                            }),
+                                        }),
+                                    ],
                                 }),
                             ],
                         }),

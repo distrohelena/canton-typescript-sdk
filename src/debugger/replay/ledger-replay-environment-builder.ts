@@ -3,6 +3,11 @@ import { GetEventsByContractIdRequest } from "../../core/types/requests/get-even
 import { GetContractResponse } from "../../core/types/responses/get-contract-response.js";
 import { GetEventsByContractIdResponse } from "../../core/types/responses/get-events-by-contract-id-response.js";
 import { ReplayStateHydrationException } from "../errors/replay-state-hydration.exception.js";
+import {
+    attachReplayRecordId,
+    collectReplayLedgerContractIds,
+    normalizeReplayLedgerValue,
+} from "./replay-ledger-value-normalizer.js";
 import { ReplayEntrypoint } from "./replay-entrypoint.js";
 
 interface IReplayContractService {
@@ -104,17 +109,50 @@ export class LedgerReplayEnvironmentBuilder {
     ): Promise<ILedgerReplayEnvironment> {
         const packageIds = new Set<string>();
         const contracts = new Map<string, IHydratedReplayContract>();
+        const pendingContractIds = new Set<string>(
+            this.getRequiredContractIds(snapshot),
+        );
+        const normalizedEntrypointArgument = normalizeReplayLedgerValue(
+            snapshot.entrypoint.argument,
+        );
 
         for (const visibleContract of this.getVisibleCreatedContracts(snapshot)) {
             this.addPackageId(packageIds, visibleContract.templateId?.packageId);
             contracts.set(visibleContract.contractId, visibleContract);
+            this.addReferencedContractIds(
+                pendingContractIds,
+                visibleContract.payload,
+            );
         }
 
-        for (const contractId of this.getRequiredContractIds(snapshot)) {
+        this.addReferencedContractIds(
+            pendingContractIds,
+            normalizedEntrypointArgument,
+        );
+
+        while (pendingContractIds.size > 0) {
+            const contractId = pendingContractIds.values().next().value as
+                | string
+                | undefined;
+
+            if (contractId === undefined) {
+                break;
+            }
+
+            pendingContractIds.delete(contractId);
+
+            if (contracts.has(contractId)) {
+                continue;
+            }
+
             const hydratedContract =
                 await this.hydrateContractOrThrowAsync(contractId, snapshot);
             this.addPackageId(packageIds, hydratedContract.templateId?.packageId);
             contracts.set(contractId, hydratedContract);
+            this.addReferencedContractIds(
+                pendingContractIds,
+                hydratedContract.payload,
+            );
         }
 
         this.addPackageId(packageIds, snapshot.entrypoint.templateId?.packageId);
@@ -125,7 +163,13 @@ export class LedgerReplayEnvironmentBuilder {
             updateId: snapshot.updateId,
             actAs: [...(snapshot.actAs ?? [])],
             readAs: [...(snapshot.readAs ?? [])],
-            entrypoint: snapshot.entrypoint,
+            entrypoint: new ReplayEntrypoint({
+                kind: snapshot.entrypoint.kind,
+                templateId: snapshot.entrypoint.templateId,
+                contractId: snapshot.entrypoint.contractId,
+                choice: snapshot.entrypoint.choice,
+                argument: normalizedEntrypointArgument,
+            }),
             contracts,
             packageIds: [...packageIds].sort(),
         };
@@ -146,16 +190,34 @@ export class LedgerReplayEnvironmentBuilder {
                 {
                     contractId: event.event.created.contractId,
                     templateId: event.event.created.templateId,
-                    payload: this.normalizeLedgerValue(
-                        event.event.created.createArguments,
+                    payload: attachReplayRecordId(
+                        normalizeReplayLedgerValue(
+                            event.event.created.createArguments,
+                        ),
+                        event.event.created.templateId === undefined
+                            ? undefined
+                            : {
+                                packageId: event.event.created.templateId.packageId,
+                                moduleName: event.event.created.templateId.moduleName,
+                                entityName: event.event.created.templateId.entityName,
+                            },
                     ),
                     rawCreatedEvent: event.event.created,
                     history: {
                         created: {
                             contractId: event.event.created.contractId,
                             templateId: event.event.created.templateId,
-                            payload: this.normalizeLedgerValue(
-                                event.event.created.createArguments,
+                            payload: attachReplayRecordId(
+                                normalizeReplayLedgerValue(
+                                    event.event.created.createArguments,
+                                ),
+                                event.event.created.templateId === undefined
+                                    ? undefined
+                                    : {
+                                        packageId: event.event.created.templateId.packageId,
+                                        moduleName: event.event.created.templateId.moduleName,
+                                        entityName: event.event.created.templateId.entityName,
+                                    },
                             ),
                             rawEvent: event.event.created,
                         },
@@ -186,6 +248,17 @@ export class LedgerReplayEnvironmentBuilder {
         }
 
         return [...contractIds];
+    }
+
+    private addReferencedContractIds(
+        contractIds: Set<string>,
+        value: unknown,
+    ): void {
+        for (const contractId of collectReplayLedgerContractIds(value)) {
+            if (contractId.length > 0) {
+                contractIds.add(contractId);
+            }
+        }
     }
 
     private async hydrateContractOrThrowAsync(
@@ -231,7 +304,16 @@ export class LedgerReplayEnvironmentBuilder {
         return {
             contractId,
             templateId: createdEvent.templateId,
-            payload: this.normalizeLedgerValue(createdEvent.createArguments),
+            payload: attachReplayRecordId(
+                normalizeReplayLedgerValue(createdEvent.createArguments),
+                createdEvent.templateId === undefined
+                    ? undefined
+                    : {
+                        packageId: createdEvent.templateId.packageId,
+                        moduleName: createdEvent.templateId.moduleName,
+                        entityName: createdEvent.templateId.entityName,
+                    },
+            ),
             rawCreatedEvent: createdEvent,
             synchronizerId: eventHistory.created?.synchronizerId,
             history: {
@@ -241,8 +323,17 @@ export class LedgerReplayEnvironmentBuilder {
                         : {
                             contractId: createdHistory.contractId,
                             templateId: createdHistory.templateId,
-                            payload: this.normalizeLedgerValue(
-                                createdHistory.createArguments,
+                            payload: attachReplayRecordId(
+                                normalizeReplayLedgerValue(
+                                    createdHistory.createArguments,
+                                ),
+                                createdHistory.templateId === undefined
+                                    ? undefined
+                                    : {
+                                        packageId: createdHistory.templateId.packageId,
+                                        moduleName: createdHistory.templateId.moduleName,
+                                        entityName: createdHistory.templateId.entityName,
+                                    },
                             ),
                             rawEvent: createdHistory,
                         },
@@ -292,162 +383,6 @@ export class LedgerReplayEnvironmentBuilder {
         }
 
         return value as IReplayArchivedEvent;
-    }
-
-    private normalizeLedgerValue(value: unknown): unknown {
-        if (Array.isArray(value)) {
-            return value.map((item) => this.normalizeLedgerValue(item));
-        }
-
-        if (value === null || value === undefined || typeof value !== "object") {
-            return value;
-        }
-
-        if ("sum" in value && this.isOneofValue(value.sum)) {
-            return this.normalizeOneofValue(value.sum);
-        }
-
-        if (
-            "fields" in value
-            && Array.isArray(value.fields)
-            && value.fields.every(
-                (field) =>
-                    field !== null
-                    && typeof field === "object"
-                    && "value" in field,
-            )
-        ) {
-            return Object.fromEntries(
-                value.fields.map((field, index) => [
-                    this.getRecordFieldKey(field, index),
-                    this.normalizeLedgerValue(field.value),
-                ]),
-            );
-        }
-
-        return Object.fromEntries(
-            Object.entries(value)
-                .filter(([, child]) => child !== undefined)
-                .map(([key, child]) => [key, this.normalizeLedgerValue(child)]),
-        );
-    }
-
-    private isOneofValue(
-        value: unknown,
-    ): value is { oneofKind?: string } & Record<string, unknown> {
-        return value !== null && typeof value === "object";
-    }
-
-    private normalizeOneofValue(
-        value: { oneofKind?: string } & Record<string, unknown>,
-    ): unknown {
-        switch (value.oneofKind) {
-            case "unit":
-                return null;
-            case "bool":
-            case "int64":
-            case "date":
-            case "timestamp":
-            case "numeric":
-            case "party":
-            case "text":
-            case "contractId":
-                return value[value.oneofKind];
-            case "optional":
-                return this.normalizeOptionalValue(value.optional);
-            case "list":
-                return this.normalizeListValue(value.list);
-            case "textMap":
-                return this.normalizeTextMapValue(value.textMap);
-            case "genMap":
-                return this.normalizeGenMapValue(value.genMap);
-            case "record":
-                return this.normalizeLedgerValue(value.record);
-            case "variant":
-                return {
-                    constructor: this.readObjectString(value.variant, "constructor"),
-                    value: this.normalizeLedgerValue(
-                        this.readObjectProperty(value.variant, "value"),
-                    ),
-                };
-            case "enum":
-                return this.readObjectString(value.enum, "constructor");
-            default:
-                return value;
-        }
-    }
-
-    private normalizeOptionalValue(value: unknown): unknown {
-        if (value === null || value === undefined || typeof value !== "object") {
-            return undefined;
-        }
-
-        return this.normalizeLedgerValue(
-            this.readObjectProperty(value, "value"),
-        );
-    }
-
-    private normalizeListValue(value: unknown): unknown {
-        if (value === null || value === undefined || typeof value !== "object") {
-            return [];
-        }
-
-        const elements = this.readObjectProperty(value, "elements");
-        return Array.isArray(elements)
-            ? elements.map((element) => this.normalizeLedgerValue(element))
-            : [];
-    }
-
-    private normalizeTextMapValue(value: unknown): unknown {
-        if (value === null || value === undefined || typeof value !== "object") {
-            return {};
-        }
-
-        const entries = this.readObjectProperty(value, "entries");
-
-        if (!Array.isArray(entries)) {
-            return {};
-        }
-
-        return Object.fromEntries(
-            entries.map((entry) => [
-                this.readObjectString(entry, "key"),
-                this.normalizeLedgerValue(this.readObjectProperty(entry, "value")),
-            ]),
-        );
-    }
-
-    private normalizeGenMapValue(value: unknown): unknown {
-        if (value === null || value === undefined || typeof value !== "object") {
-            return [];
-        }
-
-        const entries = this.readObjectProperty(value, "entries");
-
-        if (!Array.isArray(entries)) {
-            return [];
-        }
-
-        return entries.map((entry) => ({
-            key: this.normalizeLedgerValue(this.readObjectProperty(entry, "key")),
-            value: this.normalizeLedgerValue(
-                this.readObjectProperty(entry, "value"),
-            ),
-        }));
-    }
-
-    private getRecordFieldKey(field: unknown, index: number): string {
-        if (
-            field !== null
-            && typeof field === "object"
-            && "label" in field
-            && typeof field.label === "string"
-            && field.label.length > 0
-        ) {
-            return field.label;
-        }
-
-        return index.toString();
     }
 
     private readObjectProperty(

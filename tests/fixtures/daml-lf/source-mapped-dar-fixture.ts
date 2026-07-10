@@ -1,6 +1,8 @@
 import { strToU8, zipSync } from "fflate";
 
 export function createSourceMappedDarFixture(init?: {
+    additionalEntries?: Readonly<Record<string, Uint8Array>>;
+    mainDalfBytes?: Uint8Array;
     packageId?: string;
     definitionName?: string;
     importedPackages?: readonly string[];
@@ -22,7 +24,7 @@ export function createSourceMappedDarFixture(init?: {
         "META-INF/MANIFEST.MF": strToU8(
             "Manifest-Version: 1.0\nMain-Dalf: Sample.dalf\n",
         ),
-        "Sample.dalf": new Uint8Array([1, 2, 3, 4]),
+        "Sample.dalf": init?.mainDalfBytes ?? new Uint8Array([1, 2, 3, 4]),
         "src/Main.daml": strToU8(
             "module Main where\n\narchive : ()\narchive = ()\n",
         ),
@@ -41,9 +43,10 @@ export function createSourceMappedDarFixture(init?: {
                             startColumn: 1,
                             endLine: 4,
                             endColumn: 13,
-                        },
+                },
                     ],
             }),
         ),
+        ...(init?.additionalEntries ?? {}),
     });
 }

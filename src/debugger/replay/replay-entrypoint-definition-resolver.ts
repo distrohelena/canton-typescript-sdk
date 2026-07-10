@@ -1,3 +1,4 @@
+import { DamlLfExpression } from "../../daml-lf/model/daml-lf-expression.js";
 import { DamlLfValueDefinition } from "../../daml-lf/model/daml-lf-value-definition.js";
 import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
 import { ReplaySourceMapException } from "../errors/replay-source-map.exception.js";
@@ -8,6 +9,12 @@ export interface ResolvedReplayEntrypointDefinition {
     packageId: string;
     moduleName: string;
     definition: DamlLfValueDefinition;
+    replayExpression: DamlLfExpression;
+    replayBindingMode:
+        | "standard"
+        | "createWrapper"
+        | "exerciseWrapper"
+        | "templateChoice";
 }
 
 export class ReplayEntrypointDefinitionResolver {
@@ -59,13 +66,28 @@ export class ReplayEntrypointDefinitionResolver {
             );
         }
 
-        return {
-            packageId: source.packageId,
-            moduleName: source.moduleName,
-            definition: this.indexedCompilation.compilation.getValueDefinitionOrThrow(
+        const definition =
+            this.indexedCompilation.compilation.getValueDefinitionOrThrow(
                 source.packageId,
                 source.moduleName,
                 source.definitionName,
+            );
+
+        return {
+            packageId: source.packageId,
+            moduleName: source.moduleName,
+            definition,
+            ...this.resolveReplayStrategy(
+                definition.expression,
+                entrypoint.kind,
+                entrypoint.kind === "exercise"
+                    ? new DamlLfTemplateId({
+                        packageId,
+                        moduleName,
+                        templateName,
+                    })
+                    : undefined,
+                entrypoint.choice,
             ),
         };
     }
@@ -76,15 +98,110 @@ export class ReplayEntrypointDefinitionResolver {
     ): ResolvedReplayEntrypointDefinition {
         const source = this.findExerciseSourceOrThrow(templateId, choiceName);
 
-        return {
-            packageId: source.packageId,
-            moduleName: source.moduleName,
-            definition: this.indexedCompilation.compilation.getValueDefinitionOrThrow(
+        const definition =
+            this.indexedCompilation.compilation.getValueDefinitionOrThrow(
                 source.packageId,
                 source.moduleName,
                 source.definitionName,
+            );
+
+        return {
+            packageId: source.packageId,
+            moduleName: source.moduleName,
+            definition,
+            ...this.resolveReplayStrategy(
+                definition.expression,
+                "exercise",
+                templateId,
+                choiceName,
             ),
         };
+    }
+
+    private resolveReplayStrategy(
+        expression: DamlLfExpression,
+        entrypointKind: "create" | "exercise",
+        templateId?: DamlLfTemplateId,
+        choiceName?: string,
+    ): Pick<
+        ResolvedReplayEntrypointDefinition,
+        "replayExpression" | "replayBindingMode"
+    > {
+        if (
+            entrypointKind === "exercise"
+            && templateId !== undefined
+            && choiceName !== undefined
+        ) {
+            const choiceReplayExpression =
+                this.resolveChoiceReplayExpression(
+                    templateId,
+                    choiceName,
+                );
+
+            if (choiceReplayExpression !== undefined) {
+                return {
+                    replayExpression: choiceReplayExpression,
+                    replayBindingMode: "templateChoice",
+                };
+            }
+        }
+
+        return {
+            replayExpression: this.unwrapReplayExpression(
+                expression,
+                entrypointKind,
+            ),
+            replayBindingMode: this.resolveReplayBindingMode(
+                expression,
+                entrypointKind,
+            ),
+        };
+    }
+
+    private resolveChoiceReplayExpression(
+        templateId: DamlLfTemplateId,
+        choiceName: string,
+    ): DamlLfExpression | undefined {
+        let choices;
+        let templateParameterName;
+
+        try {
+            const template = this.indexedCompilation.compilation
+                .getTemplates()
+                .find((candidate) =>
+                    candidate.templateId.packageId === templateId.packageId
+                    && candidate.templateId.moduleName === templateId.moduleName
+                    && candidate.templateId.templateName === templateId.templateName,
+                );
+
+            if (template === undefined) {
+                return undefined;
+            }
+
+            choices = template.choices;
+            templateParameterName = template.parameterName;
+        }
+
+        catch {
+            return undefined;
+        }
+
+        const choice = choices.find((candidate) => candidate.name === choiceName);
+
+        if (choice?.updateExpression === undefined) {
+            return undefined;
+        }
+
+        return new DamlLfExpression({
+            lambda: {
+                parameters: [
+                    choice.selfBinderName,
+                    templateParameterName,
+                    choice.parameter.name,
+                ],
+                body: choice.updateExpression,
+            },
+        });
     }
 
     private findExerciseSourceOrThrow(
@@ -122,5 +239,57 @@ export class ReplayEntrypointDefinitionResolver {
             && candidate.moduleName === templateId.moduleName
             && candidate.templateName === templateId.templateName
         );
+    }
+
+    private unwrapReplayExpression(
+        expression: DamlLfExpression,
+        entrypointKind: "create" | "exercise",
+    ): DamlLfExpression {
+        if (expression.recordConstruction === undefined) {
+            return expression;
+        }
+
+        const wrapperFieldName =
+            entrypointKind === "create" ? "m_create" : "m_exercise";
+        const wrapperField = expression.recordConstruction.fields.find(
+            (field) => field.name === wrapperFieldName,
+        );
+
+        return wrapperField?.value ?? expression;
+    }
+
+    private resolveReplayBindingMode(
+        expression: DamlLfExpression,
+        entrypointKind: "create" | "exercise",
+    ): ResolvedReplayEntrypointDefinition["replayBindingMode"] {
+        if (expression.recordConstruction === undefined) {
+            return "standard";
+        }
+
+        const wrapperFieldName =
+            entrypointKind === "create" ? "m_create" : "m_exercise";
+        const wrapperField = expression.recordConstruction.fields.find(
+            (field) => field.name === wrapperFieldName,
+        );
+        const parameters = wrapperField?.value.lambda?.parameters ?? [];
+
+        if (
+            entrypointKind === "exercise"
+            && parameters.length >= 3
+            && parameters.at(-2) === "this"
+            && parameters.at(-1) === "arg"
+        ) {
+            return "exerciseWrapper";
+        }
+
+        if (
+            entrypointKind === "create"
+            && parameters.length >= 2
+            && parameters.at(-1) === "arg"
+        ) {
+            return "createWrapper";
+        }
+
+        return "standard";
     }
 }

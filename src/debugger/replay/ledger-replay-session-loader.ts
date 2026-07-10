@@ -108,6 +108,8 @@ export class LedgerReplaySessionLoader {
                 {
                     ...environment,
                     definitionResolver: this.dependencies.definitionResolver,
+                    entrypointExpression: definition.replayExpression,
+                    entrypointBindingMode: definition.replayBindingMode,
                 },
                 {
                     onStep: (step) => {
@@ -251,11 +253,31 @@ export class LedgerReplaySessionLoader {
 
     private stringifyRuntimeValue(value: IDamlLfRuntimeValue): string {
         if ("value" in value && typeof value.value === "string") {
-            return value.value;
+            return value.value.length > 0 ? value.value : "\"\"";
         }
 
         if ("value" in value) {
-            return JSON.stringify(value.value);
+            try {
+                const serialized = JSON.stringify(value.value);
+
+                if (typeof serialized === "string" && serialized.length > 0) {
+                    return serialized;
+                }
+            }
+            catch {
+                // Fall through to a lossy scalar representation when preview
+                // values are not JSON-serializable.
+            }
+
+            if (value.value === undefined) {
+                return "undefined";
+            }
+
+            if (value.value === null) {
+                return "null";
+            }
+
+            return String(value.value);
         }
 
         return typeof value.kind === "string" ? value.kind : "value";
@@ -390,18 +412,23 @@ export class LedgerReplaySessionLoader {
             return undefined;
         }
 
-        const source = this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
-            traceStep.frame.packageId,
-            traceStep.frame.moduleName,
-            traceStep.frame.definition.name,
-        );
+        try {
+            const source =
+                this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
+                    traceStep.frame.packageId,
+                    traceStep.frame.moduleName,
+                    traceStep.frame.definition.name,
+                );
 
-        return new ReplaySourceLocation({
-            path: source.path,
-            startLine: source.startLine,
-            startColumn: source.startColumn,
-            endLine: source.endLine,
-            endColumn: source.endColumn,
-        });
+            return new ReplaySourceLocation({
+                path: source.path,
+                startLine: source.startLine,
+                startColumn: source.startColumn,
+                endLine: source.endLine,
+                endColumn: source.endColumn,
+            });
+        } catch {
+            return undefined;
+        }
     }
 }

@@ -94,10 +94,12 @@ function createCompilation(init: {
     const template = new DamlLfTemplate({
         templateId,
         name: init.templateName,
+        parameterName: "self",
         fields,
         choices: [
             new DamlLfChoice({
                 name: "TransferOwnership",
+                selfBinderName: "self",
                 parameter: new DamlLfChoiceParameter({
                     name: "newOwner",
                     type: new DamlLfType({
