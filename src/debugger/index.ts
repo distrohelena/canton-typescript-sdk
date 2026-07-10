@@ -6,7 +6,9 @@ export { ReplaySourceMapException } from "./errors/replay-source-map.exception.j
 export { ReplayStateHydrationException } from "./errors/replay-state-hydration.exception.js";
 export { ReplayUnsupportedLfConstructException } from "./errors/replay-unsupported-lf-construct.exception.js";
 export { ReplayUnsupportedUpdateException } from "./errors/replay-unsupported-update.exception.js";
+export { LedgerReplaySessionLoader } from "./replay/ledger-replay-session-loader.js";
 export { ReplayPhase } from "./session/replay-phase.js";
+export { InMemoryReplaySessionStore } from "./session/in-memory-replay-session-store.js";
 export { ReplaySession } from "./session/replay-session.js";
 export { ReplaySessionMetadata } from "./session/replay-session-metadata.js";
 export { ReplaySessionRequest } from "./session/replay-session-request.js";

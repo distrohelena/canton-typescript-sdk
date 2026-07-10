@@ -14,6 +14,7 @@ export class ReplayStepAdvanceResult {
             stackFrames?: ReplayStep["stackFrames"];
             locals?: ReplayStep["locals"];
             arguments?: ReplayStep["arguments"];
+            sourceLocation?: ReplayStep["sourceLocation"];
             valuePreview?: ReplayStep["valuePreview"];
             stateDelta?: ReplayStep["stateDelta"];
         } | ReplayStep;

@@ -6,7 +6,10 @@ import { DamlLfLexicalScope } from "./daml-lf-lexical-scope.js";
 import { IDamlLfRuntimeValue } from "./daml-lf-runtime-value.js";
 import { DamlLfRuntimeFrame } from "./daml-lf-runtime-frame.js";
 import { DamlLfStepKind } from "./daml-lf-step-kind.js";
-import { IDamlLfTraceSink } from "./daml-lf-trace-sink.interface.js";
+import {
+    IDamlLfReplayEffect,
+    IDamlLfTraceSink,
+} from "./daml-lf-trace-sink.interface.js";
 
 interface ITextRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "text";
@@ -15,6 +18,26 @@ interface ITextRuntimeValue extends IDamlLfRuntimeValue {
 
 interface IUnitRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "unit";
+}
+
+export interface IDamlLfReplayEnvironment {
+    readonly offset: string;
+    readonly entrypoint: {
+        readonly kind: "create" | "exercise";
+        readonly templateId?: {
+            readonly packageId?: string;
+            readonly moduleName?: string;
+            readonly entityName?: string;
+        };
+        readonly contractId?: string;
+        readonly choice?: string;
+        readonly argument?: unknown;
+    };
+}
+
+export interface IDamlLfReplayEvaluationResult {
+    readonly value: IDamlLfRuntimeValue;
+    readonly effects: readonly IDamlLfReplayEffect[];
 }
 
 export class DamlLfEvaluator {
@@ -39,17 +62,40 @@ export class DamlLfEvaluator {
         definition: DamlLfValueDefinition,
         traceSink?: IDamlLfTraceSink,
     ): IDamlLfRuntimeValue {
-        const frame = new DamlLfRuntimeFrame({
-            frameId: `frame-${this.nextFrameNumber++}`,
-            definition,
-            scope: new DamlLfLexicalScope(),
-        });
+        const frame = this.createFrame(definition);
 
         return this.evaluateExpressionOrThrow(
             definition.expression,
             frame,
             traceSink,
         );
+    }
+
+    public evaluateReplayEntrypointOrThrow(
+        definition: DamlLfValueDefinition,
+        environment: IDamlLfReplayEnvironment,
+        traceSink?: IDamlLfTraceSink,
+    ): IDamlLfReplayEvaluationResult {
+        const frame = this.createFrame(definition);
+        const effects = this.createReplayEffects(environment);
+
+        for (const effect of effects) {
+            traceSink?.onStep({
+                kind: DamlLfStepKind.stateEffect,
+                expression: definition.expression,
+                frame,
+                stateEffect: effect,
+            });
+        }
+
+        return {
+            value: this.evaluateExpressionOrThrow(
+                definition.expression,
+                frame,
+                traceSink,
+            ),
+            effects,
+        };
     }
 
     private evaluateExpressionOrThrow(
@@ -73,6 +119,38 @@ export class DamlLfEvaluator {
         });
 
         return value;
+    }
+
+    private createReplayEffects(
+        environment: IDamlLfReplayEnvironment,
+    ): readonly IDamlLfReplayEffect[] {
+        if (environment.entrypoint.kind === "exercise") {
+            return [
+                {
+                    kind: "exercise",
+                    contractId: environment.entrypoint.contractId,
+                    templateId: environment.entrypoint.templateId,
+                    choice: environment.entrypoint.choice,
+                    argument: environment.entrypoint.argument,
+                },
+            ];
+        }
+
+        return [
+            {
+                kind: "create",
+                templateId: environment.entrypoint.templateId,
+                payload: environment.entrypoint.argument,
+            },
+        ];
+    }
+
+    private createFrame(definition: DamlLfValueDefinition): DamlLfRuntimeFrame {
+        return new DamlLfRuntimeFrame({
+            frameId: `frame-${this.nextFrameNumber++}`,
+            definition,
+            scope: new DamlLfLexicalScope(),
+        });
     }
 
     private resolveExpressionValue(

@@ -1,4 +1,5 @@
 import { ReplayPhase } from "./replay-phase.js";
+import { ReplaySourceLocation } from "./replay-source-location.js";
 import { ReplayStackFrame } from "./replay-stack-frame.js";
 import { ReplayStateDelta } from "./replay-state-delta.js";
 import { ReplayValuePreview } from "./replay-value-preview.js";
@@ -9,6 +10,7 @@ export class ReplayStep {
     public readonly stackFrames: readonly ReplayStackFrame[];
     public readonly locals: readonly unknown[];
     public readonly arguments: readonly unknown[];
+    public readonly sourceLocation?: ReplaySourceLocation;
     public readonly valuePreview?: ReplayValuePreview;
     public readonly stateDelta?: ReplayStateDelta;
 
@@ -18,6 +20,7 @@ export class ReplayStep {
         stackFrames?: readonly ReplayStackFrame[];
         locals?: readonly unknown[];
         arguments?: readonly unknown[];
+        sourceLocation?: ReplaySourceLocation;
         valuePreview?: ReplayValuePreview;
         stateDelta?: ReplayStateDelta;
     }) {
@@ -26,6 +29,7 @@ export class ReplayStep {
         this.stackFrames = init.stackFrames ?? [];
         this.locals = init.locals ?? [];
         this.arguments = init.arguments ?? [];
+        this.sourceLocation = init.sourceLocation;
         this.valuePreview = init.valuePreview;
         this.stateDelta = init.stateDelta;
     }
