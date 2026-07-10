@@ -95,9 +95,7 @@ export class LedgerReplaySessionLoader {
                 environment,
                 {
                     onStep: (step) => {
-                        steps.push(
-                            this.toReplayStep(step, steps.length, definition),
-                        );
+                        steps.push(this.toReplayStep(step, steps.length));
                     },
                 },
             );
@@ -125,7 +123,6 @@ export class LedgerReplaySessionLoader {
     private toReplayStep(
         traceStep: IDamlLfTraceStep,
         stepIndex: number,
-        definition: ResolvedReplayEntrypointDefinition,
     ): ReplayStep {
         return new ReplayStep({
             stepIndex,
@@ -148,7 +145,7 @@ export class LedgerReplaySessionLoader {
                     : new ReplayStateDelta({
                         kind: traceStep.stateEffect.kind,
                     }),
-            sourceLocation: this.createSourceLocation(definition),
+            sourceLocation: this.createSourceLocation(traceStep),
         });
     }
 
@@ -156,6 +153,10 @@ export class LedgerReplaySessionLoader {
         switch (traceStep.kind) {
             case "stateEffect":
                 return ReplayPhase.stateEffect;
+            case "call":
+                return ReplayPhase.call;
+            case "return":
+                return ReplayPhase.return;
             case "enterExpression":
                 return ReplayPhase.enterExpression;
             case "exitExpression":
@@ -198,16 +199,16 @@ export class LedgerReplaySessionLoader {
     }
 
     private createSourceLocation(
-        definition: ResolvedReplayEntrypointDefinition,
+        traceStep: IDamlLfTraceStep,
     ): ReplaySourceLocation | undefined {
         if (this.dependencies.sourceMapper === undefined) {
             return undefined;
         }
 
         const source = this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
-            definition.packageId,
-            definition.moduleName,
-            definition.definition.name,
+            traceStep.frame.packageId,
+            traceStep.frame.moduleName,
+            traceStep.frame.definition.name,
         );
 
         return new ReplaySourceLocation({

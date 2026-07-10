@@ -109,7 +109,7 @@ export class DamlLfEvaluator {
             frame,
         });
 
-        const value = this.resolveExpressionValue(expression);
+        const value = this.resolveExpressionValue(expression, traceSink);
 
         traceSink?.onStep({
             kind: DamlLfStepKind.exitExpression,
@@ -146,8 +146,13 @@ export class DamlLfEvaluator {
     }
 
     private createFrame(definition: DamlLfValueDefinition): DamlLfRuntimeFrame {
+        const identity =
+            this.compilation.getValueDefinitionIdentityOrThrow(definition);
+
         return new DamlLfRuntimeFrame({
             frameId: `frame-${this.nextFrameNumber++}`,
+            packageId: identity.packageId,
+            moduleName: identity.moduleName,
             definition,
             scope: new DamlLfLexicalScope(),
         });
@@ -155,12 +160,43 @@ export class DamlLfEvaluator {
 
     private resolveExpressionValue(
         expression: DamlLfExpression,
+        traceSink?: IDamlLfTraceSink,
     ): IDamlLfRuntimeValue {
         if (expression.textLiteral !== undefined) {
             return {
                 kind: "text",
                 value: expression.textLiteral,
             } satisfies ITextRuntimeValue;
+        }
+
+        if (expression.valueReference !== undefined) {
+            const definition = this.compilation.getValueDefinitionOrThrow(
+                expression.valueReference.packageId,
+                expression.valueReference.moduleName,
+                expression.valueReference.definitionName,
+            );
+            const frame = this.createFrame(definition);
+
+            traceSink?.onStep({
+                kind: DamlLfStepKind.call,
+                expression,
+                frame,
+            });
+
+            const value = this.evaluateExpressionOrThrow(
+                definition.expression,
+                frame,
+                traceSink,
+            );
+
+            traceSink?.onStep({
+                kind: DamlLfStepKind.return,
+                expression,
+                frame,
+                value,
+            });
+
+            return value;
         }
 
         return {

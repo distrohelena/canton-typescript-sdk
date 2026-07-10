@@ -118,6 +118,9 @@ export class Lf2ModelMapper {
                         expression: Lf2ModelMapper.mapExpression(
                             value.expr,
                             rawPackage.internedStrings,
+                            rawPackage.internedDottedNames,
+                            packageId,
+                            rawPackage,
                         ),
                     }),
             ),
@@ -302,7 +305,11 @@ export class Lf2ModelMapper {
         rawPackageId: SelfOrImportedPackageId | undefined,
         rawPackage: LfArchivePackage,
     ): string {
-        switch (rawPackageId?.sum.oneofKind) {
+        if (rawPackageId === undefined) {
+            return currentPackageId;
+        }
+
+        switch (rawPackageId.sum?.oneofKind) {
             case "selfPackageId":
                 return currentPackageId;
             case "importedPackageIdInternedStr":
@@ -315,6 +322,8 @@ export class Lf2ModelMapper {
                     rawPackage,
                     rawPackageId.sum.packageImportId,
                 );
+            case undefined:
+                return currentPackageId;
             default:
                 throw new DamlLfDecodeException(
                     "daml lf type constructor is missing its package id",
@@ -341,6 +350,9 @@ export class Lf2ModelMapper {
     private static mapExpression(
         rawExpression: Expr | undefined,
         internedStrings: readonly string[],
+        internedDottedNames: readonly { segmentsInternedStr: readonly number[] }[],
+        currentPackageId: string,
+        rawPackage: LfArchivePackage,
     ): DamlLfExpression {
         if (rawExpression?.sum.oneofKind === "builtinLit") {
             const rawLiteral = rawExpression.sum.builtinLit;
@@ -353,6 +365,30 @@ export class Lf2ModelMapper {
                     ),
                 });
             }
+        }
+
+        if (rawExpression?.sum.oneofKind === "val") {
+            const valueReference = rawExpression.sum.val;
+
+            return new DamlLfExpression({
+                valueReference: {
+                    packageId: Lf2ModelMapper.resolvePackageIdOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        valueReference.module?.packageId,
+                    ),
+                    moduleName: Lf2ModelMapper.resolveInternedDottedName(
+                        internedStrings,
+                        internedDottedNames,
+                        valueReference.module?.moduleNameInternedDname,
+                    ),
+                    definitionName: Lf2ModelMapper.resolveInternedDottedName(
+                        internedStrings,
+                        internedDottedNames,
+                        valueReference.nameInternedDname,
+                    ),
+                },
+            });
         }
 
         return new DamlLfExpression({});

@@ -58,4 +58,68 @@ describe("DamlLfEvaluator", () => {
             DamlLfStepKind.exitExpression,
         ]);
     });
+
+    it("resolves referenced value definitions and emits call/return trace steps", () => {
+        const greeting = new DamlLfValueDefinition({
+            name: "greeting",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "Alice",
+            }),
+        });
+        const alias = new DamlLfValueDefinition({
+            name: "alias",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                valueReference: {
+                    packageId: "sample-hash",
+                    moduleName: "Sample.Module",
+                    definitionName: "greeting",
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [greeting, alias],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+        const steps: DamlLfStepKind[] = [];
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(alias, {
+            onStep(step) {
+                steps.push(step.kind);
+            },
+        });
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "Alice",
+        });
+        expect(steps).toEqual([
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.call,
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.exitExpression,
+            DamlLfStepKind.return,
+            DamlLfStepKind.exitExpression,
+        ]);
+    });
 });

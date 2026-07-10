@@ -19,6 +19,14 @@ export class DamlLfCompilation {
     private readonly typeSymbols = new Map<string, TypeSymbol>();
     private readonly templates = new Map<string, DamlLfTemplate>();
     private readonly valueDefinitions = new Map<string, DamlLfValueDefinition>();
+    private readonly valueDefinitionIdentities = new Map<
+        DamlLfValueDefinition,
+        {
+            packageId: string;
+            moduleName: string;
+            definitionName: string;
+        }
+    >();
 
     private constructor(private readonly workspace: DamlLfWorkspace) {
         void this.workspace;
@@ -103,6 +111,22 @@ export class DamlLfCompilation {
         ).module;
     }
 
+    public getValueDefinitionIdentityOrThrow(definition: DamlLfValueDefinition): {
+        packageId: string;
+        moduleName: string;
+        definitionName: string;
+    } {
+        const identity = this.valueDefinitionIdentities.get(definition);
+
+        if (identity === undefined) {
+            throw new DamlLfResolutionException(
+                `could not resolve identity for value definition '${definition.name}'`,
+            );
+        }
+
+        return identity;
+    }
+
     public getTemplates(): readonly DamlLfTemplate[] {
         return [...this.templates.values()];
     }
@@ -140,13 +164,23 @@ export class DamlLfCompilation {
                     }
 
                     if (definition instanceof DamlLfValueDefinition) {
+                        const identity = {
+                            packageId: pkg.packageId,
+                            moduleName: module.name,
+                            definitionName: definition.name,
+                        };
+
                         this.valueDefinitions.set(
                             DamlLfCompilation.createDefinitionKey(
-                                pkg.packageId,
-                                module.name,
-                                definition.name,
+                                identity.packageId,
+                                identity.moduleName,
+                                identity.definitionName,
                             ),
                             definition,
+                        );
+                        this.valueDefinitionIdentities.set(
+                            definition,
+                            identity,
                         );
                     }
 

@@ -150,4 +150,158 @@ describe("LedgerReplaySessionLoader", () => {
         expect(session.steps[0]?.sourceLocation?.path).toBe("src/Main.daml");
         expect(session.steps[0]?.sourceLocation?.startLine).toBe(3);
     });
+
+    it("preserves evaluator call and return phases in replay steps", async () => {
+        const greeting = new DamlLfValueDefinition({
+            name: "greeting",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "archived",
+            }),
+        });
+        const alias = new DamlLfValueDefinition({
+            name: "archiveVaultHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                valueReference: {
+                    packageId: "pkg-sample",
+                    moduleName: "Main",
+                    definitionName: "greeting",
+                },
+            }),
+        });
+        const compilation = DamlLfCompilation.createOrThrow(
+            new DamlLfWorkspace([
+                new DamlLfPackage({
+                    packageId: "pkg-sample",
+                    packageName: "sample",
+                    packageVersion: "1.0.0",
+                    languageVersion: new DamlLfLanguageVersion({
+                        major: 2,
+                        minor: "dev",
+                        patch: 0,
+                    }),
+                    modules: [
+                        new DamlLfModule({
+                            name: "Main",
+                            definitions: [greeting, alias],
+                        }),
+                    ],
+                }),
+            ]),
+        );
+        const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+            compilation,
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-sample",
+                        executables: [
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archiveVaultHandler",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 4,
+                                endColumn: 13,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "Archive",
+                            },
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "greeting",
+                                path: "src/Main.daml",
+                                startLine: 5,
+                                startColumn: 1,
+                                endLine: 5,
+                                endColumn: 18,
+                            },
+                        ],
+                    }),
+                ),
+            ],
+        );
+        const snapshot: IReplayTransactionSnapshot = {
+            kind: "transaction",
+            offset: "42",
+            actAs: ["Alice"],
+            readAs: [],
+            events: [
+                {
+                    event: {
+                        oneofKind: "exercised",
+                        exercised: {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            choice: "Archive",
+                            choiceArgument: {},
+                        },
+                    },
+                },
+            ],
+            entrypoint: new ReplayEntrypoint({
+                kind: "exercise",
+                templateId: {
+                    packageId: "pkg-sample",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                contractId: "00abc",
+                choice: "Archive",
+                argument: {},
+            }),
+        };
+        const loader = new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                    return snapshot;
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(): Promise<ILedgerReplayEnvironment> {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map(),
+                        packageIds: ["pkg-sample"],
+                    };
+                },
+            },
+            definitionResolver: new ReplayEntrypointDefinitionResolver(
+                indexedCompilation,
+            ),
+            sourceMapper: new DamlSourceMapper(indexedCompilation),
+            evaluator: new DamlLfEvaluator(compilation),
+            determinismValidator: {
+                validateOrThrow(): void {}
+            },
+            sessionIdFactory: () => "session-2",
+        });
+
+        const session = await loader.loadOrThrowAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+
+        expect(session.steps.map((step) => step.phase)).toContain("call");
+        expect(session.steps.map((step) => step.phase)).toContain("return");
+        expect(
+            session.steps.find((step) => step.phase === "call")?.sourceLocation
+                ?.startLine,
+        ).toBe(5);
+        expect(
+            session.steps.find((step) => step.phase === "return")?.sourceLocation
+                ?.startLine,
+        ).toBe(5);
+    });
 });
