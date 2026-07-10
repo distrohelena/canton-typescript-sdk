@@ -14,12 +14,16 @@ export interface DarSourceBundleMetadataExecutable {
 export class DarSourceBundle {
     public readonly sourceFiles: readonly DarSourceFileEntry[];
     public readonly metadata: {
+        packageId?: string;
+        importedPackages?: readonly string[];
         executables: readonly DarSourceBundleMetadataExecutable[];
     };
 
     public constructor(init: {
         sourceFiles: readonly DarSourceFileEntry[];
         metadata: {
+            packageId?: string;
+            importedPackages?: readonly string[];
             executables: readonly DarSourceBundleMetadataExecutable[];
         };
     }) {

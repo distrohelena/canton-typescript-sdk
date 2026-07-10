@@ -1,6 +1,10 @@
 import { strToU8, zipSync } from "fflate";
 
-export function createSourceMappedDarFixture(): Uint8Array {
+export function createSourceMappedDarFixture(init?: {
+    packageId?: string;
+    definitionName?: string;
+    importedPackages?: readonly string[];
+}): Uint8Array {
     return zipSync({
         "META-INF/MANIFEST.MF": strToU8(
             "Manifest-Version: 1.0\nMain-Dalf: Sample.dalf\n",
@@ -11,11 +15,13 @@ export function createSourceMappedDarFixture(): Uint8Array {
         ),
         "debug/source-map.json": strToU8(
             JSON.stringify({
+                packageId: init?.packageId ?? "pkg-sample",
+                importedPackages: init?.importedPackages ?? [],
                 executables: [
                     {
-                        packageId: "pkg-sample",
+                        packageId: init?.packageId ?? "pkg-sample",
                         moduleName: "Main",
-                        definitionName: "archive",
+                        definitionName: init?.definitionName ?? "archive",
                         path: "src/Main.daml",
                         startLine: 3,
                         startColumn: 1,

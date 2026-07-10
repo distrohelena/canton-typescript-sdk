@@ -39,6 +39,15 @@ export class DarSourceBundleLoader {
         return new DarSourceBundle({
             sourceFiles: archive.sourceFiles,
             metadata: {
+                packageId:
+                    typeof metadata.packageId === "string"
+                        ? metadata.packageId
+                        : undefined,
+                importedPackages: Array.isArray(metadata.importedPackages)
+                    ? metadata.importedPackages.filter(
+                          (entry): entry is string => typeof entry === "string",
+                      )
+                    : [],
                 executables: metadata.executables,
             },
         });
