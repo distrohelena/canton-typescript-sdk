@@ -13,6 +13,7 @@ This SDK exposes a gRPC-shaped public API:
 The documented public surface no longer uses the old domain-grouped names like `system`, `parties`, `packages`, `contracts`, `events`, or `commands`.
 
 The package also exposes a separate DAML-LF front-end through the `canton-typescript-sdk/daml-lf` subpath.
+It also exposes an experimental replay debugger through the `canton-typescript-sdk/debugger` subpath.
 It also exposes a separate interface generator through the `canton-typescript-sdk/daml-interface` subpath.
 
 ## Imports
@@ -67,11 +68,21 @@ DAML-LF parser:
 import {
     DarArchiveLoader,
     DamlLfCompilation,
+    DamlLfEvaluator,
     DamlLfInterpreterScaffold,
     DamlLfPackageLoader,
     DamlLfSemanticModel,
     DamlLfWorkspace,
 } from "canton-typescript-sdk/daml-lf";
+```
+
+Replay debugger:
+
+```ts
+import {
+    LedgerReplayDebuggerClient,
+    ReplaySessionRequest,
+} from "canton-typescript-sdk/debugger";
 ```
 
 DAML interface generator:
@@ -257,13 +268,61 @@ Current implementation scope:
 - immutable package/module/definition model
 - workspace and compilation symbol resolution
 - semantic queries over the compiled model
-- interpreter scaffold contracts only
+- evaluator core and trace-step contracts
+- debugger-oriented replay-effect tracing
 
 Important limits:
 
 - artifact-centric, not source-parser-centric
 - no source spans or trivia reconstruction yet
-- no real DAML-LF evaluator yet
+- LF construct coverage is still partial
+
+## Replay Debugger
+
+The `canton-typescript-sdk/debugger` subpath exposes a source-aware replay debugger over committed ledger updates.
+
+Primary public types:
+
+- `LedgerReplayDebuggerClient`
+- `ReplaySessionRequest`
+- `ReplaySession`
+- `ReplaySessionMetadata`
+- `ReplayStep`
+- `ReplayStepAdvanceResult`
+
+Current replay workflow:
+
+1. fetch a committed update by offset
+2. verify the update payload is replayable
+3. hydrate referenced contracts through gRPC read services
+4. evaluate the replay entrypoint into a precomputed trace
+5. validate replay effects against the observed update
+6. expose the stored session through stepping APIs
+
+Current limits:
+
+- replay requires gRPC-visible create and exercise payloads
+- source-aware replay depends on DAR provenance that includes debugger source-map metadata
+- unsupported LF constructs fail fast with `ReplayUnsupportedLfConstructException`
+- trace steps do not yet carry resolved source locations
+
+### `new LedgerReplayDebuggerClient(init)`
+
+Creates the debugger client over a session loader and store.
+
+Methods:
+
+- `loadSessionAsync(request)`
+- `getSessionMetadataAsync(sessionId)`
+- `getCurrentStepAsync(sessionId)`
+- `stepIntoAsync(sessionId)`
+- `stepOverAsync(sessionId)`
+- `stepOutAsync(sessionId)`
+- `continueAsync(sessionId)`
+- `getStackAsync(sessionId)`
+- `getScopesAsync(sessionId, frameId)`
+- `getTraceSliceAsync(sessionId, startIndex, endIndex)`
+- `disposeSessionAsync(sessionId)`
 
 ### `new DarArchiveLoader()`
 

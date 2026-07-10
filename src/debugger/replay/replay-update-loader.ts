@@ -21,6 +21,8 @@ export class ReplayUpdateLoader {
         kind: "transaction";
         offset: string;
         updateId?: string;
+        actAs?: readonly string[];
+        readAs?: readonly string[];
         events: readonly unknown[];
         entrypoint: ReplayEntrypoint;
     }> {
@@ -39,6 +41,8 @@ export class ReplayUpdateLoader {
             | {
                   updateId?: string;
                   offset?: string;
+                  actAs?: readonly string[];
+                  readAs?: readonly string[];
                   events?: {
                       event?: {
                           oneofKind?: string;
@@ -82,6 +86,8 @@ export class ReplayUpdateLoader {
             kind: "transaction",
             offset: transaction.offset,
             updateId: transaction.updateId,
+            actAs: transaction.actAs,
+            readAs: transaction.readAs,
             events: transaction.events,
             entrypoint: this.deriveEntrypointOrThrow(transaction.events),
         };

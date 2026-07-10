@@ -189,6 +189,7 @@ Subpath exports are available when you want to construct directly over a transpo
 - `@distrohelena/canton-typescript-sdk/grpc`
 - `@distrohelena/canton-typescript-sdk/json`
 - `@distrohelena/canton-typescript-sdk/daml-lf`
+- `@distrohelena/canton-typescript-sdk/debugger`
 - `@distrohelena/canton-typescript-sdk/daml-interface`
 
 `GrpcLedgerClient` and `JsonLedgerClient` expose the same service properties as `CantonClient`.
@@ -208,7 +209,8 @@ Current scope:
 - immutable package/module/definition model
 - workspace, compilation, and symbol resolution
 - semantic queries over the compiled model
-- interpreter scaffold contracts only, no real LF execution yet
+- evaluator core and trace-sink contracts
+- replay-effect tracing for debugger-owned sessions
 
 Example:
 
@@ -228,6 +230,41 @@ const packageModel = packageLoader.loadPackageOrThrow(
 const workspace = new DamlLfWorkspace([packageModel]);
 const compilation = DamlLfCompilation.createOrThrow(workspace);
 const semanticModel = compilation.createSemanticModel();
+```
+
+## Replay Debugger
+
+The package also exposes an experimental replay debugger at `@distrohelena/canton-typescript-sdk/debugger`.
+
+Current scope:
+
+- load a replay session from a committed update offset
+- hydrate referenced contracts through the gRPC contract and event-query services
+- precompute a stepwise LF trace and expose stepping/session APIs
+- validate replay determinism against the observed update payload
+
+Current limits:
+
+- replay depends on gRPC-visible create/exercise payloads
+- source-aware replay expects DAR provenance with debugger source-map metadata
+- unsupported LF constructs still fail fast with `ReplayUnsupportedLfConstructException`
+- source locations are not emitted on trace steps yet
+
+Example:
+
+```ts
+import {
+    LedgerReplayDebuggerClient,
+    ReplaySessionRequest,
+} from "@distrohelena/canton-typescript-sdk/debugger";
+
+const debuggerClient = new LedgerReplayDebuggerClient({
+    sessionLoader,
+});
+
+const session = await debuggerClient.loadSessionAsync(
+    new ReplaySessionRequest({ offset: "42" }),
+);
 ```
 
 ## DAML Interface Generator
