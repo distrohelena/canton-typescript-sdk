@@ -6,8 +6,11 @@ import { DamlLfNodeKind } from "../../../src/daml-lf/model/daml-lf-node-kind.js"
 import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
 import { Archive, ArchivePayload, HashFunction } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
 import {
+    Block,
     BuiltinType,
+    Expr,
     Package,
+    VarWithType,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 
 describe("LF 2.x model mapper", () => {
@@ -45,6 +48,34 @@ describe("LF 2.x model mapper", () => {
             moduleName: "Sample.Module",
             definitionName: "greeting",
         });
+    });
+
+    it("maps let, lambda, application, and variable expressions", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createLambdaApplicationArchiveBytes(),
+        );
+        const applyDefinition = packageModel.modules[0].definitions[0];
+
+        expect(applyDefinition.expression.letExpression?.bindings).toHaveLength(1);
+        expect(
+            applyDefinition.expression.letExpression?.bindings[0]?.name,
+        ).toBe("greeting");
+        expect(
+            applyDefinition.expression.letExpression?.bindings[0]?.value
+                .textLiteral,
+        ).toBe("hello");
+        expect(
+            applyDefinition.expression.letExpression?.body.application?.function
+                .lambda?.parameters,
+        ).toEqual(["name"]);
+        expect(
+            applyDefinition.expression.letExpression?.body.application?.function
+                .lambda?.body.variableName,
+        ).toBe("name");
+        expect(
+            applyDefinition.expression.letExpression?.body.application?.arguments[0]
+                ?.variableName,
+        ).toBe("greeting");
     });
 });
 
@@ -164,4 +195,149 @@ function createValueReferenceArchiveBytes(): Uint8Array {
         payload: payloadBytes,
         hash: "sample-hash",
     });
+}
+
+function createLambdaApplicationArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: createLetApplicationExpression(),
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "applyGreeting",
+            "greeting",
+            "hello",
+            "name",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createLetApplicationExpression(): Expr {
+    return {
+        sum: {
+            oneofKind: "let",
+            let: {
+                bindings: [
+                    {
+                        binder: createTextBinder(5),
+                        bound: {
+                            sum: {
+                                oneofKind: "builtinLit",
+                                builtinLit: {
+                                    sum: {
+                                        oneofKind: "textInternedStr",
+                                        textInternedStr: 6,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                body: {
+                    sum: {
+                        oneofKind: "app",
+                        app: {
+                            fun: {
+                                sum: {
+                                    oneofKind: "abs",
+                                    abs: {
+                                        param: [createTextBinder(7)],
+                                        body: {
+                                            sum: {
+                                                oneofKind: "varInternedStr",
+                                                varInternedStr: 7,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            args: [
+                                {
+                                    sum: {
+                                        oneofKind: "varInternedStr",
+                                        varInternedStr: 5,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+            } satisfies Block,
+        },
+    };
+}
+
+function createTextBinder(varInternedStr: number): VarWithType {
+    return {
+        varInternedStr,
+        type: {
+            sum: {
+                oneofKind: "builtin",
+                builtin: {
+                    builtin: BuiltinType.TEXT,
+                    args: [],
+                },
+            },
+        },
+    };
 }

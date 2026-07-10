@@ -1,3 +1,4 @@
+import { ValidationError } from "../../core/errors/validation-error.js";
 import { DamlLfCompilation } from "../daml-lf-compilation.js";
 import { DamlLfExpression } from "../model/daml-lf-expression.js";
 import { DamlLfValueDefinition } from "../model/daml-lf-value-definition.js";
@@ -18,6 +19,13 @@ interface ITextRuntimeValue extends IDamlLfRuntimeValue {
 
 interface IUnitRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "unit";
+}
+
+interface IClosureRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "closure";
+    readonly parameters: readonly string[];
+    readonly body: DamlLfExpression;
+    readonly frame: DamlLfRuntimeFrame;
 }
 
 export interface IDamlLfReplayEnvironment {
@@ -84,6 +92,7 @@ export class DamlLfEvaluator {
                 kind: DamlLfStepKind.stateEffect,
                 expression: definition.expression,
                 frame,
+                locals: frame.scope.snapshotBindings(),
                 stateEffect: effect,
             });
         }
@@ -107,14 +116,16 @@ export class DamlLfEvaluator {
             kind: DamlLfStepKind.enterExpression,
             expression,
             frame,
+            locals: frame.scope.snapshotBindings(),
         });
 
-        const value = this.resolveExpressionValue(expression, traceSink);
+        const value = this.resolveExpressionValue(expression, frame, traceSink);
 
         traceSink?.onStep({
             kind: DamlLfStepKind.exitExpression,
             expression,
             frame,
+            locals: frame.scope.snapshotBindings(),
             value,
         });
 
@@ -160,6 +171,7 @@ export class DamlLfEvaluator {
 
     private resolveExpressionValue(
         expression: DamlLfExpression,
+        frame: DamlLfRuntimeFrame,
         traceSink?: IDamlLfTraceSink,
     ): IDamlLfRuntimeValue {
         if (expression.textLiteral !== undefined) {
@@ -167,6 +179,67 @@ export class DamlLfEvaluator {
                 kind: "text",
                 value: expression.textLiteral,
             } satisfies ITextRuntimeValue;
+        }
+
+        if (expression.variableName !== undefined) {
+            const value = frame.scope.getBinding(expression.variableName);
+
+            if (value === undefined) {
+                throw new ValidationError(
+                    `daml lf variable '${expression.variableName}' is not bound`,
+                );
+            }
+
+            return value;
+        }
+
+        if (expression.lambda !== undefined) {
+            return {
+                kind: "closure",
+                parameters: expression.lambda.parameters,
+                body: expression.lambda.body,
+                frame,
+            } satisfies IClosureRuntimeValue;
+        }
+
+        if (expression.application !== undefined) {
+            const functionValue = this.evaluateExpressionOrThrow(
+                expression.application.function,
+                frame,
+                traceSink,
+            );
+            const argumentValues = expression.application.arguments.map((argument) =>
+                this.evaluateExpressionOrThrow(argument, frame, traceSink),
+            );
+
+            return this.applyFunctionOrThrow(
+                functionValue,
+                argumentValues,
+                traceSink,
+            );
+        }
+
+        if (expression.letExpression !== undefined) {
+            const scopedFrame = this.deriveFrame(
+                frame,
+                frame.scope.createChild(),
+            );
+
+            for (const binding of expression.letExpression.bindings) {
+                const boundValue = this.evaluateExpressionOrThrow(
+                    binding.value,
+                    scopedFrame,
+                    traceSink,
+                );
+
+                scopedFrame.scope.setBinding(binding.name, boundValue);
+            }
+
+            return this.evaluateExpressionOrThrow(
+                expression.letExpression.body,
+                scopedFrame,
+                traceSink,
+            );
         }
 
         if (expression.valueReference !== undefined) {
@@ -181,6 +254,7 @@ export class DamlLfEvaluator {
                 kind: DamlLfStepKind.call,
                 expression,
                 frame,
+                locals: frame.scope.snapshotBindings(),
             });
 
             const value = this.evaluateExpressionOrThrow(
@@ -193,6 +267,7 @@ export class DamlLfEvaluator {
                 kind: DamlLfStepKind.return,
                 expression,
                 frame,
+                locals: frame.scope.snapshotBindings(),
                 value,
             });
 
@@ -202,5 +277,67 @@ export class DamlLfEvaluator {
         return {
             kind: "unit",
         } satisfies IUnitRuntimeValue;
+    }
+
+    private applyFunctionOrThrow(
+        functionValue: IDamlLfRuntimeValue,
+        argumentValues: readonly IDamlLfRuntimeValue[],
+        traceSink?: IDamlLfTraceSink,
+    ): IDamlLfRuntimeValue {
+        if (functionValue.kind !== "closure") {
+            throw new ValidationError(
+                `daml lf expression is not callable (${functionValue.kind})`,
+            );
+        }
+
+        const closure = functionValue as IClosureRuntimeValue;
+        const boundParameterCount = Math.min(
+            closure.parameters.length,
+            argumentValues.length,
+        );
+        const remainingParameters = closure.parameters.slice(boundParameterCount);
+        const remainingArguments = argumentValues.slice(boundParameterCount);
+        const scope = closure.frame.scope.createChild();
+
+        for (let index = 0; index < boundParameterCount; index += 1) {
+            scope.setBinding(closure.parameters[index]!, argumentValues[index]!);
+        }
+
+        const appliedFrame = this.deriveFrame(closure.frame, scope);
+
+        const intermediateValue =
+            remainingParameters.length === 0
+                ? this.evaluateExpressionOrThrow(
+                    closure.body,
+                    appliedFrame,
+                    traceSink,
+                )
+                : ({
+                    kind: "closure",
+                    parameters: remainingParameters,
+                    body: closure.body,
+                    frame: appliedFrame,
+                } satisfies IClosureRuntimeValue);
+
+        return remainingArguments.length === 0
+            ? intermediateValue
+            : this.applyFunctionOrThrow(
+                intermediateValue,
+                remainingArguments,
+                traceSink,
+            );
+    }
+
+    private deriveFrame(
+        frame: DamlLfRuntimeFrame,
+        scope: DamlLfLexicalScope,
+    ): DamlLfRuntimeFrame {
+        return new DamlLfRuntimeFrame({
+            frameId: frame.frameId,
+            packageId: frame.packageId,
+            moduleName: frame.moduleName,
+            definition: frame.definition,
+            scope,
+        });
     }
 }

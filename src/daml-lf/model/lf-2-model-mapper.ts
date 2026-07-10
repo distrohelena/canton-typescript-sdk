@@ -354,6 +354,15 @@ export class Lf2ModelMapper {
         currentPackageId: string,
         rawPackage: LfArchivePackage,
     ): DamlLfExpression {
+        if (rawExpression?.sum.oneofKind === "varInternedStr") {
+            return new DamlLfExpression({
+                variableName: Lf2ModelMapper.resolveInternedString(
+                    internedStrings,
+                    rawExpression.sum.varInternedStr,
+                ),
+            });
+        }
+
         if (rawExpression?.sum.oneofKind === "builtinLit") {
             const rawLiteral = rawExpression.sum.builtinLit;
 
@@ -374,8 +383,8 @@ export class Lf2ModelMapper {
                 valueReference: {
                     packageId: Lf2ModelMapper.resolvePackageIdOrThrow(
                         currentPackageId,
-                        rawPackage,
                         valueReference.module?.packageId,
+                        rawPackage,
                     ),
                     moduleName: Lf2ModelMapper.resolveInternedDottedName(
                         internedStrings,
@@ -386,6 +395,76 @@ export class Lf2ModelMapper {
                         internedStrings,
                         internedDottedNames,
                         valueReference.nameInternedDname,
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "abs") {
+            return new DamlLfExpression({
+                lambda: {
+                    parameters: rawExpression.sum.abs.param.map((parameter) =>
+                        Lf2ModelMapper.resolveInternedString(
+                            rawPackage.internedStrings,
+                            parameter.varInternedStr,
+                        ),
+                    ),
+                    body: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.abs.body,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "app") {
+            return new DamlLfExpression({
+                application: {
+                    function: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.app.fun,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    arguments: rawExpression.sum.app.args.map((argument) =>
+                        Lf2ModelMapper.mapExpression(
+                            argument,
+                            internedStrings,
+                            internedDottedNames,
+                            currentPackageId,
+                            rawPackage,
+                        ),
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "let") {
+            return new DamlLfExpression({
+                letExpression: {
+                    bindings: rawExpression.sum.let.bindings.map((binding) => ({
+                        name: Lf2ModelMapper.resolveInternedString(
+                            rawPackage.internedStrings,
+                            binding.binder?.varInternedStr,
+                        ),
+                        value: Lf2ModelMapper.mapExpression(
+                            binding.bound,
+                            internedStrings,
+                            internedDottedNames,
+                            currentPackageId,
+                            rawPackage,
+                        ),
+                    })),
+                    body: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.let.body,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
                     ),
                 },
             });

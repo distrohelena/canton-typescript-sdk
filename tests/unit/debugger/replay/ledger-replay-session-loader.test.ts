@@ -304,4 +304,129 @@ describe("LedgerReplaySessionLoader", () => {
                 ?.startLine,
         ).toBe(5);
     });
+
+    it("projects evaluator locals into replay steps", async () => {
+        const definition = new DamlLfValueDefinition({
+            name: "archiveVaultHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                letExpression: {
+                    bindings: [
+                        {
+                            name: "greeting",
+                            value: new DamlLfExpression({
+                                textLiteral: "archived",
+                            }),
+                        },
+                    ],
+                    body: new DamlLfExpression({
+                        variableName: "greeting",
+                    }),
+                },
+            }),
+        });
+        const compilation = DamlLfCompilation.createOrThrow(
+            new DamlLfWorkspace([
+                new DamlLfPackage({
+                    packageId: "pkg-main",
+                    packageName: "sample-package",
+                    packageVersion: "1.0.0",
+                    languageVersion: {
+                        major: 2,
+                        minor: "1",
+                        patch: 0,
+                        toString: () => "2.1",
+                    },
+                    modules: [
+                        new DamlLfModule({
+                            name: "Main",
+                            definitions: [definition],
+                        }),
+                    ],
+                }),
+            ]),
+        );
+        const session = await new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync() {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        events: [
+                            {
+                                event: {
+                                    oneofKind: "exercised",
+                                    exercised: {
+                                        contractId: "00abc",
+                                        templateId: {
+                                            packageId: "pkg-main",
+                                            moduleName: "Main",
+                                            entityName: "Vault",
+                                        },
+                                        choice: "Archive",
+                                        choiceArgument: {},
+                                    },
+                                },
+                            },
+                        ],
+                        entrypoint: new ReplayEntrypoint({
+                            kind: "exercise",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            contractId: "00abc",
+                            choice: "Archive",
+                            argument: {},
+                        }),
+                    };
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(snapshot) {
+                    return {
+                        kind: "transaction",
+                        offset: snapshot.offset,
+                        actAs: snapshot.actAs ?? [],
+                        readAs: snapshot.readAs ?? [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map(),
+                    };
+                },
+            },
+            definitionResolver: {
+                resolveEntrypointDefinitionOrThrow() {
+                    return {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        definition,
+                    };
+                },
+            },
+            evaluator: new DamlLfEvaluator(compilation),
+            determinismValidator: {
+                validateOrThrow() {
+                    return undefined;
+                },
+            },
+            sessionIdFactory: () => "session-1",
+        }).loadOrThrowAsync(new ReplaySessionRequest({ offset: "42" }));
+
+        expect(
+            session.steps.some((step) =>
+                step.locals.some(
+                    (local) =>
+                        typeof local === "object"
+                        && local !== null
+                        && "name" in local
+                        && "value" in local
+                        && local.name === "greeting"
+                        && local.value === "archived",
+                ),
+            ),
+        ).toBe(true);
+    });
 });

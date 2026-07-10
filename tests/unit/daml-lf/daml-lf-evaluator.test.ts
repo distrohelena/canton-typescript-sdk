@@ -122,4 +122,106 @@ describe("DamlLfEvaluator", () => {
             DamlLfStepKind.exitExpression,
         ]);
     });
+
+    it("evaluates let-bound variables through lambda application", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "applyGreeting",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                letExpression: {
+                    bindings: [
+                        {
+                            name: "greeting",
+                            value: new DamlLfExpression({
+                                textLiteral: "Alice",
+                            }),
+                        },
+                    ],
+                    body: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                lambda: {
+                                    parameters: ["name"],
+                                    body: new DamlLfExpression({
+                                        variableName: "name",
+                                    }),
+                                },
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    variableName: "greeting",
+                                }),
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+        const steps: {
+            kind: DamlLfStepKind;
+            locals: readonly { name: string; value: string }[];
+        }[] = [];
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition, {
+            onStep(step) {
+                steps.push({
+                    kind: step.kind,
+                    locals: step.locals.map((local) => ({
+                        name: local.name,
+                        value:
+                            "value" in local.value
+                                ? String(local.value.value)
+                                : local.value.kind,
+                    })),
+                });
+            },
+        });
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "Alice",
+        });
+        expect(
+            steps.some(
+                (step) =>
+                    step.locals.some(
+                        (local) =>
+                            local.name === "greeting"
+                            && local.value === "Alice",
+                    ),
+            ),
+        ).toBe(true);
+        expect(
+            steps.some(
+                (step) =>
+                    step.locals.some(
+                        (local) =>
+                            local.name === "name" && local.value === "Alice",
+                    ),
+            ),
+        ).toBe(true);
+    });
 });

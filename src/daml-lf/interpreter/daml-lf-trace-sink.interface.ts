@@ -20,6 +20,10 @@ export interface IDamlLfTraceStep {
     readonly kind: DamlLfStepKind;
     readonly expression: DamlLfExpression;
     readonly frame: DamlLfRuntimeFrame;
+    readonly locals: readonly {
+        readonly name: string;
+        readonly value: IDamlLfRuntimeValue;
+    }[];
     readonly value?: IDamlLfRuntimeValue;
     readonly stateEffect?: IDamlLfReplayEffect;
 }

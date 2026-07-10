@@ -133,7 +133,11 @@ export class LedgerReplaySessionLoader {
                     name: traceStep.frame.definition.name,
                 }),
             ],
-            locals: [],
+            locals: traceStep.locals.map((local) => ({
+                name: local.name,
+                kind: local.value.kind,
+                value: this.stringifyRuntimeValue(local.value),
+            })),
             arguments:
                 traceStep.stateEffect?.argument === undefined
                     ? []
