@@ -7,6 +7,7 @@ import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
 import { Archive, ArchivePayload, HashFunction } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
 import {
     BuiltinCon,
+    BuiltinFunction,
     Block,
     BuiltinType,
     Case,
@@ -173,6 +174,57 @@ describe("LF 2.x model mapper", () => {
         ).toEqual(
             expect.objectContaining({
                 patternKind: "optionalNone",
+            }),
+        );
+    });
+
+    it("maps builtin function expressions", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createBuiltinEqualityArchiveBytes(),
+        );
+        const definition = packageModel.modules[0].definitions[0];
+
+        expect(
+            definition.expression.application?.function.builtinFunction,
+        ).toBe("equal");
+    });
+
+    it("maps enum construction and case alternatives", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createEnumCaseArchiveBytes(),
+        );
+        const definition = packageModel.modules[0].definitions[0];
+
+        expect(
+            definition.expression.caseExpression?.scrutinee.enumConstruction
+                ?.constructorName,
+        ).toBe("Active");
+        expect(
+            definition.expression.caseExpression?.alternatives[0],
+        ).toEqual(
+            expect.objectContaining({
+                patternKind: "enum",
+                constructorName: "Active",
+            }),
+        );
+    });
+
+    it("maps list construction and cons case alternatives", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createListCaseArchiveBytes(),
+        );
+        const definition = packageModel.modules[0].definitions[0];
+
+        expect(
+            definition.expression.caseExpression?.scrutinee.listConstruction?.front,
+        ).toHaveLength(1);
+        expect(
+            definition.expression.caseExpression?.alternatives[0],
+        ).toEqual(
+            expect.objectContaining({
+                patternKind: "cons",
+                headBinderName: "head",
+                tailBinderName: "tail",
             }),
         );
     });
@@ -762,6 +814,349 @@ function createOptionalCaseArchiveBytes(): Uint8Array {
             "hello",
             "note",
             "missing",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createBuiltinEqualityArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "app",
+                                app: {
+                                    fun: {
+                                        sum: {
+                                            oneofKind: "builtin",
+                                            builtin: BuiltinFunction.EQUAL,
+                                        },
+                                    },
+                                    args: [
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "textInternedStr",
+                                                        textInternedStr: 5,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                        {
+                                            sum: {
+                                                oneofKind: "builtinLit",
+                                                builtinLit: {
+                                                    sum: {
+                                                        oneofKind: "textInternedStr",
+                                                        textInternedStr: 5,
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "isOwner",
+            "Alice",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createEnumCaseArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "case",
+                                case: {
+                                    scrut: {
+                                        sum: {
+                                            oneofKind: "enumCon",
+                                            enumCon: {
+                                                enumConInternedStr: 5,
+                                            },
+                                        },
+                                    },
+                                    alts: [
+                                        {
+                                            sum: {
+                                                oneofKind: "enum",
+                                                enum: {
+                                                    constructorInternedStr: 5,
+                                                },
+                                            },
+                                            body: {
+                                                sum: {
+                                                    oneofKind: "builtinLit",
+                                                    builtinLit: {
+                                                        sum: {
+                                                            oneofKind: "textInternedStr",
+                                                            textInternedStr: 6,
+                                                        },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "statusLabel",
+            "Active",
+            "active",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createListCaseArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "case",
+                                case: {
+                                    scrut: {
+                                        sum: {
+                                            oneofKind: "cons",
+                                            cons: {
+                                                front: [
+                                                    {
+                                                        sum: {
+                                                            oneofKind: "builtinLit",
+                                                            builtinLit: {
+                                                                sum: {
+                                                                    oneofKind:
+                                                                        "textInternedStr",
+                                                                    textInternedStr: 5,
+                                                                },
+                                                            },
+                                                        },
+                                                    },
+                                                ],
+                                                tail: {
+                                                    sum: {
+                                                        oneofKind: "nil",
+                                                        nil: {},
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                    alts: [
+                                        {
+                                            sum: {
+                                                oneofKind: "cons",
+                                                cons: {
+                                                    varHeadInternedStr: 6,
+                                                    varTailInternedStr: 7,
+                                                },
+                                            },
+                                            body: {
+                                                sum: {
+                                                    oneofKind: "varInternedStr",
+                                                    varInternedStr: 6,
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "headValue",
+            "head",
+            "head",
+            "tail",
         ],
         internedDottedNames: [
             {

@@ -1,5 +1,6 @@
 import {
     BuiltinCon,
+    BuiltinFunction,
     BuiltinType,
     DefDataType,
     DefTemplate,
@@ -388,6 +389,15 @@ export class Lf2ModelMapper {
             });
         }
 
+        if (rawExpression?.sum.oneofKind === "builtin") {
+            return new DamlLfExpression({
+                builtinFunction:
+                    rawExpression.sum.builtin === BuiltinFunction.EQUAL
+                        ? "equal"
+                        : "unsupported",
+            });
+        }
+
         if (rawExpression?.sum.oneofKind === "val") {
             const valueReference = rawExpression.sum.val;
 
@@ -531,6 +541,48 @@ export class Lf2ModelMapper {
             });
         }
 
+        if (rawExpression?.sum.oneofKind === "enumCon") {
+            return new DamlLfExpression({
+                enumConstruction: {
+                    constructorName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawExpression.sum.enumCon.enumConInternedStr,
+                    ),
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "nil") {
+            return new DamlLfExpression({
+                listConstruction: {
+                    front: [],
+                },
+            });
+        }
+
+        if (rawExpression?.sum.oneofKind === "cons") {
+            return new DamlLfExpression({
+                listConstruction: {
+                    front: rawExpression.sum.cons.front.map((item) =>
+                        Lf2ModelMapper.mapExpression(
+                            item,
+                            internedStrings,
+                            internedDottedNames,
+                            currentPackageId,
+                            rawPackage,
+                        ),
+                    ),
+                    tail: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.cons.tail,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
         if (rawExpression?.sum.oneofKind === "case") {
             return new DamlLfExpression({
                 caseExpression: {
@@ -552,6 +604,12 @@ export class Lf2ModelMapper {
                                         : alternative.sum.oneofKind
                                             === "optionalSome"
                                             ? "optionalSome"
+                                            : alternative.sum.oneofKind === "enum"
+                                                ? "enum"
+                                                : alternative.sum.oneofKind === "nil"
+                                                    ? "nil"
+                                                    : alternative.sum.oneofKind === "cons"
+                                                        ? "cons"
                                     : "default",
                         builtinConstructor:
                             alternative.sum.oneofKind === "builtinCon"
@@ -568,6 +626,11 @@ export class Lf2ModelMapper {
                                     internedStrings,
                                     alternative.sum.variant.variantInternedStr,
                                 )
+                                : alternative.sum.oneofKind === "enum"
+                                    ? Lf2ModelMapper.resolveInternedString(
+                                        internedStrings,
+                                        alternative.sum.enum.constructorInternedStr,
+                                    )
                                 : undefined,
                         binderName:
                             alternative.sum.oneofKind === "variant"
@@ -580,6 +643,20 @@ export class Lf2ModelMapper {
                                         internedStrings,
                                         alternative.sum.optionalSome.varBodyInternedStr,
                                     )
+                                : undefined,
+                        headBinderName:
+                            alternative.sum.oneofKind === "cons"
+                                ? Lf2ModelMapper.resolveInternedString(
+                                    internedStrings,
+                                    alternative.sum.cons.varHeadInternedStr,
+                                )
+                                : undefined,
+                        tailBinderName:
+                            alternative.sum.oneofKind === "cons"
+                                ? Lf2ModelMapper.resolveInternedString(
+                                    internedStrings,
+                                    alternative.sum.cons.varTailInternedStr,
+                                )
                                 : undefined,
                         body: Lf2ModelMapper.mapExpression(
                             alternative.body,

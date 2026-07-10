@@ -477,4 +477,207 @@ describe("DamlLfEvaluator", () => {
             value: "hello",
         });
     });
+
+    it("evaluates builtin equality through application", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "isOwner",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                caseExpression: {
+                    scrutinee: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                builtinFunction: "equal",
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    textLiteral: "Alice",
+                                }),
+                                new DamlLfExpression({
+                                    textLiteral: "Alice",
+                                }),
+                            ],
+                        },
+                    }),
+                    alternatives: [
+                        {
+                            patternKind: "builtinCon",
+                            builtinConstructor: "true",
+                            body: new DamlLfExpression({
+                                textLiteral: "yes",
+                            }),
+                        },
+                        {
+                            patternKind: "default",
+                            body: new DamlLfExpression({
+                                textLiteral: "no",
+                            }),
+                        },
+                    ],
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "yes",
+        });
+    });
+
+    it("evaluates enum construction and case matching", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "statusLabel",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                caseExpression: {
+                    scrutinee: new DamlLfExpression({
+                        enumConstruction: {
+                            constructorName: "Active",
+                        },
+                    }),
+                    alternatives: [
+                        {
+                            patternKind: "enum",
+                            constructorName: "Active",
+                            body: new DamlLfExpression({
+                                textLiteral: "active",
+                            }),
+                        },
+                        {
+                            patternKind: "default",
+                            body: new DamlLfExpression({
+                                textLiteral: "inactive",
+                            }),
+                        },
+                    ],
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "active",
+        });
+    });
+
+    it("evaluates list construction and cons case matching", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "headValue",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                caseExpression: {
+                    scrutinee: new DamlLfExpression({
+                        listConstruction: {
+                            front: [
+                                new DamlLfExpression({
+                                    textLiteral: "head",
+                                }),
+                            ],
+                            tail: new DamlLfExpression({
+                                listConstruction: {
+                                    front: [],
+                                },
+                            }),
+                        },
+                    }),
+                    alternatives: [
+                        {
+                            patternKind: "cons",
+                            headBinderName: "head",
+                            tailBinderName: "tail",
+                            body: new DamlLfExpression({
+                                variableName: "head",
+                            }),
+                        },
+                        {
+                            patternKind: "default",
+                            body: new DamlLfExpression({
+                                textLiteral: "empty",
+                            }),
+                        },
+                    ],
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "head",
+        });
+    });
 });

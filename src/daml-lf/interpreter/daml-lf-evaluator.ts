@@ -38,6 +38,12 @@ interface ILedgerValueRuntimeValue extends IDamlLfRuntimeValue {
     readonly value: unknown;
 }
 
+interface IBuiltinRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "builtin";
+    readonly builtinFunction: string;
+    readonly appliedArguments: readonly IDamlLfRuntimeValue[];
+}
+
 export interface IDamlLfReplayEnvironment {
     readonly offset: string;
     readonly entrypoint: {
@@ -224,6 +230,14 @@ export class DamlLfEvaluator {
             }
         }
 
+        if (expression.builtinFunction !== undefined) {
+            return {
+                kind: "builtin",
+                builtinFunction: expression.builtinFunction,
+                appliedArguments: [],
+            } satisfies IBuiltinRuntimeValue;
+        }
+
         if (expression.lambda !== undefined) {
             return {
                 kind: "closure",
@@ -340,6 +354,38 @@ export class DamlLfEvaluator {
                 );
         }
 
+        if (expression.enumConstruction !== undefined) {
+            return this.hydrateRuntimeValue(
+                expression.enumConstruction.constructorName,
+            );
+        }
+
+        if (expression.listConstruction !== undefined) {
+            const front = expression.listConstruction.front.map((item) =>
+                this.unwrapRuntimeValue(
+                    this.evaluateExpressionOrThrow(item, frame, traceSink),
+                ),
+            );
+            const tail =
+                expression.listConstruction.tail === undefined
+                    ? []
+                    : this.unwrapRuntimeValue(
+                        this.evaluateExpressionOrThrow(
+                            expression.listConstruction.tail,
+                            frame,
+                            traceSink,
+                        ),
+                    );
+
+            if (!Array.isArray(tail)) {
+                throw new ValidationError(
+                    "daml lf list construction requires an array tail",
+                );
+            }
+
+            return this.hydrateRuntimeValue([...front, ...tail]);
+        }
+
         if (expression.caseExpression !== undefined) {
             const scrutinee = this.evaluateExpressionOrThrow(
                 expression.caseExpression.scrutinee,
@@ -359,13 +405,14 @@ export class DamlLfEvaluator {
 
             if (
                 (matchingAlternative.patternKind === "variant"
-                    || matchingAlternative.patternKind === "optionalSome")
-                && matchingAlternative.binderName !== undefined
+                    || matchingAlternative.patternKind === "optionalSome"
+                    || matchingAlternative.patternKind === "cons")
             ) {
                 const rawValue = this.unwrapRuntimeValue(scrutinee);
 
                 if (
                     matchingAlternative.patternKind === "optionalSome"
+                    || matchingAlternative.patternKind === "cons"
                     || (
                         rawValue !== null
                         && typeof rawValue === "object"
@@ -376,14 +423,35 @@ export class DamlLfEvaluator {
                         frame,
                         frame.scope.createChild(),
                     );
-                    scopedFrame.scope.setBinding(
-                        matchingAlternative.binderName,
-                        this.hydrateRuntimeValue(
-                            matchingAlternative.patternKind === "optionalSome"
-                                ? rawValue
-                                : (rawValue as { value: unknown }).value,
-                        ),
-                    );
+                    if (
+                        matchingAlternative.patternKind === "cons"
+                        && Array.isArray(rawValue)
+                    ) {
+                        if (matchingAlternative.headBinderName !== undefined) {
+                            scopedFrame.scope.setBinding(
+                                matchingAlternative.headBinderName,
+                                this.hydrateRuntimeValue(rawValue[0]),
+                            );
+                        }
+
+                        if (matchingAlternative.tailBinderName !== undefined) {
+                            scopedFrame.scope.setBinding(
+                                matchingAlternative.tailBinderName,
+                                this.hydrateRuntimeValue(rawValue.slice(1)),
+                            );
+                        }
+                    }
+
+                    else if (matchingAlternative.binderName !== undefined) {
+                        scopedFrame.scope.setBinding(
+                            matchingAlternative.binderName,
+                            this.hydrateRuntimeValue(
+                                matchingAlternative.patternKind === "optionalSome"
+                                    ? rawValue
+                                    : (rawValue as { value: unknown }).value,
+                            ),
+                        );
+                    }
 
                     return this.evaluateExpressionOrThrow(
                         matchingAlternative.body,
@@ -569,6 +637,23 @@ export class DamlLfEvaluator {
             return runtimeValue.kind !== "unit";
         }
 
+        if (alternative.patternKind === "enum") {
+            return (
+                runtimeValue.kind === "text"
+                && runtimeValue.value === alternative.constructorName
+            );
+        }
+
+        if (alternative.patternKind === "nil") {
+            return Array.isArray(this.unwrapRuntimeValue(runtimeValue))
+                && this.unwrapRuntimeValue(runtimeValue).length === 0;
+        }
+
+        if (alternative.patternKind === "cons") {
+            return Array.isArray(this.unwrapRuntimeValue(runtimeValue))
+                && this.unwrapRuntimeValue(runtimeValue).length > 0;
+        }
+
         const rawValue = this.unwrapRuntimeValue(runtimeValue);
 
         return (
@@ -586,6 +671,13 @@ export class DamlLfEvaluator {
         traceSink?: IDamlLfTraceSink,
     ): IDamlLfRuntimeValue {
         if (functionValue.kind !== "closure") {
+            if (functionValue.kind === "builtin") {
+                return this.builtinDispatch.applyOrThrow(
+                    functionValue as IBuiltinRuntimeValue,
+                    argumentValues,
+                );
+            }
+
             throw new ValidationError(
                 `daml lf expression is not callable (${functionValue.kind})`,
             );

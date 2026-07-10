@@ -41,6 +41,7 @@ export interface IDamlLfRecordProjectionExpression {
 }
 
 export type DamlLfBuiltinConstructor = "unit" | "false" | "true";
+export type DamlLfBuiltinFunction = "equal" | "unsupported";
 
 export interface IDamlLfVariantConstructionExpression {
     readonly constructorName: string;
@@ -51,16 +52,30 @@ export interface IDamlLfOptionalConstructionExpression {
     readonly value?: DamlLfExpression;
 }
 
+export interface IDamlLfEnumConstructionExpression {
+    readonly constructorName: string;
+}
+
+export interface IDamlLfListConstructionExpression {
+    readonly front: readonly DamlLfExpression[];
+    readonly tail?: DamlLfExpression;
+}
+
 export interface IDamlLfCaseAlternative {
     readonly patternKind:
         | "default"
         | "builtinCon"
         | "variant"
         | "optionalNone"
-        | "optionalSome";
+        | "optionalSome"
+        | "enum"
+        | "nil"
+        | "cons";
     readonly builtinConstructor?: DamlLfBuiltinConstructor;
     readonly constructorName?: string;
     readonly binderName?: string;
+    readonly headBinderName?: string;
+    readonly tailBinderName?: string;
     readonly body: DamlLfExpression;
 }
 
@@ -80,9 +95,12 @@ export class DamlLfExpression {
     public readonly recordConstruction?: IDamlLfRecordConstructionExpression;
     public readonly recordProjection?: IDamlLfRecordProjectionExpression;
     public readonly builtinConstructor?: DamlLfBuiltinConstructor;
+    public readonly builtinFunction?: DamlLfBuiltinFunction;
     public readonly caseExpression?: IDamlLfCaseExpression;
     public readonly variantConstruction?: IDamlLfVariantConstructionExpression;
     public readonly optionalConstruction?: IDamlLfOptionalConstructionExpression;
+    public readonly enumConstruction?: IDamlLfEnumConstructionExpression;
+    public readonly listConstruction?: IDamlLfListConstructionExpression;
 
     public constructor(init: {
         textLiteral?: string;
@@ -94,9 +112,12 @@ export class DamlLfExpression {
         recordConstruction?: IDamlLfRecordConstructionExpression;
         recordProjection?: IDamlLfRecordProjectionExpression;
         builtinConstructor?: DamlLfBuiltinConstructor;
+        builtinFunction?: DamlLfBuiltinFunction;
         caseExpression?: IDamlLfCaseExpression;
         variantConstruction?: IDamlLfVariantConstructionExpression;
         optionalConstruction?: IDamlLfOptionalConstructionExpression;
+        enumConstruction?: IDamlLfEnumConstructionExpression;
+        listConstruction?: IDamlLfListConstructionExpression;
     }) {
         this.textLiteral = init.textLiteral;
         this.valueReference = init.valueReference;
@@ -107,8 +128,11 @@ export class DamlLfExpression {
         this.recordConstruction = init.recordConstruction;
         this.recordProjection = init.recordProjection;
         this.builtinConstructor = init.builtinConstructor;
+        this.builtinFunction = init.builtinFunction;
         this.caseExpression = init.caseExpression;
         this.variantConstruction = init.variantConstruction;
         this.optionalConstruction = init.optionalConstruction;
+        this.enumConstruction = init.enumConstruction;
+        this.listConstruction = init.listConstruction;
     }
 }
