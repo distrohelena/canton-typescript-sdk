@@ -6,7 +6,11 @@ export { DamlLfVersionNotSupportedException } from "./errors/daml-lf-version-not
 export { DamlLfCompilation } from "./daml-lf-compilation.js";
 export { DamlLfPackageLoader, DamlLfPackageLoadResult } from "./daml-lf-package-loader.js";
 export { DamlLfWorkspace } from "./daml-lf-workspace.js";
+export { DarArchiveEntry } from "./container/dar-archive-entry.js";
 export { DarArchiveLoader } from "./container/dar-archive-loader.js";
+export { DarSourceBundle } from "./container/dar-source-bundle.js";
+export { DarSourceBundleLoader } from "./container/dar-source-bundle-loader.js";
+export { DarSourceFileEntry } from "./container/dar-source-file-entry.js";
 export { DamlLfBuiltinDispatch } from "./interpreter/daml-lf-builtin-dispatch.js";
 export { DamlLfInterpreterScaffold } from "./interpreter/daml-lf-interpreter-scaffold.js";
 export { DamlLfBuiltinType } from "./model/daml-lf-builtin-type.js";

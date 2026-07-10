@@ -1,8 +1,10 @@
 import { strFromU8, unzipSync } from "fflate";
 import { DamlLfArchiveException } from "../errors/daml-lf-archive.exception.js";
 import { DarArchive } from "./dar-archive.js";
+import { DarArchiveEntry } from "./dar-archive-entry.js";
 import { DarManifest } from "./dar-manifest.js";
 import { DarPackageEntry } from "./dar-package-entry.js";
+import { DarSourceFileEntry } from "./dar-source-file-entry.js";
 
 export class DarArchiveLoader {
     public async loadDarOrThrowAsync(archiveBytes: Uint8Array): Promise<DarArchive> {
@@ -18,6 +20,13 @@ export class DarArchiveLoader {
             }
 
             const manifest = this.parseManifestOrThrow(strFromU8(manifestBytes));
+            const entries = Object.entries(archiveEntries).map(
+                ([path, bytes]) =>
+                    new DarArchiveEntry({
+                        path,
+                        bytes,
+                    }),
+            );
 
             const packageEntries = Object.entries(archiveEntries)
                 .filter(([path]) => path.endsWith(".dalf"))
@@ -26,6 +35,15 @@ export class DarArchiveLoader {
                         new DarPackageEntry({
                             path,
                             bytes,
+                        }),
+                );
+            const sourceFiles = Object.entries(archiveEntries)
+                .filter(([path]) => path.endsWith(".daml"))
+                .map(
+                    ([path, bytes]) =>
+                        new DarSourceFileEntry({
+                            path,
+                            content: strFromU8(bytes),
                         }),
                 );
 
@@ -40,9 +58,11 @@ export class DarArchiveLoader {
             }
 
             return new DarArchive({
+                entries,
                 manifest,
                 mainPackageEntry,
                 packageEntries,
+                sourceFiles,
             });
         } catch (error) {
             if (error instanceof DamlLfArchiveException) {

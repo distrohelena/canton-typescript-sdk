@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import { createSourceMappedDarFixture } from "../../fixtures/daml-lf/source-mapped-dar-fixture.js";
 import {
     DamlLfArchiveException,
     DarArchiveLoader,
@@ -39,6 +40,19 @@ describe("DarArchiveLoader", () => {
         expect(archive.mainPackageEntry.path).toBe("Sample.dalf");
         expect(archive.packageEntries).toHaveLength(1);
         expect(archive.manifest.mainDalfPath).toBe("Sample.dalf");
+    });
+
+    it("retains raw archive entries beyond dalf payloads", async () => {
+        const archive = await new DarArchiveLoader().loadDarOrThrowAsync(
+            createSourceMappedDarFixture(),
+        );
+
+        expect(archive.entries.some((entry) => entry.path.endsWith(".daml"))).toBe(
+            true,
+        );
+        expect(archive.sourceFiles.map((entry) => entry.path)).toContain(
+            "src/Main.daml",
+        );
     });
 
     it("rejects archives without a valid manifest", async () => {
