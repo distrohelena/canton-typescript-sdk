@@ -26,6 +26,49 @@ export interface IDamlLfLetExpression {
     readonly body: DamlLfExpression;
 }
 
+export interface IDamlLfRecordFieldExpression {
+    readonly name: string;
+    readonly value: DamlLfExpression;
+}
+
+export interface IDamlLfRecordConstructionExpression {
+    readonly fields: readonly IDamlLfRecordFieldExpression[];
+}
+
+export interface IDamlLfRecordProjectionExpression {
+    readonly fieldName: string;
+    readonly record: DamlLfExpression;
+}
+
+export type DamlLfBuiltinConstructor = "unit" | "false" | "true";
+
+export interface IDamlLfVariantConstructionExpression {
+    readonly constructorName: string;
+    readonly argument: DamlLfExpression;
+}
+
+export interface IDamlLfOptionalConstructionExpression {
+    readonly value?: DamlLfExpression;
+}
+
+export interface IDamlLfCaseAlternative {
+    readonly patternKind:
+        | "default"
+        | "builtinCon"
+        | "variant"
+        | "optionalNone"
+        | "optionalSome";
+    readonly builtinConstructor?: DamlLfBuiltinConstructor;
+    readonly constructorName?: string;
+    readonly binderName?: string;
+    readonly body: DamlLfExpression;
+}
+
+export interface IDamlLfCaseExpression {
+    readonly scrutinee: DamlLfExpression;
+    readonly alternatives: readonly IDamlLfCaseAlternative[];
+}
+
 export class DamlLfExpression {
     public readonly nodeKind = DamlLfNodeKind.expression;
     public readonly textLiteral?: string;
@@ -34,6 +77,12 @@ export class DamlLfExpression {
     public readonly lambda?: IDamlLfLambdaExpression;
     public readonly application?: IDamlLfApplicationExpression;
     public readonly letExpression?: IDamlLfLetExpression;
+    public readonly recordConstruction?: IDamlLfRecordConstructionExpression;
+    public readonly recordProjection?: IDamlLfRecordProjectionExpression;
+    public readonly builtinConstructor?: DamlLfBuiltinConstructor;
+    public readonly caseExpression?: IDamlLfCaseExpression;
+    public readonly variantConstruction?: IDamlLfVariantConstructionExpression;
+    public readonly optionalConstruction?: IDamlLfOptionalConstructionExpression;
 
     public constructor(init: {
         textLiteral?: string;
@@ -42,6 +91,12 @@ export class DamlLfExpression {
         lambda?: IDamlLfLambdaExpression;
         application?: IDamlLfApplicationExpression;
         letExpression?: IDamlLfLetExpression;
+        recordConstruction?: IDamlLfRecordConstructionExpression;
+        recordProjection?: IDamlLfRecordProjectionExpression;
+        builtinConstructor?: DamlLfBuiltinConstructor;
+        caseExpression?: IDamlLfCaseExpression;
+        variantConstruction?: IDamlLfVariantConstructionExpression;
+        optionalConstruction?: IDamlLfOptionalConstructionExpression;
     }) {
         this.textLiteral = init.textLiteral;
         this.valueReference = init.valueReference;
@@ -49,5 +104,11 @@ export class DamlLfExpression {
         this.lambda = init.lambda;
         this.application = init.application;
         this.letExpression = init.letExpression;
+        this.recordConstruction = init.recordConstruction;
+        this.recordProjection = init.recordProjection;
+        this.builtinConstructor = init.builtinConstructor;
+        this.caseExpression = init.caseExpression;
+        this.variantConstruction = init.variantConstruction;
+        this.optionalConstruction = init.optionalConstruction;
     }
 }

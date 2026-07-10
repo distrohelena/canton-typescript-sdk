@@ -303,6 +303,22 @@ describe("LedgerReplaySessionLoader", () => {
             session.steps.find((step) => step.phase === "return")?.sourceLocation
                 ?.startLine,
         ).toBe(5);
+        expect(
+            session.steps.find((step) => step.phase === "call")?.stackFrames.map(
+                (frame) => frame.name,
+            ),
+        ).toEqual(["archiveVaultHandler", "greeting"]);
+        expect(
+            session.steps.find((step) => step.phase === "return")?.stackFrames.map(
+                (frame) => frame.name,
+            ),
+        ).toEqual(["archiveVaultHandler", "greeting"]);
+        expect(
+            session.steps
+                .filter((step) => step.phase === "exitExpression")
+                .at(-1)
+                ?.stackFrames.map((frame) => frame.name),
+        ).toEqual(["archiveVaultHandler"]);
     });
 
     it("projects evaluator locals into replay steps", async () => {

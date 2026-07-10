@@ -43,19 +43,19 @@ export class LedgerReplayDebuggerClient {
     public async stepIntoAsync(
         sessionId: string,
     ): Promise<ReplayStepAdvanceResult> {
-        return this.getStore().advanceOrThrow(sessionId);
+        return this.getStore().advanceIntoOrThrow(sessionId);
     }
 
     public async stepOverAsync(
         sessionId: string,
     ): Promise<ReplayStepAdvanceResult> {
-        return this.getStore().advanceOrThrow(sessionId);
+        return this.getStore().advanceOverOrThrow(sessionId);
     }
 
     public async stepOutAsync(
         sessionId: string,
     ): Promise<ReplayStepAdvanceResult> {
-        return this.getStore().advanceOrThrow(sessionId);
+        return this.getStore().advanceOutOrThrow(sessionId);
     }
 
     public async continueAsync(

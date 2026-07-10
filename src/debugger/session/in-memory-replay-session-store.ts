@@ -27,7 +27,7 @@ export class InMemoryReplaySessionStore {
         return record.steps[record.currentStepIndex]!;
     }
 
-    public advanceOrThrow(sessionId: string): ReplayStepAdvanceResult {
+    public advanceIntoOrThrow(sessionId: string): ReplayStepAdvanceResult {
         const record = this.getRecordOrThrow(sessionId);
         const nextIndex = Math.min(
             record.currentStepIndex + 1,
@@ -35,6 +35,34 @@ export class InMemoryReplaySessionStore {
         );
 
         record.currentStepIndex = nextIndex;
+
+        return this.toAdvanceResult(record);
+    }
+
+    public advanceOverOrThrow(sessionId: string): ReplayStepAdvanceResult {
+        const record = this.getRecordOrThrow(sessionId);
+        const currentStep = record.steps[record.currentStepIndex]!;
+
+        if (currentStep.phase !== "call") {
+            return this.advanceIntoOrThrow(sessionId);
+        }
+
+        record.currentStepIndex = this.findNextIndexOrCurrent(
+            record,
+            (step) => step.stackFrames.length < currentStep.stackFrames.length,
+        );
+
+        return this.toAdvanceResult(record);
+    }
+
+    public advanceOutOrThrow(sessionId: string): ReplayStepAdvanceResult {
+        const record = this.getRecordOrThrow(sessionId);
+        const currentStep = record.steps[record.currentStepIndex]!;
+
+        record.currentStepIndex = this.findNextIndexOrCurrent(
+            record,
+            (step) => step.stackFrames.length < currentStep.stackFrames.length,
+        );
 
         return this.toAdvanceResult(record);
     }
@@ -62,13 +90,11 @@ export class InMemoryReplaySessionStore {
             return [];
         }
 
-        return [
-            new ReplayScope({
-                frameId,
-                name: frame.name,
-                variables: currentStep.locals,
-            }),
-        ];
+        return (
+            this.getRecordOrThrow(sessionId).scopesByStep[
+                this.getRecordOrThrow(sessionId).currentStepIndex
+            ] ?? []
+        ).filter((scope) => scope.frameId === frameId);
     }
 
     public getTraceSliceOrThrow(
@@ -115,5 +141,22 @@ export class InMemoryReplaySessionStore {
                     ? undefined
                     : session.currentStepIndex + 1,
         });
+    }
+
+    private findNextIndexOrCurrent(
+        session: IStoredReplaySession,
+        predicate: (step: ReplayStep) => boolean,
+    ): number {
+        for (
+            let index = session.currentStepIndex + 1;
+            index < session.steps.length;
+            index += 1
+        ) {
+            if (predicate(session.steps[index]!)) {
+                return index;
+            }
+        }
+
+        return session.steps.length - 1;
     }
 }

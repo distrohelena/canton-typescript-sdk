@@ -9,6 +9,7 @@ import {
     IDamlLfReplayEvaluationResult,
 } from "../../daml-lf/interpreter/daml-lf-evaluator.js";
 import { ReplayPhase } from "../session/replay-phase.js";
+import { ReplayScope } from "../session/replay-scope.js";
 import { ReplaySourceLocation } from "../session/replay-source-location.js";
 import { ReplaySessionMetadata } from "../session/replay-session-metadata.js";
 import { ReplayStackFrame } from "../session/replay-stack-frame.js";
@@ -58,7 +59,13 @@ export interface ILoadedReplaySession {
     readonly sessionId: string;
     readonly metadata: ReplaySessionMetadata;
     readonly steps: readonly ReplayStep[];
+    readonly scopesByStep: readonly (readonly ReplayScope[])[];
     readonly currentStepIndex: number;
+}
+
+interface IProjectedReplayStep {
+    readonly step: ReplayStep;
+    readonly scopes: readonly ReplayScope[];
 }
 
 export class LedgerReplaySessionLoader {
@@ -88,14 +95,14 @@ export class LedgerReplaySessionLoader {
             this.dependencies.definitionResolver.resolveEntrypointDefinitionOrThrow(
                 snapshot.entrypoint,
             );
-        const steps: ReplayStep[] = [];
+        const traceSteps: IDamlLfTraceStep[] = [];
         const evaluation =
             this.dependencies.evaluator.evaluateReplayEntrypointOrThrow(
                 definition.definition,
                 environment,
                 {
                     onStep: (step) => {
-                        steps.push(this.toReplayStep(step, steps.length));
+                        traceSteps.push(step);
                     },
                 },
             );
@@ -107,6 +114,8 @@ export class LedgerReplaySessionLoader {
 
         const sessionId =
             this.dependencies.sessionIdFactory?.() ?? crypto.randomUUID();
+        const projectedSteps = this.projectReplaySteps(traceSteps);
+        const steps = projectedSteps.map((item) => item.step);
 
         return {
             sessionId,
@@ -116,40 +125,77 @@ export class LedgerReplaySessionLoader {
                 stepCount: steps.length,
             }),
             steps,
+            scopesByStep: projectedSteps.map((item) => item.scopes),
             currentStepIndex: 0,
         };
     }
 
-    private toReplayStep(
-        traceStep: IDamlLfTraceStep,
-        stepIndex: number,
-    ): ReplayStep {
-        return new ReplayStep({
-            stepIndex,
-            phase: this.toReplayPhase(traceStep),
-            stackFrames: [
-                new ReplayStackFrame({
-                    frameId: traceStep.frame.frameId,
-                    name: traceStep.frame.definition.name,
-                }),
-            ],
-            locals: traceStep.locals.map((local) => ({
-                name: local.name,
-                kind: local.value.kind,
-                value: this.stringifyRuntimeValue(local.value),
-            })),
-            arguments:
-                traceStep.stateEffect?.argument === undefined
-                    ? []
-                    : [traceStep.stateEffect.argument],
-            valuePreview: this.createValuePreview(traceStep),
-            stateDelta:
-                traceStep.stateEffect === undefined
-                    ? undefined
-                    : new ReplayStateDelta({
-                        kind: traceStep.stateEffect.kind,
+    private projectReplaySteps(
+        traceSteps: readonly IDamlLfTraceStep[],
+    ): readonly IProjectedReplayStep[] {
+        const activeFrames: ReplayStackFrame[] = [];
+        const frameScopes = new Map<string, ReplayScope>();
+        const frameExpressionDepth = new Map<string, number>();
+        const frameCallDepth = new Map<string, number>();
+
+        return traceSteps.map((traceStep, stepIndex) => {
+            this.rememberFrameScope(frameScopes, traceStep);
+            this.prepareStackForStep(
+                traceStep,
+                activeFrames,
+                frameExpressionDepth,
+                frameCallDepth,
+            );
+
+            const stackFrames = activeFrames.map(
+                (frame) =>
+                    new ReplayStackFrame({
+                        frameId: frame.frameId,
+                        name: frame.name,
                     }),
-            sourceLocation: this.createSourceLocation(traceStep),
+            );
+            const scopes = stackFrames.map((frame) =>
+                this.cloneScope(
+                    frameScopes.get(frame.frameId ?? "") ?? new ReplayScope({
+                        frameId: frame.frameId,
+                        name: frame.name,
+                        variables: [],
+                    }),
+                ),
+            );
+            const currentScope = scopes.find(
+                (scope) => scope.frameId === traceStep.frame.frameId,
+            );
+            const projectedStep = new ReplayStep({
+                stepIndex,
+                phase: this.toReplayPhase(traceStep),
+                stackFrames,
+                locals: currentScope?.variables ?? [],
+                arguments:
+                    traceStep.stateEffect?.argument === undefined
+                        ? []
+                        : [traceStep.stateEffect.argument],
+                valuePreview: this.createValuePreview(traceStep),
+                stateDelta:
+                    traceStep.stateEffect === undefined
+                        ? undefined
+                        : new ReplayStateDelta({
+                            kind: traceStep.stateEffect.kind,
+                        }),
+                sourceLocation: this.createSourceLocation(traceStep),
+            });
+
+            this.finalizeStackForStep(
+                traceStep,
+                activeFrames,
+                frameExpressionDepth,
+                frameCallDepth,
+            );
+
+            return {
+                step: projectedStep,
+                scopes,
+            };
         });
     }
 
@@ -199,7 +245,133 @@ export class LedgerReplaySessionLoader {
             return value.value;
         }
 
+        if ("value" in value) {
+            return JSON.stringify(value.value);
+        }
+
         return value.kind ?? "value";
+    }
+
+    private rememberFrameScope(
+        frameScopes: Map<string, ReplayScope>,
+        traceStep: IDamlLfTraceStep,
+    ): void {
+        frameScopes.set(
+            traceStep.frame.frameId,
+            new ReplayScope({
+                frameId: traceStep.frame.frameId,
+                name: traceStep.frame.definition.name,
+                variables: traceStep.locals.map((local) => ({
+                    name: local.name,
+                    kind: local.value.kind,
+                    value: this.stringifyRuntimeValue(local.value),
+                })),
+            }),
+        );
+    }
+
+    private prepareStackForStep(
+        traceStep: IDamlLfTraceStep,
+        activeFrames: ReplayStackFrame[],
+        frameExpressionDepth: Map<string, number>,
+        frameCallDepth: Map<string, number>,
+    ): void {
+        const frame = new ReplayStackFrame({
+            frameId: traceStep.frame.frameId,
+            name: traceStep.frame.definition.name,
+        });
+
+        if (traceStep.kind === "call") {
+            this.pushFrameIfMissing(activeFrames, frame);
+            frameCallDepth.set(
+                traceStep.frame.frameId,
+                (frameCallDepth.get(traceStep.frame.frameId) ?? 0) + 1,
+            );
+            return;
+        }
+
+        this.pushFrameIfMissing(activeFrames, frame);
+
+        if (traceStep.kind === "enterExpression") {
+            frameExpressionDepth.set(
+                traceStep.frame.frameId,
+                (frameExpressionDepth.get(traceStep.frame.frameId) ?? 0) + 1,
+            );
+        }
+    }
+
+    private finalizeStackForStep(
+        traceStep: IDamlLfTraceStep,
+        activeFrames: ReplayStackFrame[],
+        frameExpressionDepth: Map<string, number>,
+        frameCallDepth: Map<string, number>,
+    ): void {
+        if (traceStep.kind === "exitExpression") {
+            const nextDepth =
+                (frameExpressionDepth.get(traceStep.frame.frameId) ?? 1) - 1;
+
+            if (nextDepth <= 0) {
+                frameExpressionDepth.delete(traceStep.frame.frameId);
+
+                if ((frameCallDepth.get(traceStep.frame.frameId) ?? 0) === 0) {
+                    this.popFrameIfTop(activeFrames, traceStep.frame.frameId);
+                }
+            }
+
+            else {
+                frameExpressionDepth.set(traceStep.frame.frameId, nextDepth);
+            }
+
+            return;
+        }
+
+        if (traceStep.kind === "return") {
+            const nextCallDepth =
+                (frameCallDepth.get(traceStep.frame.frameId) ?? 1) - 1;
+
+            if (nextCallDepth <= 0) {
+                frameCallDepth.delete(traceStep.frame.frameId);
+            }
+
+            else {
+                frameCallDepth.set(traceStep.frame.frameId, nextCallDepth);
+            }
+
+            this.popFrameIfTop(activeFrames, traceStep.frame.frameId);
+        }
+    }
+
+    private pushFrameIfMissing(
+        activeFrames: ReplayStackFrame[],
+        frame: ReplayStackFrame,
+    ): void {
+        const activeIndex = activeFrames.findIndex(
+            (candidate) => candidate.frameId === frame.frameId,
+        );
+
+        if (activeIndex >= 0) {
+            activeFrames.splice(activeIndex + 1);
+            return;
+        }
+
+        activeFrames.push(frame);
+    }
+
+    private popFrameIfTop(
+        activeFrames: ReplayStackFrame[],
+        frameId: string,
+    ): void {
+        if (activeFrames.at(-1)?.frameId === frameId) {
+            activeFrames.pop();
+        }
+    }
+
+    private cloneScope(scope: ReplayScope): ReplayScope {
+        return new ReplayScope({
+            frameId: scope.frameId,
+            name: scope.name,
+            variables: [...scope.variables],
+        });
     }
 
     private createSourceLocation(

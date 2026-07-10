@@ -109,4 +109,201 @@ describe("DamlLfEvaluator ledger effects", () => {
             DamlLfStepKind.exitExpression,
         ]);
     });
+
+    it("binds replay environment values into entrypoint lambda parameters", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self", "choiceArg"],
+                    body: new DamlLfExpression({
+                        variableName: "choiceArg",
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+        const seenLocals: { name: string; value: string }[][] = [];
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: "archived",
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                owner: "Alice",
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+            {
+                onStep(step) {
+                    seenLocals.push(
+                        step.locals.map((local) => ({
+                            name: local.name,
+                            value:
+                                "value" in local.value
+                                    ? JSON.stringify(local.value.value)
+                                    : local.value.kind,
+                        })),
+                    );
+                },
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "text",
+            value: "archived",
+        });
+        expect(seenLocals.some((locals) =>
+            locals.some(
+                (local) =>
+                    local.name === "self"
+                    && local.value === JSON.stringify({ owner: "Alice" }),
+            ),
+        )).toBe(true);
+        expect(seenLocals.some((locals) =>
+            locals.some(
+                (local) =>
+                    local.name === "choiceArg"
+                    && local.value === JSON.stringify("archived"),
+            ),
+        )).toBe(true);
+    });
+
+    it("projects fields from hydrated contract payloads", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self"],
+                    body: new DamlLfExpression({
+                        recordProjection: {
+                            fieldName: "owner",
+                            record: new DamlLfExpression({
+                                variableName: "self",
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                owner: "Alice",
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "text",
+            value: "Alice",
+        });
+    });
 });

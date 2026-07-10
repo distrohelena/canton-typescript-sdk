@@ -34,30 +34,78 @@ describe("LedgerReplayDebuggerClient", () => {
         expect(session.currentStep?.stateDelta?.kind).toBeDefined();
     });
 
-    it("stepOver returns the new current step and terminal state", async () => {
+    it("stepOver skips nested call execution and lands after the current frame resumes", async () => {
         const client = createClient();
 
         await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        await client.stepIntoAsync("session-1");
+        await client.stepIntoAsync("session-1");
         const result = await client.stepOverAsync("session-1");
 
         expect(result.sessionId).toBe("session-1");
-        expect(result.step.stepIndex).toBeGreaterThan(0);
+        expect(result.step.phase).toBe("exitExpression");
+        expect(result.step.stackFrames).toEqual([
+            expect.objectContaining({ name: "Archive" }),
+        ]);
     });
 
     it("returns stacks, scopes, and trace slices from the precomputed session", async () => {
         const client = createClient();
 
         await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
-
-        await expect(client.getStackAsync("session-1")).resolves.toBeInstanceOf(
-            Array,
+        const trace = await client.getTraceSliceAsync("session-1", 0, 20);
+        const nestedFrameIndex = trace.findIndex(
+            (step) => step.stackFrames.length === 2,
         );
+
+        for (let index = 0; index < nestedFrameIndex; index += 1) {
+            await client.stepIntoAsync("session-1");
+        }
+
+        await expect(client.getStackAsync("session-1")).resolves.toEqual([
+            expect.objectContaining({ name: "Archive" }),
+            expect.objectContaining({ name: "Greeting" }),
+        ]);
         await expect(
             client.getScopesAsync("session-1", "frame-1"),
-        ).resolves.toBeInstanceOf(Array);
+        ).resolves.toEqual([
+            expect.objectContaining({
+                frameId: "frame-1",
+                variables: [
+                    expect.objectContaining({
+                        name: "greeting",
+                        value: "ok",
+                    }),
+                ],
+            }),
+        ]);
+        await expect(
+            client.getScopesAsync("session-1", "frame-2"),
+        ).resolves.toEqual([
+            expect.objectContaining({
+                frameId: "frame-2",
+                variables: [],
+            }),
+        ]);
         await expect(
             client.getTraceSliceAsync("session-1", 0, 10),
         ).resolves.toBeInstanceOf(Array);
+    });
+
+    it("stepOut leaves the current frame and resumes in the caller", async () => {
+        const client = createClient();
+
+        await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        await client.stepIntoAsync("session-1");
+        await client.stepIntoAsync("session-1");
+        await client.stepIntoAsync("session-1");
+
+        const result = await client.stepOutAsync("session-1");
+
+        expect(result.step.phase).toBe("exitExpression");
+        expect(result.step.stackFrames).toEqual([
+            expect.objectContaining({ name: "Archive" }),
+        ]);
     });
 
     it("supports the full required session method set", async () => {
@@ -93,11 +141,34 @@ describe("LedgerReplayDebuggerClient", () => {
 });
 
 function createClient(): LedgerReplayDebuggerClient {
+    const greeting = new DamlLfValueDefinition({
+        name: "Greeting",
+        type: new DamlLfType({}),
+        expression: new DamlLfExpression({
+            textLiteral: "ok",
+        }),
+    });
     const definition = new DamlLfValueDefinition({
         name: "Archive",
         type: new DamlLfType({}),
         expression: new DamlLfExpression({
-            textLiteral: "ok",
+            letExpression: {
+                bindings: [
+                    {
+                        name: "greeting",
+                        value: new DamlLfExpression({
+                            textLiteral: "ok",
+                        }),
+                    },
+                ],
+                body: new DamlLfExpression({
+                    valueReference: {
+                        packageId: "pkg-main",
+                        moduleName: "Sample.Module",
+                        definitionName: "Greeting",
+                    },
+                }),
+            },
         }),
     });
     const compilation = DamlLfCompilation.createOrThrow(
@@ -115,7 +186,7 @@ function createClient(): LedgerReplayDebuggerClient {
                 modules: [
                     new DamlLfModule({
                         name: "Sample.Module",
-                        definitions: [definition],
+                        definitions: [greeting, definition],
                     }),
                 ],
             }),

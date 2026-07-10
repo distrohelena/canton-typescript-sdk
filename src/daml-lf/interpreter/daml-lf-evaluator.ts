@@ -17,6 +17,11 @@ interface ITextRuntimeValue extends IDamlLfRuntimeValue {
     readonly value: string;
 }
 
+interface IBooleanRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "boolean";
+    readonly value: boolean;
+}
+
 interface IUnitRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "unit";
 }
@@ -26,6 +31,11 @@ interface IClosureRuntimeValue extends IDamlLfRuntimeValue {
     readonly parameters: readonly string[];
     readonly body: DamlLfExpression;
     readonly frame: DamlLfRuntimeFrame;
+}
+
+interface ILedgerValueRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "ledgerValue";
+    readonly value: unknown;
 }
 
 export interface IDamlLfReplayEnvironment {
@@ -41,6 +51,7 @@ export interface IDamlLfReplayEnvironment {
         readonly choice?: string;
         readonly argument?: unknown;
     };
+    readonly contracts?: ReadonlyMap<string, { readonly payload: unknown }>;
 }
 
 export interface IDamlLfReplayEvaluationResult {
@@ -98,9 +109,10 @@ export class DamlLfEvaluator {
         }
 
         return {
-            value: this.evaluateExpressionOrThrow(
+            value: this.evaluateReplayExpressionOrThrow(
                 definition.expression,
                 frame,
+                environment,
                 traceSink,
             ),
             effects,
@@ -193,6 +205,25 @@ export class DamlLfEvaluator {
             return value;
         }
 
+        if (expression.builtinConstructor !== undefined) {
+            switch (expression.builtinConstructor) {
+                case "true":
+                    return {
+                        kind: "boolean",
+                        value: true,
+                    } satisfies IBooleanRuntimeValue;
+                case "false":
+                    return {
+                        kind: "boolean",
+                        value: false,
+                    } satisfies IBooleanRuntimeValue;
+                default:
+                    return {
+                        kind: "unit",
+                    } satisfies IUnitRuntimeValue;
+            }
+        }
+
         if (expression.lambda !== undefined) {
             return {
                 kind: "closure",
@@ -242,6 +273,133 @@ export class DamlLfEvaluator {
             );
         }
 
+        if (expression.recordConstruction !== undefined) {
+            return this.hydrateRuntimeValue(
+                Object.fromEntries(
+                    expression.recordConstruction.fields.map((field) => [
+                        field.name,
+                        this.unwrapRuntimeValue(
+                            this.evaluateExpressionOrThrow(
+                                field.value,
+                                frame,
+                                traceSink,
+                            ),
+                        ),
+                    ]),
+                ),
+            );
+        }
+
+        if (expression.recordProjection !== undefined) {
+            const recordValue = this.evaluateExpressionOrThrow(
+                expression.recordProjection.record,
+                frame,
+                traceSink,
+            );
+            const rawValue = this.unwrapRuntimeValue(recordValue);
+
+            if (
+                rawValue === null
+                || typeof rawValue !== "object"
+                || Array.isArray(rawValue)
+            ) {
+                throw new ValidationError(
+                    `daml lf record projection requires an object value for field '${expression.recordProjection.fieldName}'`,
+                );
+            }
+
+            return this.hydrateRuntimeValue(
+                (rawValue as Record<string, unknown>)[
+                    expression.recordProjection.fieldName
+                ],
+            );
+        }
+
+        if (expression.variantConstruction !== undefined) {
+            return this.hydrateRuntimeValue({
+                constructor: expression.variantConstruction.constructorName,
+                value: this.unwrapRuntimeValue(
+                    this.evaluateExpressionOrThrow(
+                        expression.variantConstruction.argument,
+                        frame,
+                        traceSink,
+                    ),
+                ),
+            });
+        }
+
+        if (expression.optionalConstruction !== undefined) {
+            return expression.optionalConstruction.value === undefined
+                ? ({
+                    kind: "unit",
+                } satisfies IUnitRuntimeValue)
+                : this.evaluateExpressionOrThrow(
+                    expression.optionalConstruction.value,
+                    frame,
+                    traceSink,
+                );
+        }
+
+        if (expression.caseExpression !== undefined) {
+            const scrutinee = this.evaluateExpressionOrThrow(
+                expression.caseExpression.scrutinee,
+                frame,
+                traceSink,
+            );
+            const matchingAlternative =
+                expression.caseExpression.alternatives.find((alternative) =>
+                    this.matchesCaseAlternative(alternative, scrutinee),
+                );
+
+            if (matchingAlternative === undefined) {
+                throw new ValidationError(
+                    "daml lf case expression did not match any alternative",
+                );
+            }
+
+            if (
+                (matchingAlternative.patternKind === "variant"
+                    || matchingAlternative.patternKind === "optionalSome")
+                && matchingAlternative.binderName !== undefined
+            ) {
+                const rawValue = this.unwrapRuntimeValue(scrutinee);
+
+                if (
+                    matchingAlternative.patternKind === "optionalSome"
+                    || (
+                        rawValue !== null
+                        && typeof rawValue === "object"
+                        && "value" in rawValue
+                    )
+                ) {
+                    const scopedFrame = this.deriveFrame(
+                        frame,
+                        frame.scope.createChild(),
+                    );
+                    scopedFrame.scope.setBinding(
+                        matchingAlternative.binderName,
+                        this.hydrateRuntimeValue(
+                            matchingAlternative.patternKind === "optionalSome"
+                                ? rawValue
+                                : (rawValue as { value: unknown }).value,
+                        ),
+                    );
+
+                    return this.evaluateExpressionOrThrow(
+                        matchingAlternative.body,
+                        scopedFrame,
+                        traceSink,
+                    );
+                }
+            }
+
+            return this.evaluateExpressionOrThrow(
+                matchingAlternative.body,
+                frame,
+                traceSink,
+            );
+        }
+
         if (expression.valueReference !== undefined) {
             const definition = this.compilation.getValueDefinitionOrThrow(
                 expression.valueReference.packageId,
@@ -274,9 +432,152 @@ export class DamlLfEvaluator {
             return value;
         }
 
+        throw new ValidationError("daml lf expression is not supported yet");
+    }
+
+    private evaluateReplayExpressionOrThrow(
+        expression: DamlLfExpression,
+        frame: DamlLfRuntimeFrame,
+        environment: IDamlLfReplayEnvironment,
+        traceSink?: IDamlLfTraceSink,
+    ): IDamlLfRuntimeValue {
+        if (expression.lambda === undefined) {
+            return this.evaluateExpressionOrThrow(expression, frame, traceSink);
+        }
+
+        const bindingValues = this.resolveEntrypointBindingValues(environment);
+        const scopedFrame = this.deriveFrame(
+            frame,
+            frame.scope.createChild(),
+        );
+
+        for (let index = 0; index < expression.lambda.parameters.length; index += 1) {
+            const bindingValue = bindingValues[index];
+
+            if (bindingValue === undefined) {
+                break;
+            }
+
+            scopedFrame.scope.setBinding(
+                expression.lambda.parameters[index]!,
+                this.hydrateRuntimeValue(bindingValue),
+            );
+        }
+
+        return this.evaluateExpressionOrThrow(
+            expression.lambda.body,
+            scopedFrame,
+            traceSink,
+        );
+    }
+
+    private resolveEntrypointBindingValues(
+        environment: IDamlLfReplayEnvironment,
+    ): readonly unknown[] {
+        if (environment.entrypoint.kind === "create") {
+            return environment.entrypoint.argument === undefined
+                ? []
+                : [environment.entrypoint.argument];
+        }
+
+        const contractPayload =
+            environment.entrypoint.contractId === undefined
+                ? undefined
+                : environment.contracts?.get(environment.entrypoint.contractId)?.payload;
+
+        return [
+            contractPayload,
+            environment.entrypoint.argument,
+        ].filter((value) => value !== undefined);
+    }
+
+    private hydrateRuntimeValue(value: unknown): IDamlLfRuntimeValue {
+        if (value === undefined || value === null) {
+            return {
+                kind: "unit",
+            } satisfies IUnitRuntimeValue;
+        }
+
+        if (typeof value === "string") {
+            return {
+                kind: "text",
+                value,
+            } satisfies ITextRuntimeValue;
+        }
+
+        if (typeof value === "boolean") {
+            return {
+                kind: "boolean",
+                value,
+            } satisfies IBooleanRuntimeValue;
+        }
+
         return {
-            kind: "unit",
-        } satisfies IUnitRuntimeValue;
+            kind: "ledgerValue",
+            value,
+        } satisfies ILedgerValueRuntimeValue;
+    }
+
+    private unwrapRuntimeValue(value: IDamlLfRuntimeValue): unknown {
+        if ("value" in value) {
+            return value.value;
+        }
+
+        if (value.kind === "unit") {
+            return null;
+        }
+
+        return value.kind;
+    }
+
+    private matchesBuiltinConstructor(
+        builtinConstructor: DamlLfExpression["builtinConstructor"],
+        runtimeValue: IDamlLfRuntimeValue,
+    ): boolean {
+        switch (builtinConstructor) {
+            case "true":
+                return runtimeValue.kind === "boolean" && runtimeValue.value === true;
+            case "false":
+                return runtimeValue.kind === "boolean" && runtimeValue.value === false;
+            case "unit":
+                return runtimeValue.kind === "unit";
+            default:
+                return false;
+        }
+    }
+
+    private matchesCaseAlternative(
+        alternative: NonNullable<DamlLfExpression["caseExpression"]>["alternatives"][number],
+        runtimeValue: IDamlLfRuntimeValue,
+    ): boolean {
+        if (alternative.patternKind === "default") {
+            return true;
+        }
+
+        if (alternative.patternKind === "builtinCon") {
+            return this.matchesBuiltinConstructor(
+                alternative.builtinConstructor,
+                runtimeValue,
+            );
+        }
+
+        if (alternative.patternKind === "optionalNone") {
+            return runtimeValue.kind === "unit";
+        }
+
+        if (alternative.patternKind === "optionalSome") {
+            return runtimeValue.kind !== "unit";
+        }
+
+        const rawValue = this.unwrapRuntimeValue(runtimeValue);
+
+        return (
+            rawValue !== null
+            && typeof rawValue === "object"
+            && "constructor" in rawValue
+            && (rawValue as { constructor?: unknown }).constructor
+                === alternative.constructorName
+        );
     }
 
     private applyFunctionOrThrow(
