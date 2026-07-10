@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
+import { DamlLfEvaluator } from "../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
 import { DamlLfInterpreterScaffold } from "../../../src/daml-lf/interpreter/daml-lf-interpreter-scaffold.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
 import { DamlLfExpression } from "../../../src/daml-lf/model/daml-lf-expression.js";
@@ -42,5 +43,6 @@ describe("DamlLfInterpreterScaffold", () => {
 
         expect(scaffold.getCompilation()).toBe(compilation);
         expect(scaffold.getBuiltinDispatch()).toBeDefined();
+        expect(scaffold.getEvaluator()).toBeInstanceOf(DamlLfEvaluator);
     });
 });

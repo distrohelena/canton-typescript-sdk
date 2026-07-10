@@ -13,7 +13,15 @@ export { DarSourceBundleLoader } from "./container/dar-source-bundle-loader.js";
 export { DarSourceFileEntry } from "./container/dar-source-file-entry.js";
 export { DamlLfLanguageVersion } from "./decoding/daml-lf-language-version.js";
 export { DamlLfBuiltinDispatch } from "./interpreter/daml-lf-builtin-dispatch.js";
+export { DamlLfEvaluator } from "./interpreter/daml-lf-evaluator.js";
 export { DamlLfInterpreterScaffold } from "./interpreter/daml-lf-interpreter-scaffold.js";
+export { DamlLfLexicalScope } from "./interpreter/daml-lf-lexical-scope.js";
+export { DamlLfRuntimeFrame } from "./interpreter/daml-lf-runtime-frame.js";
+export { DamlLfStepKind } from "./interpreter/daml-lf-step-kind.js";
+export {
+    IDamlLfTraceSink,
+    IDamlLfTraceStep,
+} from "./interpreter/daml-lf-trace-sink.interface.js";
 export { DamlLfBuiltinType } from "./model/daml-lf-builtin-type.js";
 export { DamlLfChoice } from "./model/daml-lf-choice.js";
 export { DamlLfChoiceParameter } from "./model/daml-lf-choice-parameter.js";
