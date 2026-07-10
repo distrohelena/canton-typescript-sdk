@@ -1,0 +1,3 @@
+import { CantonError } from "../../core/errors/canton-error.js";
+
+export class ReplaySourceMapException extends CantonError {}

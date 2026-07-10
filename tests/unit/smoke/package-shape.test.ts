@@ -267,5 +267,6 @@ describe("package surface", () => {
         expect(sdkModule).not.toHaveProperty("StreamQueryRequest");
         expect(sdkModule).not.toHaveProperty("StreamTransactionsRequest");
         expect(sdkModule).not.toHaveProperty("HealthStatusResponse");
+        expect(sdkModule).not.toHaveProperty("LedgerReplayDebuggerClient");
     });
 });

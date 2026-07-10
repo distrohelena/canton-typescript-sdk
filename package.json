@@ -41,6 +41,10 @@
             "types": "./dist/daml-lf/index.d.ts",
             "import": "./dist/daml-lf/index.js"
         },
+        "./debugger": {
+            "types": "./dist/debugger/index.d.ts",
+            "import": "./dist/debugger/index.js"
+        },
         "./grpc": {
             "types": "./dist/grpc/index.d.ts",
             "import": "./dist/grpc/index.js"
