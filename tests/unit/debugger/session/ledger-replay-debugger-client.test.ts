@@ -136,8 +136,12 @@ function createClient(): LedgerReplayDebuggerClient {
             },
         },
         definitionResolver: {
-            resolveEntrypointDefinitionOrThrow(): DamlLfValueDefinition {
-                return definition;
+            resolveEntrypointDefinitionOrThrow() {
+                return {
+                    packageId: "pkg-main",
+                    moduleName: "Sample.Module",
+                    definition,
+                };
             },
         },
         evaluator: {

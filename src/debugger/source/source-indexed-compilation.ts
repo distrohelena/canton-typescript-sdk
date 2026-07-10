@@ -13,8 +13,14 @@ export interface IndexedDefinitionSource {
     endColumn: number;
 }
 
+export interface IndexedExecutableSource extends IndexedDefinitionSource {
+    entrypointKind?: "create" | "exercise";
+    templateName?: string;
+    choiceName?: string;
+}
+
 export class SourceIndexedCompilation {
-    private readonly definitionSources = new Map<string, IndexedDefinitionSource>();
+    private readonly definitionSources = new Map<string, IndexedExecutableSource>();
 
     private constructor(public readonly compilation: DamlLfCompilation) {}
 
@@ -41,6 +47,9 @@ export class SourceIndexedCompilation {
                         startColumn: executable.startColumn,
                         endLine: executable.endLine,
                         endColumn: executable.endColumn,
+                        entrypointKind: executable.entrypointKind,
+                        templateName: executable.templateName,
+                        choiceName: executable.choiceName,
                     },
                 );
             }
@@ -69,6 +78,10 @@ export class SourceIndexedCompilation {
         }
 
         return source;
+    }
+
+    public getExecutableSources(): readonly IndexedExecutableSource[] {
+        return [...this.definitionSources.values()];
     }
 
     private static createKey(

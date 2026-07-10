@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
+import { DarSourceBundleLoader } from "../../../src/daml-lf/container/dar-source-bundle-loader.js";
 import { DamlLfEvaluator } from "../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
 import { DamlLfExpression } from "../../../src/daml-lf/model/daml-lf-expression.js";
 import { DamlLfModule } from "../../../src/daml-lf/model/daml-lf-module.js";
@@ -19,14 +20,18 @@ import {
     ReplaySessionRequest,
 } from "../../../src/debugger/index.js";
 import { LedgerReplayEnvironmentBuilder } from "../../../src/debugger/replay/ledger-replay-environment-builder.js";
+import { ReplayEntrypointDefinitionResolver } from "../../../src/debugger/replay/replay-entrypoint-definition-resolver.js";
 import { LedgerReplaySessionLoader } from "../../../src/debugger/replay/ledger-replay-session-loader.js";
 import { ReplayDeterminismValidator } from "../../../src/debugger/replay/replay-determinism-validator.js";
 import { ReplayUpdateLoader } from "../../../src/debugger/replay/replay-update-loader.js";
+import { DamlSourceMapper } from "../../../src/debugger/source/daml-source-mapper.js";
+import { SourceIndexedCompilation } from "../../../src/debugger/source/source-indexed-compilation.js";
+import { createSourceMappedDarFixture } from "../../fixtures/daml-lf/source-mapped-dar-fixture.js";
 
 describe("LedgerReplayDebuggerClient integration", () => {
     it("replays a visible exercised update into a stepwise debugger session", async () => {
         const definition = new DamlLfValueDefinition({
-            name: "Archive",
+            name: "archiveVaultHandler",
             type: new DamlLfType({}),
             expression: new DamlLfExpression({
                 textLiteral: "ok",
@@ -46,12 +51,37 @@ describe("LedgerReplayDebuggerClient integration", () => {
                     },
                     modules: [
                         new DamlLfModule({
-                            name: "Sample.Module",
+                            name: "Main",
                             definitions: [definition],
                         }),
                     ],
                 }),
             ]),
+        );
+        const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+            compilation,
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-main",
+                        executables: [
+                            {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                definitionName: "archiveVaultHandler",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 4,
+                                endColumn: 13,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "Archive",
+                            },
+                        ],
+                    }),
+                ),
+            ],
         );
         const updateLoader = new ReplayUpdateLoader({
             updateService: {
@@ -133,11 +163,10 @@ describe("LedgerReplayDebuggerClient integration", () => {
         const sessionLoader = new LedgerReplaySessionLoader({
             updateLoader,
             environmentBuilder,
-            definitionResolver: {
-                resolveEntrypointDefinitionOrThrow(): DamlLfValueDefinition {
-                    return definition;
-                },
-            },
+            definitionResolver: new ReplayEntrypointDefinitionResolver(
+                indexedCompilation,
+            ),
+            sourceMapper: new DamlSourceMapper(indexedCompilation),
             evaluator: new DamlLfEvaluator(compilation),
             determinismValidator: new ReplayDeterminismValidator(),
             sessionIdFactory: () => "integration-session",
@@ -159,6 +188,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
         expect(session.metadata?.stepCount).toBe(3);
         expect(session.currentStep?.stateDelta?.kind).toBe("exercise");
         expect(trace).toHaveLength(3);
+        expect(trace[0]?.sourceLocation?.path).toBe("src/Main.daml");
         expect(trace[1]?.phase).toBe("enterExpression");
         expect(trace[2]?.valuePreview?.display).toBe("ok");
     });

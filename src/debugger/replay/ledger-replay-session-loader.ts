@@ -9,6 +9,7 @@ import {
     IDamlLfReplayEvaluationResult,
 } from "../../daml-lf/interpreter/daml-lf-evaluator.js";
 import { ReplayPhase } from "../session/replay-phase.js";
+import { ReplaySourceLocation } from "../session/replay-source-location.js";
 import { ReplaySessionMetadata } from "../session/replay-session-metadata.js";
 import { ReplayStackFrame } from "../session/replay-stack-frame.js";
 import { ReplayStateDelta } from "../session/replay-state-delta.js";
@@ -18,7 +19,9 @@ import {
     ILedgerReplayEnvironment,
     IReplayTransactionSnapshot,
 } from "./ledger-replay-environment-builder.js";
+import { ResolvedReplayEntrypointDefinition } from "./replay-entrypoint-definition-resolver.js";
 import { ReplaySessionRequest } from "../session/replay-session-request.js";
+import { DamlSourceMapper } from "../source/daml-source-mapper.js";
 
 interface IReplayUpdateLoader {
     loadOrThrowAsync(offset: string): Promise<IReplayTransactionSnapshot>;
@@ -32,9 +35,8 @@ interface IReplayEnvironmentBuilder {
 
 interface IReplayDefinitionResolver {
     resolveEntrypointDefinitionOrThrow(
-        snapshot: IReplayTransactionSnapshot,
-        environment: ILedgerReplayEnvironment,
-    ): DamlLfValueDefinition;
+        entrypoint: IReplayTransactionSnapshot["entrypoint"],
+    ): ResolvedReplayEntrypointDefinition;
 }
 
 interface IReplayEvaluator {
@@ -65,6 +67,7 @@ export class LedgerReplaySessionLoader {
             updateLoader: IReplayUpdateLoader;
             environmentBuilder: IReplayEnvironmentBuilder;
             definitionResolver: IReplayDefinitionResolver;
+            sourceMapper?: DamlSourceMapper;
             evaluator: IReplayEvaluator;
             determinismValidator: IReplayDeterminismValidator;
             sessionIdFactory?: () => string;
@@ -83,18 +86,17 @@ export class LedgerReplaySessionLoader {
             );
         const definition =
             this.dependencies.definitionResolver.resolveEntrypointDefinitionOrThrow(
-                snapshot,
-                environment,
+                snapshot.entrypoint,
             );
         const steps: ReplayStep[] = [];
         const evaluation =
             this.dependencies.evaluator.evaluateReplayEntrypointOrThrow(
-                definition,
+                definition.definition,
                 environment,
                 {
                     onStep: (step) => {
                         steps.push(
-                            this.toReplayStep(step, steps.length, environment),
+                            this.toReplayStep(step, steps.length, definition),
                         );
                     },
                 },
@@ -123,7 +125,7 @@ export class LedgerReplaySessionLoader {
     private toReplayStep(
         traceStep: IDamlLfTraceStep,
         stepIndex: number,
-        environment: ILedgerReplayEnvironment,
+        definition: ResolvedReplayEntrypointDefinition,
     ): ReplayStep {
         return new ReplayStep({
             stepIndex,
@@ -146,7 +148,7 @@ export class LedgerReplaySessionLoader {
                     : new ReplayStateDelta({
                         kind: traceStep.stateEffect.kind,
                     }),
-            sourceLocation: undefined,
+            sourceLocation: this.createSourceLocation(definition),
         });
     }
 
@@ -193,5 +195,27 @@ export class LedgerReplaySessionLoader {
         }
 
         return value.kind ?? "value";
+    }
+
+    private createSourceLocation(
+        definition: ResolvedReplayEntrypointDefinition,
+    ): ReplaySourceLocation | undefined {
+        if (this.dependencies.sourceMapper === undefined) {
+            return undefined;
+        }
+
+        const source = this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
+            definition.packageId,
+            definition.moduleName,
+            definition.definition.name,
+        );
+
+        return new ReplaySourceLocation({
+            path: source.path,
+            startLine: source.startLine,
+            startColumn: source.startColumn,
+            endLine: source.endLine,
+            endColumn: source.endColumn,
+        });
     }
 }

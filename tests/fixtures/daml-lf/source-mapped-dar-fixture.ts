@@ -4,6 +4,19 @@ export function createSourceMappedDarFixture(init?: {
     packageId?: string;
     definitionName?: string;
     importedPackages?: readonly string[];
+    executables?: readonly {
+        packageId: string;
+        moduleName: string;
+        definitionName: string;
+        path: string;
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+        entrypointKind?: "create" | "exercise";
+        templateName?: string;
+        choiceName?: string;
+    }[];
 }): Uint8Array {
     return zipSync({
         "META-INF/MANIFEST.MF": strToU8(
@@ -17,18 +30,19 @@ export function createSourceMappedDarFixture(init?: {
             JSON.stringify({
                 packageId: init?.packageId ?? "pkg-sample",
                 importedPackages: init?.importedPackages ?? [],
-                executables: [
-                    {
-                        packageId: init?.packageId ?? "pkg-sample",
-                        moduleName: "Main",
-                        definitionName: init?.definitionName ?? "archive",
-                        path: "src/Main.daml",
-                        startLine: 3,
-                        startColumn: 1,
-                        endLine: 4,
-                        endColumn: 13,
-                    },
-                ],
+                executables:
+                    init?.executables ?? [
+                        {
+                            packageId: init?.packageId ?? "pkg-sample",
+                            moduleName: "Main",
+                            definitionName: init?.definitionName ?? "archive",
+                            path: "src/Main.daml",
+                            startLine: 3,
+                            startColumn: 1,
+                            endLine: 4,
+                            endColumn: 13,
+                        },
+                    ],
             }),
         ),
     });

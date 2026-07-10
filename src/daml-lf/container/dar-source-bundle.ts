@@ -9,6 +9,9 @@ export interface DarSourceBundleMetadataExecutable {
     startColumn: number;
     endLine: number;
     endColumn: number;
+    entrypointKind?: "create" | "exercise";
+    templateName?: string;
+    choiceName?: string;
 }
 
 export class DarSourceBundle {

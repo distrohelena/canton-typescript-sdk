@@ -2,6 +2,7 @@ import { DamlLfResolutionException } from "./errors/daml-lf-resolution.exception
 import { DamlLfSemanticException } from "./errors/daml-lf-semantic.exception.js";
 import { DamlLfChoice } from "./model/daml-lf-choice.js";
 import { DamlLfDataType } from "./model/daml-lf-data-type.js";
+import { DamlLfModule } from "./model/daml-lf-module.js";
 import { DamlLfTemplate } from "./model/daml-lf-template.js";
 import { DamlLfTemplateId } from "./model/daml-lf-template-id.js";
 import { DamlLfType } from "./model/daml-lf-type.js";
@@ -17,6 +18,7 @@ export class DamlLfCompilation {
     private readonly moduleSymbols = new Map<string, ModuleSymbol>();
     private readonly typeSymbols = new Map<string, TypeSymbol>();
     private readonly templates = new Map<string, DamlLfTemplate>();
+    private readonly valueDefinitions = new Map<string, DamlLfValueDefinition>();
 
     private constructor(private readonly workspace: DamlLfWorkspace) {
         void this.workspace;
@@ -70,6 +72,37 @@ export class DamlLfCompilation {
         return new DamlLfSemanticModel(this);
     }
 
+    public getValueDefinitionOrThrow(
+        packageId: string,
+        moduleName: string,
+        definitionName: string,
+    ): DamlLfValueDefinition {
+        const definition = this.valueDefinitions.get(
+            DamlLfCompilation.createDefinitionKey(
+                packageId,
+                moduleName,
+                definitionName,
+            ),
+        );
+
+        if (definition === undefined) {
+            throw new DamlLfResolutionException(
+                `could not resolve value definition '${definitionName}' in module '${moduleName}'`,
+            );
+        }
+
+        return definition;
+    }
+
+    public getModuleOrThrow(packageId: string, moduleName: string): DamlLfModule {
+        return this.getModuleSymbolOrThrow(
+            new ModuleReference({
+                packageId,
+                moduleName,
+            }),
+        ).module;
+    }
+
     public getTemplates(): readonly DamlLfTemplate[] {
         return [...this.templates.values()];
     }
@@ -103,6 +136,17 @@ export class DamlLfCompilation {
                                 name: definition.name,
                                 definition,
                             }),
+                        );
+                    }
+
+                    if (definition instanceof DamlLfValueDefinition) {
+                        this.valueDefinitions.set(
+                            DamlLfCompilation.createDefinitionKey(
+                                pkg.packageId,
+                                module.name,
+                                definition.name,
+                            ),
+                            definition,
                         );
                     }
 
@@ -172,6 +216,14 @@ export class DamlLfCompilation {
         name: string,
     ): string {
         return `${packageId}::${moduleName}::${name}`;
+    }
+
+    private static createDefinitionKey(
+        packageId: string,
+        moduleName: string,
+        definitionName: string,
+    ): string {
+        return `${packageId}::${moduleName}::${definitionName}`;
     }
 
     private getTemplateOrThrow(templateId: DamlLfTemplateId): DamlLfTemplate {
