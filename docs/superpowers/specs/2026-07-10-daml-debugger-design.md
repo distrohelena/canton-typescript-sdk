@@ -80,15 +80,16 @@ The debugger is not attempting to read the participant's internal evaluation sta
 Session startup flow:
 
 1. read one committed update by offset over gRPC
-2. verify the update is a supported ledger transaction shape and contains enough detail for replay
-3. derive the replay entrypoint from the observable transaction payload
-4. discover all required package and contract dependencies
-5. fetch the corresponding package and DAR artifacts
-6. extract the embedded DAML source bundle from those DARs
-7. verify source mapping coverage for every executed definition
-8. hydrate the replay pre-state from ledger-visible data
-9. run the LF evaluator in trace mode
-10. store the full step list and expose the session
+2. request the richest available update payload needed for replay
+3. verify the returned update is a supported ledger transaction shape and contains enough visible detail for replay
+4. derive the replay entrypoint from the observable transaction payload
+5. discover all required package and contract dependencies
+6. fetch the corresponding package and DAR artifacts
+7. extract the embedded DAML source bundle from those DARs
+8. build a source-indexed compilation and run conservative preflight validation
+9. hydrate the replay pre-state from ledger-visible data
+10. run the LF evaluator in trace mode with replay-time source validation enabled
+11. store the full step list and expose the session
 
 Important rule:
 
@@ -118,10 +119,11 @@ The debugger should only open a session when it can prove it has enough informat
 Session startup must fail if any of the following are missing or unsupported:
 
 - the update cannot be loaded
+- the update is filtered, redacted, or otherwise lacks replay-critical visibility
 - the update payload does not expose enough information to reconstruct the replay entrypoint
 - all required package artifacts cannot be fetched
 - the executing DAR does not contain usable source code
-- source-to-LF mapping for required frames is incomplete
+- source-to-LF mapping is statically incomplete for required symbols, or replay encounters an executed frame without a valid source mapping
 - required contract pre-state cannot be hydrated
 - the transaction uses LF constructs not yet implemented by the evaluator
 - replay produces a determinism mismatch against observable ledger effects
@@ -136,6 +138,19 @@ There is no fallback to:
 - partially hydrated replay
 
 This is critical because Canton Explorer should only present a session when the result is trustworthy.
+
+### Visibility and update-format preconditions
+
+One ledger offset is not enough by itself. Replay also depends on the shape and visibility of the fetched update.
+
+V1 should require the SDK to request the richest update format the underlying Ledger API surface can provide for replay, including:
+
+- verbose event payloads needed to reconstruct values
+- exercised-event detail sufficient to identify the callable and its arguments
+- rollback or other transaction structure detail if exposed by the chosen API shape
+- any event-position or transaction-tree structure the evaluator needs to preserve step ordering
+
+The debugger must also run against a participant and caller identity whose visibility is broad enough to observe the full transaction slice required for replay. If the fetched update is filtered to a partial party view, omits subtrees, omits arguments, or otherwise hides replay-critical structure, session startup must fail.
 
 ### Entrypoint derivation rule
 
@@ -183,6 +198,22 @@ Recommended artifact lookup path:
 3. fetch the relevant DAR archive bytes through participant DAR read APIs
 4. extract the source bundle from the fetched DAR bytes
 
+### Multi-DAR selection rule
+
+The phrase "exact deployed DAR" is package-accurate, not necessarily single-archive.
+
+For v1, the authoritative source set should be defined as:
+
+- the union of every participant-local DAR referenced by required package IDs
+- restricted to the specific packages and source files needed by the replayed transaction
+
+If the same required package or source-mapping record is present in multiple DARs:
+
+- accept it only when the relevant source payload and mapping metadata are byte-equivalent
+- otherwise fail session startup with an ambiguity error
+
+This makes source provenance deterministic even when participant-local storage contains overlapping DAR uploads.
+
 This keeps the debugger aligned with the actual deployed artifact rather than an approximation from a developer checkout.
 
 ## Source Mapping Model
@@ -211,7 +242,14 @@ It should store, for each executable definition:
 
 - only source mappings derived from the DAR bundle are accepted
 - mappings must be stable enough to drive stepping and stack display
-- if any executed definition lacks a trustworthy source table, session startup fails
+- preflight may conservatively reject sessions when required symbols clearly lack source mapping
+- replay-time validation must still reject the session if an actually executed frame lacks a trustworthy source table
+
+The spec should not require the SDK to know the exact executed-definition set before replay begins. Instead:
+
+- preflight should validate every definitely required root symbol and any conservative reachable set the SDK can compute cheaply
+- the evaluator should enforce source mapping at each executed frame
+- the session should only become visible to callers after replay completes successfully
 
 The debugger is LF-native internally but source-native at the public trace boundary.
 
@@ -274,6 +312,7 @@ Responsibilities:
 
 - inspect the fetched update
 - verify that the update format is rich enough for replay, including any choice arguments or event payloads the evaluator needs
+- verify that the caller's visible transaction slice is sufficient for a closed replay
 - derive the root replay entrypoint or reject the session
 - discover contract and package dependencies
 - load contract state through existing SDK services where possible
@@ -293,6 +332,7 @@ Recommended public types:
 - `LedgerReplayDebuggerClient`
 - `ReplaySessionRequest`
 - `ReplaySession`
+- `ReplayStepAdvanceResult`
 - `ReplaySessionMetadata`
 - `ReplayStep`
 - `ReplayStackFrame`
@@ -300,6 +340,41 @@ Recommended public types:
 - `ReplayValuePreview`
 - `ReplayStateDelta`
 - `ReplaySourceLocation`
+
+### Minimum DTO contracts
+
+`ReplaySessionRequest` should include at least:
+
+- `offset: string`
+- optional request/transport options needed to reach the target participant
+
+`ReplaySessionMetadata` should include at least:
+
+- `sessionId`
+- `offset`
+- observable update identifier when available
+- package IDs participating in the replay
+- source files participating in the replay
+- step count once trace materialization completes
+
+`ReplayScope` should include at least:
+
+- `frameId`
+- `name`
+- `variables`
+
+`ReplayStateDelta` should include at least:
+
+- `kind`
+- affected contract or key identity when relevant
+- template or interface identifier when relevant
+- before/after or payload preview fields appropriate to the effect kind
+
+`ReplaySession` should include at least:
+
+- `sessionId`
+- `metadata`
+- `currentStep`
 
 ### `ReplayStep` shape
 
@@ -328,17 +403,32 @@ Recommended initial phases:
 
 ### Session methods
 
-- `loadSessionAsync(request)`
-- `getSessionMetadataAsync(sessionId)`
-- `getCurrentStepAsync(sessionId)`
-- `stepIntoAsync(sessionId)`
-- `stepOverAsync(sessionId)`
-- `stepOutAsync(sessionId)`
-- `continueAsync(sessionId)`
-- `getStackAsync(sessionId)`
-- `getScopesAsync(sessionId, frameId)`
-- `getTraceSliceAsync(sessionId, startStep, count)`
-- `disposeSessionAsync(sessionId)`
+- `loadSessionAsync(request): Promise<ReplaySession>`
+- `getSessionMetadataAsync(sessionId): Promise<ReplaySessionMetadata>`
+- `getCurrentStepAsync(sessionId): Promise<ReplayStep>`
+- `stepIntoAsync(sessionId): Promise<ReplayStepAdvanceResult>`
+- `stepOverAsync(sessionId): Promise<ReplayStepAdvanceResult>`
+- `stepOutAsync(sessionId): Promise<ReplayStepAdvanceResult>`
+- `continueAsync(sessionId): Promise<ReplayStepAdvanceResult>`
+- `getStackAsync(sessionId): Promise<readonly ReplayStackFrame[]>`
+- `getScopesAsync(sessionId, frameId): Promise<readonly ReplayScope[]>`
+- `getTraceSliceAsync(sessionId, startStep, count): Promise<readonly ReplayStep[]>`
+- `disposeSessionAsync(sessionId): Promise<void>`
+
+`loadSessionAsync` should return a materialized `ReplaySession` that owns:
+
+- `sessionId`
+- immutable session metadata
+- the initial current step, usually step `0`
+- enough summary state for Explorer to render the first frame immediately
+
+`ReplayStepAdvanceResult` should include:
+
+- `sessionId`
+- `step`
+- `isTerminal`
+- `nextStepIndex` if additional steps remain
+- `reason` for terminal or non-advancing outcomes where relevant
 
 ### Stepping semantics
 
@@ -401,6 +491,7 @@ Recommended validation checks:
 - exercised choices match observed exercised events
 - archived contracts match observed archival effects
 - fetched and looked-up contract identities are consistent with the hydrated state
+- replayed control-flow structure is consistent with the visible transaction structure returned by the chosen update format
 
 If replay diverges from observable effects, the session should fail with a determinism error instead of exposing a misleading trace.
 
