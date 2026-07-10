@@ -14,6 +14,11 @@ export function createFakeGrpcOperations(
         grantUserRightsAsync: async () => ({ rights: [] }),
         uploadPackageAsync: async () => ({ packageId: "unused" }),
         queryContractsAsync: async () => ({ activeContracts: [] }),
+        getContractAsync: async () => ({ createdEvent: undefined }),
+        getEventsByContractIdAsync: async () => ({
+            created: undefined,
+            archived: undefined,
+        }),
         streamTransactionsAsync: async () => [],
         prepareSubmissionAsync: async () => ({
             preparedTransaction: {},
