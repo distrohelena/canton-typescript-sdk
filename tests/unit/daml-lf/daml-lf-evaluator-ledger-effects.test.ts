@@ -670,6 +670,316 @@ describe("DamlLfEvaluator ledger effects", () => {
         });
     });
 
+    it("projects contract-id arrays from hydrated contract payloads", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self"],
+                    body: new DamlLfExpression({
+                        recordProjection: {
+                            fieldName: "linkedCids",
+                            record: new DamlLfExpression({
+                                variableName: "self",
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                linkedCids: [
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00def",
+                                    },
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00ghi",
+                                    },
+                                ],
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "contractId[]",
+            value: ["00def", "00ghi"],
+        });
+    });
+
+    it("preserves contract-id semantics when matching projected contract-id arrays", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self"],
+                    body: new DamlLfExpression({
+                        caseExpression: {
+                            scrutinee: new DamlLfExpression({
+                                recordProjection: {
+                                    fieldName: "linkedCids",
+                                    record: new DamlLfExpression({
+                                        variableName: "self",
+                                    }),
+                                },
+                            }),
+                            alternatives: [
+                                {
+                                    patternKind: "cons",
+                                    headBinderName: "head",
+                                    tailBinderName: "tail",
+                                    body: new DamlLfExpression({
+                                        variableName: "head",
+                                    }),
+                                },
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                linkedCids: [
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00def",
+                                    },
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00ghi",
+                                    },
+                                ],
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "contractId",
+            value: "00def",
+        });
+    });
+
+    it("preserves contract-id array semantics for cons tails", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self"],
+                    body: new DamlLfExpression({
+                        caseExpression: {
+                            scrutinee: new DamlLfExpression({
+                                recordProjection: {
+                                    fieldName: "linkedCids",
+                                    record: new DamlLfExpression({
+                                        variableName: "self",
+                                    }),
+                                },
+                            }),
+                            alternatives: [
+                                {
+                                    patternKind: "cons",
+                                    headBinderName: "head",
+                                    tailBinderName: "tail",
+                                    body: new DamlLfExpression({
+                                        variableName: "tail",
+                                    }),
+                                },
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                linkedCids: [
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00def",
+                                    },
+                                    {
+                                        [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00ghi",
+                                    },
+                                ],
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "contractId[]",
+            value: ["00ghi"],
+        });
+    });
+
     it("evaluates create update expressions and emits created state effects", () => {
         const definition = new DamlLfValueDefinition({
             name: "CreateVault",

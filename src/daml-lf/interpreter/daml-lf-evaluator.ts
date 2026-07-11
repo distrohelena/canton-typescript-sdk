@@ -10,6 +10,7 @@ import { DamlLfBuiltinDispatch } from "./daml-lf-builtin-dispatch.js";
 import { DamlLfLexicalScope } from "./daml-lf-lexical-scope.js";
 import {
     DAML_LF_CONTRACT_ID_MARKER_KEY,
+    DAML_LF_PARTY_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
     IDamlLfRuntimeValue,
 } from "./daml-lf-runtime-value.js";
@@ -22,6 +23,11 @@ import {
 
 interface ITextRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "text";
+    readonly value: string;
+}
+
+interface IPartyRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "party";
     readonly value: string;
 }
 
@@ -60,6 +66,11 @@ interface IRecordRuntimeValue extends IDamlLfRuntimeValue {
 interface IContractIdRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "contractId";
     readonly value: string;
+}
+
+interface IContractIdArrayRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "contractId[]";
+    readonly value: readonly string[];
 }
 
 interface IBuiltinRuntimeValue extends IDamlLfRuntimeValue {
@@ -1097,6 +1108,24 @@ export class DamlLfEvaluator {
             } satisfies IContractIdRuntimeValue;
         }
 
+        const embeddedContractIdArray = this.readEmbeddedContractIdArray(value);
+
+        if (embeddedContractIdArray !== undefined) {
+            return {
+                kind: "contractId[]",
+                value: embeddedContractIdArray,
+            } satisfies IContractIdArrayRuntimeValue;
+        }
+
+        const embeddedParty = this.readEmbeddedParty(value);
+
+        if (embeddedParty !== undefined) {
+            return {
+                kind: "party",
+                value: embeddedParty,
+            } satisfies IPartyRuntimeValue;
+        }
+
         if (
             value !== null
             && typeof value === "object"
@@ -1184,6 +1213,49 @@ export class DamlLfEvaluator {
             && typeof value.sum.contractId === "string"
         ) {
             return value.sum.contractId;
+        }
+
+        return undefined;
+    }
+
+    private readEmbeddedContractIdArray(
+        value: unknown,
+    ): readonly string[] | undefined {
+        if (!Array.isArray(value) || value.length === 0) {
+            return undefined;
+        }
+
+        const contractIds = value.map((item) => this.readEmbeddedContractId(item));
+
+        if (contractIds.some((contractId) => contractId === undefined)) {
+            return undefined;
+        }
+
+        return contractIds as readonly string[];
+    }
+
+    private readEmbeddedParty(value: unknown): string | undefined {
+        if (
+            value !== null
+            && typeof value === "object"
+            && DAML_LF_PARTY_MARKER_KEY in value
+            && typeof value[DAML_LF_PARTY_MARKER_KEY] === "string"
+        ) {
+            return value[DAML_LF_PARTY_MARKER_KEY];
+        }
+
+        if (
+            value !== null
+            && typeof value === "object"
+            && "sum" in value
+            && value.sum !== null
+            && typeof value.sum === "object"
+            && "oneofKind" in value.sum
+            && value.sum.oneofKind === "party"
+            && "party" in value.sum
+            && typeof value.sum.party === "string"
+        ) {
+            return value.sum.party;
         }
 
         return undefined;
@@ -1437,6 +1509,14 @@ export class DamlLfEvaluator {
             );
         }
 
+        if (value.kind === "contractId[]") {
+            return (value as IContractIdArrayRuntimeValue).value.map(
+                (contractId) => ({
+                    [DAML_LF_CONTRACT_ID_MARKER_KEY]: contractId,
+                }),
+            );
+        }
+
         if ("value" in value) {
             return value.value;
         }
@@ -1451,6 +1531,16 @@ export class DamlLfEvaluator {
     private readRuntimeListOrThrow(
         value: IDamlLfRuntimeValue,
     ): readonly IDamlLfRuntimeValue[] {
+        if (value.kind === "contractId[]") {
+            return (value as IContractIdArrayRuntimeValue).value.map(
+                (contractId) =>
+                    ({
+                        kind: "contractId",
+                        value: contractId,
+                    }) satisfies IContractIdRuntimeValue,
+            );
+        }
+
         if (
             value.kind === "ledgerValue"
             && "value" in value

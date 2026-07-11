@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
 import {
+    DAML_LF_PARTY_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
 } from "../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
 import { DamlLfDataType } from "../../../src/daml-lf/model/daml-lf-data-type.js";
@@ -624,6 +625,59 @@ describe("DamlLfEvaluator", () => {
         expect(result.value).toEqual({
             kind: "text",
             value: "Alice",
+        });
+    });
+
+    it("hydrates replay party markers as party runtime values", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "identity",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["party"],
+                    body: new DamlLfExpression({
+                        variableName: "party",
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(definition, {
+            offset: "42",
+            entrypoint: {
+                kind: "create",
+                argument: {
+                    [DAML_LF_PARTY_MARKER_KEY]: "Alice::1220abc",
+                },
+            },
+        });
+
+        expect(result.value).toEqual({
+            kind: "party",
+            value: "Alice::1220abc",
         });
     });
 
