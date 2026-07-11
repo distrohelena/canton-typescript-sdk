@@ -524,6 +524,10 @@ export class LedgerReplaySessionLoader {
                 });
             }
 
+            if (traceStep.stateEffect === undefined) {
+                return undefined;
+            }
+
             const source =
                 this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
                     traceStep.frame.packageId,

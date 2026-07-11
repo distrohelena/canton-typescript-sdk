@@ -172,6 +172,12 @@ describe("LedgerReplaySessionLoader", () => {
                     moduleName: "Main",
                     definitionName: "greeting",
                 },
+                sourceLocation: {
+                    startLine: 4,
+                    startColumn: 0,
+                    endLine: 4,
+                    endColumn: 18,
+                },
             }),
         });
         const compilation = DamlLfCompilation.createOrThrow(
@@ -1003,7 +1009,12 @@ describe("LedgerReplaySessionLoader", () => {
             DamlLfStepKind.enterExpression,
             DamlLfStepKind.call,
             DamlLfStepKind.return,
-        ]);
+        ], {
+            startLine: 2,
+            startColumn: 0,
+            endLine: 2,
+            endColumn: 24,
+        });
 
         expect(session.steps.map((step) => step.phase)).toEqual([
             "enterExpression",
@@ -1011,6 +1022,17 @@ describe("LedgerReplaySessionLoader", () => {
             "return",
         ]);
         expect(session.steps.map((step) => step.stepIndex)).toEqual([0, 1, 2]);
+    });
+
+    it("suppresses definition-only non-state events without native LF locations", async () => {
+        const session = await loadControlledTraceAsync("exact", [
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.call,
+            DamlLfStepKind.return,
+            DamlLfStepKind.exitExpression,
+        ]);
+
+        expect(session.steps).toEqual([]);
     });
 
     it("uses the native LF expression location ahead of fallback definition metadata", async () => {

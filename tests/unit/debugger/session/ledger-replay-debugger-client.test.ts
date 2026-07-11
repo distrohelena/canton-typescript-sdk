@@ -65,7 +65,7 @@ describe("LedgerReplayDebuggerClient", () => {
         const result = await client.stepOverAsync("session-1");
 
         expect(result.sessionId).toBe("session-1");
-        expect(result.step.phase).toBe("exitExpression");
+        expect(result.step.phase).toBe("enterExpression");
         expect(result.step.stackFrames).toEqual([
             expect.objectContaining({ name: "Archive" }),
         ]);
@@ -168,6 +168,12 @@ function createClient(): LedgerReplayDebuggerClient {
         type: new DamlLfType({}),
         expression: new DamlLfExpression({
             textLiteral: "ok",
+            sourceLocation: {
+                startLine: 5,
+                startColumn: 0,
+                endLine: 5,
+                endColumn: 18,
+            },
         }),
     });
     const definition = new DamlLfValueDefinition({
@@ -176,11 +182,17 @@ function createClient(): LedgerReplayDebuggerClient {
         expression: new DamlLfExpression({
             letExpression: {
                 bindings: [
-                    {
-                        name: "greeting",
-                        value: new DamlLfExpression({
-                            textLiteral: "ok",
-                        }),
+                        {
+                            name: "greeting",
+                            value: new DamlLfExpression({
+                                textLiteral: "ok",
+                                sourceLocation: {
+                                    startLine: 3,
+                                    startColumn: 0,
+                                    endLine: 3,
+                                    endColumn: 18,
+                                },
+                            }),
                     },
                 ],
                 body: new DamlLfExpression({
@@ -189,7 +201,19 @@ function createClient(): LedgerReplayDebuggerClient {
                         moduleName: "Sample.Module",
                         definitionName: "Greeting",
                     },
+                    sourceLocation: {
+                        startLine: 4,
+                        startColumn: 0,
+                        endLine: 4,
+                        endColumn: 18,
+                    },
                 }),
+            },
+            sourceLocation: {
+                startLine: 2,
+                startColumn: 0,
+                endLine: 5,
+                endColumn: 18,
             },
         }),
     });
