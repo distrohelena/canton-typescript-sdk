@@ -25,6 +25,9 @@ import { ResolvedReplayEntrypointDefinition } from "./replay-entrypoint-definiti
 import { ReplaySessionRequest } from "../session/replay-session-request.js";
 import { DamlSourceMapper } from "../source/daml-source-mapper.js";
 import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
+import {
+    SourceMappingPrecision,
+} from "../source/source-mapping-precision.js";
 
 interface IReplayUpdateLoader {
     loadOrThrowAsync(offset: string): Promise<IReplayTransactionSnapshot>;
@@ -72,6 +75,7 @@ export interface ILoadedReplaySession {
 interface IProjectedReplayStep {
     readonly step: ReplayStep;
     readonly scopes: readonly ReplayScope[];
+    readonly traceStep: IDamlLfTraceStep;
 }
 
 export class LedgerReplaySessionLoader {
@@ -144,6 +148,18 @@ export class LedgerReplaySessionLoader {
     private projectReplaySteps(
         traceSteps: readonly IDamlLfTraceStep[],
     ): readonly IProjectedReplayStep[] {
+        const rawSteps = this.projectRawReplaySteps(traceSteps);
+
+        if (this.dependencies.sourceMapper === undefined) {
+            return rawSteps;
+        }
+
+        return this.projectNavigableReplaySteps(rawSteps);
+    }
+
+    private projectRawReplaySteps(
+        traceSteps: readonly IDamlLfTraceStep[],
+    ): readonly IProjectedReplayStep[] {
         const activeFrames: ReplayStackFrame[] = [];
         const frameScopes = new Map<string, ReplayScope>();
         const frameExpressionDepth = new Map<string, number>();
@@ -206,8 +222,80 @@ export class LedgerReplaySessionLoader {
             return {
                 step: projectedStep,
                 scopes,
+                traceStep,
             };
         });
+    }
+
+    private projectNavigableReplaySteps(
+        rawSteps: readonly IProjectedReplayStep[],
+    ): readonly IProjectedReplayStep[] {
+        const navigableSteps: IProjectedReplayStep[] = [];
+        let previousExactExpressionSourceKey: string | undefined;
+
+        for (const rawStep of rawSteps) {
+            const { step, traceStep } = rawStep;
+
+            if (step.phase === ReplayPhase.stateEffect) {
+                navigableSteps.push(rawStep);
+                continue;
+            }
+
+            if (
+                step.sourceLocation?.precision
+                !== SourceMappingPrecision.exact
+            ) {
+                continue;
+            }
+
+            if (
+                step.phase === ReplayPhase.call
+                || step.phase === ReplayPhase.return
+            ) {
+                navigableSteps.push(rawStep);
+                continue;
+            }
+
+            if (
+                traceStep.kind !== "enterExpression"
+                && traceStep.kind !== "exitExpression"
+            ) {
+                continue;
+            }
+
+            const sourceKey = this.createSourceLocationKey(step.sourceLocation);
+
+            if (sourceKey === previousExactExpressionSourceKey) {
+                continue;
+            }
+
+            previousExactExpressionSourceKey = sourceKey;
+            navigableSteps.push(rawStep);
+        }
+
+        return navigableSteps.map((item, stepIndex) => ({
+            ...item,
+            step: new ReplayStep({
+                stepIndex,
+                phase: item.step.phase,
+                stackFrames: item.step.stackFrames,
+                locals: item.step.locals,
+                arguments: item.step.arguments,
+                sourceLocation: item.step.sourceLocation,
+                valuePreview: item.step.valuePreview,
+                stateDelta: item.step.stateDelta,
+            }),
+        }));
+    }
+
+    private createSourceLocationKey(source: ReplaySourceLocation): string {
+        return [
+            source.path,
+            source.startLine,
+            source.startColumn,
+            source.endLine,
+            source.endColumn,
+        ].join(":");
     }
 
     private toReplayPhase(traceStep: IDamlLfTraceStep): ReplayPhase {

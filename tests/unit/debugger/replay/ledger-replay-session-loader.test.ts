@@ -11,6 +11,9 @@ import {
     DarSourceBundleLoader,
 } from "../../../../src/daml-lf/index.js";
 import { DamlLfEvaluator } from "../../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
+import { DamlLfRuntimeFrame } from "../../../../src/daml-lf/interpreter/daml-lf-runtime-frame.js";
+import { DamlLfStepKind } from "../../../../src/daml-lf/interpreter/daml-lf-step-kind.js";
+import { IDamlLfTraceSink } from "../../../../src/daml-lf/interpreter/daml-lf-trace-sink.interface.js";
 import { LedgerReplaySessionLoader } from "../../../../src/debugger/replay/ledger-replay-session-loader.js";
 import {
     ILedgerReplayEnvironment,
@@ -69,6 +72,7 @@ describe("LedgerReplaySessionLoader", () => {
                                 startColumn: 1,
                                 endLine: 4,
                                 endColumn: 13,
+                                precision: "exact",
                                 entrypointKind: "exercise",
                                 templateName: "Vault",
                                 choiceName: "Archive",
@@ -219,6 +223,7 @@ describe("LedgerReplaySessionLoader", () => {
                                 startColumn: 1,
                                 endLine: 5,
                                 endColumn: 18,
+                                precision: "exact",
                             },
                         ],
                     }),
@@ -313,15 +318,9 @@ describe("LedgerReplaySessionLoader", () => {
                 (frame) => frame.name,
             ),
         ).toEqual(["archiveVaultHandler", "greeting"]);
-        expect(
-            session.steps
-                .filter((step) => step.phase === "exitExpression")
-                .at(-1)
-                ?.stackFrames.map((frame) => frame.name),
-        ).toEqual(["archiveVaultHandler"]);
     });
 
-    it("keeps replay steps when a called definition has no source-map entry", async () => {
+    it("suppresses called definitions that have no source-map entry", async () => {
         const helper = new DamlLfValueDefinition({
             name: "helper",
             type: new DamlLfType({}),
@@ -454,12 +453,10 @@ describe("LedgerReplaySessionLoader", () => {
         );
 
         expect(
-            session.steps.some(
-                (step) =>
-                    step.stackFrames.some((frame) => frame.name === "helper")
-                    && step.sourceLocation === undefined,
+            session.steps.some((step) =>
+                step.stackFrames.some((frame) => frame.name === "helper"),
             ),
-        ).toBe(true);
+        ).toBe(false);
     });
 
     it("projects evaluator locals into replay steps", async () => {
@@ -892,6 +889,7 @@ describe("LedgerReplaySessionLoader", () => {
                                 startColumn: 1,
                                 endLine: 3,
                                 endColumn: 18,
+                                precision: "exact",
                                 entrypointKind: "exercise",
                                 templateName: "Vault",
                                 choiceName: "Archive",
@@ -957,7 +955,6 @@ describe("LedgerReplaySessionLoader", () => {
             definitionResolver: new ReplayEntrypointDefinitionResolver(
                 indexedCompilation,
             ),
-            sourceMapper: new DamlSourceMapper(indexedCompilation),
             evaluator: new DamlLfEvaluator(compilation),
             determinismValidator: {
                 validateOrThrow(): void {}
@@ -973,4 +970,196 @@ describe("LedgerReplaySessionLoader", () => {
             session.steps.some((step) => step.valuePreview?.display === "\"\""),
         ).toBe(true);
     });
+
+    it("suppresses fallback-only expression and call events", async () => {
+        const session = await loadControlledTraceAsync("fallback", [
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.call,
+            DamlLfStepKind.return,
+            DamlLfStepKind.exitExpression,
+        ]);
+
+        expect(session.steps).toEqual([]);
+    });
+
+    it("retains a ledger effect with fallback source and latest locals", async () => {
+        const session = await loadControlledTraceAsync("fallback", [
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.stateEffect,
+        ]);
+
+        expect(session.steps).toHaveLength(1);
+        expect(session.steps[0]?.phase).toBe("stateEffect");
+        expect(session.steps[0]?.sourceLocation?.precision).toBe("fallback");
+        expect(session.steps[0]?.locals).toEqual([
+            expect.objectContaining({ name: "value", value: "after" }),
+        ]);
+    });
+
+    it("retains exact calls and returns while collapsing repeated exact expressions", async () => {
+        const session = await loadControlledTraceAsync("exact", [
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.exitExpression,
+            DamlLfStepKind.enterExpression,
+            DamlLfStepKind.call,
+            DamlLfStepKind.return,
+        ]);
+
+        expect(session.steps.map((step) => step.phase)).toEqual([
+            "enterExpression",
+            "call",
+            "return",
+        ]);
+        expect(session.steps.map((step) => step.stepIndex)).toEqual([0, 1, 2]);
+    });
 });
+
+async function loadControlledTraceAsync(
+    precision: "exact" | "fallback",
+    kinds: readonly DamlLfStepKind[],
+) {
+    const definition = new DamlLfValueDefinition({
+        name: "controlledTrace",
+        type: new DamlLfType({}),
+        expression: new DamlLfExpression({ textLiteral: "ignored" }),
+    });
+    const compilation = DamlLfCompilation.createOrThrow(
+        new DamlLfWorkspace([
+            new DamlLfPackage({
+                packageId: "pkg-controlled",
+                packageName: "controlled",
+                packageVersion: "1.0.0",
+                languageVersion: new DamlLfLanguageVersion({
+                    major: 2,
+                    minor: "dev",
+                    patch: 0,
+                }),
+                modules: [
+                    new DamlLfModule({
+                        name: "Main",
+                        definitions: [definition],
+                    }),
+                ],
+            }),
+        ]),
+    );
+    const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+        compilation,
+        [
+            await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                createSourceMappedDarFixture({
+                    packageId: "pkg-controlled",
+                    definitionName: "controlledTrace",
+                    executables: [
+                        {
+                            packageId: "pkg-controlled",
+                            moduleName: "Main",
+                            definitionName: "controlledTrace",
+                            path: "src/Main.daml",
+                            startLine: 3,
+                            startColumn: 1,
+                            endLine: 3,
+                            endColumn: 25,
+                            precision,
+                        },
+                    ],
+                }),
+            ),
+        ],
+    );
+    const entrypoint = new ReplayEntrypoint({
+        kind: "exercise",
+        templateId: {
+            packageId: "pkg-controlled",
+            moduleName: "Main",
+            entityName: "Controlled",
+        },
+        contractId: "00controlled",
+        choice: "Run",
+        argument: {},
+    });
+    const frame = new DamlLfRuntimeFrame({
+        frameId: "controlled-frame",
+        packageId: "pkg-controlled",
+        moduleName: "Main",
+        definition,
+    });
+
+    return new LedgerReplaySessionLoader({
+        updateLoader: {
+            async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                return {
+                    kind: "transaction",
+                    offset: "42",
+                    actAs: ["Alice"],
+                    readAs: [],
+                    events: [],
+                    entrypoint,
+                };
+            },
+        },
+        environmentBuilder: {
+            async buildOrThrowAsync(): Promise<ILedgerReplayEnvironment> {
+                return {
+                    kind: "transaction",
+                    offset: "42",
+                    actAs: ["Alice"],
+                    readAs: [],
+                    entrypoint,
+                    contracts: new Map(),
+                    packageIds: ["pkg-controlled"],
+                };
+            },
+        },
+        definitionResolver: {
+            resolveEntrypointDefinitionOrThrow() {
+                return {
+                    packageId: "pkg-controlled",
+                    moduleName: "Main",
+                    definition,
+                };
+            },
+        },
+        sourceMapper: new DamlSourceMapper(indexedCompilation),
+        evaluator: {
+            evaluateReplayEntrypointOrThrow(
+                _definition: DamlLfValueDefinition,
+                _environment: ILedgerReplayEnvironment,
+                traceSink?: IDamlLfTraceSink,
+            ) {
+                for (const [index, kind] of kinds.entries()) {
+                    traceSink?.onStep({
+                        kind,
+                        expression: definition.expression,
+                        frame,
+                        locals: [
+                            {
+                                name: "value",
+                                value: {
+                                    kind: "text",
+                                    value:
+                                        kind === DamlLfStepKind.stateEffect
+                                            ? "after"
+                                            : `before-${index}`,
+                                },
+                            },
+                        ],
+                        stateEffect:
+                            kind === DamlLfStepKind.stateEffect
+                                ? { kind: "exercise", choice: "Run" }
+                                : undefined,
+                    });
+                }
+
+                return {
+                    value: { kind: "unit", value: {} },
+                    effects: [],
+                };
+            },
+        },
+        determinismValidator: {
+            validateOrThrow(): void {},
+        },
+        sessionIdFactory: () => "controlled-session",
+    }).loadOrThrowAsync(new ReplaySessionRequest({ offset: "42" }));
+}
