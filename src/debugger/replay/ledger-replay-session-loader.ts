@@ -1,4 +1,5 @@
 import { DamlLfValueDefinition } from "../../daml-lf/model/daml-lf-value-definition.js";
+import { DamlLfExpression } from "../../daml-lf/model/daml-lf-expression.js";
 import {
     IDamlLfReplayEffect,
     IDamlLfTraceSink,
@@ -239,12 +240,13 @@ export class LedgerReplaySessionLoader {
         rawSteps: readonly IProjectedReplayStep[],
     ): readonly IProjectedReplayStep[] {
         const navigableSteps: IProjectedReplayStep[] = [];
-        let previousExactExpressionSourceKey: string | undefined;
+        let previousVisibleExpressionKey: string | undefined;
 
         for (const rawStep of rawSteps) {
             const { step, traceStep } = rawStep;
 
             if (step.phase === ReplayPhase.stateEffect) {
+                previousVisibleExpressionKey = undefined;
                 navigableSteps.push(rawStep);
                 continue;
             }
@@ -260,6 +262,11 @@ export class LedgerReplaySessionLoader {
                 step.phase === ReplayPhase.call
                 || step.phase === ReplayPhase.return
             ) {
+                if (!this.shouldRetainDefinitionTransition(step, traceStep)) {
+                    continue;
+                }
+
+                previousVisibleExpressionKey = undefined;
                 navigableSteps.push(rawStep);
                 continue;
             }
@@ -271,13 +278,26 @@ export class LedgerReplaySessionLoader {
                 continue;
             }
 
-            const sourceKey = this.createSourceLocationKey(step.sourceLocation);
+            const previousStep = navigableSteps.at(-1)?.step;
 
-            if (sourceKey === previousExactExpressionSourceKey) {
+            if (
+                !this.shouldRetainExpressionStep(
+                    step,
+                    traceStep,
+                    previousStep,
+                )
+            ) {
                 continue;
             }
 
-            previousExactExpressionSourceKey = sourceKey;
+            const visibleExpressionKey =
+                this.createVisibleExpressionKey(step);
+
+            if (visibleExpressionKey === previousVisibleExpressionKey) {
+                continue;
+            }
+
+            previousVisibleExpressionKey = visibleExpressionKey;
             navigableSteps.push(rawStep);
         }
 
@@ -306,6 +326,100 @@ export class LedgerReplaySessionLoader {
             source.endLine,
             source.endColumn,
         ].join(":");
+    }
+
+    private createVisibleExpressionKey(step: ReplayStep): string {
+        const source = step.sourceLocation;
+
+        return [
+            source === undefined
+                ? "no-source"
+                : [
+                    source.path,
+                    source.startLine,
+                    source.endLine,
+                ].join(":"),
+            step.stackFrames.map((frame) => frame.frameId ?? frame.name ?? "?").join(">"),
+            JSON.stringify(step.locals),
+        ].join("|");
+    }
+
+    private shouldRetainDefinitionTransition(
+        step: ReplayStep,
+        traceStep: IDamlLfTraceStep,
+    ): boolean {
+        return this.isMeaningfulDefinitionExpression(
+            traceStep.frame.definition.expression,
+        )
+            || this.hasVisibleLocalsChange(undefined, step);
+    }
+
+    private shouldRetainExpressionStep(
+        step: ReplayStep,
+        traceStep: IDamlLfTraceStep,
+        previousStep: ReplayStep | undefined,
+    ): boolean {
+        if (this.hasVisibleLocalsChange(previousStep, step)) {
+            return true;
+        }
+
+        return this.isMeaningfulDebuggerExpression(traceStep.expression);
+    }
+
+    private hasVisibleLocalsChange(
+        previousStep: ReplayStep | undefined,
+        currentStep: ReplayStep,
+    ): boolean {
+        return JSON.stringify(previousStep?.locals ?? [])
+            !== JSON.stringify(currentStep.locals);
+    }
+
+    private isMeaningfulDebuggerExpression(
+        expression: DamlLfExpression,
+    ): boolean {
+        if (
+            expression.application !== undefined
+            || expression.letExpression !== undefined
+            || expression.caseExpression !== undefined
+            || expression.updateExpression !== undefined
+            || expression.lambda !== undefined
+        ) {
+            return true;
+        }
+
+        if (
+            expression.valueReference !== undefined
+            && this.dependencies.sourceMapper !== undefined
+        ) {
+            try {
+                const referencedDefinition =
+                    this.dependencies.sourceMapper.getValueDefinitionOrThrow(
+                        expression.valueReference.packageId,
+                        expression.valueReference.moduleName,
+                        expression.valueReference.definitionName,
+                    );
+
+                return this.isMeaningfulDefinitionExpression(
+                    referencedDefinition.expression,
+                );
+            } catch {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    private isMeaningfulDefinitionExpression(
+        expression: DamlLfExpression,
+    ): boolean {
+        return (
+            expression.application !== undefined
+            || expression.letExpression !== undefined
+            || expression.caseExpression !== undefined
+            || expression.updateExpression !== undefined
+            || expression.lambda !== undefined
+        );
     }
 
     private toReplayPhase(traceStep: IDamlLfTraceStep): ReplayPhase {
@@ -423,11 +537,13 @@ export class LedgerReplaySessionLoader {
         frameScopes: Map<string, ReplayScope>,
         traceStep: IDamlLfTraceStep,
     ): void {
+        const frameName = this.resolveFrameName(traceStep);
+
         frameScopes.set(
             traceStep.frame.frameId,
             new ReplayScope({
                 frameId: traceStep.frame.frameId,
-                name: traceStep.frame.definition.name,
+                name: frameName,
                 variables: traceStep.locals.map((local) => ({
                     name: local.name,
                     kind: local.value.kind,
@@ -445,7 +561,7 @@ export class LedgerReplaySessionLoader {
     ): void {
         const frame = new ReplayStackFrame({
             frameId: traceStep.frame.frameId,
-            name: traceStep.frame.definition.name,
+            name: this.resolveFrameName(traceStep),
         });
 
         if (traceStep.kind === "call") {
@@ -539,6 +655,104 @@ export class LedgerReplaySessionLoader {
             name: scope.name,
             variables: [...scope.variables],
         });
+    }
+
+    private resolveFrameName(traceStep: IDamlLfTraceStep): string {
+        if (this.dependencies.sourceMapper === undefined) {
+            return traceStep.frame.definition.name;
+        }
+
+        try {
+            const source = this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
+                traceStep.frame.packageId,
+                traceStep.frame.moduleName,
+                traceStep.frame.definition.name,
+            );
+            const label = this.formatExecutableFrameLabel(source);
+
+            if (label !== undefined) {
+                return label;
+            }
+        } catch {
+            // Fall through to source-span and effect-based resolution when the
+            // current frame definition has no executable metadata of its own.
+        }
+
+        const sourceLocation = this.createSourceLocation(traceStep);
+
+        if (
+            sourceLocation?.path !== undefined
+            && sourceLocation.startLine !== undefined
+            && sourceLocation.startColumn !== undefined
+        ) {
+            const enclosingSource =
+                this.dependencies.sourceMapper.findExecutableSourceAt(
+                    sourceLocation.path,
+                    sourceLocation.startLine,
+                    sourceLocation.startColumn,
+                );
+            const label = enclosingSource === undefined
+                ? undefined
+                : this.formatExecutableFrameLabel(enclosingSource);
+
+            if (label !== undefined) {
+                return label;
+            }
+        }
+
+        const effectLabel = this.formatReplayEffectFrameLabel(
+            traceStep.stateEffect,
+        );
+
+        if (effectLabel !== undefined) {
+            return effectLabel;
+        }
+
+        return traceStep.frame.definition.name;
+    }
+
+    private formatExecutableFrameLabel(source: {
+        entrypointKind?: "create" | "exercise";
+        templateName?: string;
+        choiceName?: string;
+    }): string | undefined {
+        if (
+            source.entrypointKind === "exercise"
+            && source.templateName !== undefined
+            && source.choiceName !== undefined
+        ) {
+            return `${source.templateName}.${source.choiceName}`;
+        }
+
+        if (
+            source.entrypointKind === "create"
+            && source.templateName !== undefined
+        ) {
+            return `${source.templateName}.create`;
+        }
+
+        return undefined;
+    }
+
+    private formatReplayEffectFrameLabel(
+        effect: IDamlLfReplayEffect | undefined,
+    ): string | undefined {
+        if (effect?.templateId?.entityName === undefined) {
+            return undefined;
+        }
+
+        if (effect.kind === "create") {
+            return `${effect.templateId.entityName}.create`;
+        }
+
+        if (
+            effect.kind === "exercise"
+            && effect.choice !== undefined
+        ) {
+            return `${effect.templateId.entityName}.${effect.choice}`;
+        }
+
+        return undefined;
     }
 
     private createSourceLocation(

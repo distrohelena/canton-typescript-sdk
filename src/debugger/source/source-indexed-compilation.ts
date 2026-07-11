@@ -127,7 +127,7 @@ export class SourceIndexedCompilation {
         packageId: string,
         moduleName: string,
         definitionName: string,
-    ): IndexedDefinitionSource {
+    ): IndexedExecutableSource {
         const source = this.definitionSources.get(
             SourceIndexedCompilation.createDefinitionKey(
                 packageId,
@@ -166,10 +166,62 @@ export class SourceIndexedCompilation {
         return [...this.definitionSources.values()];
     }
 
+    public findExecutableSourceAt(
+        path: string,
+        line: number,
+        column: number,
+    ): IndexedExecutableSource | undefined {
+        return this.getExecutableSources()
+            .filter((source) =>
+                source.path === path
+                && this.containsSourceLocation(source, line, column),
+            )
+            .sort((left, right) => this.compareSourceSpecificity(left, right))
+            .at(0);
+    }
+
     public getExpressionSource(
         expression: DamlLfExpression,
     ): IndexedExpressionSource | undefined {
         return this.expressionSources.get(expression);
+    }
+
+    private containsSourceLocation(
+        source: IndexedDefinitionSource,
+        line: number,
+        column: number,
+    ): boolean {
+        const startsBeforeOrAt =
+            source.startLine < line
+            || (source.startLine === line && source.startColumn <= column);
+        const endsAfterOrAt =
+            source.endLine > line
+            || (source.endLine === line && source.endColumn >= column);
+
+        return startsBeforeOrAt && endsAfterOrAt;
+    }
+
+    private compareSourceSpecificity(
+        left: IndexedDefinitionSource,
+        right: IndexedDefinitionSource,
+    ): number {
+        if (left.startLine !== right.startLine) {
+            return right.startLine - left.startLine;
+        }
+
+        if (left.startColumn !== right.startColumn) {
+            return right.startColumn - left.startColumn;
+        }
+
+        if (left.endLine !== right.endLine) {
+            return left.endLine - right.endLine;
+        }
+
+        if (left.endColumn !== right.endColumn) {
+            return left.endColumn - right.endColumn;
+        }
+
+        return 0;
     }
 
     private static createDefinitionKey(

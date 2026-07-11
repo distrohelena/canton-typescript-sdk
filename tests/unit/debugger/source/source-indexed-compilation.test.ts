@@ -107,6 +107,60 @@ describe("SourceIndexedCompilation", () => {
             endColumn: 54,
         });
     });
+
+    it("finds the narrowest executable span containing a source point", async () => {
+        const indexed = SourceIndexedCompilation.createOrThrow(
+            createCompilation("archive"),
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-sample",
+                        executables: [
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archive",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 20,
+                                endColumn: 1,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "Archive",
+                            },
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archiveNested",
+                                path: "src/Main.daml",
+                                startLine: 8,
+                                startColumn: 3,
+                                endLine: 12,
+                                endColumn: 5,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "ArchiveNested",
+                            },
+                        ],
+                    }),
+                ),
+            ],
+        );
+
+        expect(indexed.findExecutableSourceAt("src/Main.daml", 10, 4)).toEqual(
+            expect.objectContaining({
+                definitionName: "archiveNested",
+                choiceName: "ArchiveNested",
+            }),
+        );
+        expect(indexed.findExecutableSourceAt("src/Main.daml", 4, 1)).toEqual(
+            expect.objectContaining({
+                definitionName: "archive",
+                choiceName: "Archive",
+            }),
+        );
+    });
 });
 
 async function createIndexedCompilation(
