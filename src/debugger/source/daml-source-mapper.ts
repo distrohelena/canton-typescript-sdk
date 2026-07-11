@@ -16,4 +16,14 @@ export class DamlSourceMapper {
             definitionName,
         );
     }
+
+    public getModuleSourceOrThrow(
+        packageId: string,
+        moduleName: string,
+    ) {
+        return this.indexedCompilation.getModuleSourceOrThrow(
+            packageId,
+            moduleName,
+        );
+    }
 }

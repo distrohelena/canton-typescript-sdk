@@ -403,6 +403,30 @@ export class Lf2ModelMapper {
         currentPackageId: string,
         rawPackage: LfArchivePackage,
     ): DamlLfExpression {
+        return Lf2ModelMapper.mapExpressionWithoutSourceLocation(
+            rawExpression,
+            internedStrings,
+            internedDottedNames,
+            currentPackageId,
+            rawPackage,
+        ).withSourceLocation(
+            Lf2ModelMapper.mapExpressionSourceLocation(
+                rawExpression,
+                internedStrings,
+                internedDottedNames,
+                currentPackageId,
+                rawPackage,
+            ),
+        );
+    }
+
+    private static mapExpressionWithoutSourceLocation(
+        rawExpression: Expr | undefined,
+        internedStrings: readonly string[],
+        internedDottedNames: readonly { segmentsInternedStr: readonly number[] }[],
+        currentPackageId: string,
+        rawPackage: LfArchivePackage,
+    ): DamlLfExpression {
         if (rawExpression?.sum.oneofKind === "varInternedStr") {
             return new DamlLfExpression({
                 variableName: Lf2ModelMapper.resolveInternedString(
@@ -910,6 +934,44 @@ export class Lf2ModelMapper {
         return new DamlLfExpression({
             unsupportedNodeKind: rawExpression?.sum.oneofKind,
         });
+    }
+
+    private static mapExpressionSourceLocation(
+        rawExpression: Expr | undefined,
+        internedStrings: readonly string[],
+        internedDottedNames: readonly { segmentsInternedStr: readonly number[] }[],
+        currentPackageId: string,
+        rawPackage: LfArchivePackage,
+    ) {
+        const rawLocation = rawExpression?.location;
+        const range = rawLocation?.range;
+
+        if (range === undefined) {
+            return undefined;
+        }
+
+        return {
+            packageId:
+                rawLocation?.module === undefined
+                    ? undefined
+                    : Lf2ModelMapper.resolvePackageIdOrThrow(
+                        currentPackageId,
+                        rawLocation.module.packageId,
+                        rawPackage,
+                    ),
+            moduleName:
+                rawLocation?.module === undefined
+                    ? undefined
+                    : Lf2ModelMapper.resolveInternedDottedName(
+                        internedStrings,
+                        internedDottedNames,
+                        rawLocation.module.moduleNameInternedDname,
+                    ),
+            startLine: range.startLine,
+            startColumn: range.startCol,
+            endLine: range.endLine,
+            endColumn: range.endCol,
+        };
     }
 
     private static mapUpdateExpression(

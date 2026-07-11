@@ -1012,11 +1012,42 @@ describe("LedgerReplaySessionLoader", () => {
         ]);
         expect(session.steps.map((step) => step.stepIndex)).toEqual([0, 1, 2]);
     });
+
+    it("uses the native LF expression location ahead of fallback definition metadata", async () => {
+        const session = await loadControlledTraceAsync(
+            "fallback",
+            [DamlLfStepKind.enterExpression],
+            {
+                startLine: 540,
+                startColumn: 8,
+                endLine: 540,
+                endColumn: 32,
+            },
+        );
+
+        expect(session.steps).toHaveLength(1);
+        expect(session.steps[0]?.sourceLocation).toEqual(
+            expect.objectContaining({
+                path: "src/Main.daml",
+                startLine: 541,
+                startColumn: 9,
+                endLine: 541,
+                endColumn: 33,
+                precision: "exact",
+            }),
+        );
+    });
 });
 
 async function loadControlledTraceAsync(
     precision: "exact" | "fallback",
     kinds: readonly DamlLfStepKind[],
+    expressionSourceLocation?: {
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+    },
 ) {
     const definition = new DamlLfValueDefinition({
         name: "controlledTrace",
@@ -1084,6 +1115,10 @@ async function loadControlledTraceAsync(
         moduleName: "Main",
         definition,
     });
+    const traceExpression = new DamlLfExpression({
+        textLiteral: "ignored",
+        sourceLocation: expressionSourceLocation,
+    });
 
     return new LedgerReplaySessionLoader({
         updateLoader: {
@@ -1130,7 +1165,7 @@ async function loadControlledTraceAsync(
                 for (const [index, kind] of kinds.entries()) {
                     traceSink?.onStep({
                         kind,
-                        expression: definition.expression,
+                        expression: traceExpression,
                         frame,
                         locals: [
                             {

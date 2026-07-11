@@ -66,6 +66,12 @@ describe("LF 2.x model mapper", () => {
             moduleName: "Sample.Module",
             definitionName: "greeting",
         });
+        expect(aliasDefinition.expression.sourceLocation).toEqual({
+            startLine: 40,
+            startColumn: 4,
+            endLine: 40,
+            endColumn: 12,
+        });
     });
 
     it("maps let, lambda, application, and variable expressions", () => {
@@ -427,6 +433,14 @@ function createValueReferenceArchiveBytes(): Uint8Array {
                             },
                         },
                         expr: {
+                            location: {
+                                range: {
+                                    startLine: 40,
+                                    startCol: 4,
+                                    endLine: 40,
+                                    endCol: 12,
+                                },
+                            },
                             sum: {
                                 oneofKind: "val",
                                 val: {

@@ -6,6 +6,15 @@ export interface IDamlLfValueReference {
     readonly definitionName: string;
 }
 
+export interface IDamlLfExpressionSourceLocation {
+    readonly packageId?: string;
+    readonly moduleName?: string;
+    readonly startLine: number;
+    readonly startColumn: number;
+    readonly endLine: number;
+    readonly endColumn: number;
+}
+
 export interface IDamlLfLambdaExpression {
     readonly parameters: readonly string[];
     readonly body: DamlLfExpression;
@@ -141,6 +150,7 @@ export class DamlLfExpression {
     public readonly listConstruction?: IDamlLfListConstructionExpression;
     public readonly updateExpression?: IDamlLfUpdateExpression;
     public readonly unsupportedNodeKind?: string;
+    public readonly sourceLocation?: IDamlLfExpressionSourceLocation;
 
     public constructor(init: {
         textLiteral?: string;
@@ -162,6 +172,7 @@ export class DamlLfExpression {
         listConstruction?: IDamlLfListConstructionExpression;
         updateExpression?: IDamlLfUpdateExpression;
         unsupportedNodeKind?: string;
+        sourceLocation?: IDamlLfExpressionSourceLocation;
     }) {
         this.textLiteral = init.textLiteral;
         this.int64Literal = init.int64Literal;
@@ -182,5 +193,37 @@ export class DamlLfExpression {
         this.listConstruction = init.listConstruction;
         this.updateExpression = init.updateExpression;
         this.unsupportedNodeKind = init.unsupportedNodeKind;
+        this.sourceLocation = init.sourceLocation;
+    }
+
+    public withSourceLocation(
+        sourceLocation: IDamlLfExpressionSourceLocation | undefined,
+    ): DamlLfExpression {
+        if (sourceLocation === undefined) {
+            return this;
+        }
+
+        return new DamlLfExpression({
+            textLiteral: this.textLiteral,
+            int64Literal: this.int64Literal,
+            valueReference: this.valueReference,
+            variableName: this.variableName,
+            lambda: this.lambda,
+            application: this.application,
+            letExpression: this.letExpression,
+            recordConstruction: this.recordConstruction,
+            recordProjection: this.recordProjection,
+            recordUpdate: this.recordUpdate,
+            builtinConstructor: this.builtinConstructor,
+            builtinFunction: this.builtinFunction,
+            caseExpression: this.caseExpression,
+            variantConstruction: this.variantConstruction,
+            optionalConstruction: this.optionalConstruction,
+            enumConstruction: this.enumConstruction,
+            listConstruction: this.listConstruction,
+            updateExpression: this.updateExpression,
+            unsupportedNodeKind: this.unsupportedNodeKind,
+            sourceLocation,
+        });
     }
 }

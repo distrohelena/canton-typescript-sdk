@@ -25,6 +25,7 @@ export interface IndexedExecutableSource extends IndexedDefinitionSource {
 
 export class SourceIndexedCompilation {
     private readonly definitionSources = new Map<string, IndexedExecutableSource>();
+    private readonly moduleSources = new Map<string, IndexedDefinitionSource>();
 
     private constructor(public readonly compilation: DamlLfCompilation) {}
 
@@ -36,28 +37,37 @@ export class SourceIndexedCompilation {
 
         for (const bundle of sourceBundles) {
             for (const executable of bundle.metadata.executables) {
+                const source: IndexedExecutableSource = {
+                    packageId: executable.packageId,
+                    moduleName: executable.moduleName,
+                    definitionName: executable.definitionName,
+                    path: executable.path,
+                    startLine: executable.startLine,
+                    startColumn: executable.startColumn,
+                    endLine: executable.endLine,
+                    endColumn: executable.endColumn,
+                    precision:
+                        executable.precision
+                        ?? SourceMappingPrecision.fallback,
+                    entrypointKind: executable.entrypointKind,
+                    templateName: executable.templateName,
+                    choiceName: executable.choiceName,
+                };
+
                 indexed.definitionSources.set(
-                    SourceIndexedCompilation.createKey(
+                    SourceIndexedCompilation.createDefinitionKey(
                         executable.packageId,
                         executable.moduleName,
                         executable.definitionName,
                     ),
-                    {
-                        packageId: executable.packageId,
-                        moduleName: executable.moduleName,
-                        definitionName: executable.definitionName,
-                        path: executable.path,
-                        startLine: executable.startLine,
-                        startColumn: executable.startColumn,
-                        endLine: executable.endLine,
-                        endColumn: executable.endColumn,
-                        precision:
-                            executable.precision
-                            ?? SourceMappingPrecision.fallback,
-                        entrypointKind: executable.entrypointKind,
-                        templateName: executable.templateName,
-                        choiceName: executable.choiceName,
-                    },
+                    source,
+                );
+                indexed.moduleSources.set(
+                    SourceIndexedCompilation.createModuleKey(
+                        executable.packageId,
+                        executable.moduleName,
+                    ),
+                    source,
                 );
             }
         }
@@ -71,7 +81,7 @@ export class SourceIndexedCompilation {
         definitionName: string,
     ): IndexedDefinitionSource {
         const source = this.definitionSources.get(
-            SourceIndexedCompilation.createKey(
+            SourceIndexedCompilation.createDefinitionKey(
                 packageId,
                 moduleName,
                 definitionName,
@@ -87,15 +97,39 @@ export class SourceIndexedCompilation {
         return source;
     }
 
+    public getModuleSourceOrThrow(
+        packageId: string,
+        moduleName: string,
+    ): IndexedDefinitionSource {
+        const source = this.moduleSources.get(
+            SourceIndexedCompilation.createModuleKey(packageId, moduleName),
+        );
+
+        if (source === undefined) {
+            throw new ReplaySourceMapException(
+                `missing source mapping for module '${packageId}::${moduleName}'`,
+            );
+        }
+
+        return source;
+    }
+
     public getExecutableSources(): readonly IndexedExecutableSource[] {
         return [...this.definitionSources.values()];
     }
 
-    private static createKey(
+    private static createDefinitionKey(
         packageId: string,
         moduleName: string,
         definitionName: string,
     ): string {
         return `${packageId}::${moduleName}::${definitionName}`;
+    }
+
+    private static createModuleKey(
+        packageId: string,
+        moduleName: string,
+    ): string {
+        return `${packageId}::${moduleName}`;
     }
 }
