@@ -34,7 +34,16 @@ describe("LedgerReplayDebuggerClient", () => {
         );
 
         expect(session.metadata?.stepCount).toBeGreaterThan(0);
-        expect(session.currentStep?.stateDelta?.kind).toBeDefined();
+        expect(session.currentStep).toEqual(
+            expect.objectContaining({
+                stepId: expect.any(String),
+                stateDelta: expect.objectContaining({
+                    kind: "exercise",
+                    eventOrdinal: 0,
+                    comparisonKey: "event-0",
+                }),
+            }),
+        );
     });
 
     it("steps through only projected exact locations and state effects", async () => {
@@ -112,6 +121,43 @@ describe("LedgerReplayDebuggerClient", () => {
         await expect(
             client.getTraceSliceAsync("session-1", 0, 10),
         ).resolves.toBeInstanceOf(Array);
+    });
+
+    it("exposes all in-scope variables on the current step grouped by frame", async () => {
+        const client = createClient();
+
+        await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        const trace = await client.getTraceSliceAsync("session-1", 0, 20);
+        const nestedFrameIndex = trace.findIndex(
+            (step) => step.stackFrames.length === 2,
+        );
+
+        for (let index = 0; index < nestedFrameIndex; index += 1) {
+            await client.stepIntoAsync("session-1");
+        }
+
+        await expect(
+            client.getCurrentStepAsync("session-1"),
+        ).resolves.toEqual(
+            expect.objectContaining({
+                locals: [],
+                scopes: [
+                    expect.objectContaining({
+                        frameId: "frame-1",
+                        variables: [
+                            expect.objectContaining({
+                                name: "greeting",
+                                value: "ok",
+                            }),
+                        ],
+                    }),
+                    expect.objectContaining({
+                        frameId: "frame-2",
+                        variables: [],
+                    }),
+                ],
+            }),
+        );
     });
 
     it("stepOut leaves the current frame and resumes in the caller", async () => {

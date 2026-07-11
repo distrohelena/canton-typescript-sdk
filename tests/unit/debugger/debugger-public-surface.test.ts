@@ -21,11 +21,18 @@ describe("debugger public surface", () => {
         const result = new ReplayStepAdvanceResult({
             sessionId: "session-1",
             step: {
+                stepId: "step-1",
                 stepIndex: 1,
                 phase: ReplayPhase.enterExpression,
                 stackFrames: [],
+                scopes: [],
                 locals: [],
                 arguments: [],
+                stateDelta: {
+                    kind: "create",
+                    eventOrdinal: 0,
+                    comparisonKey: "event-0",
+                },
                 valuePreview: undefined,
             },
             isTerminal: false,
@@ -33,6 +40,18 @@ describe("debugger public surface", () => {
         });
 
         expect(result.nextStepIndex).toBe(2);
+        expect(result.step).toEqual(
+            expect.objectContaining({
+                stepId: "step-1",
+                stepIndex: 1,
+                scopes: [],
+                stateDelta: expect.objectContaining({
+                    kind: "create",
+                    eventOrdinal: 0,
+                    comparisonKey: "event-0",
+                }),
+            }),
+        );
     });
 
     it("exports the debugger client and replay exceptions", () => {

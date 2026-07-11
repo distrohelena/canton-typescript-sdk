@@ -164,6 +164,7 @@ export class LedgerReplaySessionLoader {
         const frameScopes = new Map<string, ReplayScope>();
         const frameExpressionDepth = new Map<string, number>();
         const frameCallDepth = new Map<string, number>();
+        let eventOrdinal = 0;
 
         return traceSteps.map((traceStep, stepIndex) => {
             this.rememberFrameScope(frameScopes, traceStep);
@@ -194,9 +195,11 @@ export class LedgerReplaySessionLoader {
                 (scope) => scope.frameId === traceStep.frame.frameId,
             );
             const projectedStep = new ReplayStep({
+                stepId: `step-${stepIndex}`,
                 stepIndex,
                 phase: this.toReplayPhase(traceStep),
                 stackFrames,
+                scopes,
                 locals: currentScope?.variables ?? [],
                 arguments:
                     traceStep.stateEffect?.argument === undefined
@@ -208,9 +211,15 @@ export class LedgerReplaySessionLoader {
                         ? undefined
                         : new ReplayStateDelta({
                             kind: traceStep.stateEffect.kind,
+                            eventOrdinal,
+                            comparisonKey: `event-${eventOrdinal}`,
                         }),
                 sourceLocation: this.createSourceLocation(traceStep),
             });
+
+            if (traceStep.stateEffect !== undefined) {
+                eventOrdinal += 1;
+            }
 
             this.finalizeStackForStep(
                 traceStep,
@@ -276,9 +285,11 @@ export class LedgerReplaySessionLoader {
         return navigableSteps.map((item, stepIndex) => ({
             ...item,
             step: new ReplayStep({
+                stepId: item.step.stepId,
                 stepIndex,
                 phase: item.step.phase,
                 stackFrames: item.step.stackFrames,
+                scopes: item.step.scopes,
                 locals: item.step.locals,
                 arguments: item.step.arguments,
                 sourceLocation: item.step.sourceLocation,

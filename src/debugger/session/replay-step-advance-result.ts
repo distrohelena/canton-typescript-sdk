@@ -9,9 +9,11 @@ export class ReplayStepAdvanceResult {
     public constructor(init: {
         sessionId: string;
         step: {
+            stepId?: string;
             stepIndex: number;
             phase: ReplayStep["phase"];
             stackFrames?: ReplayStep["stackFrames"];
+            scopes?: ReplayStep["scopes"];
             locals?: ReplayStep["locals"];
             arguments?: ReplayStep["arguments"];
             sourceLocation?: ReplayStep["sourceLocation"];
