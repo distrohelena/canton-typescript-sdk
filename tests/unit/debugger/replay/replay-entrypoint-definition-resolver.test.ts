@@ -4,6 +4,7 @@ import {
     DamlLfChoiceParameter,
     DamlLfCompilation,
     DamlLfDataType,
+    DamlLfEvaluator,
     DamlLfExpression,
     DamlLfLanguageVersion,
     DamlLfModule,
@@ -70,14 +71,14 @@ describe("ReplayEntrypointDefinitionResolver", () => {
         expect(resolved.packageId).toBe("pkg-sample");
         expect(resolved.moduleName).toBe("Main");
         expect(resolved.definition.name).toBe("archiveVaultHandler");
-        expect(resolved.replayBindingMode).toBe("templateChoice");
+        expect(resolved.replayBindingMode).toBe("exerciseWrapper");
         expect(resolved.replayExpression.lambda?.parameters).toEqual([
-            "self",
+            "_",
             "this",
-            "choiceArg",
+            "arg",
         ]);
         expect(resolved.replayExpression.lambda?.body.updateExpression?.kind).toBe(
-            "fetch",
+            "exercise",
         );
     });
 
@@ -99,14 +100,14 @@ describe("ReplayEntrypointDefinitionResolver", () => {
         expect(resolved.packageId).toBe("pkg-sample");
         expect(resolved.moduleName).toBe("Main");
         expect(resolved.definition.name).toBe("archiveVaultHandler");
-        expect(resolved.replayBindingMode).toBe("templateChoice");
+        expect(resolved.replayBindingMode).toBe("exerciseWrapper");
         expect(resolved.replayExpression.lambda?.parameters).toEqual([
-            "self",
+            "_",
             "this",
-            "choiceArg",
+            "arg",
         ]);
         expect(resolved.replayExpression.lambda?.body.updateExpression?.kind).toBe(
-            "fetch",
+            "exercise",
         );
     });
 
@@ -136,6 +137,321 @@ describe("ReplayEntrypointDefinitionResolver", () => {
             "this",
             "choiceArg",
         ]);
+    });
+
+    it("unwraps interface choice argument envelopes for curried implementation bodies", async () => {
+        const compilation = DamlLfCompilation.createOrThrow(
+            new DamlLfWorkspace([
+                new DamlLfPackage({
+                    packageId: "pkg-sample",
+                    packageName: "sample",
+                    packageVersion: "1.0.0",
+                    languageVersion: new DamlLfLanguageVersion({
+                        major: 2,
+                        minor: "dev",
+                        patch: 0,
+                    }),
+                    modules: [
+                        new DamlLfModule({
+                            name: "Main",
+                            definitions: [
+                                new DamlLfValueDefinition({
+                                    name: "reportNavHandler",
+                                    type: new DamlLfType({}),
+                                    expression: new DamlLfExpression({
+                                        lambda: {
+                                            parameters: ["this"],
+                                            body: new DamlLfExpression({
+                                                lambda: {
+                                                    parameters: ["self", "args"],
+                                                    body: new DamlLfExpression({
+                                                        recordProjection: {
+                                                            fieldName: "owner",
+                                                            record: new DamlLfExpression({
+                                                                variableName: "args",
+                                                            }),
+                                                        },
+                                                    }),
+                                                },
+                                            }),
+                                        },
+                                    }),
+                                }),
+                                new DamlLfDataType({
+                                    name: "Vault",
+                                    fields: [],
+                                }),
+                                new DamlLfTemplate({
+                                    name: "Vault",
+                                    parameterName: "this",
+                                    templateId: new DamlLfTemplateId({
+                                        packageId: "pkg-sample",
+                                        moduleName: "Main",
+                                        templateName: "Vault",
+                                    }),
+                                    fields: [],
+                                    choices: [
+                                        new DamlLfChoice({
+                                            name: "ReportNAV",
+                                            selfBinderName: "self",
+                                            parameter: new DamlLfChoiceParameter({
+                                                name: "args",
+                                                type: new DamlLfType({}),
+                                            }),
+                                            returnType: new DamlLfType({}),
+                                            updateExpression: new DamlLfExpression({
+                                                recordProjection: {
+                                                    fieldName: "owner",
+                                                    record: new DamlLfExpression({
+                                                        variableName: "args",
+                                                    }),
+                                                },
+                                            }),
+                                        }),
+                                    ],
+                                }),
+                            ],
+                        }),
+                    ],
+                }),
+            ]),
+        );
+        const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+            compilation,
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-sample",
+                        executables: [
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "reportNavHandler",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 4,
+                                endColumn: 13,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "ReportNAV",
+                                choiceArgumentFieldName: "args",
+                            },
+                        ],
+                    }),
+                ),
+            ],
+        );
+        const resolver = new ReplayEntrypointDefinitionResolver(
+            indexedCompilation,
+        );
+        const resolved = resolver.resolveEntrypointDefinitionOrThrow(
+            new ReplayEntrypoint({
+                kind: "exercise",
+                templateId: {
+                    packageId: "pkg-sample",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                contractId: "00abc",
+                choice: "ReportNAV",
+                argument: {
+                    args: {
+                        owner: "Alice",
+                    },
+                },
+            }),
+        );
+
+        const result = new DamlLfEvaluator(compilation)
+            .evaluateReplayEntrypointOrThrow(
+                resolved.definition,
+                {
+                    kind: "transaction",
+                    offset: "42",
+                    actAs: ["Alice"],
+                    readAs: [],
+                    entrypoint: new ReplayEntrypoint({
+                        kind: "exercise",
+                        templateId: {
+                            packageId: "pkg-sample",
+                            moduleName: "Main",
+                            entityName: "Vault",
+                        },
+                        contractId: "00abc",
+                        choice: "ReportNAV",
+                        argument: {
+                            args: {
+                                owner: "Alice",
+                            },
+                        },
+                    }),
+                    contracts: new Map([
+                        [
+                            "00abc",
+                            {
+                                contractId: "00abc",
+                                templateId: {
+                                    packageId: "pkg-sample",
+                                    moduleName: "Main",
+                                    entityName: "Vault",
+                                },
+                                payload: {
+                                    owner: "Bob",
+                                },
+                                history: {},
+                            },
+                        ],
+                    ]),
+                    packageIds: ["pkg-sample"],
+                    entrypointExpression: resolved.replayExpression,
+                    entrypointBindingMode: resolved.replayBindingMode,
+                },
+            );
+
+        expect(result.value).toEqual({
+            kind: "text",
+            value: "Alice",
+        });
+    });
+
+    it("keeps archive exercise wrappers when the synthetic template choice body is trivial", async () => {
+        const compilation = DamlLfCompilation.createOrThrow(
+            new DamlLfWorkspace([
+                new DamlLfPackage({
+                    packageId: "pkg-sample",
+                    packageName: "sample",
+                    packageVersion: "1.0.0",
+                    languageVersion: new DamlLfLanguageVersion({
+                        major: 2,
+                        minor: "dev",
+                        patch: 0,
+                    }),
+                    modules: [
+                        new DamlLfModule({
+                            name: "Main",
+                            definitions: [
+                                new DamlLfValueDefinition({
+                                    name: "archiveWrapper",
+                                    type: new DamlLfType({}),
+                                    expression: new DamlLfExpression({
+                                        recordConstruction: {
+                                            fields: [
+                                                {
+                                                    name: "m_exercise",
+                                                    value: new DamlLfExpression({
+                                                        lambda: {
+                                                            parameters: [
+                                                                "_",
+                                                                "this",
+                                                                "arg",
+                                                            ],
+                                                            body: new DamlLfExpression({
+                                                                updateExpression: {
+                                                                    kind: "exercise",
+                                                                    templateId: {
+                                                                        packageId: "pkg-sample",
+                                                                        moduleName: "Main",
+                                                                        templateName: "Vault",
+                                                                    },
+                                                                    choiceName: "Archive",
+                                                                    contractId: new DamlLfExpression({
+                                                                        variableName: "this",
+                                                                    }),
+                                                                    argument: new DamlLfExpression({
+                                                                        variableName: "arg",
+                                                                    }),
+                                                                },
+                                                            }),
+                                                        },
+                                                    }),
+                                                },
+                                            ],
+                                        },
+                                    }),
+                                }),
+                                new DamlLfDataType({
+                                    name: "Vault",
+                                    fields: [],
+                                }),
+                                new DamlLfTemplate({
+                                    name: "Vault",
+                                    parameterName: "this",
+                                    templateId: new DamlLfTemplateId({
+                                        packageId: "pkg-sample",
+                                        moduleName: "Main",
+                                        templateName: "Vault",
+                                    }),
+                                    fields: [],
+                                    choices: [
+                                        new DamlLfChoice({
+                                            name: "Archive",
+                                            selfBinderName: "self",
+                                            parameter: new DamlLfChoiceParameter({
+                                                name: "arg",
+                                                type: new DamlLfType({}),
+                                            }),
+                                            returnType: new DamlLfType({}),
+                                            updateExpression: new DamlLfExpression({
+                                                updateExpression: {
+                                                    kind: "pure",
+                                                    expression: new DamlLfExpression({
+                                                        recordConstruction: {
+                                                            fields: [],
+                                                        },
+                                                    }),
+                                                },
+                                            }),
+                                        }),
+                                    ],
+                                }),
+                            ],
+                        }),
+                    ],
+                }),
+            ]),
+        );
+        const indexedCompilation = SourceIndexedCompilation.createOrThrow(
+            compilation,
+            [
+                await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                    createSourceMappedDarFixture({
+                        packageId: "pkg-sample",
+                        executables: [
+                            {
+                                packageId: "pkg-sample",
+                                moduleName: "Main",
+                                definitionName: "archiveWrapper",
+                                path: "src/Main.daml",
+                                startLine: 3,
+                                startColumn: 1,
+                                endLine: 4,
+                                endColumn: 13,
+                                entrypointKind: "exercise",
+                                templateName: "Vault",
+                                choiceName: "Archive",
+                            },
+                        ],
+                    }),
+                ),
+            ],
+        );
+        const resolver = new ReplayEntrypointDefinitionResolver(
+            indexedCompilation,
+        );
+        const resolved = resolver.resolveChoiceDefinitionOrThrow(
+            new DamlLfTemplateId({
+                packageId: "pkg-sample",
+                moduleName: "Main",
+                templateName: "Vault",
+            }),
+            "Archive",
+        );
+
+        expect(resolved.replayBindingMode).toBe("exerciseWrapper");
+        expect(resolved.replayExpression.lambda?.body.updateExpression?.kind).toBe(
+            "exercise",
+        );
     });
 });
 

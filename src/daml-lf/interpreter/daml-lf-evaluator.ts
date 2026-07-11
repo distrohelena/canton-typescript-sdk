@@ -1,7 +1,9 @@
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { DamlLfCompilation } from "../daml-lf-compilation.js";
+import { DamlLfBuiltinType } from "../model/daml-lf-builtin-type.js";
 import { DamlLfExpression } from "../model/daml-lf-expression.js";
 import { DamlLfTemplateId } from "../model/daml-lf-template-id.js";
+import { DamlLfType } from "../model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "../model/daml-lf-value-definition.js";
 import { TypeConReference } from "../model/type-con-reference.js";
 import { DamlLfBuiltinDispatch } from "./daml-lf-builtin-dispatch.js";
@@ -179,10 +181,14 @@ export class DamlLfEvaluator {
         this.activeReplayContext = replayContext;
 
         try {
-            const shouldEmitFallbackEffects =
+            const shouldEmitEntrypointEffects =
                 !this.isUpdateDrivenEntrypointExpression(replayExpression);
+            const shouldEmitTopLevelExerciseEffect =
+                !shouldEmitEntrypointEffects
+                && environment.entrypoint.kind === "exercise"
+                && environment.entrypointBindingMode === "templateChoice";
 
-            if (shouldEmitFallbackEffects) {
+            if (shouldEmitEntrypointEffects || shouldEmitTopLevelExerciseEffect) {
                 for (const effect of this.createReplayEffects(environment)) {
                     replayContext.effects.push(effect);
                     traceSink?.onStep({
@@ -1090,6 +1096,18 @@ export class DamlLfEvaluator {
             } satisfies IContractIdRuntimeValue;
         }
 
+        if (
+            value !== null
+            && typeof value === "object"
+            && "__damlLfInt64" in value
+            && typeof value.__damlLfInt64 === "string"
+        ) {
+            return {
+                kind: "int64",
+                value: value.__damlLfInt64,
+            } satisfies IInt64RuntimeValue;
+        }
+
         if (typeof value === "string") {
             return {
                 kind: "text",
@@ -1174,22 +1192,31 @@ export class DamlLfEvaluator {
         rawValue: Readonly<Record<string, unknown>>,
         fieldName: string,
     ): unknown {
-        if (fieldName in rawValue) {
-            return rawValue[fieldName];
-        }
-
         const semanticField = this.resolveSemanticRecordField(
             rawValue,
             fieldName,
         );
 
+        if (fieldName in rawValue) {
+            return this.coerceSemanticFieldValue(
+                this.attachSemanticRecordId(
+                    rawValue[fieldName],
+                    semanticField?.type.typeConReference,
+                ),
+                semanticField?.type,
+            );
+        }
+
         if (semanticField === undefined) {
             return undefined;
         }
 
-        return this.attachSemanticRecordId(
-            rawValue[String(semanticField.index)],
-            semanticField.typeConReference,
+        return this.coerceSemanticFieldValue(
+            this.attachSemanticRecordId(
+                rawValue[String(semanticField.index)],
+                semanticField.type.typeConReference,
+            ),
+            semanticField.type,
         );
     }
 
@@ -1223,7 +1250,7 @@ export class DamlLfEvaluator {
         fieldName: string,
     ): {
         index: number;
-        typeConReference?: TypeConReference;
+        type: DamlLfType;
     } | undefined {
         const recordId = rawValue[DAML_LF_RECORD_ID_MARKER_KEY];
 
@@ -1267,11 +1294,22 @@ export class DamlLfEvaluator {
 
             return {
                 index: semanticIndex,
-                typeConReference: fields[semanticIndex]?.type.typeConReference,
+                type: fields[semanticIndex]?.type ?? new DamlLfType({}),
             };
         } catch {
             return undefined;
         }
+    }
+
+    private coerceSemanticFieldValue(
+        value: unknown,
+        type: DamlLfType | undefined,
+    ): unknown {
+        if (type?.builtinType === DamlLfBuiltinType.int64) {
+            return typeof value === "string" ? { __damlLfInt64: value } : value;
+        }
+
+        return value;
     }
 
     private attachSemanticRecordId(

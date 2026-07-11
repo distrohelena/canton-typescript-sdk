@@ -3,7 +3,10 @@ import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
 import { DamlLfDataType } from "../../../src/daml-lf/model/daml-lf-data-type.js";
 import { DamlLfEvaluator } from "../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
-import { DAML_LF_CONTRACT_ID_MARKER_KEY } from "../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
+import {
+    DAML_LF_CONTRACT_ID_MARKER_KEY,
+    DAML_LF_RECORD_ID_MARKER_KEY,
+} from "../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
 import { DamlLfStepKind } from "../../../src/daml-lf/interpreter/daml-lf-step-kind.js";
 import { DamlLfExpression } from "../../../src/daml-lf/model/daml-lf-expression.js";
 import { DamlLfField } from "../../../src/daml-lf/model/daml-lf-field.js";
@@ -308,6 +311,123 @@ describe("DamlLfEvaluator ledger effects", () => {
         expect(result.value).toEqual({
             kind: "text",
             value: "Alice",
+        });
+    });
+
+    it("preserves int64 semantics when projecting ledger-backed record fields", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self"],
+                    body: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                builtinFunction: "ADD_INT64",
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    recordProjection: {
+                                        fieldName: "snapshotSequence",
+                                        record: new DamlLfExpression({
+                                            variableName: "self",
+                                        }),
+                                    },
+                                }),
+                                new DamlLfExpression({
+                                    int64Literal: "1",
+                                }),
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Main",
+                                definitions: [
+                                    new DamlLfDataType({
+                                        name: "Vault",
+                                        fields: [
+                                            new DamlLfField({
+                                                name: "snapshotSequence",
+                                                type: new DamlLfType({
+                                                    builtinType: "int64" as never,
+                                                }),
+                                            }),
+                                        ],
+                                    }),
+                                    definition,
+                                ],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {},
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                snapshotSequence: "3",
+                                [DAML_LF_RECORD_ID_MARKER_KEY]: {
+                                    packageId: "pkg-main",
+                                    moduleName: "Main",
+                                    entityName: "Vault",
+                                },
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.value).toEqual({
+            kind: "int64",
+            value: "4",
         });
     });
 
@@ -750,6 +870,124 @@ describe("DamlLfEvaluator ledger effects", () => {
                 payload: {
                     owner: "Alice",
                     amount: "1.0000000000",
+                },
+            },
+        ]);
+    });
+
+    it("retains the top-level exercise effect for template-choice replay bodies", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "Archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["self", "this", "choiceArg"],
+                    body: new DamlLfExpression({
+                        updateExpression: {
+                            kind: "create",
+                            templateId: new DamlLfTemplateId({
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                templateName: "Audit",
+                            }),
+                            argument: new DamlLfExpression({
+                                variableName: "choiceArg",
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: {
+                        note: "archived",
+                    },
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                owner: "Alice",
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+                entrypointExpression: definition.expression,
+                entrypointBindingMode: "templateChoice",
+            },
+        );
+
+        expect(result.effects).toEqual([
+            {
+                kind: "exercise",
+                contractId: "00abc",
+                templateId: {
+                    packageId: "pkg-main",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                choice: "Archive",
+                argument: {
+                    note: "archived",
+                },
+            },
+            {
+                kind: "create",
+                templateId: {
+                    packageId: "pkg-main",
+                    moduleName: "Main",
+                    entityName: "Audit",
+                },
+                payload: {
+                    note: "archived",
                 },
             },
         ]);

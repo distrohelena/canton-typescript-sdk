@@ -13,6 +13,7 @@ export interface DarSourceMapMetadataExecutable {
     entrypointKind?: "create" | "exercise";
     templateName?: string;
     choiceName?: string;
+    choiceArgumentFieldName?: string;
 }
 
 export class DarSourceMapMetadata {

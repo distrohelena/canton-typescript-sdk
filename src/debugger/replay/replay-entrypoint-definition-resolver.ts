@@ -4,6 +4,7 @@ import { DamlLfValueDefinition } from "../../daml-lf/model/daml-lf-value-definit
 import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
 import { ReplaySourceMapException } from "../errors/replay-source-map.exception.js";
 import { SourceIndexedCompilation } from "../source/source-indexed-compilation.js";
+import { IndexedExecutableSource } from "../source/source-indexed-compilation.js";
 import { ReplayEntrypoint } from "./replay-entrypoint.js";
 
 export interface ResolvedReplayEntrypointDefinition {
@@ -84,6 +85,7 @@ export class ReplayEntrypointDefinitionResolver {
             definition,
             ...this.resolveReplayStrategy(
                 definition.expression,
+                source,
                 entrypoint.kind,
                 entrypoint.kind === "exercise"
                     ? new DamlLfTemplateId({
@@ -142,24 +144,17 @@ export class ReplayEntrypointDefinitionResolver {
             packageId: source.packageId,
             moduleName: source.moduleName,
             definition,
-            replayExpression:
-                choiceReplayExpression
-                ?? this.unwrapReplayExpression(
-                    definition.expression,
-                    "exercise",
-                ),
-            replayBindingMode:
-                choiceReplayExpression === undefined
-                    ? this.resolveReplayBindingMode(
-                        definition.expression,
-                        "exercise",
-                    )
-                    : "templateChoice",
+            ...this.resolveChoiceReplayStrategy(
+                definition.expression,
+                choiceReplayExpression,
+                source,
+            ),
         };
     }
 
     private resolveReplayStrategy(
         expression: DamlLfExpression,
+        source: IndexedExecutableSource,
         entrypointKind: "create" | "exercise",
         templateId?: DamlLfTemplateId,
         choiceName?: string,
@@ -172,15 +167,36 @@ export class ReplayEntrypointDefinitionResolver {
             && templateId !== undefined
             && choiceName !== undefined
         ) {
+            const normalizedCurriedChoiceExpression =
+                this.wrapChoiceArgumentEnvelope(
+                    this.normalizeCurriedChoiceExpression(expression),
+                    source.choiceArgumentFieldName,
+                );
+
+            if (normalizedCurriedChoiceExpression !== undefined) {
+                return {
+                    replayExpression: normalizedCurriedChoiceExpression,
+                    replayBindingMode: "templateChoice",
+                };
+            }
+
             const choiceReplayExpression =
                 this.resolveChoiceReplayExpression(
                     templateId,
                     choiceName,
                 );
 
-            if (choiceReplayExpression !== undefined) {
+            if (
+                choiceReplayExpression !== undefined
+                && this.shouldPreferTemplateChoiceExpression(expression, source)
+            ) {
+                const replayExpression = this.wrapChoiceArgumentEnvelope(
+                    choiceReplayExpression,
+                    source.choiceArgumentFieldName,
+                );
+
                 return {
-                    replayExpression: choiceReplayExpression,
+                    replayExpression: replayExpression ?? choiceReplayExpression,
                     replayBindingMode: "templateChoice",
                 };
             }
@@ -242,6 +258,54 @@ export class ReplayEntrypointDefinitionResolver {
                 body: choice.updateExpression,
             },
         });
+    }
+
+    private resolveChoiceReplayStrategy(
+        expression: DamlLfExpression,
+        choiceReplayExpression: DamlLfExpression | undefined,
+        source: IndexedExecutableSource,
+    ): Pick<
+        ResolvedReplayEntrypointDefinition,
+        "replayExpression" | "replayBindingMode"
+    > {
+        const normalizedCurriedChoiceExpression =
+            this.wrapChoiceArgumentEnvelope(
+                this.normalizeCurriedChoiceExpression(expression),
+                source.choiceArgumentFieldName,
+            );
+
+        if (normalizedCurriedChoiceExpression !== undefined) {
+            return {
+                replayExpression: normalizedCurriedChoiceExpression,
+                replayBindingMode: "templateChoice",
+            };
+        }
+
+        if (
+            choiceReplayExpression !== undefined
+            && this.shouldPreferTemplateChoiceExpression(expression, source)
+        ) {
+            const replayExpression = this.wrapChoiceArgumentEnvelope(
+                choiceReplayExpression,
+                source.choiceArgumentFieldName,
+            );
+
+            return {
+                replayExpression: replayExpression ?? choiceReplayExpression,
+                replayBindingMode: "templateChoice",
+            };
+        }
+
+        return {
+            replayExpression: this.unwrapReplayExpression(
+                expression,
+                "exercise",
+            ),
+            replayBindingMode: this.resolveReplayBindingMode(
+                expression,
+                "exercise",
+            ),
+        };
     }
 
     private findExerciseSource(
@@ -340,5 +404,128 @@ export class ReplayEntrypointDefinitionResolver {
         }
 
         return "standard";
+    }
+
+    private shouldPreferTemplateChoiceExpression(
+        expression: DamlLfExpression,
+        source?: IndexedExecutableSource,
+    ): boolean {
+        return (
+            expression.recordConstruction !== undefined
+            && source?.choiceName !== "Archive"
+        );
+    }
+
+    private normalizeCurriedChoiceExpression(
+        expression: DamlLfExpression,
+    ): DamlLfExpression | undefined {
+        const outerParameterName = expression.lambda?.parameters[0];
+        const trailingLambda = this.extractTrailingLambda(expression.lambda?.body);
+
+        if (
+            outerParameterName === undefined
+            || expression.lambda?.parameters.length !== 1
+            || trailingLambda === undefined
+            || trailingLambda.parameters.length < 2
+        ) {
+            return undefined;
+        }
+
+        return new DamlLfExpression({
+            lambda: {
+                parameters: [
+                    trailingLambda.parameters[0]!,
+                    outerParameterName,
+                    trailingLambda.parameters[1]!,
+                ],
+                body: trailingLambda.body,
+            },
+            sourceLocation: expression.sourceLocation,
+        });
+    }
+
+    private wrapChoiceArgumentEnvelope(
+        expression: DamlLfExpression | undefined,
+        choiceArgumentFieldName: string | undefined,
+    ): DamlLfExpression | undefined {
+        if (
+            expression === undefined
+            || choiceArgumentFieldName === undefined
+            || expression.lambda === undefined
+            || expression.lambda.parameters.length < 3
+        ) {
+            return expression;
+        }
+
+        const argumentParameterName = expression.lambda.parameters[2]!;
+        const envelopeParameterName = `__${argumentParameterName}Envelope`;
+
+        return new DamlLfExpression({
+            lambda: {
+                parameters: [
+                    expression.lambda.parameters[0]!,
+                    expression.lambda.parameters[1]!,
+                    envelopeParameterName,
+                ],
+                body: new DamlLfExpression({
+                    letExpression: {
+                        bindings: [
+                            {
+                                name: argumentParameterName,
+                                value: new DamlLfExpression({
+                                    recordProjection: {
+                                        fieldName: choiceArgumentFieldName,
+                                        record: new DamlLfExpression({
+                                            variableName: envelopeParameterName,
+                                        }),
+                                    },
+                                }),
+                            },
+                        ],
+                        body: expression.lambda.body,
+                    },
+                    sourceLocation: expression.lambda.body.sourceLocation,
+                }),
+            },
+            sourceLocation: expression.sourceLocation,
+        });
+    }
+
+    private extractTrailingLambda(
+        expression: DamlLfExpression | undefined,
+    ): { parameters: readonly string[]; body: DamlLfExpression } | undefined {
+        if (expression === undefined) {
+            return undefined;
+        }
+
+        if (expression.lambda !== undefined) {
+            return {
+                parameters: expression.lambda.parameters,
+                body: expression.lambda.body,
+            };
+        }
+
+        if (expression.letExpression !== undefined) {
+            const trailingLambda = this.extractTrailingLambda(
+                expression.letExpression.body,
+            );
+
+            if (trailingLambda === undefined) {
+                return undefined;
+            }
+
+            return {
+                parameters: trailingLambda.parameters,
+                body: new DamlLfExpression({
+                    letExpression: {
+                        bindings: expression.letExpression.bindings,
+                        body: trailingLambda.body,
+                    },
+                    sourceLocation: expression.sourceLocation,
+                }),
+            };
+        }
+
+        return undefined;
     }
 }

@@ -23,6 +23,7 @@ export interface IndexedExecutableSource extends IndexedDefinitionSource {
     entrypointKind?: "create" | "exercise";
     templateName?: string;
     choiceName?: string;
+    choiceArgumentFieldName?: string;
 }
 
 export interface IndexedExpressionSource {
@@ -66,6 +67,7 @@ export class SourceIndexedCompilation {
                     entrypointKind: executable.entrypointKind,
                     templateName: executable.templateName,
                     choiceName: executable.choiceName,
+                    choiceArgumentFieldName: executable.choiceArgumentFieldName,
                 };
 
                 indexed.definitionSources.set(

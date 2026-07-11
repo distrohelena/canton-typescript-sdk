@@ -19,6 +19,7 @@ export function createSourceMappedDarFixture(init?: {
         entrypointKind?: "create" | "exercise";
         templateName?: string;
         choiceName?: string;
+        choiceArgumentFieldName?: string;
     }[];
     expressionLocations?: readonly {
         packageId: string;

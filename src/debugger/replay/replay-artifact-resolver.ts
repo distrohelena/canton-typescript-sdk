@@ -207,6 +207,25 @@ export class ReplayArtifactResolver {
                 packageFingerprints.set(metadataPackageId, fingerprint);
 
                 if (selectedCandidate === undefined) {
+                    const debugPackageIds = new Set(
+                        archive.packageEntries
+                            .filter((entry) =>
+                                entry.path.endsWith("/data/debug-locations.dalf"),
+                            )
+                            .flatMap((entry) => {
+                                try {
+                                    return [
+                                        this.packageLoader.loadRawPackageOrThrow(
+                                            entry.bytes,
+                                        ).packageId,
+                                    ];
+                                }
+
+                                catch {
+                                    return [];
+                                }
+                            }),
+                    );
                     const packageGraph = this.readPackageGraph(
                         archive.packageEntries.map((entry) => entry.bytes),
                         metadataPackageId,
@@ -215,11 +234,18 @@ export class ReplayArtifactResolver {
                     selectedCandidate = {
                         dar,
                         metadata,
-                        containedPackageIds: packageGraph.containedPackageIds,
+                        containedPackageIds:
+                            packageGraph.containedPackageIds.filter(
+                                (containedPackageId) =>
+                                    !debugPackageIds.has(containedPackageId),
+                            ),
                         importedPackageIds: [
                             ...new Set([
                                 ...metadata.importedPackages,
-                                ...packageGraph.importedPackageIds,
+                                ...packageGraph.importedPackageIds.filter(
+                                    (importedPackageId) =>
+                                        !debugPackageIds.has(importedPackageId),
+                                ),
                             ]),
                         ],
                     };

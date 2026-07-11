@@ -104,7 +104,9 @@ export class Lf2ModelMapper {
         else if (rawType?.sum.oneofKind === "builtin") {
             return new DamlLfType({
                 builtinType:
-                    rawType.sum.builtin.builtin === BuiltinType.TEXT
+                    rawType.sum.builtin.builtin === BuiltinType.INT64
+                        ? DamlLfBuiltinType.int64
+                        : rawType.sum.builtin.builtin === BuiltinType.TEXT
                         ? DamlLfBuiltinType.text
                         : DamlLfBuiltinType.unknown,
             });

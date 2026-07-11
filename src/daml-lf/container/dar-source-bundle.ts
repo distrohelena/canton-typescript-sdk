@@ -13,6 +13,7 @@ export interface DarSourceBundleMetadataExecutable {
     entrypointKind?: "create" | "exercise";
     templateName?: string;
     choiceName?: string;
+    choiceArgumentFieldName?: string;
 }
 
 export interface DarSourceBundleMetadataExpressionLocation {
