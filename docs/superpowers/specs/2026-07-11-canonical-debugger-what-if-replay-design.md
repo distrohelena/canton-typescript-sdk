@@ -88,22 +88,37 @@ The key limitations are:
 
 `ReplayStep` becomes the full canonical stop model and carries:
 
+- `stepId`, stable within the session and used as the durable selection identifier
+- `stepIndex`, the current navigable cursor order within the session
 - `stackFrames`
 - `locals` for the active frame, retained for compatibility
 - `scopes` for all in-scope variables grouped by frame
 - `arguments`
 - `sourceLocation`
 - `valuePreview`
-- `stateDelta`, expanded to include full ledger event details for ledger-visible events
+- `stateDelta`, expanded into a bounded ledger-event contract for ledger-visible events
 
-`ReplayStateDelta` must carry:
+`ReplayStateDelta` must be a discriminated union with shared fields:
 
 - `kind`
-- `contractId`
-- `templateId`
-- `choice`
-- `argument`
-- `payload`
+- `eventOrdinal`, the order among ledger-visible events in this session
+- `comparisonKey`, a stable backend key used to align canonical and `what-if` event streams
+
+Variant fields:
+
+- `create`
+  - `createdContractId`
+  - `templateId`
+  - `payload`
+- `exercise`
+  - `targetContractId`
+  - `templateId`
+  - `choice`
+  - `choiceArgument`
+  - `consuming`
+- `archive`
+  - `targetContractId`
+  - `templateId`
 
 This keeps the current active-frame view intact while exposing the richer frame-grouped scope model needed by the Explorer UI.
 
@@ -121,8 +136,15 @@ The projection logic in the session loader should:
 
 - preserve source-aware expression steps as today
 - preserve call/return steps under the current exact-source rules
-- emit explicit event steps when the trace step carries a ledger-visible effect
+- emit an explicit event step immediately after the trace step that produced the ledger-visible effect, preserving evaluator order
 - attach full effect metadata to the step payload
+
+The canonical step model must distinguish two identities:
+
+- `stepId`: stable identifier for selection, event-list navigation, and phase-2 fork origins
+- `stepIndex`: current cursor position in the projected canonical step sequence
+
+This avoids coupling phase-2 exact-step forking to a renumbered cursor index.
 
 ### Navigation
 
@@ -141,7 +163,7 @@ Backend response payloads must expose:
 - `currentStep.scopes`
 - enriched `currentStep.stateDelta`
 - `stepBack`
-- a canonical event list, either as a dedicated field or a dedicated endpoint
+- a canonical event list from a dedicated endpoint, not embedded into the main session payload
 
 Frontend canonical debugger UI must add:
 
@@ -160,7 +182,7 @@ Frontend canonical debugger UI must add:
 Each fork session stores:
 
 - parent canonical session id and source update id
-- origin step index
+- origin `stepId`
 - exact resumable checkpoint snapshot
 - temporary fork workspace root
 - source edits
@@ -206,7 +228,7 @@ Editable targets include:
 
 - locals in scope at the selected step
 - choice arguments
-- contract payloads reachable at the selected step
+- contract payloads for contracts that are directly bound into scope, referenced by the selected step's active arguments, or materialized in the selected step's replay environment bindings
 
 This is separate from raw JSON editing. Editors must understand LF kinds such as records, variants, lists, optionals, contract ids, text, parties, numerics, timestamps, dates, and booleans.
 
@@ -308,6 +330,7 @@ Edits to code located before the selected rerun step are allowed, but they have 
 
 ### Phase 2
 
+- Add an explicit feasibility gate for exact arbitrary-step checkpoint capture/restore before committing to the rest of the fork UX
 - Add resumable step checkpoints
 - Introduce fork session type
 - Build temporary workspace and constrained raw-source editor flow
