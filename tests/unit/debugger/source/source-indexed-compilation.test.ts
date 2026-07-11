@@ -35,7 +35,64 @@ describe("SourceIndexedCompilation", () => {
             }),
         );
     });
+
+    it("defaults unannotated definition metadata to fallback precision", async () => {
+        const indexed = await createIndexedCompilation();
+
+        expect(
+            (
+                indexed.getDefinitionSourceOrThrow(
+                    "pkg-sample",
+                    "Main",
+                    "archive",
+                ) as { precision?: string }
+            ).precision,
+        ).toBe("fallback");
+    });
+
+    it("preserves exact precision from DAR metadata", async () => {
+        const indexed = await createIndexedCompilation("exact");
+
+        expect(
+            (
+                indexed.getDefinitionSourceOrThrow(
+                    "pkg-sample",
+                    "Main",
+                    "archive",
+                ) as { precision?: string }
+            ).precision,
+        ).toBe("exact");
+    });
 });
+
+async function createIndexedCompilation(
+    precision?: "exact" | "fallback",
+): Promise<SourceIndexedCompilation> {
+    return SourceIndexedCompilation.createOrThrow(
+        createCompilation("archive"),
+        [
+            await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                createSourceMappedDarFixture({
+                    packageId: "pkg-sample",
+                    definitionName: "archive",
+                    executables: [
+                        {
+                            packageId: "pkg-sample",
+                            moduleName: "Main",
+                            definitionName: "archive",
+                            path: "src/Main.daml",
+                            startLine: 3,
+                            startColumn: 1,
+                            endLine: 4,
+                            endColumn: 13,
+                            precision,
+                        },
+                    ],
+                }),
+            ),
+        ],
+    );
+}
 
 function createCompilation(definitionName: string): DamlLfCompilation {
     return DamlLfCompilation.createOrThrow(

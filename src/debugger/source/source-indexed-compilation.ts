@@ -1,6 +1,9 @@
 import { DamlLfCompilation } from "../../daml-lf/daml-lf-compilation.js";
 import { DarSourceBundle } from "../../daml-lf/container/dar-source-bundle.js";
 import { ReplaySourceMapException } from "../errors/replay-source-map.exception.js";
+import {
+    SourceMappingPrecision,
+} from "./source-mapping-precision.js";
 
 export interface IndexedDefinitionSource {
     packageId: string;
@@ -11,6 +14,7 @@ export interface IndexedDefinitionSource {
     startColumn: number;
     endLine: number;
     endColumn: number;
+    precision: SourceMappingPrecision;
 }
 
 export interface IndexedExecutableSource extends IndexedDefinitionSource {
@@ -47,6 +51,9 @@ export class SourceIndexedCompilation {
                         startColumn: executable.startColumn,
                         endLine: executable.endLine,
                         endColumn: executable.endColumn,
+                        precision:
+                            executable.precision
+                            ?? SourceMappingPrecision.fallback,
                         entrypointKind: executable.entrypointKind,
                         templateName: executable.templateName,
                         choiceName: executable.choiceName,

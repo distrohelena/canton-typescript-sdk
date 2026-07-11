@@ -9,6 +9,7 @@ export interface DarSourceBundleMetadataExecutable {
     startColumn: number;
     endLine: number;
     endColumn: number;
+    precision?: "exact" | "fallback";
     entrypointKind?: "create" | "exercise";
     templateName?: string;
     choiceName?: string;

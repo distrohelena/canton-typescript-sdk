@@ -28,6 +28,9 @@ export { ReplayValuePreview } from "./session/replay-value-preview.js";
 export { DamlSourceMapper } from "./source/daml-source-mapper.js";
 export { DarSourceMapMetadata } from "./source/dar-source-map-metadata.js";
 export {
+    SourceMappingPrecision,
+} from "./source/source-mapping-precision.js";
+export {
     IndexedDefinitionSource,
     IndexedExecutableSource,
     SourceIndexedCompilation,

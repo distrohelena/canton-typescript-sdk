@@ -1,3 +1,5 @@
+import { SourceMappingPrecision } from "./source-mapping-precision.js";
+
 export interface DarSourceMapMetadataExecutable {
     packageId: string;
     moduleName: string;
@@ -7,6 +9,7 @@ export interface DarSourceMapMetadataExecutable {
     startColumn: number;
     endLine: number;
     endColumn: number;
+    precision?: SourceMappingPrecision;
     entrypointKind?: "create" | "exercise";
     templateName?: string;
     choiceName?: string;

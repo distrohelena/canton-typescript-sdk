@@ -426,6 +426,7 @@ export class LedgerReplaySessionLoader {
                 startColumn: source.startColumn,
                 endLine: source.endLine,
                 endColumn: source.endColumn,
+                precision: source.precision,
             });
         } catch {
             return undefined;
