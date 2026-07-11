@@ -245,6 +245,51 @@ It should store, for each executable definition:
 - preflight may conservatively reject sessions when required symbols clearly lack source mapping
 - replay-time validation must still reject the session if an actually executed frame lacks a trustworthy source table
 
+### Mapping precision
+
+Definition-level metadata is insufficient to make every LF evaluator event a
+source-level breakpoint. A mapping must therefore carry explicit provenance:
+
+- `exact` identifies a source span emitted for a specific executable expression
+  or source-level call boundary
+- `fallback` identifies only the enclosing definition or module span; it may be
+  displayed as context but is not a valid independent stepping location
+
+The source-map producer is responsible for setting this value. The SDK must
+not infer exactness from generated LF names or span size. Unannotated legacy
+metadata is treated as `fallback`, because a sparse but truthful trace is
+preferable to stops which claim a false source-line correspondence.
+
+Expression-level source mappings are required for statement-level DAML
+stepping. Until debug DAR metadata provides them, the SDK can expose only
+exactly mapped call boundaries and ledger effects.
+
+## Navigable Trace Projection
+
+The evaluator retains a complete raw LF trace for replay validation and
+diagnostics. Before a session is exposed, the debugger projects that trace to
+a separate sequence of navigable steps. This boundary prevents generated LF
+helpers such as `$sc_BaseVault_8` from producing dozens of user-visible stops
+at one module-wide fallback span.
+
+Projection rules:
+
+- retain every ledger state effect, regardless of source-mapping precision
+- retain call and return boundaries only when their mapping precision is
+  `exact`
+- retain expression entry or exit only when it introduces a new exact source
+  span relative to the preceding navigable source step
+- suppress all fallback-only evaluator events, including generated helper
+  calls and returns
+- retain the stack and lexical-scope snapshot from the raw event selected for
+  each navigable step
+
+The public `ReplaySourceLocation` exposes its mapping precision so Explorer
+can render fallback context without treating it as a breakpoint. Step Into,
+Step Over, Step Out, Continue, trace slices, and session step counts operate
+only on the projected sequence. Raw events remain internal unless a separate
+diagnostics API is introduced later.
+
 The spec should not require the SDK to know the exact executed-definition set before replay begins. Instead:
 
 - preflight should validate every definitely required root symbol and any conservative reachable set the SDK can compute cheaply
