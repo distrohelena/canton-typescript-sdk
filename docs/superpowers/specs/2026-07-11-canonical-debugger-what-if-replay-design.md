@@ -102,7 +102,7 @@ The key limitations are:
 
 - `kind`
 - `eventOrdinal`, the order among ledger-visible events in this session
-- `comparisonKey`, a stable backend key used to align canonical and `what-if` event streams
+- `comparisonKey`, a session-local stable backend key used to align canonical and `what-if` event streams
 
 Variant fields:
 
@@ -263,6 +263,7 @@ Edits to code located before the selected rerun step are allowed, but they have 
 ### SDK
 
 - Extend `ReplayStep` with `scopes`
+- Extend `ReplayStep` with `stepId` and `stepIndex`
 - Extend `ReplayStateDelta` with full ledger-event metadata
 - Add canonical event index support in session loader output
 - Add `stepBack` support in session store and debugger client
@@ -270,6 +271,7 @@ Edits to code located before the selected rerun step are allowed, but they have 
 
 ### Explorer Backend
 
+- Extend response DTOs for `currentStep.stepId` and `currentStep.stepIndex`
 - Extend response DTOs for `currentStep.scopes`
 - Extend response DTOs for full `stateDelta`
 - Add `step-back` action endpoint
@@ -278,6 +280,7 @@ Edits to code located before the selected rerun step are allowed, but they have 
 
 ### Explorer Frontend
 
+- Add `stepId`-based selection and event navigation state
 - Add grouped frame-scope rendering
 - Add event-list panel
 - Add backward stepping control
