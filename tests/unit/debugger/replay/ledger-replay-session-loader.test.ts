@@ -588,6 +588,23 @@ describe("LedgerReplaySessionLoader", () => {
                 ),
             ),
         ).toBe(true);
+        expect(
+            session.steps.some((step) =>
+                step.scopes.some(
+                    (scope) =>
+                        scope.frameId !== undefined
+                        && scope.variables.some(
+                            (local) =>
+                                typeof local === "object"
+                                && local !== null
+                                && "name" in local
+                                && "value" in local
+                                && local.name === "greeting"
+                                && local.value === "archived",
+                        ),
+                ),
+            ),
+        ).toBe(true);
     });
 
     it("replays nested exercise choice bodies through the session loader", async () => {
@@ -835,12 +852,17 @@ describe("LedgerReplaySessionLoader", () => {
 
         expect(
             session.steps.some(
-                (step) => step.stateDelta?.kind === "exercise",
+                (step) =>
+                    step.stateDelta?.kind === "exercise"
+                    && step.stateDelta.targetContractId === "00abc",
             ),
         ).toBe(true);
         expect(
             session.steps.some(
-                (step) => step.stateDelta?.kind === "create",
+                (step) =>
+                    step.stateDelta?.kind === "create"
+                    && step.stateDelta.createdContractId !== undefined
+                    && step.stateDelta.templateId?.entityName === "Audit",
             ),
         ).toBe(true);
         expect(
@@ -1002,6 +1024,49 @@ describe("LedgerReplaySessionLoader", () => {
         ]);
     });
 
+    it("projects ledger effect details onto retained state-effect steps", async () => {
+        const session = await loadControlledTraceAsync(
+            "exact",
+            [DamlLfStepKind.enterExpression, DamlLfStepKind.stateEffect],
+            undefined,
+            undefined,
+            {
+                kind: "exercise",
+                contractId: "00exercise",
+                templateId: {
+                    packageId: "pkg-controlled",
+                    moduleName: "Main",
+                    entityName: "Controlled",
+                },
+                choice: "Run",
+                argument: {
+                    amount: "12.0",
+                },
+            },
+        );
+
+        expect(session.steps.map((step) => step.phase)).toEqual([
+            "stateEffect",
+        ]);
+        expect(session.steps[0]?.stateDelta).toEqual(
+            expect.objectContaining({
+                kind: "exercise",
+                eventOrdinal: 0,
+                comparisonKey: "event-0",
+                targetContractId: "00exercise",
+                templateId: {
+                    packageId: "pkg-controlled",
+                    moduleName: "Main",
+                    entityName: "Controlled",
+                },
+                choice: "Run",
+                choiceArgument: {
+                    amount: "12.0",
+                },
+            }),
+        );
+    });
+
     it("retains exact calls and returns while collapsing repeated exact expressions", async () => {
         const session = await loadControlledTraceAsync("exact", [
             DamlLfStepKind.enterExpression,
@@ -1114,6 +1179,18 @@ async function loadControlledTraceAsync(
         endLine: number;
         endColumn: number;
     }[],
+    stateEffectOverride?: {
+        kind: "create" | "exercise" | "archive" | "fetch" | "lookup";
+        contractId?: string;
+        templateId?: {
+            packageId?: string;
+            moduleName?: string;
+            entityName?: string;
+        };
+        choice?: string;
+        argument?: unknown;
+        payload?: unknown;
+    },
 ) {
     const definition = new DamlLfValueDefinition({
         name: "controlledTrace",
@@ -1251,7 +1328,10 @@ async function loadControlledTraceAsync(
                         ],
                         stateEffect:
                             kind === DamlLfStepKind.stateEffect
-                                ? { kind: "exercise", choice: "Run" }
+                                ? (stateEffectOverride ?? {
+                                      kind: "exercise",
+                                      choice: "Run",
+                                  })
                                 : undefined,
                     });
                 }

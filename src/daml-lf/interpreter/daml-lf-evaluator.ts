@@ -780,6 +780,7 @@ export class DamlLfEvaluator {
                 this.emitReplayEffect(
                     {
                         kind: "create",
+                        contractId,
                         templateId:
                             updateExpression.templateId === undefined
                                 ? undefined

@@ -185,11 +185,25 @@ describe("LedgerReplayDebuggerClient integration", () => {
             10,
         );
 
-        expect(session.metadata?.stepCount).toBe(3);
-        expect(session.currentStep?.stateDelta?.kind).toBe("exercise");
-        expect(trace).toHaveLength(3);
+        expect(session.metadata?.stepCount).toBe(1);
+        expect(session.currentStep?.stateDelta).toEqual(
+            expect.objectContaining({
+                kind: "exercise",
+                eventOrdinal: 0,
+                comparisonKey: "event-0",
+                targetContractId: "00abc",
+                templateId: {
+                    packageId: "pkg-main",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                choice: "Archive",
+                choiceArgument: {},
+            }),
+        );
+        expect(trace).toHaveLength(1);
         expect(trace[0]?.sourceLocation?.path).toBe("src/Main.daml");
-        expect(trace[1]?.phase).toBe("enterExpression");
-        expect(trace[2]?.valuePreview?.display).toBe("ok");
+        expect(trace[0]?.phase).toBe("stateEffect");
+        expect(trace[0]?.valuePreview?.display).toBe("00abc");
     });
 });

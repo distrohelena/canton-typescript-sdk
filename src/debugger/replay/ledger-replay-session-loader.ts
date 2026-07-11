@@ -209,11 +209,10 @@ export class LedgerReplaySessionLoader {
                 stateDelta:
                     traceStep.stateEffect === undefined
                         ? undefined
-                        : new ReplayStateDelta({
-                            kind: traceStep.stateEffect.kind,
+                        : this.createStateDelta(
+                            traceStep.stateEffect,
                             eventOrdinal,
-                            comparisonKey: `event-${eventOrdinal}`,
-                        }),
+                        ),
                 sourceLocation: this.createSourceLocation(traceStep),
             });
 
@@ -348,6 +347,44 @@ export class LedgerReplaySessionLoader {
             kind: traceStep.value.kind,
             display: this.stringifyRuntimeValue(traceStep.value),
         });
+    }
+
+    private createStateDelta(
+        effect: IDamlLfReplayEffect,
+        eventOrdinal: number,
+    ): ReplayStateDelta {
+        const common = {
+            kind: effect.kind,
+            eventOrdinal,
+            comparisonKey: `event-${eventOrdinal}`,
+        } as const;
+
+        switch (effect.kind) {
+            case "create":
+                return new ReplayStateDelta({
+                    ...common,
+                    createdContractId: effect.contractId,
+                    templateId: effect.templateId,
+                    payload: effect.payload,
+                });
+            case "exercise":
+                return new ReplayStateDelta({
+                    ...common,
+                    targetContractId: effect.contractId,
+                    templateId: effect.templateId,
+                    choice: effect.choice,
+                    choiceArgument: effect.argument,
+                    payload: effect.payload,
+                });
+            case "archive":
+                return new ReplayStateDelta({
+                    ...common,
+                    targetContractId: effect.contractId,
+                    templateId: effect.templateId,
+                });
+            default:
+                return new ReplayStateDelta(common);
+        }
     }
 
     private stringifyRuntimeValue(value: IDamlLfRuntimeValue): string {

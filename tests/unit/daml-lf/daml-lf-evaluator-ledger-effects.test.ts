@@ -747,6 +747,7 @@ describe("DamlLfEvaluator ledger effects", () => {
         expect(result.effects).toEqual([
             {
                 kind: "create",
+                contractId: "created-1",
                 templateId: {
                     packageId: "pkg-main",
                     moduleName: "Main",
@@ -862,6 +863,7 @@ describe("DamlLfEvaluator ledger effects", () => {
         expect(result.effects).toEqual([
             {
                 kind: "create",
+                contractId: "created-1",
                 templateId: {
                     packageId: "pkg-main",
                     moduleName: "Main",
@@ -981,6 +983,7 @@ describe("DamlLfEvaluator ledger effects", () => {
             },
             {
                 kind: "create",
+                contractId: "created-1",
                 templateId: {
                     packageId: "pkg-main",
                     moduleName: "Main",
@@ -1148,6 +1151,7 @@ describe("DamlLfEvaluator ledger effects", () => {
             },
             {
                 kind: "create",
+                contractId: "created-1",
                 templateId: {
                     packageId: "pkg-main",
                     moduleName: "Main",
