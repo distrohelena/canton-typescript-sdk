@@ -59,6 +59,13 @@ describe("debugger public surface", () => {
         expect(new ReplayDeterminismException("mismatch")).toBeInstanceOf(Error);
     });
 
+    it("exposes canonical navigation methods on the debugger client", () => {
+        const prototype = LedgerReplayDebuggerClient.prototype as Record<string, unknown>;
+
+        expect(prototype.stepBackAsync).toBeTypeOf("function");
+        expect(prototype.jumpToStepAsync).toBeTypeOf("function");
+    });
+
     it("stores value previews for replay steps", () => {
         const preview = new ReplayValuePreview({
             kind: "record",

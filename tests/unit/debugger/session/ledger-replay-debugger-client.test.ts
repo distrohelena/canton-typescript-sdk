@@ -176,6 +176,48 @@ describe("LedgerReplayDebuggerClient", () => {
         ]);
     });
 
+    it("stepBack rewinds one projected step without replaying", async () => {
+        const client = createClient();
+
+        await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        await client.stepIntoAsync("session-1");
+        await client.stepIntoAsync("session-1");
+
+        const result = await client.stepBackAsync("session-1");
+
+        expect(result.sessionId).toBe("session-1");
+        expect(result.step.stepIndex).toBe(1);
+        expect(result.nextStepIndex).toBe(2);
+    });
+
+    it("stepBack stays at the first step when already at index zero", async () => {
+        const client = createClient();
+
+        await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        const result = await client.stepBackAsync("session-1");
+
+        expect(result.step.stepIndex).toBe(0);
+        expect(result.nextStepIndex).toBe(1);
+    });
+
+    it("jumpToStep selects an existing projected step by id", async () => {
+        const client = createClient();
+
+        await client.loadSessionAsync(new ReplaySessionRequest({ offset: "42" }));
+        const trace = await client.getTraceSliceAsync("session-1", 0, 20);
+        const targetStep = trace.find((step) => step.stateDelta?.eventOrdinal === 0);
+
+        expect(targetStep).toBeDefined();
+
+        const result = await client.jumpToStepAsync(
+            "session-1",
+            targetStep?.stepId ?? "",
+        );
+
+        expect(result.step.stepId).toBe(targetStep?.stepId);
+        expect(result.step.stateDelta?.eventOrdinal).toBe(0);
+    });
+
     it("supports the full required session method set", async () => {
         const client = createClient();
 
@@ -186,7 +228,11 @@ describe("LedgerReplayDebuggerClient", () => {
         ).resolves.toBeDefined();
         await expect(client.getCurrentStepAsync("session-1")).resolves.toBeDefined();
         await expect(client.stepIntoAsync("session-1")).resolves.toBeDefined();
+        await expect(client.stepBackAsync("session-1")).resolves.toBeDefined();
         await expect(client.stepOutAsync("session-1")).resolves.toBeDefined();
+        await expect(
+            client.jumpToStepAsync("session-1", "step-0"),
+        ).resolves.toBeDefined();
         await expect(client.continueAsync("session-1")).resolves.toBeDefined();
         await expect(client.disposeSessionAsync("session-1")).resolves.toBeUndefined();
     });

@@ -44,6 +44,14 @@ export class InMemoryReplaySessionStore {
         return this.toAdvanceResult(record);
     }
 
+    public advanceBackOrThrow(sessionId: string): ReplayStepAdvanceResult {
+        const record = this.getRecordOrThrow(sessionId);
+
+        record.currentStepIndex = Math.max(0, record.currentStepIndex - 1);
+
+        return this.toAdvanceResult(record);
+    }
+
     public advanceOverOrThrow(sessionId: string): ReplayStepAdvanceResult {
         const record = this.getRecordOrThrow(sessionId);
         const currentStep = record.steps[record.currentStepIndex]!;
@@ -75,6 +83,22 @@ export class InMemoryReplaySessionStore {
     public continueOrThrow(sessionId: string): ReplayStepAdvanceResult {
         const record = this.getRecordOrThrow(sessionId);
         record.currentStepIndex = record.steps.length - 1;
+        return this.toAdvanceResult(record);
+    }
+
+    public setCurrentStepByIdOrThrow(
+        sessionId: string,
+        stepId: string,
+    ): ReplayStepAdvanceResult {
+        const record = this.getRecordOrThrow(sessionId);
+        const nextIndex = record.steps.findIndex((step) => step.stepId === stepId);
+
+        if (nextIndex < 0) {
+            throw new ValidationError(`unknown replay step '${stepId}'`);
+        }
+
+        record.currentStepIndex = nextIndex;
+
         return this.toAdvanceResult(record);
     }
 
