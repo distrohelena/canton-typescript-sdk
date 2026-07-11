@@ -196,6 +196,86 @@ describe("LedgerReplayEnvironmentBuilder", () => {
         ).rejects.toThrow(ReplayStateHydrationException);
     });
 
+    it("falls back to contract event history when getContract hides the payload", async () => {
+        const builder = new LedgerReplayEnvironmentBuilder({
+            contractService: {
+                async getContractAsync(): Promise<GetContractResponse> {
+                    throw new Error(
+                        "CONTRACT_PAYLOAD_NOT_FOUND(11,f5ebb004): Contract payload not found, or not visible.",
+                    );
+                },
+            },
+            eventQueryService: {
+                async getEventsByContractIdAsync(
+                    request: GetEventsByContractIdRequest,
+                ): Promise<GetEventsByContractIdResponse> {
+                    expect(request.contractId).toBe("00abc");
+
+                    return new GetEventsByContractIdResponse({
+                        created: new ContractCreated({
+                            createdEvent: {
+                                contractId: "00abc",
+                                templateId: {
+                                    packageId: "pkg-main",
+                                    moduleName: "Main",
+                                    entityName: "Vault",
+                                },
+                                createArguments: {
+                                    owner: "Alice",
+                                },
+                            },
+                            synchronizerId: "sync-1",
+                        }),
+                    });
+                },
+            },
+        });
+
+        const environment = await builder.buildOrThrowAsync({
+            kind: "transaction",
+            offset: "42",
+            actAs: ["Alice"],
+            events: [
+                {
+                    event: {
+                        oneofKind: "exercised",
+                        exercised: {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            choice: "Archive",
+                            choiceArgument: {},
+                        },
+                    },
+                },
+            ],
+            entrypoint: new ReplayEntrypoint({
+                kind: "exercise",
+                templateId: {
+                    packageId: "pkg-main",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                contractId: "00abc",
+                choice: "Archive",
+                argument: {},
+            }),
+        });
+
+        expect(environment.contracts.get("00abc")?.payload).toEqual({
+            owner: "Alice",
+            [DAML_LF_RECORD_ID_MARKER_KEY]: {
+                packageId: "pkg-main",
+                moduleName: "Main",
+                entityName: "Vault",
+            },
+        });
+        expect(environment.contracts.get("00abc")?.synchronizerId).toBe("sync-1");
+    });
+
     it("preserves contract-id values inside hydrated payloads", async () => {
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {

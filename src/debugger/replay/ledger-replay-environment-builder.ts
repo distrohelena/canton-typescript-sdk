@@ -266,25 +266,19 @@ export class LedgerReplayEnvironmentBuilder {
         snapshot: IReplayTransactionSnapshot,
     ): Promise<IHydratedReplayContract> {
         const queryingParties = this.getQueryingParties(snapshot);
-        const contractResponse =
-            await this.dependencies.contractService.getContractAsync(
-                new GetContractRequest({
-                    contractId,
-                    queryingParties,
-                }),
-            );
-        const createdEvent = this.asCreatedEvent(contractResponse.createdEvent);
+        let contractResponse: GetContractResponse | undefined;
 
-        if (createdEvent?.contractId === undefined) {
-            throw new ReplayStateHydrationException(
-                `could not hydrate contract '${contractId}' from the ledger`,
-            );
+        try {
+            contractResponse =
+                await this.dependencies.contractService.getContractAsync(
+                    new GetContractRequest({
+                        contractId,
+                        queryingParties,
+                    }),
+                );
         }
-
-        if (createdEvent.createArguments === undefined) {
-            throw new ReplayStateHydrationException(
-                `contract '${contractId}' did not expose a visible payload`,
-            );
+        catch {
+            contractResponse = undefined;
         }
 
         const eventHistory =
@@ -294,48 +288,87 @@ export class LedgerReplayEnvironmentBuilder {
                     eventFormat: createReplayEventFormat(queryingParties),
                 }),
             );
+        const createdEvent = this.asCreatedEvent(contractResponse?.createdEvent);
         const createdHistory = this.asCreatedEvent(
             eventHistory.created?.createdEvent,
         );
         const archivedHistory = this.asArchivedEvent(
             eventHistory.archived?.archivedEvent,
         );
+        const materializedCreatedEvent = [
+            createdEvent,
+            createdHistory,
+        ].find(
+            (event) =>
+                event?.contractId !== undefined
+                && event.createArguments !== undefined,
+        );
+
+        if (materializedCreatedEvent?.contractId === undefined) {
+            throw new ReplayStateHydrationException(
+                `could not hydrate contract '${contractId}' from the ledger`,
+            );
+        }
+
+        if (materializedCreatedEvent.createArguments === undefined) {
+            throw new ReplayStateHydrationException(
+                `contract '${contractId}' did not expose a visible payload`,
+            );
+        }
 
         return {
             contractId,
-            templateId: createdEvent.templateId,
+            templateId: materializedCreatedEvent.templateId,
             payload: attachReplayRecordId(
-                normalizeReplayLedgerValue(createdEvent.createArguments),
-                createdEvent.templateId === undefined
+                normalizeReplayLedgerValue(materializedCreatedEvent.createArguments),
+                materializedCreatedEvent.templateId === undefined
                     ? undefined
                     : {
-                        packageId: createdEvent.templateId.packageId,
-                        moduleName: createdEvent.templateId.moduleName,
-                        entityName: createdEvent.templateId.entityName,
+                        packageId: materializedCreatedEvent.templateId.packageId,
+                        moduleName: materializedCreatedEvent.templateId.moduleName,
+                        entityName: materializedCreatedEvent.templateId.entityName,
                     },
             ),
-            rawCreatedEvent: createdEvent,
+            rawCreatedEvent: materializedCreatedEvent,
             synchronizerId: eventHistory.created?.synchronizerId,
             history: {
                 created:
-                    createdHistory === undefined
+                    (createdHistory ?? materializedCreatedEvent) === undefined
                         ? undefined
                         : {
-                            contractId: createdHistory.contractId,
-                            templateId: createdHistory.templateId,
+                            contractId:
+                                (createdHistory ?? materializedCreatedEvent)
+                                    .contractId,
+                            templateId:
+                                (createdHistory ?? materializedCreatedEvent)
+                                    .templateId,
                             payload: attachReplayRecordId(
                                 normalizeReplayLedgerValue(
-                                    createdHistory.createArguments,
+                                    (createdHistory ?? materializedCreatedEvent)
+                                        .createArguments,
                                 ),
-                                createdHistory.templateId === undefined
+                                (createdHistory ?? materializedCreatedEvent)
+                                    .templateId === undefined
                                     ? undefined
                                     : {
-                                        packageId: createdHistory.templateId.packageId,
-                                        moduleName: createdHistory.templateId.moduleName,
-                                        entityName: createdHistory.templateId.entityName,
+                                        packageId:
+                                            (
+                                                createdHistory
+                                                ?? materializedCreatedEvent
+                                            ).templateId?.packageId,
+                                        moduleName:
+                                            (
+                                                createdHistory
+                                                ?? materializedCreatedEvent
+                                            ).templateId?.moduleName,
+                                        entityName:
+                                            (
+                                                createdHistory
+                                                ?? materializedCreatedEvent
+                                            ).templateId?.entityName,
                                     },
                             ),
-                            rawEvent: createdHistory,
+                            rawEvent: createdHistory ?? materializedCreatedEvent,
                         },
                 archived:
                     archivedHistory === undefined
