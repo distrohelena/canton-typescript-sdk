@@ -78,6 +78,61 @@ describe("ReplayArtifactResolver", () => {
         expect(resolution.packageIds).toContain("sample-hash");
     });
 
+    it("reuses analyzed dar candidates for contained packages", async () => {
+        let getDarCallCount = 0;
+        const resolver = new ReplayArtifactResolver({
+            participantPackageService: {
+                async getPackageReferencesAsync(
+                    request: GetPackageReferencesRequest,
+                ): Promise<GetPackageReferencesResponse> {
+                    if (
+                        request.packageId !== "pkg-main"
+                        && request.packageId !== "sample-hash"
+                    ) {
+                        return new GetPackageReferencesResponse({ dars: [] });
+                    }
+
+                    return new GetPackageReferencesResponse({
+                        dars: [
+                            new ParticipantDarDescription({
+                                main: "pkg-main",
+                                name: "pkg-main.dar",
+                                version: "1.0.0",
+                                description: "pkg-main",
+                            }),
+                        ],
+                    });
+                },
+                async getDarAsync(
+                    request: GetDarRequest,
+                ): Promise<GetDarResponse> {
+                    getDarCallCount += 1;
+
+                    expect(request.mainPackageId).toBe("pkg-main");
+
+                    return new GetDarResponse({
+                        payload: createSourceMappedDarFixture({
+                            packageId: "pkg-main",
+                            additionalEntries: {
+                                "extra/Contained.dalf":
+                                    SampleLfPackageFixture.createLf2ArchiveBytes(),
+                            },
+                        }),
+                    });
+                },
+            },
+        });
+
+        const resolution = await resolver.resolveAsync([
+            "pkg-main",
+            "sample-hash",
+        ]);
+
+        expect(resolution.packageIds).toContain("pkg-main");
+        expect(resolution.packageIds).toContain("sample-hash");
+        expect(getDarCallCount).toBe(1);
+    });
+
     it("prefers a sibling debug dar when a standard dar lacks source maps", async () => {
         const packagesByDarName: Record<string, Uint8Array> = {
             "pkg-main.dar": createDarFixtureWithoutSourceMap(),

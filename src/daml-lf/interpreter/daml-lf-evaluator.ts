@@ -114,6 +114,10 @@ interface IReplayDefinitionResolver {
         readonly packageId: string;
         readonly moduleName: string;
         readonly definition: DamlLfValueDefinition;
+        readonly frameIdentity?: {
+            readonly packageId: string;
+            readonly moduleName: string;
+        };
         readonly replayExpression: DamlLfExpression;
         readonly replayBindingMode:
             | "standard"
@@ -256,9 +260,16 @@ export class DamlLfEvaluator {
         ];
     }
 
-    private createFrame(definition: DamlLfValueDefinition): DamlLfRuntimeFrame {
+    private createFrame(
+        definition: DamlLfValueDefinition,
+        identityOverride?: {
+            readonly packageId: string;
+            readonly moduleName: string;
+        },
+    ): DamlLfRuntimeFrame {
         const identity =
-            this.compilation.getValueDefinitionIdentityOrThrow(definition);
+            identityOverride
+            ?? this.compilation.getValueDefinitionIdentityOrThrow(definition);
 
         return new DamlLfRuntimeFrame({
             frameId: `frame-${this.nextFrameNumber++}`,
@@ -881,7 +892,10 @@ export class DamlLfEvaluator {
 
                 return this.evaluateReplayLambdaOrExpressionOrThrow(
                     resolvedDefinition.replayExpression,
-                    this.createFrame(resolvedDefinition.definition),
+                    this.createFrame(
+                        resolvedDefinition.definition,
+                        resolvedDefinition.frameIdentity,
+                    ),
                     [
                         {
                             value: payload,

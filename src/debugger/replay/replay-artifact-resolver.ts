@@ -38,6 +38,16 @@ export class ReplayArtifactResolver {
         const seenPackageIds = new Set<string>();
         const resolvedDars = new Map<string, ParticipantDarDescription>();
         const packageFingerprints = new Map<string, string>();
+        const candidateByDarMainPackageId = new Map<
+            string,
+            {
+                dar: ParticipantDarDescription;
+                metadata: DarSourceMapMetadata;
+                containedPackageIds: readonly string[];
+                importedPackageIds: readonly string[];
+            }
+        >();
+        const darMainPackageIdByContainedPackageId = new Map<string, string>();
 
         while (pending.length > 0) {
             const packageId = pending.shift();
@@ -48,23 +58,46 @@ export class ReplayArtifactResolver {
 
             seenPackageIds.add(packageId);
 
-            const references =
-                await this.dependencies.participantPackageService.getPackageReferencesAsync(
-                    new GetPackageReferencesRequest({
-                        packageId,
-                    }),
-                );
+            let candidate:
+                | {
+                      dar: ParticipantDarDescription;
+                      metadata: DarSourceMapMetadata;
+                      containedPackageIds: readonly string[];
+                      importedPackageIds: readonly string[];
+                  }
+                | undefined;
+            const knownDarMainPackageId =
+                darMainPackageIdByContainedPackageId.get(packageId);
 
-            const candidate =
-                await this.resolveSourceMappedDarCandidateOrThrowAsync(
-                    packageId,
-                    references.dars,
-                    packageFingerprints,
-                );
+            if (knownDarMainPackageId !== undefined) {
+                candidate =
+                    candidateByDarMainPackageId.get(knownDarMainPackageId);
+            }
+
+            if (candidate === undefined) {
+                const references =
+                    await this.dependencies.participantPackageService.getPackageReferencesAsync(
+                        new GetPackageReferencesRequest({
+                            packageId,
+                        }),
+                    );
+
+                candidate =
+                    await this.resolveSourceMappedDarCandidateOrThrowAsync(
+                        packageId,
+                        references.dars,
+                        packageFingerprints,
+                        candidateByDarMainPackageId,
+                    );
+            }
 
             resolvedDars.set(candidate.dar.main, candidate.dar);
             for (const containedPackageId of candidate.containedPackageIds) {
                 replayPackageIds.add(containedPackageId);
+                darMainPackageIdByContainedPackageId.set(
+                    containedPackageId,
+                    candidate.dar.main,
+                );
             }
 
             for (const importedPackageId of candidate.importedPackageIds) {
@@ -98,6 +131,15 @@ export class ReplayArtifactResolver {
         packageId: string,
         dars: readonly ParticipantDarDescription[],
         packageFingerprints: Map<string, string>,
+        candidateByDarMainPackageId: Map<
+            string,
+            {
+                dar: ParticipantDarDescription;
+                metadata: DarSourceMapMetadata;
+                containedPackageIds: readonly string[];
+                importedPackageIds: readonly string[];
+            }
+        >,
     ): Promise<{
         dar: ParticipantDarDescription;
         metadata: DarSourceMapMetadata;
@@ -115,6 +157,17 @@ export class ReplayArtifactResolver {
         let missingSourceMapError: DamlLfArchiveException | undefined;
 
         for (const dar of dars) {
+            const cachedCandidate =
+                candidateByDarMainPackageId.get(dar.main);
+
+            if (cachedCandidate !== undefined) {
+                if (selectedCandidate === undefined) {
+                    selectedCandidate = cachedCandidate;
+                }
+
+                continue;
+            }
+
             const response =
                 await this.dependencies.participantPackageService.getDarAsync(
                     new GetDarRequest({
@@ -170,6 +223,10 @@ export class ReplayArtifactResolver {
                             ]),
                         ],
                     };
+                    candidateByDarMainPackageId.set(
+                        dar.main,
+                        selectedCandidate,
+                    );
                 }
             } catch (error) {
                 if (

@@ -1,4 +1,5 @@
 import { DamlLfExpression } from "../../daml-lf/model/daml-lf-expression.js";
+import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "../../daml-lf/model/daml-lf-value-definition.js";
 import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
 import { ReplaySourceMapException } from "../errors/replay-source-map.exception.js";
@@ -9,6 +10,10 @@ export interface ResolvedReplayEntrypointDefinition {
     packageId: string;
     moduleName: string;
     definition: DamlLfValueDefinition;
+    frameIdentity?: {
+        packageId: string;
+        moduleName: string;
+    };
     replayExpression: DamlLfExpression;
     replayBindingMode:
         | "standard"
@@ -96,7 +101,35 @@ export class ReplayEntrypointDefinitionResolver {
         templateId: DamlLfTemplateId,
         choiceName: string,
     ): ResolvedReplayEntrypointDefinition {
-        const source = this.findExerciseSourceOrThrow(templateId, choiceName);
+        const choiceReplayExpression = this.resolveChoiceReplayExpression(
+            templateId,
+            choiceName,
+        );
+        const source = this.findExerciseSource(templateId, choiceName);
+
+        if (source === undefined) {
+            if (choiceReplayExpression === undefined) {
+                throw new ReplaySourceMapException(
+                    `missing executable metadata for choice '${templateId.packageId}::${templateId.moduleName}::${templateId.templateName}::${choiceName}'`,
+                );
+            }
+
+            return {
+                packageId: templateId.packageId,
+                moduleName: templateId.moduleName,
+                definition: new DamlLfValueDefinition({
+                    name: `${templateId.templateName}$${choiceName}`,
+                    type: new DamlLfType({}),
+                    expression: choiceReplayExpression,
+                }),
+                frameIdentity: {
+                    packageId: templateId.packageId,
+                    moduleName: templateId.moduleName,
+                },
+                replayExpression: choiceReplayExpression,
+                replayBindingMode: "templateChoice",
+            };
+        }
 
         const definition =
             this.indexedCompilation.compilation.getValueDefinitionOrThrow(
@@ -109,12 +142,19 @@ export class ReplayEntrypointDefinitionResolver {
             packageId: source.packageId,
             moduleName: source.moduleName,
             definition,
-            ...this.resolveReplayStrategy(
-                definition.expression,
-                "exercise",
-                templateId,
-                choiceName,
-            ),
+            replayExpression:
+                choiceReplayExpression
+                ?? this.unwrapReplayExpression(
+                    definition.expression,
+                    "exercise",
+                ),
+            replayBindingMode:
+                choiceReplayExpression === undefined
+                    ? this.resolveReplayBindingMode(
+                        definition.expression,
+                        "exercise",
+                    )
+                    : "templateChoice",
         };
     }
 
@@ -204,22 +244,31 @@ export class ReplayEntrypointDefinitionResolver {
         });
     }
 
+    private findExerciseSource(
+        templateId: DamlLfTemplateId,
+        choiceName: string | undefined,
+    ) {
+        return this.indexedCompilation
+            .getExecutableSources()
+            .find((candidate) =>
+                this.matchesTemplate(candidate, templateId)
+                && candidate.entrypointKind === "exercise"
+                && candidate.choiceName === choiceName);
+    }
+
     private findExerciseSourceOrThrow(
         templateId: DamlLfTemplateId,
         choiceName: string | undefined,
     ) {
-        const source = this.indexedCompilation.getExecutableSources().find((candidate) =>
-            this.matchesTemplate(candidate, templateId)
-            && candidate.entrypointKind === "exercise"
-            && candidate.choiceName === choiceName);
+        const source = this.findExerciseSource(templateId, choiceName);
 
-        if (source === undefined) {
-            throw new ReplaySourceMapException(
-                `missing executable metadata for choice '${templateId.packageId}::${templateId.moduleName}::${templateId.templateName}::${choiceName ?? "<unknown>"}'`,
-            );
+        if (source !== undefined) {
+            return source;
         }
 
-        return source;
+        throw new ReplaySourceMapException(
+            `missing executable metadata for choice '${templateId.packageId}::${templateId.moduleName}::${templateId.templateName}::${choiceName ?? "<unknown>"}'`,
+        );
     }
 
     private matchesTemplate(

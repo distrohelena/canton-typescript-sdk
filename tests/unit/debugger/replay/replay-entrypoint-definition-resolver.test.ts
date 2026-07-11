@@ -109,9 +109,41 @@ describe("ReplayEntrypointDefinitionResolver", () => {
             "fetch",
         );
     });
+
+    it("falls back to the template choice body when nested executable metadata is missing", async () => {
+        const indexedCompilation = await createIndexedCompilation({
+            includeArchiveExecutable: false,
+        });
+        const resolver = new ReplayEntrypointDefinitionResolver(
+            indexedCompilation,
+        );
+
+        const resolved = resolver.resolveChoiceDefinitionOrThrow(
+            new DamlLfTemplateId({
+                packageId: "pkg-sample",
+                moduleName: "Main",
+                templateName: "Vault",
+            }),
+            "Archive",
+        );
+
+        expect(resolved.packageId).toBe("pkg-sample");
+        expect(resolved.moduleName).toBe("Main");
+        expect(resolved.definition.name).toBe("Vault$Archive");
+        expect(resolved.replayBindingMode).toBe("templateChoice");
+        expect(resolved.replayExpression.lambda?.parameters).toEqual([
+            "self",
+            "this",
+            "choiceArg",
+        ]);
+    });
 });
 
-async function createIndexedCompilation(): Promise<SourceIndexedCompilation> {
+async function createIndexedCompilation(options?: {
+    includeArchiveExecutable?: boolean;
+}): Promise<SourceIndexedCompilation> {
+    const includeArchiveExecutable = options?.includeArchiveExecutable ?? true;
+
     return SourceIndexedCompilation.createOrThrow(
         DamlLfCompilation.createOrThrow(
             new DamlLfWorkspace([
@@ -248,7 +280,10 @@ async function createIndexedCompilation(): Promise<SourceIndexedCompilation> {
                             templateName: "Vault",
                             choiceName: "Archive",
                         },
-                    ],
+                    ].filter((entry) =>
+                        entry.entrypointKind !== "exercise"
+                        || includeArchiveExecutable,
+                    ),
                 }),
             ),
         ],
