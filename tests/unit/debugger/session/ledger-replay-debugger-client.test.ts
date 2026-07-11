@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DamlLfCompilation } from "../../../../src/daml-lf/daml-lf-compilation.js";
+import { DarSourceBundle } from "../../../../src/daml-lf/container/dar-source-bundle.js";
 import { DamlLfWorkspace } from "../../../../src/daml-lf/daml-lf-workspace.js";
 import { DamlLfEvaluator } from "../../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
 import { DamlLfExpression } from "../../../../src/daml-lf/model/daml-lf-expression.js";
@@ -21,6 +22,8 @@ import {
     ReplayUnsupportedLfConstructException,
 } from "../../../../src/debugger/index.js";
 import { ReplayEntrypoint } from "../../../../src/debugger/replay/replay-entrypoint.js";
+import { DamlSourceMapper } from "../../../../src/debugger/source/daml-source-mapper.js";
+import { SourceIndexedCompilation } from "../../../../src/debugger/source/source-indexed-compilation.js";
 
 describe("LedgerReplayDebuggerClient", () => {
     it("records state-effect steps for exercised choices", async () => {
@@ -32,6 +35,25 @@ describe("LedgerReplayDebuggerClient", () => {
 
         expect(session.metadata?.stepCount).toBeGreaterThan(0);
         expect(session.currentStep?.stateDelta?.kind).toBeDefined();
+    });
+
+    it("steps through only projected exact locations and state effects", async () => {
+        const client = createClient();
+
+        const session = await client.loadSessionAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+        const trace = await client.getTraceSliceAsync("session-1", 0, 20);
+
+        expect(trace.map((step) => step.stepIndex)).toEqual(
+            trace.map((_, index) => index),
+        );
+        expect(session.metadata?.stepCount).toBe(trace.length);
+        expect(
+            trace
+                .filter((step) => step.phase !== "stateEffect")
+                .every((step) => step.sourceLocation?.precision === "exact"),
+        ).toBe(true);
     });
 
     it("stepOver skips nested call execution and lands after the current frame resumes", async () => {
@@ -193,6 +215,39 @@ function createClient(): LedgerReplayDebuggerClient {
         ]),
     );
     const realEvaluator = new DamlLfEvaluator(compilation);
+    const sourceMapper = new DamlSourceMapper(
+        SourceIndexedCompilation.createOrThrow(compilation, [
+            new DarSourceBundle({
+                sourceFiles: [],
+                metadata: {
+                    executables: [
+                        {
+                            packageId: "pkg-main",
+                            moduleName: "Sample.Module",
+                            definitionName: "Archive",
+                            path: "src/Sample.daml",
+                            startLine: 3,
+                            startColumn: 1,
+                            endLine: 4,
+                            endColumn: 20,
+                            precision: "exact",
+                        },
+                        {
+                            packageId: "pkg-main",
+                            moduleName: "Sample.Module",
+                            definitionName: "Greeting",
+                            path: "src/Sample.daml",
+                            startLine: 6,
+                            startColumn: 1,
+                            endLine: 6,
+                            endColumn: 20,
+                            precision: "exact",
+                        },
+                    ],
+                },
+            }),
+        ]),
+    );
     const sessionLoader = new LedgerReplaySessionLoader({
         updateLoader: {
             async loadOrThrowAsync(offset: string): Promise<IReplayTransactionSnapshot> {
@@ -246,6 +301,7 @@ function createClient(): LedgerReplayDebuggerClient {
                 return result;
             },
         },
+        sourceMapper,
         determinismValidator: new ReplayDeterminismValidator(),
         sessionIdFactory: () => "session-1",
     });
