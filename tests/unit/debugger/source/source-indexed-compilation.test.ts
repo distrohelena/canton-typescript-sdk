@@ -63,6 +63,50 @@ describe("SourceIndexedCompilation", () => {
             ).precision,
         ).toBe("exact");
     });
+
+    it("indexes a compiler expression location by its canonical child path", async () => {
+        const calledValue = new DamlLfExpression({ textLiteral: "called" });
+        const definition = new DamlLfValueDefinition({
+            name: "archive",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                application: {
+                    function: calledValue,
+                    arguments: [new DamlLfExpression({ textLiteral: "argument" })],
+                },
+            }),
+        });
+        const compilation = createCompilationWithDefinition(definition);
+        const indexed = SourceIndexedCompilation.createOrThrow(compilation, [
+            await new DarSourceBundleLoader().loadSourceBundleOrThrowAsync(
+                createSourceMappedDarFixture({
+                    packageId: "pkg-sample",
+                    definitionName: "archive",
+                    expressionLocations: [
+                        {
+                            packageId: "pkg-sample",
+                            moduleName: "Main",
+                            definitionName: "archive",
+                            expressionPath: [0],
+                            path: "src/Main.daml",
+                            startLine: 868,
+                            startColumn: 8,
+                            endLine: 868,
+                            endColumn: 54,
+                        },
+                    ],
+                }),
+            ),
+        ]);
+
+        expect(indexed.getExpressionSource(calledValue)).toEqual({
+            path: "src/Main.daml",
+            startLine: 868,
+            startColumn: 8,
+            endLine: 868,
+            endColumn: 54,
+        });
+    });
 });
 
 async function createIndexedCompilation(
@@ -95,6 +139,20 @@ async function createIndexedCompilation(
 }
 
 function createCompilation(definitionName: string): DamlLfCompilation {
+    return createCompilationWithDefinition(
+        new DamlLfValueDefinition({
+            name: definitionName,
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "demo",
+            }),
+        }),
+    );
+}
+
+function createCompilationWithDefinition(
+    definition: DamlLfValueDefinition,
+): DamlLfCompilation {
     return DamlLfCompilation.createOrThrow(
         new DamlLfWorkspace([
             new DamlLfPackage({
@@ -110,13 +168,7 @@ function createCompilation(definitionName: string): DamlLfCompilation {
                     new DamlLfModule({
                         name: "Main",
                         definitions: [
-                            new DamlLfValueDefinition({
-                                name: definitionName,
-                                type: new DamlLfType({}),
-                                expression: new DamlLfExpression({
-                                    textLiteral: "demo",
-                                }),
-                            }),
+                            definition,
                         ],
                     }),
                 ],

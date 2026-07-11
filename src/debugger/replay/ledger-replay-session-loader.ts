@@ -501,6 +501,22 @@ export class LedgerReplaySessionLoader {
         }
 
         try {
+            const compilerExpressionSource =
+                this.dependencies.sourceMapper.getExpressionSource(
+                    traceStep.expression,
+                );
+
+            if (compilerExpressionSource !== undefined) {
+                return new ReplaySourceLocation({
+                    path: compilerExpressionSource.path,
+                    startLine: compilerExpressionSource.startLine + 1,
+                    startColumn: compilerExpressionSource.startColumn + 1,
+                    endLine: compilerExpressionSource.endLine + 1,
+                    endColumn: compilerExpressionSource.endColumn + 1,
+                    precision: SourceMappingPrecision.exact,
+                });
+            }
+
             const expressionSource = traceStep.expression.sourceLocation;
 
             if (expressionSource !== undefined) {

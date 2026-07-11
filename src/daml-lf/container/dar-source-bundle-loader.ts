@@ -4,6 +4,7 @@ import { DarArchiveLoader } from "./dar-archive-loader.js";
 import {
     DarSourceBundle,
     DarSourceBundleMetadataExecutable,
+    DarSourceBundleMetadataExpressionLocation,
 } from "./dar-source-bundle.js";
 
 export class DarSourceBundleLoader {
@@ -30,6 +31,7 @@ export class DarSourceBundleLoader {
             packageId: string;
             importedPackages: unknown[];
             executables: DarSourceBundleMetadataExecutable[];
+            expressionLocations: DarSourceBundleMetadataExpressionLocation[];
         }>;
 
         if (!Array.isArray(metadata.executables)) {
@@ -52,6 +54,9 @@ export class DarSourceBundleLoader {
                       )
                     : [],
                 executables: metadata.executables,
+                expressionLocations: Array.isArray(metadata.expressionLocations)
+                    ? metadata.expressionLocations
+                    : [],
             },
         });
     }

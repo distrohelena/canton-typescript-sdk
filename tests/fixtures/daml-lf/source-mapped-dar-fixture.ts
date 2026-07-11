@@ -20,6 +20,17 @@ export function createSourceMappedDarFixture(init?: {
         templateName?: string;
         choiceName?: string;
     }[];
+    expressionLocations?: readonly {
+        packageId: string;
+        moduleName: string;
+        definitionName: string;
+        expressionPath: readonly number[];
+        path: string;
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+    }[];
 }): Uint8Array {
     return zipSync({
         "META-INF/MANIFEST.MF": strToU8(
@@ -44,8 +55,9 @@ export function createSourceMappedDarFixture(init?: {
                             startColumn: 1,
                             endLine: 4,
                             endColumn: 13,
-                },
+                        },
                     ],
+                expressionLocations: init?.expressionLocations ?? [],
             }),
         ),
         ...(init?.additionalEntries ?? {}),

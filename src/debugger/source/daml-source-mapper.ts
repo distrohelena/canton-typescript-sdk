@@ -1,4 +1,5 @@
 import { SourceIndexedCompilation } from "./source-indexed-compilation.js";
+import { DamlLfExpression } from "../../daml-lf/model/daml-lf-expression.js";
 
 export class DamlSourceMapper {
     public constructor(
@@ -25,5 +26,9 @@ export class DamlSourceMapper {
             packageId,
             moduleName,
         );
+    }
+
+    public getExpressionSource(expression: DamlLfExpression) {
+        return this.indexedCompilation.getExpressionSource(expression);
     }
 }

@@ -1035,6 +1035,39 @@ describe("LedgerReplaySessionLoader", () => {
         expect(session.steps).toEqual([]);
     });
 
+    it("uses compiler expression-location sidecar entries when LF omits a location", async () => {
+        const session = await loadControlledTraceAsync(
+            "exact",
+            [DamlLfStepKind.enterExpression],
+            undefined,
+            [
+                {
+                    packageId: "pkg-controlled",
+                    moduleName: "Main",
+                    definitionName: "controlledTrace",
+                    expressionPath: [],
+                    path: "src/Main.daml",
+                    startLine: 868,
+                    startColumn: 8,
+                    endLine: 868,
+                    endColumn: 54,
+                },
+            ],
+        );
+
+        expect(session.steps).toHaveLength(1);
+        expect(session.steps[0]?.sourceLocation).toEqual(
+            expect.objectContaining({
+                path: "src/Main.daml",
+                startLine: 869,
+                startColumn: 9,
+                endLine: 869,
+                endColumn: 55,
+                precision: "exact",
+            }),
+        );
+    });
+
     it("uses the native LF expression location ahead of fallback definition metadata", async () => {
         const session = await loadControlledTraceAsync(
             "fallback",
@@ -1070,6 +1103,17 @@ async function loadControlledTraceAsync(
         endLine: number;
         endColumn: number;
     },
+    expressionLocations?: readonly {
+        packageId: string;
+        moduleName: string;
+        definitionName: string;
+        expressionPath: readonly number[];
+        path: string;
+        startLine: number;
+        startColumn: number;
+        endLine: number;
+        endColumn: number;
+    }[],
 ) {
     const definition = new DamlLfValueDefinition({
         name: "controlledTrace",
@@ -1116,6 +1160,7 @@ async function loadControlledTraceAsync(
                             precision,
                         },
                     ],
+                    expressionLocations,
                 }),
             ),
         ],
@@ -1137,10 +1182,13 @@ async function loadControlledTraceAsync(
         moduleName: "Main",
         definition,
     });
-    const traceExpression = new DamlLfExpression({
-        textLiteral: "ignored",
-        sourceLocation: expressionSourceLocation,
-    });
+    const traceExpression =
+        expressionSourceLocation === undefined
+            ? definition.expression
+            : new DamlLfExpression({
+                  textLiteral: "ignored",
+                  sourceLocation: expressionSourceLocation,
+              });
 
     return new LedgerReplaySessionLoader({
         updateLoader: {

@@ -1,5 +1,7 @@
 import { DamlLfCompilation } from "../../daml-lf/daml-lf-compilation.js";
 import { DarSourceBundle } from "../../daml-lf/container/dar-source-bundle.js";
+import { getDamlLfExpressionAtPath } from "../../daml-lf/model/daml-lf-expression-path.js";
+import { DamlLfExpression } from "../../daml-lf/model/daml-lf-expression.js";
 import { ReplaySourceMapException } from "../errors/replay-source-map.exception.js";
 import {
     SourceMappingPrecision,
@@ -23,9 +25,21 @@ export interface IndexedExecutableSource extends IndexedDefinitionSource {
     choiceName?: string;
 }
 
+export interface IndexedExpressionSource {
+    path: string;
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+}
+
 export class SourceIndexedCompilation {
     private readonly definitionSources = new Map<string, IndexedExecutableSource>();
     private readonly moduleSources = new Map<string, IndexedDefinitionSource>();
+    private readonly expressionSources = new Map<
+        DamlLfExpression,
+        IndexedExpressionSource
+    >();
 
     private constructor(public readonly compilation: DamlLfCompilation) {}
 
@@ -69,6 +83,38 @@ export class SourceIndexedCompilation {
                     ),
                     source,
                 );
+            }
+
+            for (const expressionLocation of bundle.metadata.expressionLocations) {
+                if (!Array.isArray(expressionLocation.expressionPath)) {
+                    throw new ReplaySourceMapException(
+                        `expression source mapping for '${expressionLocation.packageId}::${expressionLocation.moduleName}::${expressionLocation.definitionName}' is missing its expression path`,
+                    );
+                }
+
+                const definition = compilation.getValueDefinitionOrThrow(
+                    expressionLocation.packageId,
+                    expressionLocation.moduleName,
+                    expressionLocation.definitionName,
+                );
+                const expression = getDamlLfExpressionAtPath(
+                    definition.expression,
+                    expressionLocation.expressionPath,
+                );
+
+                if (expression === undefined) {
+                    throw new ReplaySourceMapException(
+                        `invalid expression path for '${expressionLocation.packageId}::${expressionLocation.moduleName}::${expressionLocation.definitionName}'`,
+                    );
+                }
+
+                indexed.expressionSources.set(expression, {
+                    path: expressionLocation.path,
+                    startLine: expressionLocation.startLine,
+                    startColumn: expressionLocation.startColumn,
+                    endLine: expressionLocation.endLine,
+                    endColumn: expressionLocation.endColumn,
+                });
             }
         }
 
@@ -116,6 +162,12 @@ export class SourceIndexedCompilation {
 
     public getExecutableSources(): readonly IndexedExecutableSource[] {
         return [...this.definitionSources.values()];
+    }
+
+    public getExpressionSource(
+        expression: DamlLfExpression,
+    ): IndexedExpressionSource | undefined {
+        return this.expressionSources.get(expression);
     }
 
     private static createDefinitionKey(
