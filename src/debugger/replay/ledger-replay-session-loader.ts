@@ -20,6 +20,7 @@ import { ReplayStep } from "../session/replay-step.js";
 import { ReplayValuePreview } from "../session/replay-value-preview.js";
 import {
     ILedgerReplayEnvironment,
+    IHydratedReplayContract,
     IReplayTransactionSnapshot,
 } from "./ledger-replay-environment-builder.js";
 import { ResolvedReplayEntrypointDefinition } from "./replay-entrypoint-definition-resolver.js";
@@ -130,7 +131,7 @@ export class LedgerReplaySessionLoader {
 
         const sessionId =
             this.dependencies.sessionIdFactory?.() ?? crypto.randomUUID();
-        const projectedSteps = this.projectReplaySteps(traceSteps);
+        const projectedSteps = this.projectReplaySteps(traceSteps, environment);
         const steps = projectedSteps.map((item) => item.step);
 
         return {
@@ -148,8 +149,9 @@ export class LedgerReplaySessionLoader {
 
     private projectReplaySteps(
         traceSteps: readonly IDamlLfTraceStep[],
+        environment: ILedgerReplayEnvironment,
     ): readonly IProjectedReplayStep[] {
-        const rawSteps = this.projectRawReplaySteps(traceSteps);
+        const rawSteps = this.projectRawReplaySteps(traceSteps, environment);
 
         if (this.dependencies.sourceMapper === undefined) {
             return rawSteps;
@@ -160,15 +162,17 @@ export class LedgerReplaySessionLoader {
 
     private projectRawReplaySteps(
         traceSteps: readonly IDamlLfTraceStep[],
+        environment: ILedgerReplayEnvironment,
     ): readonly IProjectedReplayStep[] {
         const activeFrames: ReplayStackFrame[] = [];
         const frameScopes = new Map<string, ReplayScope>();
         const frameExpressionDepth = new Map<string, number>();
         const frameCallDepth = new Map<string, number>();
+        const contractTypeById = this.createContractTypeIndex(environment.contracts);
         let eventOrdinal = 0;
 
         return traceSteps.map((traceStep, stepIndex) => {
-            this.rememberFrameScope(frameScopes, traceStep);
+            this.rememberFrameScope(frameScopes, traceStep, contractTypeById);
             this.prepareStackForStep(
                 traceStep,
                 activeFrames,
@@ -218,6 +222,10 @@ export class LedgerReplaySessionLoader {
             });
 
             if (traceStep.stateEffect !== undefined) {
+                this.rememberStateEffectContractType(
+                    traceStep.stateEffect,
+                    contractTypeById,
+                );
                 eventOrdinal += 1;
             }
 
@@ -536,6 +544,7 @@ export class LedgerReplaySessionLoader {
     private rememberFrameScope(
         frameScopes: Map<string, ReplayScope>,
         traceStep: IDamlLfTraceStep,
+        contractTypeById: ReadonlyMap<string, string>,
     ): void {
         const frameName = this.resolveFrameName(traceStep);
 
@@ -548,9 +557,78 @@ export class LedgerReplaySessionLoader {
                     name: local.name,
                     kind: local.value.kind,
                     value: this.stringifyRuntimeValue(local.value),
+                    contractType: this.resolveRuntimeValueContractType(
+                        local.value,
+                        contractTypeById,
+                    ),
                 })),
             }),
         );
+    }
+
+    private createContractTypeIndex(
+        contracts: ReadonlyMap<string, IHydratedReplayContract>,
+    ): Map<string, string> {
+        const index = new Map<string, string>();
+
+        for (const [contractId, contract] of contracts.entries()) {
+            const contractType = this.formatTemplateType(contract.templateId);
+
+            if (contractType !== undefined) {
+                index.set(contractId, contractType);
+            }
+        }
+
+        return index;
+    }
+
+    private rememberStateEffectContractType(
+        effect: IDamlLfReplayEffect,
+        contractTypeById: Map<string, string>,
+    ): void {
+        if (effect.kind !== "create" || effect.contractId === undefined) {
+            return;
+        }
+
+        const contractType = this.formatTemplateType(effect.templateId);
+
+        if (contractType !== undefined) {
+            contractTypeById.set(effect.contractId, contractType);
+        }
+    }
+
+    private resolveRuntimeValueContractType(
+        value: IDamlLfRuntimeValue,
+        contractTypeById: ReadonlyMap<string, string>,
+    ): string | undefined {
+        if (
+            value.kind === "contractId"
+            && "value" in value
+            && typeof value.value === "string"
+        ) {
+            return contractTypeById.get(value.value);
+        }
+
+        return undefined;
+    }
+
+    private formatTemplateType(
+        templateId:
+            | {
+                packageId?: string;
+                moduleName?: string;
+                entityName?: string;
+            }
+            | undefined,
+    ): string | undefined {
+        if (
+            templateId?.moduleName !== undefined
+            && templateId.entityName !== undefined
+        ) {
+            return `${templateId.moduleName}:${templateId.entityName}`;
+        }
+
+        return templateId?.entityName;
     }
 
     private prepareStackForStep(
@@ -658,20 +736,29 @@ export class LedgerReplaySessionLoader {
     }
 
     private resolveFrameName(traceStep: IDamlLfTraceStep): string {
+        const definitionName = traceStep.frame.definition.name;
+        const generatedHelper = this.isGeneratedHelperDefinitionName(
+            definitionName,
+        );
+
         if (this.dependencies.sourceMapper === undefined) {
-            return traceStep.frame.definition.name;
+            return generatedHelper
+                ? this.formatGeneratedHelperLabel(definitionName)
+                : definitionName;
         }
 
         try {
             const source = this.dependencies.sourceMapper.getDefinitionSourceOrThrow(
                 traceStep.frame.packageId,
                 traceStep.frame.moduleName,
-                traceStep.frame.definition.name,
+                definitionName,
             );
             const label = this.formatExecutableFrameLabel(source);
 
             if (label !== undefined) {
-                return label;
+                return generatedHelper
+                    ? this.formatGeneratedHelperLabel(label)
+                    : label;
             }
         } catch {
             // Fall through to source-span and effect-based resolution when the
@@ -696,7 +783,9 @@ export class LedgerReplaySessionLoader {
                 : this.formatExecutableFrameLabel(enclosingSource);
 
             if (label !== undefined) {
-                return label;
+                return generatedHelper
+                    ? this.formatGeneratedHelperLabel(label)
+                    : label;
             }
         }
 
@@ -705,10 +794,22 @@ export class LedgerReplaySessionLoader {
         );
 
         if (effectLabel !== undefined) {
-            return effectLabel;
+            return generatedHelper
+                ? this.formatGeneratedHelperLabel(effectLabel)
+                : effectLabel;
         }
 
-        return traceStep.frame.definition.name;
+        return generatedHelper
+            ? this.formatGeneratedHelperLabel(definitionName)
+            : definitionName;
+    }
+
+    private isGeneratedHelperDefinitionName(definitionName: string): boolean {
+        return /^\$+/.test(definitionName);
+    }
+
+    private formatGeneratedHelperLabel(context: string): string {
+        return `generated helper from ${context}`;
     }
 
     private formatExecutableFrameLabel(source: {

@@ -497,10 +497,10 @@ describe("LedgerReplaySessionLoader", () => {
         );
 
         expect(session.steps[0]?.stackFrames.map((frame) => frame.name)).toEqual([
-            "BaseVaultSnapshot.ReportNAV",
+            "generated helper from BaseVaultSnapshot.ReportNAV",
         ]);
         expect(session.scopesByStep[0]?.map((scope) => scope.name)).toEqual([
-            "BaseVaultSnapshot.ReportNAV",
+            "generated helper from BaseVaultSnapshot.ReportNAV",
         ]);
     });
 
@@ -1847,6 +1847,136 @@ describe("LedgerReplaySessionLoader", () => {
         );
     });
 });
+
+    it("projects contract-id scope variables with their template type", async () => {
+        const definition = new DamlLfValueDefinition({
+            name: "archiveVaultHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "archived",
+            }),
+        });
+        const loader = new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        events: [],
+                        entrypoint: new ReplayEntrypoint({
+                            kind: "exercise",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            contractId: "00abc",
+                            choice: "Archive",
+                            argument: {},
+                        }),
+                    };
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(snapshot): Promise<ILedgerReplayEnvironment> {
+                    return {
+                        kind: "transaction",
+                        offset: snapshot.offset,
+                        actAs: ["Alice"],
+                        readAs: [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map([
+                            [
+                                "00abc",
+                                {
+                                    contractId: "00abc",
+                                    templateId: {
+                                        packageId: "pkg-main",
+                                        moduleName: "Oz.Vault.Base.Core",
+                                        entityName: "BaseVault",
+                                    },
+                                    payload: {},
+                                    history: {},
+                                },
+                            ],
+                        ]),
+                        packageIds: ["pkg-main"],
+                    };
+                },
+            },
+            definitionResolver: {
+                resolveEntrypointDefinitionOrThrow() {
+                    return {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        definition,
+                        replayExpression: definition.expression,
+                        replayBindingMode: "standard",
+                    };
+                },
+            },
+            evaluator: {
+                evaluateReplayEntrypointOrThrow(
+                    _definition,
+                    _environment,
+                    traceSink,
+                ) {
+                    traceSink?.onStep({
+                        kind: DamlLfStepKind.enterExpression,
+                        expression: new DamlLfExpression({
+                            textLiteral: "archived",
+                        }),
+                        frame: new DamlLfRuntimeFrame({
+                            frameId: "frame-1",
+                            packageId: "pkg-main",
+                            moduleName: "Main",
+                            definition,
+                        }),
+                        locals: [
+                            {
+                                name: "selfContractId",
+                                value: {
+                                    kind: "contractId",
+                                    value: "00abc",
+                                },
+                            },
+                        ],
+                    });
+
+                    return {
+                        value: {
+                            kind: "text",
+                            value: "done",
+                        },
+                        effects: [],
+                    };
+                },
+            },
+            determinismValidator: {
+                validateOrThrow(): void {},
+            },
+            sessionIdFactory: () => "contract-type-session",
+        });
+
+        const session = await loader.loadOrThrowAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+
+        expect(session.scopesByStep[0]?.[0]).toEqual(
+            expect.objectContaining({
+                variables: [
+                    expect.objectContaining({
+                        name: "selfContractId",
+                        kind: "contractId",
+                        value: "00abc",
+                        contractType: "Oz.Vault.Base.Core:BaseVault",
+                    }),
+                ],
+            }),
+        );
+    });
 
 async function loadControlledTraceAsync(
     precision: "exact" | "fallback",

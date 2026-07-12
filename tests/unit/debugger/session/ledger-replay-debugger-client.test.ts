@@ -76,7 +76,8 @@ describe("LedgerReplayDebuggerClient", () => {
         expect(result.sessionId).toBe("session-1");
         expect(result.step.phase).toBe("enterExpression");
         expect(result.step.stackFrames).toEqual([
-            expect.objectContaining({ name: "Archive" }),
+            expect.objectContaining({ name: "Vault.Archive" }),
+            expect.objectContaining({ name: "Greeting" }),
         ]);
     });
 
@@ -94,7 +95,7 @@ describe("LedgerReplayDebuggerClient", () => {
         }
 
         await expect(client.getStackAsync("session-1")).resolves.toEqual([
-            expect.objectContaining({ name: "Archive" }),
+            expect.objectContaining({ name: "Vault.Archive" }),
             expect.objectContaining({ name: "Greeting" }),
         ]);
         await expect(
@@ -172,7 +173,7 @@ describe("LedgerReplayDebuggerClient", () => {
 
         expect(result.step.phase).toBe("exitExpression");
         expect(result.step.stackFrames).toEqual([
-            expect.objectContaining({ name: "Archive" }),
+            expect.objectContaining({ name: "Vault.Archive" }),
         ]);
     });
 
