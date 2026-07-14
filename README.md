@@ -61,6 +61,34 @@ Run:
 npm run test:live
 ```
 
+The opt-in live stateful fuzz campaign uses the two-participant CN quickstart
+`Main:Iou` fixture. It is disabled by default and must be enabled explicitly:
+
+```bash
+SDK_TEST_ENABLE_LIVE_FUZZING=1 \
+FUZZ_NUM_RUNS=20 \
+npm run test:live:fuzz
+```
+
+The campaign requires both gRPC participants, with node 0 using
+`SDK_TEST_LEDGER_ENDPOINT`, `SDK_TEST_LEDGER_ADMIN_ENDPOINT`, and
+`SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT`, and node 1 using the corresponding
+`SDK_TEST_SECONDARY_*` variables. It allocates an issuer on participant A and
+an owner on participant B unless `FUZZ_LIVE_ISSUER_PARTY` and
+`FUZZ_LIVE_OWNER_PARTY` are both supplied. For exact replay, keep those party
+IDs, `FUZZ_LIVE_RUN_ID`, `FUZZ_SEED`, and `FUZZ_PATH` unchanged.
+
+Useful campaign controls include `FUZZ_LIVE_MAX_COMMANDS`,
+`FUZZ_LIVE_POLL_TIMEOUT_MS`, `FUZZ_LIVE_POLL_INTERVAL_MS`,
+`FUZZ_LIVE_TEST_TIMEOUT_MS`, and `FUZZ_LIVE_CLEANUP_TIMEOUT_MS`. A four-step
+archive smoke run is available with `FUZZ_LIVE_REQUIRE_ARCHIVE=1` and
+`FUZZ_LIVE_MAX_COMMANDS=4`.
+
+This fixture assumes the CN quickstart already has the `Main:Iou` package on
+both participants. The ledger-only DAML Ops localnet launcher is not a
+substitute: open ports are insufficient without the quickstart Ledger API,
+package, party, and cross-participant visibility checks.
+
 Experimental multi-host external-party coverage is opt-in:
 
 - set `SDK_TEST_ENABLE_MULTI_HOST_EXTERNAL_PARTY=1` to enable the multi-host live spec
