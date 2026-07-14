@@ -33,7 +33,7 @@ The existing opt-in flag remains required. New settings are campaign-scoped and 
 - `FUZZ_LIVE_DEPTH` — exact action count per campaign; defaults to `8` when the legacy maximum is not set. `FUZZ_LIVE_MAX_COMMANDS` remains a compatibility setting when depth is unset; if both are set to different values, setup fails.
 - `FUZZ_LIVE_FAIL_ON_REVERT=true|false` — whether an expected command rejection fails the campaign; defaults to `false` to match Foundry.
 - `FUZZ_LIVE_ACTION_WEIGHTS` — optional comma-separated weights such as `query=30,fetch=20,events=20,exercise=10,probe=20`.
-- `FUZZ_LIVE_ACTORS` — optional comma-separated actor set, defaulting to `issuer,owner`.
+- `FUZZ_LIVE_ACTORS` — optional comma-separated actor set, defaulting to `issuer,owner`. `issuer` is mandatory because it is required for create and archive; omitting `owner` removes owner-targeted actions but does not remove the cross-participant visibility fixture.
 - `FUZZ_LIVE_FAILURE_DIR` — optional directory for persisted JSON counterexamples; defaults to `tests/live/.artifacts/failures` and is gitignored.
 - `FUZZ_LIVE_REPLAY_FILE` — optional exact counterexample file to replay instead of generating actions.
 - Existing seed, shrink-path, timeout, run ID, party, endpoint, and smoke settings remain supported.
@@ -58,7 +58,7 @@ The current fixed fixture remains the first target: one `Main:Iou`, issuer on pa
 
 The grammar must produce exactly `FUZZ_LIVE_DEPTH` slots, even when a command later reverts. This makes the depth dimension comparable to Foundry and ensures a failed action still consumes a slot. In the no-contract state, `probe` is a mandatory fallback action that reads ACS and ledger state without requiring a contract. Exact-depth mode therefore requires a positive `probe` weight whenever depth exceeds one; after archive it requires at least one positive weight among `query`, `events`, and `probe`. Configuration validation checks every reachable model state before live setup.
 
-Weights use the grammar `action=non-negative-integer`, separated by commas, with surrounding whitespace trimmed. Empty entries, duplicate names, unknown names, malformed numbers, unsafe values, and a missing action name fail before live setup. The default weights are `query=30,fetch=20,events=20,exercise=10,probe=20`; `create` is fixed and not weighted. Weights are renormalized over currently eligible actions at each slot. Zero-weight actions are excluded, except that validation rejects a zero `probe` weight when exact depth could reach the no-contract state. A configuration with no positive eligible action weight fails before live setup. A rejected first create still consumes its slot; the remaining `probe` actions preserve exact depth without pretending a contract exists.
+Weights use the grammar `action=non-negative-integer`, separated by commas, with surrounding whitespace trimmed. Empty entries, duplicate names, unknown names, malformed numbers, unsafe values, and a missing action name fail before live setup. The default weights are `query=30,fetch=20,events=20,exercise=10,probe=20`; `create` is fixed and not weighted. Weights are renormalized over currently eligible actions at each slot. Zero-weight actions are excluded, except that validation rejects a zero `probe` weight when exact depth could reach the no-contract state. Actions whose route is unavailable under `FUZZ_LIVE_ACTORS` are also excluded; validation rejects a campaign if any reachable state has no positive eligible action weight. A rejected first create still consumes its slot; the remaining `probe` actions preserve exact depth without pretending a contract exists.
 
 ## Revert policy
 
@@ -68,7 +68,7 @@ With `FUZZ_LIVE_FAIL_ON_REVERT=false`, a rejected action is recorded in the mode
 
 With `FUZZ_LIVE_FAIL_ON_REVERT=true`, the first rejected action fails the campaign after recording the full trace.
 
-The classifier recognizes only explicit Canton ledger command rejections as protocol reverts. Every action records a discriminated outcome:
+The classifier recognizes only explicit Canton ledger command rejections as protocol reverts. Every command action records a discriminated command outcome:
 
 ```ts
 type ActionOutcome =
@@ -77,18 +77,20 @@ type ActionOutcome =
     | { kind: "transport-error"; message: string }
     | { kind: "timeout"; message: string }
     | { kind: "malformed-response"; message: string }
-    | { kind: "unknown-commit-outcome"; message: string }
-    | { kind: "invariant-failure"; message: string };
+    | { kind: "unknown-commit-outcome"; message: string };
 ```
 
-Transport errors, request timeouts, malformed responses, and unknown commit outcomes are distinct failure classes and always fail; an unknown outcome triggers the run-marker cleanup scan because the submission may have committed remotely. The outcome kind is persisted in traces and artifacts.
+Transport errors, request timeouts, malformed responses, and unknown commit outcomes are distinct failure classes and always fail; an unknown outcome triggers the run-marker cleanup scan because the submission may have committed remotely. The command outcome kind is persisted in traces and artifacts. Invariant failures are recorded separately on the action record and never replace the command outcome of an accepted or rejected action.
 
 ## Invariant lifecycle
 
 The runner exposes one central invariant evaluation path rather than embedding unrelated assertions only inside individual action handlers. Its internal API is:
 
 ```ts
-evaluateLiveInvariants(snapshot: LiveCampaignSnapshot): readonly InvariantFailure[]
+evaluateLiveInvariants(
+    phase: "after-action" | "end-of-campaign" | "post-cleanup",
+    snapshot: LiveCampaignSnapshot,
+): readonly InvariantFailure[]
 ```
 
 The snapshot contains the model, per-participant ACS summaries, ledger ends, lifecycle evidence, the most recent action outcome, and the set of run-marked contract IDs. Each failure has a stable name, phase, participant, and diagnostic details.
@@ -100,10 +102,9 @@ After every action, it evaluates:
 - participant visibility agrees with the model after bounded polling;
 - ledger-end offsets are monotonic per participant; and
 - accepted create/archive actions have the corresponding lifecycle evidence;
-- the run marker identifies at most one active contract per campaign; and
-- final campaign state contains no run-marked active contracts after cleanup.
+- the run marker identifies at most one active contract per campaign.
 
-At campaign end, it evaluates the final model and cross-participant state before cleanup. Cleanup then archives remaining run-marked contracts and performs a final absence check. Cleanup diagnostics remain secondary to the original failure.
+At campaign end, it evaluates the final model and cross-participant state before cleanup. Cleanup then archives remaining run-marked contracts and performs a final absence check. It then calls the same invariant API with `phase="post-cleanup"`, whose phase policy additionally requires no run-marked active contracts. Cleanup diagnostics remain secondary to the original failure.
 
 The invariant interface is internal to the test harness for now. It should accept a read-only campaign snapshot and return structured failures so future invariants can be added without changing action generation.
 
@@ -127,14 +128,14 @@ Future fixtures may register additional actors and actions, but the first implem
 
 ## Replay artifacts
 
-The property runner uses `fc.check`/`RunDetails` rather than writing an artifact from an intermediate predicate failure. Each execution trace is keyed by its campaign ordinal and canonical generated input; shrink executions cannot overwrite another trace. After fast-check reports the final minimized counterexample, the runner selects that exact trace and writes one JSON artifact atomically under the configured failure directory. The artifact includes:
+The property runner uses `fc.check`/`RunDetails` rather than writing an artifact from an intermediate predicate failure. Each generated input includes a deterministic 128-bit `campaignNonce` alongside the action list and amount input. Execution traces are keyed by the complete canonical generated input, including that nonce; shrink executions cannot overwrite another trace. Because `RunDetails` does not expose the internal campaign ordinal, the final `counterexample` tuple itself is the trace key; duplicate generated tuples are rejected by the campaign-nonce collision check. After fast-check reports the final minimized counterexample, the runner selects that exact trace and writes one JSON artifact atomically under the configured failure directory. The artifact includes:
 
 - schema version;
 - campaign run ID;
 - fast-check seed and counterexample path;
 - exact depth and action weights;
 - actor and party IDs;
-- generated amount suffix, campaign ordinal, and canonical payload;
+- generated amount suffix, campaign nonce, and canonical payload;
 - full action list with actor, participant, command kind, accepted/reverted outcome, and error text;
 - discovered contract ID when available;
 - last known ledger ends and invariant failures;
@@ -143,11 +144,11 @@ The property runner uses `fc.check`/`RunDetails` rather than writing an artifact
 
 The artifact must not contain bearer tokens or endpoint credentials. Directory creation is bounded by normal filesystem errors and a failed artifact write must be reported without replacing the original property failure.
 
-`FUZZ_LIVE_REPLAY_FILE` loads one artifact, validates its schema and a fixture/configuration fingerprint, and executes its exact action list and payload marker. Seed/path remain recorded for comparison but do not regenerate or mutate the replayed action list. Stored party IDs and run ID must either match explicitly supplied configuration or be used directly from the artifact; otherwise replay fails before live setup. A fingerprint mismatch marks the artifact stale or foreign; explicit replay rejects it, while automatic failure-directory replay reports it and continues with valid artifacts only. Corrupt and schema-unknown artifacts follow the same rules. Automatic replay never overwrites the original failure.
+`FUZZ_LIVE_REPLAY_FILE` loads one artifact, validates its schema and a fixture/configuration fingerprint, and executes its exact action list and payload marker. The fingerprint is SHA-256 over canonical JSON containing the schema version, fixture version, template ID, actor names, route matrix version, depth mode, action weights, and revert policy; it excludes endpoints and credentials. Seed/path remain recorded for comparison but do not regenerate or mutate the replayed action list. Stored party IDs and run ID must either match explicitly supplied configuration or be used directly from the artifact; this comparison happens before clients or parties are created. A fingerprint mismatch marks the artifact stale or foreign; explicit replay rejects it, while automatic failure-directory replay reports it and continues with valid artifacts only. Corrupt and schema-unknown artifacts follow the same rules. Automatic replay never overwrites the original failure.
 
 Failure files are replayed before generated campaigns when a failure directory is configured, matching Foundry’s regression-oriented workflow. A command-line or environment switch can disable automatic persisted-failure replay for clean campaigns.
 
-Artifact serialization is allowlisted and excludes endpoint URLs, bearer tokens, request headers, and arbitrary error object fields. Files use safe generated names, a `0o700` failure directory, `0o600` files, and exclusive atomic creation that rejects symlink/path traversal targets. Every existing parent component is checked with `lstat` and must not be a symlink; directory and file modes are verified after creation. Writes use a same-directory temporary file, `fsync`, atomic rename, and directory `fsync`. The failure directory is gitignored.
+Artifact serialization is allowlisted and excludes endpoint URLs, bearer tokens, request headers, and arbitrary error object fields. Files use safe generated names, a `0o700` failure directory, `0o600` files, and no-clobber atomic creation that rejects symlink/path traversal targets. Every existing parent component is checked with `lstat` and must not be a symlink; directory and file modes are verified after creation. Writes use a same-directory temporary file, file `fsync`, an atomic hard-link into a destination that must not already exist, temporary-file unlink, and directory `fsync`; a pre-existing destination is reported as a collision rather than replaced. The failure directory is gitignored.
 
 ## Failure and cleanup behavior
 
@@ -155,7 +156,7 @@ The runner preserves the current bounded per-action polling, campaign timeout, a
 
 Invariant evaluation has three explicit phases: `after-action` snapshots validate the live model after each slot; `end-of-campaign` validates the model and observed ledger state before cleanup, allowing the model’s known active contract; and `post-cleanup` validates the same invariant API with the additional requirement that no run-marked active contracts remain.
 
-The original failure is thrown after cleanup. If no primary failure exists and cleanup fails, cleanup is the campaign failure. Concurrent campaign execution remains disabled because all campaigns share the same two participant endpoints. A unique user-supplied or invocation-generated `runId` is required for each live campaign invocation. Each fast-check execution receives a monotonically increasing campaign ordinal, including shrink executions. The payload marker includes a deterministic digest of the run ID, ordinal, generated amount input, and action sequence; the runner rejects a marker collision within the invocation. The exact marker is persisted in the artifact and used during replay and ambiguous-outcome cleanup. Shrink candidates reuse the invocation namespace but have distinct ordinals and therefore distinct markers.
+The original failure is thrown after cleanup. If no primary failure exists and cleanup fails, cleanup is the campaign failure. Concurrent campaign execution remains disabled because all campaigns share the same two participant endpoints. A unique user-supplied or invocation-generated `runId` is required for each live campaign invocation. Each generated input includes a 128-bit campaign nonce; the payload marker includes a deterministic digest of the run ID, nonce, generated amount input, and action sequence. The runner rejects a marker collision within the invocation. The exact marker is persisted in the artifact and used during replay and ambiguous-outcome cleanup. Shrink candidates reuse the invocation namespace but have distinct generated nonces and therefore distinct markers. In permissive mode, the deterministic smoke sequence requires `FUZZ_LIVE_FAIL_ON_REVERT=true`; a conflicting `false` setting fails setup rather than allowing invalid fetch/exercise actions after a rejected create.
 
 ## Verification
 
@@ -173,7 +174,7 @@ Offline tests must cover:
 
 Live smoke verification must run one exact-depth archive campaign with strict revert mode and an explicit failure directory. The default disabled live command must remain network-free.
 
-Legacy option precedence is tested explicitly: `FUZZ_LIVE_DEPTH` selects exact-depth mode; when it is unset, `FUZZ_LIVE_MAX_COMMANDS` preserves the prior maximum-length behavior and emits a deprecation notice; when both are set, equal values are accepted and conflicting values fail setup. Existing `FUZZ_LIVE_REQUIRE_ARCHIVE=1|0` behavior remains valid. In smoke mode, exact depth must be 4: a legacy maximum must be exactly 4, and an explicit depth must be exactly 4.
+Legacy option precedence is tested explicitly: `FUZZ_LIVE_DEPTH` selects exact-depth mode; when it is unset, `FUZZ_LIVE_MAX_COMMANDS` preserves the prior maximum-length behavior and emits a deprecation notice; when both are set, equal values are accepted and conflicting values fail setup. Existing `FUZZ_LIVE_REQUIRE_ARCHIVE=1|0` behavior remains valid. In smoke mode, explicit exact depth must be 4. For backward compatibility, legacy maximum mode may be any value of at least 4 and still emits the existing fixed four-action smoke sequence; it does not silently claim exact depth. If `FUZZ_LIVE_ACTORS` omits `issuer`, setup fails; if it omits `owner`, owner-targeted reads are removed and remaining weights are renormalized.
 
 ## Non-goals
 
