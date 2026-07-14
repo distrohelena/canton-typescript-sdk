@@ -35,7 +35,7 @@ No SDK runtime/public API files change.
 **Files:**
 - Modify: `tests/live/fuzz/live-fuzz-config.ts`
 - Modify: `tests/unit/live/live-stateful-fuzzing.test.ts`
-- Test: `tests/property/property-test-options.test.ts`
+- Verify only: `tests/property/property-test-options.test.ts` (no changes expected)
 
 - [ ] **Step 1: Write failing configuration tests.**
 
@@ -49,7 +49,9 @@ Cover:
 - default weights include `query`, `fetch`, `events`, `exercise`, and `probe`;
 - `FUZZ_LIVE_ACTORS` defaults to issuer/owner, rejects unsupported names, and requires issuer;
 - `FUZZ_LIVE_FAILURE_DIR` and `FUZZ_LIVE_REPLAY_FILE` are returned without exposing credentials;
+- `FUZZ_LIVE_REPLAY_FAILURES=true|false` defaults to true when a failure directory is configured, and explicit replay is validated before any client or party setup;
 - archive smoke mode requires strict revert mode and preserves legacy maximum behavior; and
+- `FUZZ_LIVE_REQUIRE_ARCHIVE` accepts both `true|false` and legacy `1|0`, legacy maximum mode preserves the four-action smoke sequence when the maximum is at least four, and omitting `owner` removes owner-targeted generated reads without removing the cross-participant visibility fixture;
 - existing offline property defaults remain unchanged.
 
 - [ ] **Step 2: Run the focused test to establish failure.**
@@ -60,7 +62,7 @@ Expected: FAIL because the new configuration fields and validation are absent.
 
 - [ ] **Step 3: Implement configuration parsing.**
 
-Add explicit `depthMode: "exact" | "legacy-max"`, `depth`, `maxCommands?`, `failOnRevert`, `actionWeights`, `actors`, `failureDir`, and `replayFile` fields. Parse `FUZZ_LIVE_DEPTH` first; retain `FUZZ_LIVE_MAX_COMMANDS` only as the old maximum-length mode. Validate reachable-state action weights: exact-depth campaigns need a positive `probe` fallback and at least one eligible post-archive read action; actor subsets remove invalid routes before weight validation.
+Add explicit `depthMode: "exact" | "legacy-max"`, `depth`, `maxCommands?`, `failOnRevert`, `actionWeights`, `actors`, `failureDir`, `replayFile`, and `replayFailures` fields. Parse `FUZZ_LIVE_DEPTH` first; retain `FUZZ_LIVE_MAX_COMMANDS` only as the old maximum-length mode. Validate reachable-state action weights: exact-depth campaigns need a positive `probe` fallback and at least one eligible post-archive read action; actor subsets remove invalid routes before weight validation. Default automatic failure replay to true only when a failure directory is configured.
 
 - [ ] **Step 4: Run configuration tests, build, and lint.**
 
@@ -110,7 +112,7 @@ Define a generated input containing `commands`, `amountSuffix`, and `campaignNon
 
 - [ ] **Step 4: Implement typed outcomes and model transitions.**
 
-Add pure classification and transition helpers. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes.
+Add pure classification and transition helpers. Classify the concrete SDK/gRPC rejection shape by status code/details: known protocol rejection is `protocol-revert`; `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `INTERNAL`, unknown codes, malformed responses, and ambiguous commit status are distinct fatal classes. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes, and assert each submission is classified exactly once.
 
 - [ ] **Step 5: Run tests, build, and lint.**
 
@@ -146,6 +148,7 @@ Assert the route matrix:
 - probe: selected participant ACS plus ledger end.
 
 Test `evaluateLiveInvariants(phase, snapshot)` for after-action, end-of-campaign, and post-cleanup policies. Include accepted/reverted outcomes, uniqueness of run-marked active contracts, ledger-end monotonicity, lifecycle evidence, and final absence.
+Add an orchestration spy asserting after-action invariants run after every action, end-of-campaign invariants run before cleanup, post-cleanup invariants run after cleanup, and a primary action/property error is preserved if diagnostics also fail.
 
 - [ ] **Step 2: Run the focused tests to establish failure.**
 
@@ -195,7 +198,10 @@ Cover:
 - `0700` directory and `0600` file modes;
 - symlinked parent/destination rejection;
 - no-clobber atomic writes using same-directory temporary files, `fsync`, hard-link destination, cleanup, and directory `fsync`; and
-- replay loading of exact actions/payload without regeneration.
+- replay loading of exact actions/payload without regeneration;
+- required artifact fields for schema/configuration fingerprint, fixture fingerprint, run ID, seed/path, depth mode and value, weights, actors/parties, nonce, payload marker, action routes/outcomes, contract ID, ledger ends, invariant failures, `numRuns`, `numShrinks`, and `counterexamplePath`;
+- collision rejection for two invocations with the same marker inputs but different run IDs/nonces; and
+- final minimized-input trace selection rather than an intermediate generated trace.
 
 - [ ] **Step 2: Run the focused test to establish failure.**
 
@@ -265,6 +271,14 @@ Run: `rtk npm run build`
 
 Run: `rtk npx eslint tests/live/fuzz tests/live/specs/live-stateful-fuzzing.test.ts tests/unit/live/live-stateful-fuzzing.test.ts --max-warnings=0`
 
+The live test must validate explicit replay and automatic failure-directory replay before creating clients or parties, enumerate only valid artifact files, and continue past stale/corrupt automatic artifacts while reporting them. Add a strict smoke command with one run and exact depth four:
+
+```bash
+rtk env SDK_TEST_ENABLE_LIVE_FUZZING=1 FUZZ_NUM_RUNS=1 FUZZ_LIVE_DEPTH=4 FUZZ_LIVE_FAIL_ON_REVERT=true FUZZ_LIVE_REQUIRE_ARCHIVE=1 FUZZ_LIVE_FAILURE_DIR=tests/live/.artifacts/smoke npm run test:live:fuzz
+```
+
+The integration tests must also assert typed error classification occurs exactly once and that the final `fc.check` counterexample is the only persisted trace.
+
 - [ ] **Step 6: Commit the campaign integration.**
 
 ```bash
@@ -280,7 +294,7 @@ rtk git commit -m "test: integrate Foundry-style live fuzz replay"
 
 - [ ] **Step 1: Update README usage.**
 
-Document exact-depth mode, legacy maximum compatibility, `FUZZ_LIVE_FAIL_ON_REVERT=true|false`, action weights, actor subsets, failure directory, replay file, artifact redaction, and strict smoke invocation.
+Document exact-depth mode, legacy maximum compatibility, `FUZZ_LIVE_FAIL_ON_REVERT=true|false`, action weights, actor subsets, failure directory, explicit replay, automatic failure replay (`FUZZ_LIVE_REPLAY_FAILURES=true|false`), artifact redaction, and strict smoke invocation.
 
 - [ ] **Step 2: Mark the plan and verify the complete repository.**
 
@@ -304,4 +318,3 @@ Expected: offline tests, property tests, build, targeted lint, and disabled live
 rtk git add README.md docs/superpowers/plans/2026-07-14-foundry-style-live-fuzzing-parity-implementation-plan.md
 rtk git commit -m "Document Foundry-style live fuzz controls"
 ```
-
