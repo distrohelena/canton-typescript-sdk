@@ -9,6 +9,12 @@ import {
     createAmountArbitrary,
     createRunAmount,
 } from "../../live/fuzz/live-fuzz-fixture.js";
+import {
+    applyLiveFuzzModelCommand,
+    createInitialLiveFuzzModel,
+    liveFuzzCommandSequenceArbitrary,
+    markLiveFuzzContractCreated,
+} from "../../live/fuzz/live-fuzz-commands.js";
 
 const environmentKeys = [
     "SDK_TEST_ENABLE_LIVE_FUZZING",
@@ -148,5 +154,86 @@ describe("live fuzz configuration", () => {
 
         expect(fc.sample(createAmountArbitrary(), 1)[0]).toBeTypeOf("number");
         expect(createRunAmount("run", 99)).toMatch(/^[0-9]{1,5}\.[0-9]{5}$/);
+    });
+
+    it("generates bounded valid stateful command sequences", () => {
+        const sequences = fc.sample(
+            liveFuzzCommandSequenceArbitrary({ maxCommands: 8 }),
+            100,
+        );
+
+        for (const sequence of sequences) {
+            expect(sequence[0]).toEqual({ kind: "create" });
+            expect(sequence.length).toBeLessThanOrEqual(8);
+            expect(sequence.filter(({ kind }) => kind === "exercise").length).toBeLessThanOrEqual(1);
+        }
+    });
+
+    it("replays command generation from a fixed seed", () => {
+        const arbitrary = liveFuzzCommandSequenceArbitrary({ maxCommands: 8 });
+
+        expect(fc.sample(arbitrary, { seed: 123, numRuns: 10 })).toEqual(
+            fc.sample(arbitrary, { seed: 123, numRuns: 10 }),
+        );
+    });
+
+    it("supports the required archive smoke grammar", () => {
+        expect(
+            fc.sample(
+                liveFuzzCommandSequenceArbitrary({
+                    maxCommands: 4,
+                    requireArchive: true,
+                }),
+                1,
+            )[0],
+        ).toEqual([
+            { kind: "create" },
+            { kind: "query", participant: "issuer" },
+            { kind: "fetch", participant: "owner" },
+            { kind: "exercise", participant: "issuer" },
+        ]);
+    });
+
+    it("tracks model state and rejects impossible transitions", () => {
+        let model = createInitialLiveFuzzModel({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: {
+                issuer: "issuer::abc",
+                owner: "owner::def",
+                amount: 1.23,
+            },
+        });
+
+        expect(() =>
+            applyLiveFuzzModelCommand(model, {
+                kind: "fetch",
+                participant: "issuer",
+            }),
+        ).toThrow(/contract ID/);
+
+        model = applyLiveFuzzModelCommand(model, { kind: "create" });
+        model = markLiveFuzzContractCreated(model, "contract-1");
+        model = applyLiveFuzzModelCommand(model, {
+            kind: "fetch",
+            participant: "owner",
+        });
+        model = applyLiveFuzzModelCommand(model, {
+            kind: "exercise",
+            participant: "issuer",
+        });
+
+        expect(model.active).toBe(false);
+        expect(() =>
+            applyLiveFuzzModelCommand(model, {
+                kind: "fetch",
+                participant: "owner",
+            }),
+        ).toThrow(/active/);
+        expect(
+            applyLiveFuzzModelCommand(model, {
+                kind: "query",
+                participant: "owner",
+            }).active,
+        ).toBe(false);
     });
 });
