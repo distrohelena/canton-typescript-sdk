@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
+import * as fc from "fast-check";
 import { propertyParameters } from "../../property/property-test-options.js";
 import { readLiveFuzzConfig } from "../../live/fuzz/live-fuzz-config.js";
+import {
+    LIVE_IOU_TEMPLATE_ID,
+    buildArchiveRequest,
+    buildCreateRequest,
+    createAmountArbitrary,
+    createRunAmount,
+} from "../../live/fuzz/live-fuzz-fixture.js";
 
 const environmentKeys = [
     "SDK_TEST_ENABLE_LIVE_FUZZING",
@@ -95,5 +103,50 @@ describe("live fuzz configuration", () => {
         process.env.FUZZ_LIVE_ISSUER_PARTY = "issuer::abc";
 
         expect(() => readLiveFuzzConfig()).toThrow(/together/);
+    });
+
+    it("builds a deterministic valid Main:Iou create request", () => {
+        const first = buildCreateRequest({
+            runId: "replay-run",
+            issuerParty: "issuer::abc",
+            ownerParty: "owner::def",
+            amountSuffix: 42,
+        });
+
+        expect(first.applicationId).toBe("sdk-live-fuzz");
+        expect(first.actAs).toEqual(["issuer::abc"]);
+        expect(first.readAs).toEqual([]);
+        expect(first.command).toMatchObject({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: {
+                issuer: "issuer::abc",
+                owner: "owner::def",
+                amount: Number(createRunAmount("replay-run", 42)),
+            },
+        });
+        expect(buildCreateRequest({
+            runId: "replay-run",
+            issuerParty: "issuer::abc",
+            ownerParty: "owner::def",
+            amountSuffix: 42,
+        })).toEqual(first);
+    });
+
+    it("builds issuer-routed Archive requests and bounded amount values", () => {
+        const request = buildArchiveRequest({
+            contractId: "contract-1",
+            issuerParty: "issuer::abc",
+        });
+
+        expect(request.actAs).toEqual(["issuer::abc"]);
+        expect(request.command).toMatchObject({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            contractId: "contract-1",
+            choice: "Archive",
+            argument: {},
+        });
+
+        expect(fc.sample(createAmountArbitrary(), 1)[0]).toBeTypeOf("number");
+        expect(createRunAmount("run", 99)).toMatch(/^[0-9]{1,5}\.[0-9]{5}$/);
     });
 });
