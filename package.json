@@ -66,6 +66,7 @@
         "test": "vitest run --maxWorkers=1 --testTimeout=15000",
         "test:property": "vitest run tests/property --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run tests/live --maxWorkers=1 --testTimeout=15000",
+        "test:live:fuzz": "vitest run tests/live/specs/live-stateful-fuzzing.test.ts --maxWorkers=1 --testTimeout=300000",
         "test:unit": "vitest run tests/unit",
         "verify:pack": "node ./scripts/verify-npm-pack.mjs"
     },

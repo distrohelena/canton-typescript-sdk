@@ -2,12 +2,14 @@ import type { Parameters } from "fast-check";
 
 const DEFAULT_NUM_RUNS = 100;
 
-export function propertyParameters(): Parameters {
+export function propertyParameters(init: {
+    defaultNumRuns?: number;
+} = {}): Parameters {
     return {
         numRuns: parsePositiveInteger(
             "FUZZ_NUM_RUNS",
             process.env.FUZZ_NUM_RUNS,
-            DEFAULT_NUM_RUNS,
+            init.defaultNumRuns ?? DEFAULT_NUM_RUNS,
         ),
         ...(process.env.FUZZ_SEED === undefined
             ? {}

@@ -29,6 +29,14 @@ describe("property test options", () => {
         expect(propertyParameters()).toEqual({ numRuns: 100 });
     });
 
+    it("allows callers to choose a different default run count", () => {
+        delete process.env.FUZZ_NUM_RUNS;
+
+        expect(propertyParameters({ defaultNumRuns: 20 })).toEqual({
+            numRuns: 20,
+        });
+    });
+
     it("parses reproducibility options", () => {
         process.env.FUZZ_NUM_RUNS = "25";
         process.env.FUZZ_SEED = "12345";
