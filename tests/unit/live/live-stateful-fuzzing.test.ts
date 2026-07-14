@@ -15,6 +15,12 @@ import {
     liveFuzzCommandSequenceArbitrary,
     markLiveFuzzContractCreated,
 } from "../../live/fuzz/live-fuzz-commands.js";
+import {
+    compareLedgerOffsets,
+    formatPollingTimeout,
+    matchesLiveFuzzContract,
+    summarizeLiveFuzzContract,
+} from "../../live/fuzz/live-fuzz-runner.js";
 
 const environmentKeys = [
     "SDK_TEST_ENABLE_LIVE_FUZZING",
@@ -235,5 +241,74 @@ describe("live fuzz configuration", () => {
                 participant: "owner",
             }).active,
         ).toBe(false);
+    });
+
+    it("compares ledger offsets numerically and summarizes Iou contracts", () => {
+        expect(compareLedgerOffsets("9", "10")).toBeLessThan(0);
+
+        const summary = summarizeLiveFuzzContract({
+            createdEvent: {
+                contractId: "contract-1",
+                templateId: {
+                    moduleName: "Main",
+                    entityName: "Iou",
+                },
+                createArguments: {
+                    fields: [
+                        {
+                            label: "issuer",
+                            value: {
+                                sum: { oneofKind: "party", party: "issuer::abc" },
+                            },
+                        },
+                        {
+                            label: "owner",
+                            value: {
+                                sum: { oneofKind: "party", party: "owner::def" },
+                            },
+                        },
+                        {
+                            label: "amount",
+                            value: {
+                                sum: { oneofKind: "numeric", numeric: "1.23000" },
+                            },
+                        },
+                    ],
+                },
+            },
+        });
+
+        expect(summary).toMatchObject({
+            contractId: "contract-1",
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: {
+                issuer: "issuer::abc",
+                owner: "owner::def",
+                amount: "1.23000",
+            },
+        });
+        expect(
+            matchesLiveFuzzContract(summary, {
+                templateId: LIVE_IOU_TEMPLATE_ID,
+                payload: {
+                    issuer: "issuer::abc",
+                    owner: "owner::def",
+                    amount: 1.23,
+                },
+            }),
+        ).toBe(true);
+    });
+
+    it("formats bounded polling diagnostics", () => {
+        expect(
+            formatPollingTimeout({
+                participant: "owner",
+                expectedState: "active Main:Iou",
+                runId: "replay-run",
+                contractId: "contract-1",
+                lastLedgerEnd: "10",
+                lastContracts: ["contract-2"],
+            }),
+        ).toContain("owner");
     });
 });
