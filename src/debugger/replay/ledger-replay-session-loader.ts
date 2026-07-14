@@ -30,6 +30,7 @@ import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
 import {
     SourceMappingPrecision,
 } from "../source/source-mapping-precision.js";
+import { attachReplayRecordId } from "./replay-ledger-value-normalizer.js";
 
 interface IReplayUpdateLoader {
     loadOrThrowAsync(offset: string): Promise<IReplayTransactionSnapshot>;
@@ -113,6 +114,22 @@ export class LedgerReplaySessionLoader {
                 definition.definition,
                 {
                     ...environment,
+                    observedCreateContractIds: snapshot.events.flatMap((event) =>
+                        event.event?.oneofKind === "created"
+                        && event.event.created?.contractId !== undefined
+                            ? [event.event.created.contractId]
+                            : [],
+                    ),
+                    entrypoint: {
+                        ...environment.entrypoint,
+                        argument:
+                            definition.entrypointArgumentRecordId === undefined
+                                ? environment.entrypoint.argument
+                                : attachReplayRecordId(
+                                    environment.entrypoint.argument,
+                                    definition.entrypointArgumentRecordId,
+                                ),
+                    },
                     definitionResolver: this.dependencies.definitionResolver,
                     entrypointExpression: definition.replayExpression,
                     entrypointBindingMode: definition.replayBindingMode,
@@ -607,6 +624,24 @@ export class LedgerReplaySessionLoader {
             && typeof value.value === "string"
         ) {
             return contractTypeById.get(value.value);
+        }
+
+        if (
+            value.kind === "contractId[]"
+            && "value" in value
+            && Array.isArray(value.value)
+        ) {
+            for (const contractId of value.value) {
+                if (typeof contractId !== "string") {
+                    continue;
+                }
+
+                const contractType = contractTypeById.get(contractId);
+
+                if (contractType !== undefined) {
+                    return contractType;
+                }
+            }
         }
 
         return undefined;

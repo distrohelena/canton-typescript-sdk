@@ -1,5 +1,6 @@
 import { IDamlLfReplayEffect } from "../../daml-lf/interpreter/daml-lf-trace-sink.interface.js";
 import {
+    DAML_LF_NUMERIC_MARKER_KEY,
     DAML_LF_PARTY_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
 } from "../../daml-lf/interpreter/daml-lf-runtime-value.js";
@@ -240,6 +241,17 @@ export class ReplayDeterminismValidator {
 
         if (Array.isArray(value)) {
             return value.map((item) => this.normalizeComparableValue(item));
+        }
+
+        if (
+            value !== null
+            && typeof value === "object"
+            && DAML_LF_NUMERIC_MARKER_KEY in value
+            && typeof value[DAML_LF_NUMERIC_MARKER_KEY] === "string"
+        ) {
+            return this.normalizeComparableValue(
+                value[DAML_LF_NUMERIC_MARKER_KEY],
+            );
         }
 
         if (

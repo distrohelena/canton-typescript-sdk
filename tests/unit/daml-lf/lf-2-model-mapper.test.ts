@@ -352,6 +352,17 @@ describe("LF 2.x model mapper", () => {
         );
     });
 
+    it("maps LF numeric literals without erasing them to text literals", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createNumericLiteralArchiveBytes(),
+        );
+
+        expect(packageModel.modules[0].definitions[0]?.expression.numericLiteral).toBe(
+            "1.0000000000",
+        );
+        expect(packageModel.modules[0].definitions[0]?.expression.textLiteral).toBeUndefined();
+    });
+
     it("maps update create, fetch, and exercise expressions", () => {
         const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
             createUpdateArchiveBytes(),
@@ -609,6 +620,89 @@ function createRecordProjectionArchiveBytes(): Uint8Array {
             },
             {
                 segmentsInternedStr: [4],
+            },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
+
+function createNumericLiteralArchiveBytes(): Uint8Array {
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [],
+                values: [
+                    {
+                        nameWithType: {
+                            nameInternedDname: 1,
+                            type: {
+                                sum: {
+                                    oneofKind: "builtin",
+                                    builtin: {
+                                        builtin: BuiltinType.TEXT,
+                                        args: [],
+                                    },
+                                },
+                            },
+                        },
+                        expr: {
+                            sum: {
+                                oneofKind: "builtinLit",
+                                builtinLit: {
+                                    sum: {
+                                        oneofKind: "numericInternedStr",
+                                        numericInternedStr: 4,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "1.0000000000",
+            "one",
+        ],
+        internedDottedNames: [
+            {
+                segmentsInternedStr: [2, 3],
+            },
+            {
+                segmentsInternedStr: [5],
             },
         ],
         metadata: {

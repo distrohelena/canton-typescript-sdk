@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
 import {
+    DAML_LF_NUMERIC_MARKER_KEY,
     DAML_LF_PARTY_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
 } from "../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
 import { DamlLfDataType } from "../../../src/daml-lf/model/daml-lf-data-type.js";
+import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfEvaluator } from "../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
 import { DamlLfStepKind } from "../../../src/daml-lf/interpreter/daml-lf-step-kind.js";
 import { DamlLfExpression } from "../../../src/daml-lf/model/daml-lf-expression.js";
@@ -63,6 +65,46 @@ describe("DamlLfEvaluator", () => {
             DamlLfStepKind.enterExpression,
             DamlLfStepKind.exitExpression,
         ]);
+    });
+
+    it("evaluates numeric literals as numeric runtime values", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "value",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                numericLiteral: "1.0000000000",
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "numeric",
+            value: "1.0000000000",
+        });
     });
 
     it("resolves referenced value definitions and emits call/return trace steps", () => {
@@ -677,6 +719,144 @@ describe("DamlLfEvaluator", () => {
 
         expect(result.value).toEqual({
             kind: "party",
+            value: "Alice::1220abc",
+        });
+    });
+
+    it("hydrates replay numeric markers as numeric runtime values", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "identity",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["amount"],
+                    body: new DamlLfExpression({
+                        variableName: "amount",
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(definition, {
+            offset: "42",
+            entrypoint: {
+                kind: "create",
+                argument: {
+                    [DAML_LF_NUMERIC_MARKER_KEY]: "1.0000000000",
+                },
+            },
+        });
+
+        expect(result.value).toEqual({
+            kind: "numeric",
+            value: "1.0000000000",
+        });
+    });
+
+    it("coerces semantic party fields before applying PARTY_TO_TEXT", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "projectAdminText",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["identity"],
+                    body: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                builtinFunction: "PARTY_TO_TEXT",
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    recordProjection: {
+                                        fieldName: "admin",
+                                        record: new DamlLfExpression({
+                                            variableName: "identity",
+                                        }),
+                                    },
+                                }),
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [
+                                    new DamlLfDataType({
+                                        name: "VaultIdentity",
+                                        fields: [
+                                            new DamlLfField({
+                                                name: "admin",
+                                                type: new DamlLfType({
+                                                    builtinType: DamlLfBuiltinType.party,
+                                                }),
+                                            }),
+                                        ],
+                                    }),
+                                    definition,
+                                ],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(definition, {
+            offset: "42",
+            entrypoint: {
+                kind: "create",
+                argument: {
+                    0: "Alice::1220abc",
+                    [DAML_LF_RECORD_ID_MARKER_KEY]: {
+                        packageId: "sample-hash",
+                        moduleName: "Sample.Module",
+                        entityName: "VaultIdentity",
+                    },
+                },
+            },
+        });
+
+        expect(result.value).toEqual({
+            kind: "text",
             value: "Alice::1220abc",
         });
     });
@@ -1305,13 +1485,165 @@ describe("DamlLfEvaluator", () => {
             name: "partyToText",
             type: new DamlLfType({}),
             expression: new DamlLfExpression({
+                lambda: {
+                    parameters: ["party"],
+                    body: new DamlLfExpression({
+                        application: {
+                            function: new DamlLfExpression({
+                                builtinFunction: "PARTY_TO_TEXT",
+                            }),
+                            arguments: [
+                                new DamlLfExpression({
+                                    variableName: "party",
+                                }),
+                            ],
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateReplayEntrypointOrThrow(definition, {
+            offset: "42",
+            entrypoint: {
+                kind: "create",
+                argument: {
+                    [DAML_LF_PARTY_MARKER_KEY]: "Alice::1220",
+                },
+            },
+        }).value;
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "Alice::1220",
+        });
+    });
+
+    it("evaluates throw expressions through update try/catch", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "recoverThrownText",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                updateExpression: {
+                    kind: "tryCatch",
+                    expression: new DamlLfExpression({
+                        throwExpression: {
+                            exception: new DamlLfExpression({
+                                textLiteral: "boom",
+                            }),
+                        },
+                    }),
+                    catchVariableName: "err",
+                    catchExpression: new DamlLfExpression({
+                        variableName: "err",
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "sample-hash",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const value = evaluator.evaluateValueDefinitionOrThrow(definition);
+
+        expect(value).toEqual({
+            kind: "text",
+            value: "boom",
+        });
+    });
+
+    it("evaluates FOLDL builtin through application", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "foldText",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
                 application: {
                     function: new DamlLfExpression({
-                        builtinFunction: "PARTY_TO_TEXT",
+                        builtinFunction: "FOLDL",
                     }),
                     arguments: [
                         new DamlLfExpression({
-                            textLiteral: "Alice::1220",
+                            lambda: {
+                                parameters: ["acc"],
+                                body: new DamlLfExpression({
+                                    lambda: {
+                                        parameters: ["item"],
+                                        body: new DamlLfExpression({
+                                            application: {
+                                                function: new DamlLfExpression({
+                                                    builtinFunction: "appendText",
+                                                }),
+                                                arguments: [
+                                                    new DamlLfExpression({
+                                                        variableName: "acc",
+                                                    }),
+                                                    new DamlLfExpression({
+                                                        variableName: "item",
+                                                    }),
+                                                ],
+                                            },
+                                        }),
+                                    },
+                                }),
+                            },
+                        }),
+                        new DamlLfExpression({
+                            textLiteral: "",
+                        }),
+                        new DamlLfExpression({
+                            listConstruction: {
+                                front: [
+                                    new DamlLfExpression({
+                                        textLiteral: "A",
+                                    }),
+                                    new DamlLfExpression({
+                                        textLiteral: "B",
+                                    }),
+                                ],
+                            },
                         }),
                     ],
                 },
@@ -1345,26 +1677,26 @@ describe("DamlLfEvaluator", () => {
 
         expect(value).toEqual({
             kind: "text",
-            value: "Alice::1220",
+            value: "AB",
         });
     });
 
-    it("evaluates FOLDL builtin through application", () => {
+    it("evaluates FOLDR builtin through application", () => {
         const definition = new DamlLfValueDefinition({
-            name: "foldText",
+            name: "foldTextRight",
             type: new DamlLfType({}),
             expression: new DamlLfExpression({
                 application: {
                     function: new DamlLfExpression({
-                        builtinFunction: "FOLDL",
+                        builtinFunction: "FOLDR",
                     }),
                     arguments: [
                         new DamlLfExpression({
                             lambda: {
-                                parameters: ["acc"],
+                                parameters: ["item"],
                                 body: new DamlLfExpression({
                                     lambda: {
-                                        parameters: ["item"],
+                                        parameters: ["acc"],
                                         body: new DamlLfExpression({
                                             application: {
                                                 function: new DamlLfExpression({
@@ -1372,10 +1704,10 @@ describe("DamlLfEvaluator", () => {
                                                 }),
                                                 arguments: [
                                                     new DamlLfExpression({
-                                                        variableName: "acc",
+                                                        variableName: "item",
                                                     }),
                                                     new DamlLfExpression({
-                                                        variableName: "item",
+                                                        variableName: "acc",
                                                     }),
                                                 ],
                                             },

@@ -4,6 +4,7 @@ export interface IDamlLfRuntimeValue {
 }
 
 export const DAML_LF_CONTRACT_ID_MARKER_KEY = "__damlLfContractId";
+export const DAML_LF_NUMERIC_MARKER_KEY = "__damlLfNumeric";
 export const DAML_LF_PARTY_MARKER_KEY = "__damlLfParty";
 export const DAML_LF_RECORD_ID_MARKER_KEY = "__damlLfRecordId";
 
@@ -13,6 +14,10 @@ export interface IDamlLfContractIdMarkerValue {
 
 export interface IDamlLfPartyMarkerValue {
     readonly [DAML_LF_PARTY_MARKER_KEY]: string;
+}
+
+export interface IDamlLfNumericMarkerValue {
+    readonly [DAML_LF_NUMERIC_MARKER_KEY]: string;
 }
 
 export interface IDamlLfRecordIdMarkerValue {

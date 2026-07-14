@@ -1,5 +1,6 @@
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { DamlLfCompilation } from "../daml-lf-compilation.js";
+import { ReplaySourceMapException } from "../../debugger/errors/replay-source-map.exception.js";
 import { DamlLfBuiltinType } from "../model/daml-lf-builtin-type.js";
 import { DamlLfExpression } from "../model/daml-lf-expression.js";
 import { DamlLfTemplateId } from "../model/daml-lf-template-id.js";
@@ -23,6 +24,11 @@ import {
 
 interface ITextRuntimeValue extends IDamlLfRuntimeValue {
     readonly kind: "text";
+    readonly value: string;
+}
+
+interface INumericRuntimeValue extends IDamlLfRuntimeValue {
+    readonly kind: "numeric";
     readonly value: string;
 }
 
@@ -79,6 +85,12 @@ interface IBuiltinRuntimeValue extends IDamlLfRuntimeValue {
     readonly appliedArguments: readonly IDamlLfRuntimeValue[];
 }
 
+class DamlLfThrownException extends Error {
+    public constructor(public readonly value: IDamlLfRuntimeValue) {
+        super("daml lf threw an exception");
+    }
+}
+
 export interface IDamlLfReplayEnvironment {
     readonly offset: string;
     readonly entrypoint: {
@@ -92,7 +104,14 @@ export interface IDamlLfReplayEnvironment {
         readonly choice?: string;
         readonly argument?: unknown;
     };
-    readonly contracts?: ReadonlyMap<string, { readonly payload: unknown }>;
+    readonly contracts?: ReadonlyMap<string, {
+        readonly payload: unknown;
+        readonly templateId?: {
+            readonly packageId?: string;
+            readonly moduleName?: string;
+            readonly entityName?: string;
+        };
+    }>;
     readonly definitionResolver?: IReplayDefinitionResolver;
     readonly entrypointExpression?: DamlLfExpression;
     readonly entrypointBindingMode?:
@@ -100,6 +119,7 @@ export interface IDamlLfReplayEnvironment {
         | "createWrapper"
         | "exerciseWrapper"
         | "templateChoice";
+    readonly observedCreateContractIds?: readonly string[];
 }
 
 export interface IDamlLfReplayEvaluationResult {
@@ -110,8 +130,17 @@ export interface IDamlLfReplayEvaluationResult {
 interface IActiveReplayContext {
     readonly environment: IDamlLfReplayEnvironment;
     readonly effects: IDamlLfReplayEffect[];
-    readonly createdContracts: Map<string, unknown>;
+    readonly createdContracts: Map<string, {
+        readonly payload: unknown;
+        readonly templateId?: {
+            readonly packageId?: string;
+            readonly moduleName?: string;
+            readonly entityName?: string;
+        };
+    }>;
+    readonly observedCreateContractIds: readonly string[];
     nextSyntheticContractIdNumber: number;
+    nextObservedCreateIndex: number;
 }
 
 interface IReplayBindingValue {
@@ -186,7 +215,11 @@ export class DamlLfEvaluator {
             environment,
             effects: [],
             createdContracts: new Map(),
+            observedCreateContractIds: [
+                ...(environment.observedCreateContractIds ?? []),
+            ],
             nextSyntheticContractIdNumber: 1,
+            nextObservedCreateIndex: 0,
         };
 
         this.activeReplayContext = replayContext;
@@ -307,6 +340,13 @@ export class DamlLfEvaluator {
                 kind: "text",
                 value: expression.textLiteral,
             } satisfies ITextRuntimeValue;
+        }
+
+        if (expression.numericLiteral !== undefined) {
+            return {
+                kind: "numeric",
+                value: expression.numericLiteral,
+            } satisfies INumericRuntimeValue;
         }
 
         if (expression.int64Literal !== undefined) {
@@ -507,6 +547,16 @@ export class DamlLfEvaluator {
                     ),
                 ),
             });
+        }
+
+        if (expression.throwExpression !== undefined) {
+            throw new DamlLfThrownException(
+                this.evaluateExpressionOrThrow(
+                    expression.throwExpression.exception,
+                    frame,
+                    traceSink,
+                ),
+            );
         }
 
         if (expression.variantConstruction !== undefined) {
@@ -761,6 +811,37 @@ export class DamlLfEvaluator {
                     traceSink,
                 );
             }
+            case "tryCatch": {
+                try {
+                    return this.evaluateExpressionOrThrow(
+                        updateExpression.expression ?? new DamlLfExpression({}),
+                        frame,
+                        traceSink,
+                    );
+                } catch (error) {
+                    if (!(error instanceof DamlLfThrownException)) {
+                        throw error;
+                    }
+
+                    const scopedFrame = this.deriveFrame(
+                        frame,
+                        frame.scope.createChild(),
+                    );
+
+                    if (updateExpression.catchVariableName !== undefined) {
+                        scopedFrame.scope.setBinding(
+                            updateExpression.catchVariableName,
+                            error.value,
+                        );
+                    }
+
+                    return this.evaluateExpressionOrThrow(
+                        updateExpression.catchExpression ?? new DamlLfExpression({}),
+                        scopedFrame,
+                        traceSink,
+                    );
+                }
+            }
             case "create": {
                 const payload = this.normalizeSemanticRecordValue(
                     this.unwrapRuntimeValue(
@@ -780,14 +861,31 @@ export class DamlLfEvaluator {
                 );
                 const nextSyntheticContractIdNumber =
                     this.activeReplayContext?.nextSyntheticContractIdNumber ?? 1;
-                const contractId = `created-${nextSyntheticContractIdNumber}`;
+                const observedContractId =
+                    this.activeReplayContext?.observedCreateContractIds[
+                        this.activeReplayContext.nextObservedCreateIndex
+                    ];
+                const contractId =
+                    observedContractId
+                    ?? `created-${nextSyntheticContractIdNumber}`;
 
                 if (this.activeReplayContext !== undefined) {
                     this.activeReplayContext.nextSyntheticContractIdNumber =
                         nextSyntheticContractIdNumber + 1;
+                    this.activeReplayContext.nextObservedCreateIndex += 1;
                 }
 
-                this.activeReplayContext?.createdContracts.set(contractId, payload);
+                this.activeReplayContext?.createdContracts.set(contractId, {
+                    payload,
+                    templateId:
+                        updateExpression.templateId === undefined
+                            ? undefined
+                            : {
+                                packageId: updateExpression.templateId.packageId,
+                                moduleName: updateExpression.templateId.moduleName,
+                                entityName: updateExpression.templateId.templateName,
+                            },
+                });
                 this.emitReplayEffect(
                     {
                         kind: "create",
@@ -821,7 +919,7 @@ export class DamlLfEvaluator {
                     ),
                 );
                 const payload =
-                    this.activeReplayContext?.createdContracts.get(contractId)
+                    this.activeReplayContext?.createdContracts.get(contractId)?.payload
                     ?? this.activeReplayContext?.environment.contracts?.get(contractId)
                         ?.payload;
 
@@ -837,6 +935,44 @@ export class DamlLfEvaluator {
                                     moduleName: updateExpression.templateId.moduleName,
                                     entityName: updateExpression.templateId.templateName,
                                 },
+                    },
+                    expression,
+                    frame,
+                    traceSink,
+                );
+
+                return this.hydrateRuntimeValue(payload);
+            }
+            case "fetchInterface": {
+                const contractId = this.readContractId(
+                    this.evaluateExpressionOrThrow(
+                        updateExpression.contractId ?? new DamlLfExpression({}),
+                        frame,
+                        traceSink,
+                    ),
+                );
+                const createdContract =
+                    this.activeReplayContext?.createdContracts.get(contractId);
+                const hydratedContract =
+                    this.activeReplayContext?.environment.contracts?.get(contractId);
+                const payload =
+                    createdContract?.payload
+                    ?? hydratedContract?.payload;
+                const resolvedTemplateId =
+                    createdContract?.templateId
+                    ?? hydratedContract?.templateId;
+
+                if (payload === undefined) {
+                    throw new ValidationError(
+                        `daml lf fetch-interface update could not hydrate contract '${contractId}'`,
+                    );
+                }
+
+                this.emitReplayEffect(
+                    {
+                        kind: "fetch",
+                        contractId,
+                        templateId: resolvedTemplateId,
                     },
                     expression,
                     frame,
@@ -870,7 +1006,7 @@ export class DamlLfEvaluator {
                     ),
                 );
                 const payload =
-                    this.activeReplayContext?.createdContracts.get(contractId)
+                    this.activeReplayContext?.createdContracts.get(contractId)?.payload
                     ?? this.activeReplayContext?.environment.contracts?.get(contractId)
                         ?.payload;
 
@@ -927,6 +1063,121 @@ export class DamlLfEvaluator {
                     resolvedDefinition.replayBindingMode,
                 );
             }
+            case "exerciseInterface": {
+                if (updateExpression.choiceName === undefined) {
+                    throw new ValidationError(
+                        "daml lf exercise-interface update is missing its choice",
+                    );
+                }
+
+                const contractId = this.readContractId(
+                    this.evaluateExpressionOrThrow(
+                        updateExpression.contractId ?? new DamlLfExpression({}),
+                        frame,
+                        traceSink,
+                    ),
+                );
+                const argument = this.unwrapRuntimeValue(
+                    this.evaluateExpressionOrThrow(
+                        updateExpression.argument ?? new DamlLfExpression({}),
+                        frame,
+                        traceSink,
+                    ),
+                );
+                const createdContract =
+                    this.activeReplayContext?.createdContracts.get(contractId);
+                const hydratedContract =
+                    this.activeReplayContext?.environment.contracts?.get(contractId);
+                const payload =
+                    createdContract?.payload
+                    ?? hydratedContract?.payload;
+                const resolvedTemplateId =
+                    createdContract?.templateId
+                    ?? hydratedContract?.templateId;
+
+                if (payload === undefined || resolvedTemplateId === undefined) {
+                    throw new ValidationError(
+                        `daml lf exercise-interface update could not hydrate contract '${contractId}'`,
+                    );
+                }
+
+                this.emitReplayEffect(
+                    {
+                        kind: "exercise",
+                        contractId,
+                        templateId: resolvedTemplateId,
+                        choice: updateExpression.choiceName,
+                        argument,
+                    },
+                    expression,
+                    frame,
+                    traceSink,
+                );
+
+                let resolvedDefinition;
+
+                try {
+                    resolvedDefinition = this.activeReplayContext
+                        ?.environment.definitionResolver
+                        ?.resolveChoiceDefinitionOrThrow?.(
+                            new DamlLfTemplateId({
+                                packageId: resolvedTemplateId.packageId ?? "",
+                                moduleName: resolvedTemplateId.moduleName ?? "",
+                                templateName: resolvedTemplateId.entityName ?? "",
+                            }),
+                            updateExpression.choiceName,
+                        );
+                } catch (error) {
+                    if (
+                        error instanceof ReplaySourceMapException
+                        && error.message.includes("missing executable metadata for choice")
+                    ) {
+                        return this.hydrateRuntimeValue({});
+                    }
+
+                    throw error;
+                }
+
+                if (resolvedDefinition === undefined) {
+                    return this.hydrateRuntimeValue({});
+                }
+
+                return this.evaluateReplayLambdaOrExpressionOrThrow(
+                    resolvedDefinition.replayExpression,
+                    this.createFrame(
+                        resolvedDefinition.definition,
+                        resolvedDefinition.frameIdentity,
+                    ),
+                    [
+                        {
+                            value: payload,
+                            contractId,
+                        },
+                        {
+                            value: argument,
+                        },
+                    ],
+                    traceSink,
+                    resolvedDefinition.replayBindingMode,
+                );
+            }
+            case "getTime":
+                return {
+                    kind: "text",
+                    value: this.activeReplayContext?.environment.offset ?? "",
+                } satisfies ITextRuntimeValue;
+            case "ledgerTimeLt":
+                if (updateExpression.expression !== undefined) {
+                    void this.evaluateExpressionOrThrow(
+                        updateExpression.expression,
+                        frame,
+                        traceSink,
+                    );
+                }
+
+                return {
+                    kind: "unit",
+                } satisfies IUnitRuntimeValue;
             default:
                 throw new ValidationError(
                     `daml lf update expression '${updateExpression.kind}' is not supported yet`,
@@ -1136,6 +1387,18 @@ export class DamlLfEvaluator {
                 kind: "int64",
                 value: value.__damlLfInt64,
             } satisfies IInt64RuntimeValue;
+        }
+
+        if (
+            value !== null
+            && typeof value === "object"
+            && "__damlLfNumeric" in value
+            && typeof value.__damlLfNumeric === "string"
+        ) {
+            return {
+                kind: "numeric",
+                value: value.__damlLfNumeric,
+            } satisfies INumericRuntimeValue;
         }
 
         if (typeof value === "string") {
@@ -1382,6 +1645,12 @@ export class DamlLfEvaluator {
             return typeof value === "string" ? { __damlLfInt64: value } : value;
         }
 
+        if (type?.builtinType === DamlLfBuiltinType.party) {
+            return typeof value === "string"
+                ? { [DAML_LF_PARTY_MARKER_KEY]: value }
+                : value;
+        }
+
         return value;
     }
 
@@ -1515,6 +1784,34 @@ export class DamlLfEvaluator {
                     [DAML_LF_CONTRACT_ID_MARKER_KEY]: contractId,
                 }),
             );
+        }
+
+        if (value.kind === "contractId") {
+            return {
+                [DAML_LF_CONTRACT_ID_MARKER_KEY]: (value as IContractIdRuntimeValue).value,
+            };
+        }
+
+        if (value.kind === "party") {
+            return {
+                [DAML_LF_PARTY_MARKER_KEY]: (value as IPartyRuntimeValue).value,
+            };
+        }
+
+        if (
+            value.kind === "builtin"
+            && "builtinFunction" in value
+            && value.builtinFunction === "TEXTMAP_EMPTY"
+        ) {
+            return {};
+        }
+
+        if (
+            value.kind === "builtin"
+            && "builtinFunction" in value
+            && value.builtinFunction === "GENMAP_EMPTY"
+        ) {
+            return [];
         }
 
         if ("value" in value) {
@@ -1674,6 +1971,14 @@ export class DamlLfEvaluator {
                     );
                 }
 
+                if (builtinValue.builtinFunction === "FOLDR") {
+                    return this.applyFoldrBuiltinOrThrow(
+                        builtinValue,
+                        argumentValues,
+                        traceSink,
+                    );
+                }
+
                 return this.builtinDispatch.applyOrThrow(
                     builtinValue,
                     argumentValues,
@@ -1754,6 +2059,50 @@ export class DamlLfEvaluator {
                     traceSink,
                 ),
                 [item],
+                traceSink,
+            );
+        }
+
+        return remainingArguments.length === 0
+            ? accumulator
+            : this.applyFunctionOrThrow(
+                accumulator,
+                remainingArguments,
+                traceSink,
+            );
+    }
+
+    private applyFoldrBuiltinOrThrow(
+        builtinValue: IBuiltinRuntimeValue,
+        argumentValues: readonly IDamlLfRuntimeValue[],
+        traceSink?: IDamlLfTraceSink,
+    ): IDamlLfRuntimeValue {
+        const appliedArguments = [
+            ...builtinValue.appliedArguments,
+            ...argumentValues,
+        ];
+
+        if (appliedArguments.length < 3) {
+            return {
+                kind: "builtin",
+                builtinFunction: builtinValue.builtinFunction,
+                appliedArguments,
+            } satisfies IBuiltinRuntimeValue;
+        }
+
+        const foldFunction = appliedArguments[0]!;
+        let accumulator = appliedArguments[1]!;
+        const listItems = this.readRuntimeListOrThrow(appliedArguments[2]!);
+        const remainingArguments = appliedArguments.slice(3);
+
+        for (const item of [...listItems].reverse()) {
+            accumulator = this.applyFunctionOrThrow(
+                this.applyFunctionOrThrow(
+                    foldFunction,
+                    [item],
+                    traceSink,
+                ),
+                [accumulator],
                 traceSink,
             );
         }

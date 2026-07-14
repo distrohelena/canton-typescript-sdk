@@ -1,5 +1,6 @@
 import {
     DAML_LF_CONTRACT_ID_MARKER_KEY,
+    DAML_LF_NUMERIC_MARKER_KEY,
     DAML_LF_PARTY_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
 } from "../../daml-lf/interpreter/daml-lf-runtime-value.js";
@@ -99,9 +100,12 @@ function normalizeOneofValue(
         case "int64":
         case "date":
         case "timestamp":
-        case "numeric":
         case "text":
             return value[value.oneofKind];
+        case "numeric":
+            return {
+                [DAML_LF_NUMERIC_MARKER_KEY]: value.numeric,
+            };
         case "party":
             return {
                 [DAML_LF_PARTY_MARKER_KEY]: value.party,

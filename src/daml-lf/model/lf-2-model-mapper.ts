@@ -106,6 +106,8 @@ export class Lf2ModelMapper {
                 builtinType:
                     rawType.sum.builtin.builtin === BuiltinType.INT64
                         ? DamlLfBuiltinType.int64
+                        : rawType.sum.builtin.builtin === BuiltinType.PARTY
+                        ? DamlLfBuiltinType.party
                         : rawType.sum.builtin.builtin === BuiltinType.TEXT
                         ? DamlLfBuiltinType.text
                         : DamlLfBuiltinType.unknown,
@@ -458,7 +460,7 @@ export class Lf2ModelMapper {
 
             if (rawLiteral.sum.oneofKind === "numericInternedStr") {
                 return new DamlLfExpression({
-                    textLiteral: Lf2ModelMapper.resolveInternedString(
+                    numericLiteral: Lf2ModelMapper.resolveInternedString(
                         internedStrings,
                         rawLiteral.sum.numericInternedStr,
                     ),
@@ -809,6 +811,20 @@ export class Lf2ModelMapper {
             });
         }
 
+        if (rawExpression?.sum.oneofKind === "throw") {
+            return new DamlLfExpression({
+                throwExpression: {
+                    exception: Lf2ModelMapper.mapExpression(
+                        rawExpression.sum.throw.exceptionExpr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                },
+            });
+        }
+
         if (rawExpression?.sum.oneofKind === "case") {
             return new DamlLfExpression({
                 caseExpression: {
@@ -1030,6 +1046,28 @@ export class Lf2ModelMapper {
                         rawPackage,
                     ),
                 };
+            case "tryCatch":
+                return {
+                    kind: "tryCatch",
+                    expression: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.tryCatch.tryExpr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    catchVariableName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawUpdate.sum.tryCatch.varInternedStr,
+                    ),
+                    catchExpression: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.tryCatch.catchExpr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
             case "create":
                 return {
                     kind: "create",
@@ -1046,6 +1084,22 @@ export class Lf2ModelMapper {
                         rawPackage,
                     ),
                 };
+            case "createInterface":
+                return {
+                    kind: "createInterface",
+                    interfaceId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.createInterface.interface,
+                    ),
+                    argument: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.createInterface.expr,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
             case "fetch":
                 return {
                     kind: "fetch",
@@ -1056,6 +1110,22 @@ export class Lf2ModelMapper {
                     ),
                     contractId: Lf2ModelMapper.mapExpression(
                         rawUpdate.sum.fetch.cid,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
+            case "fetchInterface":
+                return {
+                    kind: "fetchInterface",
+                    interfaceId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.fetchInterface.interface,
+                    ),
+                    contractId: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.fetchInterface.cid,
                         internedStrings,
                         internedDottedNames,
                         currentPackageId,
@@ -1089,10 +1159,64 @@ export class Lf2ModelMapper {
                         rawPackage,
                     ),
                 };
+            case "exerciseInterface":
+                return {
+                    kind: "exerciseInterface",
+                    interfaceId: Lf2ModelMapper.mapTemplateReferenceOrThrow(
+                        currentPackageId,
+                        rawPackage,
+                        rawUpdate.sum.exerciseInterface.interface,
+                    ),
+                    choiceName: Lf2ModelMapper.resolveInternedString(
+                        internedStrings,
+                        rawUpdate.sum.exerciseInterface.choiceInternedStr,
+                    ),
+                    contractId: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.exerciseInterface.cid,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    argument: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.exerciseInterface.arg,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                    guardExpression:
+                        rawUpdate.sum.exerciseInterface.guard === undefined
+                            ? undefined
+                            : Lf2ModelMapper.mapExpression(
+                                rawUpdate.sum.exerciseInterface.guard,
+                                internedStrings,
+                                internedDottedNames,
+                                currentPackageId,
+                                rawPackage,
+                            ),
+                };
+            case "getTime":
+                return {
+                    kind: "getTime",
+                };
+            case "ledgerTimeLt":
+                return {
+                    kind: "ledgerTimeLt",
+                    expression: Lf2ModelMapper.mapExpression(
+                        rawUpdate.sum.ledgerTimeLt,
+                        internedStrings,
+                        internedDottedNames,
+                        currentPackageId,
+                        rawPackage,
+                    ),
+                };
             default:
                 return {
                     kind: "embedExpr",
-                    expression: new DamlLfExpression({}),
+                    expression: new DamlLfExpression({
+                        unsupportedNodeKind: `update.${rawUpdate.sum.oneofKind ?? "unknown"}`,
+                    }),
                 };
         }
     }

@@ -11,6 +11,7 @@ import {
     DarSourceBundleLoader,
 } from "../../../../src/daml-lf/index.js";
 import { DamlLfEvaluator } from "../../../../src/daml-lf/interpreter/daml-lf-evaluator.js";
+import { DAML_LF_RECORD_ID_MARKER_KEY } from "../../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
 import { DamlLfRuntimeFrame } from "../../../../src/daml-lf/interpreter/daml-lf-runtime-frame.js";
 import { DamlLfStepKind } from "../../../../src/daml-lf/interpreter/daml-lf-step-kind.js";
 import { IDamlLfTraceSink } from "../../../../src/daml-lf/interpreter/daml-lf-trace-sink.interface.js";
@@ -27,6 +28,104 @@ import { ReplaySessionRequest } from "../../../../src/debugger/session/replay-se
 import { createSourceMappedDarFixture } from "../../../fixtures/daml-lf/source-mapped-dar-fixture.js";
 
 describe("LedgerReplaySessionLoader", () => {
+    it("attaches entrypoint argument record ids before evaluation", async () => {
+        const definition = new DamlLfValueDefinition({
+            name: "exerciseHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "ignored",
+            }),
+        });
+        const entrypoint = new ReplayEntrypoint({
+            kind: "exercise",
+            templateId: {
+                packageId: "pkg-sample",
+                moduleName: "Main",
+                entityName: "Vault",
+            },
+            contractId: "00vault",
+            choice: "Run",
+            argument: {
+                caller: "Alice::1220",
+            },
+        });
+        const environment: ILedgerReplayEnvironment = {
+            kind: "transaction",
+            offset: "42",
+            actAs: ["Alice"],
+            readAs: [],
+            entrypoint,
+            contracts: new Map(),
+            packageIds: ["pkg-sample"],
+        };
+        let capturedEnvironment: ILedgerReplayEnvironment | undefined;
+
+        await new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        events: [],
+                        entrypoint,
+                    };
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(): Promise<ILedgerReplayEnvironment> {
+                    return environment;
+                },
+            },
+            definitionResolver: {
+                resolveEntrypointDefinitionOrThrow() {
+                    return {
+                        packageId: "pkg-sample",
+                        moduleName: "Main",
+                        definition,
+                        replayExpression: definition.expression,
+                        replayBindingMode: "standard" as const,
+                        entrypointArgumentRecordId: {
+                            packageId: "pkg-sample",
+                            moduleName: "Main",
+                            entityName: "RunArgs",
+                        },
+                    };
+                },
+            },
+            evaluator: {
+                evaluateReplayEntrypointOrThrow(
+                    _definition: DamlLfValueDefinition,
+                    replayEnvironment: ILedgerReplayEnvironment,
+                ) {
+                    capturedEnvironment = replayEnvironment;
+                    return {
+                        value: {
+                            kind: "text",
+                            value: "ok",
+                        },
+                        effects: [],
+                    };
+                },
+            },
+            determinismValidator: {
+                validateOrThrow() {
+                    return;
+                },
+            },
+        }).loadOrThrowAsync(new ReplaySessionRequest({ offset: "42" }));
+
+        expect(capturedEnvironment?.entrypoint.argument).toEqual({
+            caller: "Alice::1220",
+            [DAML_LF_RECORD_ID_MARKER_KEY]: {
+                packageId: "pkg-sample",
+                moduleName: "Main",
+                entityName: "RunArgs",
+            },
+        });
+    });
+
     it("attaches source locations from the resolved dar executable mapping", async () => {
         const compilation = DamlLfCompilation.createOrThrow(
             new DamlLfWorkspace([
@@ -1972,6 +2071,248 @@ describe("LedgerReplaySessionLoader", () => {
                         kind: "contractId",
                         value: "00abc",
                         contractType: "Oz.Vault.Base.Core:BaseVault",
+                    }),
+                ],
+            }),
+        );
+    });
+
+    it("preserves numeric scope variable kinds for debugger rendering", async () => {
+        const definition = new DamlLfValueDefinition({
+            name: "numericHandler",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "ignored",
+            }),
+        });
+        const loader = new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync(): Promise<IReplayTransactionSnapshot> {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        events: [],
+                        entrypoint: new ReplayEntrypoint({
+                            kind: "exercise",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            contractId: "00abc",
+                            choice: "Archive",
+                            argument: {},
+                        }),
+                    };
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(snapshot): Promise<ILedgerReplayEnvironment> {
+                    return {
+                        kind: "transaction",
+                        offset: snapshot.offset,
+                        actAs: ["Alice"],
+                        readAs: [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map(),
+                        packageIds: ["pkg-main"],
+                    };
+                },
+            },
+            definitionResolver: {
+                resolveEntrypointDefinitionOrThrow() {
+                    return {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        definition,
+                        replayExpression: definition.expression,
+                        replayBindingMode: "standard",
+                    };
+                },
+            },
+            evaluator: {
+                evaluateReplayEntrypointOrThrow(
+                    _definition,
+                    _environment,
+                    traceSink,
+                ) {
+                    traceSink?.onStep({
+                        kind: DamlLfStepKind.enterExpression,
+                        expression: new DamlLfExpression({
+                            textLiteral: "ignored",
+                        }),
+                        frame: new DamlLfRuntimeFrame({
+                            frameId: "frame-1",
+                            packageId: "pkg-main",
+                            moduleName: "Main",
+                            definition,
+                        }),
+                        locals: [
+                            {
+                                name: "ds13",
+                                value: {
+                                    kind: "numeric",
+                                    value: "0.0014075538",
+                                },
+                            },
+                        ],
+                    });
+
+                    return {
+                        value: {
+                            kind: "text",
+                            value: "done",
+                        },
+                        effects: [],
+                    };
+                },
+            },
+            determinismValidator: {
+                validateOrThrow(): void {},
+            },
+            sessionIdFactory: () => "numeric-kind-session",
+        });
+
+        const session = await loader.loadOrThrowAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+
+        expect(session.scopesByStep[0]?.[0]).toEqual(
+            expect.objectContaining({
+                variables: [
+                    expect.objectContaining({
+                        name: "ds13",
+                        kind: "numeric",
+                        value: "0.0014075538",
+                    }),
+                ],
+            }),
+        );
+    });
+
+    it("captures contract type metadata for scoped contract id arrays", async () => {
+        const definition = new DamlLfValueDefinition({
+            packageId: "pkg-main",
+            moduleName: "Main",
+            name: "Archive",
+        });
+        const loader = new LedgerReplaySessionLoader({
+            updateLoader: {
+                async loadOrThrowAsync() {
+                    return {
+                        kind: "transaction",
+                        offset: "42",
+                        actAs: ["Alice"],
+                        readAs: [],
+                        events: [],
+                        entrypoint: new ReplayEntrypoint({
+                            kind: "exercise",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            contractId: "00abc",
+                            choice: "Archive",
+                            argument: {},
+                        }),
+                    };
+                },
+            },
+            environmentBuilder: {
+                async buildOrThrowAsync(snapshot): Promise<ILedgerReplayEnvironment> {
+                    return {
+                        kind: "transaction",
+                        offset: snapshot.offset,
+                        actAs: ["Alice"],
+                        readAs: [],
+                        entrypoint: snapshot.entrypoint,
+                        contracts: new Map([
+                            [
+                                "00holding",
+                                {
+                                    contractId: "00holding",
+                                    templateId: {
+                                        packageId: "pkg-main",
+                                        moduleName: "Oz.Vault.Base.Core",
+                                        entityName: "TestUnderlyingHolding",
+                                    },
+                                    payload: {},
+                                    history: {},
+                                },
+                            ],
+                        ]),
+                        packageIds: ["pkg-main"],
+                    };
+                },
+            },
+            definitionResolver: {
+                resolveEntrypointDefinitionOrThrow() {
+                    return {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        definition,
+                        replayExpression: definition.expression,
+                        replayBindingMode: "standard",
+                    };
+                },
+            },
+            evaluator: {
+                evaluateReplayEntrypointOrThrow(
+                    _definition,
+                    _environment,
+                    traceSink,
+                ) {
+                    traceSink?.onStep({
+                        kind: DamlLfStepKind.enterExpression,
+                        expression: new DamlLfExpression({
+                            textLiteral: "archived",
+                        }),
+                        frame: new DamlLfRuntimeFrame({
+                            frameId: "frame-1",
+                            packageId: "pkg-main",
+                            moduleName: "Main",
+                            definition,
+                        }),
+                        locals: [
+                            {
+                                name: "assetHoldingCids",
+                                value: {
+                                    kind: "contractId[]",
+                                    value: ["00holding"],
+                                },
+                            },
+                        ],
+                    });
+
+                    return {
+                        value: {
+                            kind: "text",
+                            value: "done",
+                        },
+                        effects: [],
+                    };
+                },
+            },
+            determinismValidator: {
+                validateOrThrow(): void {},
+            },
+            sessionIdFactory: () => "contract-type-array-session",
+        });
+
+        const session = await loader.loadOrThrowAsync(
+            new ReplaySessionRequest({ offset: "42" }),
+        );
+
+        expect(session.scopesByStep[0]?.[0]).toEqual(
+            expect.objectContaining({
+                variables: [
+                    expect.objectContaining({
+                        name: "assetHoldingCids",
+                        kind: "contractId[]",
+                        contractType: "Oz.Vault.Base.Core:TestUnderlyingHolding",
                     }),
                 ],
             }),

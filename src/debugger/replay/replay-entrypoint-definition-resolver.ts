@@ -11,6 +11,11 @@ export interface ResolvedReplayEntrypointDefinition {
     packageId: string;
     moduleName: string;
     definition: DamlLfValueDefinition;
+    entrypointArgumentRecordId?: {
+        packageId: string;
+        moduleName: string;
+        entityName: string;
+    };
     frameIdentity?: {
         packageId: string;
         moduleName: string;
@@ -83,6 +88,21 @@ export class ReplayEntrypointDefinitionResolver {
             packageId: source.packageId,
             moduleName: source.moduleName,
             definition,
+            entrypointArgumentRecordId:
+                entrypoint.kind === "create"
+                    ? {
+                        packageId,
+                        moduleName,
+                        entityName: templateName,
+                    }
+                    : this.resolveChoiceArgumentRecordId(
+                        new DamlLfTemplateId({
+                            packageId,
+                            moduleName,
+                            templateName,
+                        }),
+                        entrypoint.choice,
+                    ),
             ...this.resolveReplayStrategy(
                 definition.expression,
                 source,
@@ -97,6 +117,44 @@ export class ReplayEntrypointDefinitionResolver {
                 entrypoint.choice,
             ),
         };
+    }
+
+    private resolveChoiceArgumentRecordId(
+        templateId: DamlLfTemplateId,
+        choiceName: string | undefined,
+    ): {
+        packageId: string;
+        moduleName: string;
+        entityName: string;
+    } | undefined {
+        if (choiceName === undefined) {
+            return undefined;
+        }
+
+        try {
+            const template = this.indexedCompilation.compilation
+                .getTemplates()
+                .find(
+                    (candidate) =>
+                        candidate.templateId.packageId === templateId.packageId
+                        && candidate.templateId.moduleName === templateId.moduleName
+                        && candidate.templateId.templateName === templateId.templateName,
+                );
+            const choice = template?.choices.find(
+                (candidate) => candidate.name === choiceName,
+            );
+            const typeConReference = choice?.parameter.type.typeConReference;
+
+            return typeConReference === undefined
+                ? undefined
+                : {
+                    packageId: typeConReference.packageId,
+                    moduleName: typeConReference.moduleName,
+                    entityName: typeConReference.name,
+                };
+        } catch {
+            return undefined;
+        }
     }
 
     public resolveChoiceDefinitionOrThrow(

@@ -227,6 +227,132 @@ describe("DamlLfEvaluator ledger effects", () => {
         )).toBe(true);
     });
 
+    it("reuses observed create contract ids for later replay payloads", () => {
+        const definition = new DamlLfValueDefinition({
+            name: "ReplayCreates",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                updateExpression: {
+                    kind: "block",
+                    bindings: [
+                        {
+                            name: "eventLogCid",
+                            value: new DamlLfExpression({
+                                updateExpression: {
+                                    kind: "create",
+                                    templateId: {
+                                        packageId: "pkg-main",
+                                        moduleName: "Main",
+                                        templateName: "EventLog",
+                                    },
+                                    argument: new DamlLfExpression({
+                                        recordConstruction: {
+                                            fields: [],
+                                        },
+                                    }),
+                                },
+                            }),
+                        },
+                    ],
+                    body: new DamlLfExpression({
+                        updateExpression: {
+                            kind: "create",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                templateName: "Holding",
+                            },
+                            argument: new DamlLfExpression({
+                                recordConstruction: {
+                                    fields: [
+                                        {
+                                            name: "eventLogCid",
+                                            value: new DamlLfExpression({
+                                                variableName: "eventLogCid",
+                                            }),
+                                        },
+                                    ],
+                                },
+                            }),
+                        },
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Sample.Module",
+                                definitions: [definition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                observedCreateContractIds: ["00eventLog", "00holding"],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00vault",
+                    choice: "ReplayCreates",
+                    argument: {},
+                }),
+                contracts: new Map(),
+                packageIds: ["pkg-main"],
+            },
+        );
+
+        expect(result.effects[0]).toEqual({
+            kind: "create",
+            contractId: "00eventLog",
+            templateId: {
+                packageId: "pkg-main",
+                moduleName: "Main",
+                entityName: "EventLog",
+            },
+            payload: {},
+        });
+        expect(result.effects[1]).toEqual({
+            kind: "create",
+            contractId: "00holding",
+            templateId: {
+                packageId: "pkg-main",
+                moduleName: "Main",
+                entityName: "Holding",
+            },
+            payload: {
+                eventLogCid: {
+                    [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00eventLog",
+                },
+            },
+        });
+    });
+
     it("projects fields from hydrated contract payloads", () => {
         const definition = new DamlLfValueDefinition({
             name: "Archive",
@@ -1476,6 +1602,127 @@ describe("DamlLfEvaluator ledger effects", () => {
         expect(result.value).toEqual({
             kind: "contractId",
             value: "created-1",
+        });
+    });
+
+    it("evaluates interface exercise updates through concrete template definitions", () => {
+        const archiveChoiceDefinition = new DamlLfValueDefinition({
+            name: "archiveVaultChoice",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                textLiteral: "done",
+            }),
+        });
+        const definition = new DamlLfValueDefinition({
+            name: "ArchiveRoot",
+            type: new DamlLfType({}),
+            expression: new DamlLfExpression({
+                updateExpression: {
+                    kind: "exerciseInterface",
+                    interfaceId: {
+                        packageId: "pkg-iface",
+                        moduleName: "Iface",
+                        templateName: "VaultI",
+                    },
+                    choiceName: "Archive",
+                    contractId: new DamlLfExpression({
+                        textLiteral: "00abc",
+                    }),
+                    argument: new DamlLfExpression({
+                        textLiteral: "archived",
+                    }),
+                },
+            }),
+        });
+        const evaluator = new DamlLfEvaluator(
+            DamlLfCompilation.createOrThrow(
+                new DamlLfWorkspace([
+                    new DamlLfPackage({
+                        packageId: "pkg-main",
+                        packageName: "sample-package",
+                        packageVersion: "1.0.0",
+                        languageVersion: {
+                            major: 2,
+                            minor: "1",
+                            patch: 0,
+                            toString: () => "2.1",
+                        },
+                        modules: [
+                            new DamlLfModule({
+                                name: "Main",
+                                definitions: [definition, archiveChoiceDefinition],
+                            }),
+                        ],
+                    }),
+                ]),
+            ),
+        );
+
+        const result = evaluator.evaluateReplayEntrypointOrThrow(
+            definition,
+            {
+                kind: "transaction",
+                offset: "42",
+                actAs: ["Alice"],
+                readAs: [],
+                entrypoint: new ReplayEntrypoint({
+                    kind: "exercise",
+                    templateId: {
+                        packageId: "pkg-main",
+                        moduleName: "Main",
+                        entityName: "Vault",
+                    },
+                    contractId: "00abc",
+                    choice: "Archive",
+                    argument: "archived",
+                }),
+                contracts: new Map([
+                    [
+                        "00abc",
+                        {
+                            contractId: "00abc",
+                            templateId: {
+                                packageId: "pkg-main",
+                                moduleName: "Main",
+                                entityName: "Vault",
+                            },
+                            payload: {
+                                owner: "Alice",
+                            },
+                            history: {},
+                        },
+                    ],
+                ]),
+                packageIds: ["pkg-main"],
+                definitionResolver: {
+                    resolveChoiceDefinitionOrThrow() {
+                        return {
+                            packageId: "pkg-main",
+                            moduleName: "Main",
+                            definition: archiveChoiceDefinition,
+                            replayExpression: archiveChoiceDefinition.expression,
+                        };
+                    },
+                },
+            },
+        );
+
+        expect(result.effects).toEqual([
+            {
+                kind: "exercise",
+                contractId: "00abc",
+                templateId: {
+                    packageId: "pkg-main",
+                    moduleName: "Main",
+                    entityName: "Vault",
+                },
+                choice: "Archive",
+                argument: "archived",
+            },
+        ]);
+        expect(result.value).toEqual({
+            kind: "text",
+            value: "done",
         });
     });
 });

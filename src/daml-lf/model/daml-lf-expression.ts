@@ -55,6 +55,10 @@ export interface IDamlLfRecordUpdateExpression {
     readonly value: DamlLfExpression;
 }
 
+export interface IDamlLfThrowExpression {
+    readonly exception: DamlLfExpression;
+}
+
 export type DamlLfBuiltinConstructor = "unit" | "false" | "true";
 export type DamlLfBuiltinFunction =
     | "equal"
@@ -90,13 +94,26 @@ export interface IDamlLfUpdateExpression {
         | "pure"
         | "block"
         | "embedExpr"
+        | "tryCatch"
         | "create"
+        | "createInterface"
         | "fetch"
-        | "exercise";
+        | "fetchInterface"
+        | "exercise"
+        | "exerciseInterface"
+        | "getTime"
+        | "ledgerTimeLt";
     readonly expression?: DamlLfExpression;
     readonly bindings?: readonly IDamlLfUpdateBinding[];
     readonly body?: DamlLfExpression;
+    readonly catchVariableName?: string;
+    readonly catchExpression?: DamlLfExpression;
     readonly templateId?: {
+        readonly packageId: string;
+        readonly moduleName: string;
+        readonly templateName: string;
+    };
+    readonly interfaceId?: {
         readonly packageId: string;
         readonly moduleName: string;
         readonly templateName: string;
@@ -104,6 +121,7 @@ export interface IDamlLfUpdateExpression {
     readonly choiceName?: string;
     readonly contractId?: DamlLfExpression;
     readonly argument?: DamlLfExpression;
+    readonly guardExpression?: DamlLfExpression;
 }
 
 export interface IDamlLfCaseAlternative {
@@ -132,6 +150,7 @@ export interface IDamlLfCaseExpression {
 export class DamlLfExpression {
     public readonly nodeKind = DamlLfNodeKind.expression;
     public readonly textLiteral?: string;
+    public readonly numericLiteral?: string;
     public readonly int64Literal?: string;
     public readonly valueReference?: IDamlLfValueReference;
     public readonly variableName?: string;
@@ -141,6 +160,7 @@ export class DamlLfExpression {
     public readonly recordConstruction?: IDamlLfRecordConstructionExpression;
     public readonly recordProjection?: IDamlLfRecordProjectionExpression;
     public readonly recordUpdate?: IDamlLfRecordUpdateExpression;
+    public readonly throwExpression?: IDamlLfThrowExpression;
     public readonly builtinConstructor?: DamlLfBuiltinConstructor;
     public readonly builtinFunction?: DamlLfBuiltinFunction;
     public readonly caseExpression?: IDamlLfCaseExpression;
@@ -154,6 +174,7 @@ export class DamlLfExpression {
 
     public constructor(init: {
         textLiteral?: string;
+        numericLiteral?: string;
         int64Literal?: string;
         valueReference?: IDamlLfValueReference;
         variableName?: string;
@@ -163,6 +184,7 @@ export class DamlLfExpression {
         recordConstruction?: IDamlLfRecordConstructionExpression;
         recordProjection?: IDamlLfRecordProjectionExpression;
         recordUpdate?: IDamlLfRecordUpdateExpression;
+        throwExpression?: IDamlLfThrowExpression;
         builtinConstructor?: DamlLfBuiltinConstructor;
         builtinFunction?: DamlLfBuiltinFunction;
         caseExpression?: IDamlLfCaseExpression;
@@ -175,6 +197,7 @@ export class DamlLfExpression {
         sourceLocation?: IDamlLfExpressionSourceLocation;
     }) {
         this.textLiteral = init.textLiteral;
+        this.numericLiteral = init.numericLiteral;
         this.int64Literal = init.int64Literal;
         this.valueReference = init.valueReference;
         this.variableName = init.variableName;
@@ -184,6 +207,7 @@ export class DamlLfExpression {
         this.recordConstruction = init.recordConstruction;
         this.recordProjection = init.recordProjection;
         this.recordUpdate = init.recordUpdate;
+        this.throwExpression = init.throwExpression;
         this.builtinConstructor = init.builtinConstructor;
         this.builtinFunction = init.builtinFunction;
         this.caseExpression = init.caseExpression;
@@ -205,6 +229,7 @@ export class DamlLfExpression {
 
         return new DamlLfExpression({
             textLiteral: this.textLiteral,
+            numericLiteral: this.numericLiteral,
             int64Literal: this.int64Literal,
             valueReference: this.valueReference,
             variableName: this.variableName,
@@ -214,6 +239,7 @@ export class DamlLfExpression {
             recordConstruction: this.recordConstruction,
             recordProjection: this.recordProjection,
             recordUpdate: this.recordUpdate,
+            throwExpression: this.throwExpression,
             builtinConstructor: this.builtinConstructor,
             builtinFunction: this.builtinFunction,
             caseExpression: this.caseExpression,

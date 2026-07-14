@@ -6,6 +6,7 @@ import { GetContractResponse } from "../../../../src/core/types/responses/get-co
 import { GetEventsByContractIdResponse } from "../../../../src/core/types/responses/get-events-by-contract-id-response.js";
 import {
     DAML_LF_CONTRACT_ID_MARKER_KEY,
+    DAML_LF_NUMERIC_MARKER_KEY,
     DAML_LF_RECORD_ID_MARKER_KEY,
 } from "../../../../src/daml-lf/interpreter/daml-lf-runtime-value.js";
 import { ReplayStateHydrationException } from "../../../../src/debugger/index.js";
@@ -531,7 +532,9 @@ describe("LedgerReplayEnvironmentBuilder", () => {
         });
 
         expect(environment.entrypoint.argument).toEqual({
-            amount: "1.5000000000",
+            amount: {
+                [DAML_LF_NUMERIC_MARKER_KEY]: "1.5000000000",
+            },
             linkedCid: {
                 [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00def",
             },
