@@ -6,6 +6,7 @@ import {
     CreateCommand,
     ExerciseCommand,
     GetActiveContractsPageRequest,
+    GetPartiesRequest,
     GetPackageContentsRequest,
     GetPackageRequest,
     ListPackagesRequest,
@@ -287,6 +288,14 @@ async function assertPartyCanQueryMainIouAsync(
     client: CantonClient,
     party: string,
 ): Promise<void> {
+    const partyDetails = await client.partyManagementService.getPartiesAsync(
+        new GetPartiesRequest({ parties: [party] }),
+    );
+
+    if (!partyDetails.partyDetails.some((details) => details.party === party && details.isLocal)) {
+        throw new Error(`Live fuzz party ${party} is not locally hosted on the expected participant.`);
+    }
+
     await client.stateService.getActiveContractsPageAsync(
         new GetActiveContractsPageRequest({
             party,
