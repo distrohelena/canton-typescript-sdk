@@ -45,6 +45,8 @@ type LedgerEndTracker = Map<LiveFuzzParticipant, string>;
 export interface LiveFuzzRunContext {
     readonly fixture: LiveFuzzFixture;
     readonly config: LiveFuzzConfig;
+    readonly amountSuffix: number;
+    readonly campaignNonce: bigint;
     readonly expectedPayload: Readonly<Record<string, unknown>>;
     readonly ledgerEnds: LedgerEndTracker;
     readonly lifecycle: {
@@ -208,6 +210,8 @@ export function createLiveFuzzRunContext(init: {
     return {
         fixture: init.fixture,
         config: init.config,
+        amountSuffix: init.amountSuffix,
+        campaignNonce: init.campaignNonce,
         expectedPayload,
         ledgerEnds: new Map(),
         lifecycle: { created: [], archived: [] },
@@ -216,6 +220,175 @@ export function createLiveFuzzRunContext(init: {
             payload: expectedPayload,
         }),
     };
+}
+
+/** Executes one generated command against an existing sequence context. */
+export async function executeLiveFuzzCommandAsync(init: {
+    readonly context: LiveFuzzRunContext;
+    readonly command: LiveFuzzCommand;
+    readonly recordOutcome?: (
+        command: LiveFuzzCommand,
+        outcome: LiveFuzzCommandOutcome,
+    ) => void;
+}): Promise<LiveFuzzCommandOutcome> {
+    const { context, command } = init;
+
+    const route = describeLiveFuzzRoute(command, {
+        issuer: context.fixture.issuerParty,
+        owner: context.fixture.ownerParty,
+    });
+
+    if (command.kind === "create") {
+        const outcome = await submitLiveFuzzCommandAsync({
+            fixture: context.fixture,
+            config: context.config,
+            command,
+            recordOutcome: init.recordOutcome,
+            submitAsync: () => getClient(context.fixture, route.participant).commandService.submitAndWaitAsync(
+                context.fixture.buildCreateRequest(
+                    context.amountSuffix,
+                    context.campaignNonce,
+                ),
+            ),
+        });
+
+        if (outcome.kind === "protocol-revert") {
+            context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+            return outcome;
+        }
+
+        const issuerSnapshot = await pollForActiveContractAsync({
+            fixture: context.fixture,
+            config: context.config,
+            participant: "issuer",
+            expectedPayload: context.expectedPayload,
+            ledgerEnds: context.ledgerEnds,
+        });
+
+        const contract = findMatchingContract(issuerSnapshot.contracts, {
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: context.expectedPayload,
+        });
+
+        if (contract === undefined) {
+            throw new Error("Live fuzz create did not produce the expected Main:Iou.");
+        }
+
+        context.lifecycle.created.push(contract.contractId);
+        context.model = markLiveFuzzContractCreated(context.model, contract.contractId);
+        context.model = markLiveFuzzParticipantObserved(context.model, "issuer");
+
+        const ownerSnapshot = await pollForActiveContractAsync({
+            fixture: context.fixture,
+            config: context.config,
+            participant: "owner",
+            expectedPayload: context.expectedPayload,
+            contractId: contract.contractId,
+            ledgerEnds: context.ledgerEnds,
+        });
+
+        assertSnapshotContainsContract(ownerSnapshot, contract.contractId, context.expectedPayload);
+        context.model = markLiveFuzzParticipantObserved(context.model, "owner");
+        context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+        return outcome;
+    }
+
+    else if (context.model.contractId === undefined && command.kind !== "probe") {
+        await assertProbeAsync({
+            fixture: context.fixture,
+            ledgerEnds: context.ledgerEnds,
+        }, command.participant);
+        context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+        return { kind: "accepted" };
+    }
+
+    context.model = applyLiveFuzzModelCommand(context.model, command);
+
+    if (command.kind === "exercise") {
+        const outcome = await submitLiveFuzzCommandAsync({
+            fixture: context.fixture,
+            config: context.config,
+            command,
+            recordOutcome: init.recordOutcome,
+            submitAsync: () => getClient(context.fixture, route.participant).commandService.submitAndWaitAsync(
+                context.fixture.buildArchiveRequest(context.model.contractId),
+            ),
+        });
+
+        if (outcome.kind === "protocol-revert") {
+            context.model = { ...context.model, active: true };
+            context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+            return outcome;
+        }
+
+        await assertArchivedOnBothParticipantsAsync({
+            fixture: context.fixture,
+            config: context.config,
+            ledgerEnds: context.ledgerEnds,
+        }, context.model);
+        context.lifecycle.archived.push(context.model.contractId);
+        context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+        return outcome;
+    }
+
+    else if (command.kind === "query") {
+        await assertQueryAsync({
+            fixture: context.fixture,
+            config: context.config,
+            ledgerEnds: context.ledgerEnds,
+        }, context.model, command.participant);
+    } else if (command.kind === "fetch") {
+        await assertFetchAsync({
+            fixture: context.fixture,
+            config: context.config,
+            ledgerEnds: context.ledgerEnds,
+        }, context.model, command.participant);
+    } else if (command.kind === "probe") {
+        await assertProbeAsync({
+            fixture: context.fixture,
+            ledgerEnds: context.ledgerEnds,
+        }, command.participant);
+    } else {
+        await assertEventsAsync({
+            fixture: context.fixture,
+            config: context.config,
+            ledgerEnds: context.ledgerEnds,
+        }, context.model, command.participant);
+    }
+
+    context.model = recordTrackedLedgerEnds(context.model, context.ledgerEnds);
+
+    return { kind: "accepted" };
+}
+
+export async function assertLiveFuzzRunInvariantsAsync(
+    context: LiveFuzzRunContext,
+    phase: "after-action" | "end-of-campaign" | "post-cleanup",
+): Promise<void> {
+    await assertLiveFuzzInvariantsAsync({
+        fixture: context.fixture,
+        config: context.config,
+        model: context.model,
+        expectedPayload: context.expectedPayload,
+        ledgerEnds: context.ledgerEnds,
+        lifecycle: context.lifecycle,
+        phase,
+    });
+}
+
+export async function cleanupLiveFuzzRunAsync(
+    context: LiveFuzzRunContext,
+): Promise<void> {
+    await cleanupLiveFuzzContractsAsync({
+        fixture: context.fixture,
+        config: context.config,
+        ledgerEnds: context.ledgerEnds,
+    }, context.model, context.expectedPayload);
 }
 
 async function runLiveFuzzSequenceWithCleanupAsync(init: {

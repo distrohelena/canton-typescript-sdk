@@ -49,6 +49,7 @@ export function createPublicLiveFuzzCampaign(
             depth: config.depth,
             failOnRevert: config.failOnRevert,
             ...(config.seed === undefined ? {} : { seed: config.seed }),
+            ...(config.path === undefined ? {} : { path: config.path }),
             timeoutMs: config.testTimeoutMs,
         },
         targets: [

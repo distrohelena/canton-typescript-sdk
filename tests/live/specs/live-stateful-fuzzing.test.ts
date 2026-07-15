@@ -1,14 +1,12 @@
-import * as fc from "fast-check";
 import { afterAll, describe, expect, it } from "vitest";
-import { runCampaignCheckAsync } from "../../../src/testing/index.js";
+import {
+    CampaignMetricOutcome,
+    runInvariantCampaignCheckAsync,
+} from "../../../src/testing/index.js";
 import {
     createLiveFuzzFixtureAsync,
 } from "../fuzz/live-fuzz-fixture.js";
 import {
-    liveFuzzCommandSequenceArbitrary,
-} from "../fuzz/live-fuzz-commands.js";
-import {
-    liveFuzzExactInputArbitrary,
     LiveFuzzExactInput,
 } from "../fuzz/live-fuzz-campaign.js";
 import {
@@ -20,7 +18,18 @@ import {
     writeLiveFuzzArtifactAsync,
 } from "../fuzz/live-fuzz-artifacts.js";
 import { LiveFuzzConfig, readLiveFuzzConfig } from "../fuzz/live-fuzz-config.js";
-import { runLiveFuzzSequenceAsync } from "../fuzz/live-fuzz-runner.js";
+import {
+    assertLiveFuzzRunInvariantsAsync,
+    cleanupLiveFuzzRunAsync,
+    createLiveFuzzRunContext,
+    executeLiveFuzzCommandAsync,
+    runLiveFuzzSequenceAsync,
+} from "../fuzz/live-fuzz-runner.js";
+import {
+    createPublicLiveFuzzActionArbitrary,
+    createPublicLiveFuzzCampaign,
+    PublicLiveFuzzAction,
+} from "../fuzz/public-live-fuzz-campaign.js";
 import {
     disposeLiveMultiNodeClientsAsync,
 } from "../runtime/live-multi-node-client-factory.js";
@@ -60,38 +69,80 @@ describe("live stateful fuzzing", () => {
                 await runLiveFuzzInputAsync(fixture, config, input);
             }
 
-            const inputArbitrary = createLiveFuzzInputArbitrary(fixture, config);
+            const campaign = createPublicLiveFuzzCampaign({
+                ...config,
+                issuerParty: fixture.issuerParty,
+                ownerParty: fixture.ownerParty,
+            });
 
-            const result = await runCampaignCheckAsync({
-                arbitrary: inputArbitrary,
-                numRuns: config.numRuns,
-                key: liveFuzzInputKey,
-                ...(config.seed === undefined ? {} : { seed: config.seed }),
-                ...(config.path === undefined ? {} : { path: config.path }),
-                timeoutMs: config.testTimeoutMs,
-                executeAsync: async (input) => {
-                    const trace = createLiveFuzzTrace(input);
+            const result = await runInvariantCampaignCheckAsync({
+                campaign,
+                arbitrary: createPublicLiveFuzzActionArbitrary(config),
+                key: publicLiveFuzzActionKey,
+                setupAsync: async (actions) => ({
+                    ...createLiveFuzzRunContext({
+                        fixture,
+                        config,
+                        ...publicLiveFuzzInputFromActions(actions),
+                    }),
+                    ghost: {},
+                }),
+                executeAsync: async (context, action) =>
+                    toCampaignMetricOutcome(
+                        await executeLiveFuzzCommandAsync({
+                            context,
+                            command: action.command,
+                        }),
+                        action,
+                    ),
+                checkInvariantsAsync: async (context, phase) => {
+                    if (phase.kind === "before-run") {
+                        return [];
+                    }
 
                     try {
-                        await runLiveFuzzInputAsync(fixture, config, input, trace);
+                        await assertLiveFuzzRunInvariantsAsync(
+                            context,
+                            phase.kind === "after-action"
+                                ? "after-action"
+                                : phase.kind === "after-run"
+                                    ? "end-of-campaign"
+                                    : "post-cleanup",
+                        );
 
-                        return { passed: true, trace };
+                        return [];
                     } catch (error) {
-                        return {
-                            passed: false,
-                            trace: { ...trace, error },
-                        };
+                        return [{
+                            invariant: "Main:Iou lifecycle",
+                            code: "live-invariant-failure",
+                            message: error instanceof Error ? error.message : String(error),
+                        }];
                     }
                 },
+                cleanupAsync: cleanupLiveFuzzRunAsync,
             });
 
             const details = result.details;
 
             if (details.failed) {
-                const trace = result.counterexampleTrace;
+                const counterexample = result.counterexampleTrace;
 
-                if (trace === undefined) {
+                if (counterexample === undefined) {
                     throw new Error("Public campaign runner did not retain the counterexample trace.");
+                }
+
+                const trace = createLiveFuzzTrace(
+                    publicLiveFuzzInputFromActions(
+                        counterexample.actions.map(({ action }) => action),
+                    ),
+                );
+
+                for (const [index, { action, outcome }] of counterexample.actions.entries()) {
+                    trace.outcomes[index] = {
+                        ...trace.outcomes[index],
+                        outcome: outcome.kind,
+                        ...("reason" in outcome ? { reason: outcome.reason } : {}),
+                    };
                 }
 
                 try {
@@ -109,7 +160,7 @@ describe("live stateful fuzzing", () => {
                     console.error(`Live fuzz artifact write failed: ${message}`);
                 }
 
-                throwFailure(trace.error ?? details.errorInstance);
+                throwFailure(details.errorInstance);
             }
 
             expect(fixture.clients.all).toHaveLength(2);
@@ -164,33 +215,50 @@ async function runLiveFuzzInputAsync(
     });
 }
 
-function createLiveFuzzInputArbitrary(
-    fixture: Awaited<ReturnType<typeof createLiveFuzzFixtureAsync>>,
-    config: LiveFuzzConfig,
-): fc.Arbitrary<LiveFuzzExactInput> {
-    if (config.depthMode === "exact") {
-        return liveFuzzExactInputArbitrary({
-            depth: config.depth,
-            actionWeights: config.actionWeights,
-            actors: config.actors,
-            requireArchive: config.requireArchive,
-        });
+function publicLiveFuzzInputFromActions(
+    actions: readonly PublicLiveFuzzAction[],
+): LiveFuzzExactInput {
+    const first = actions[0];
+
+    if (first === undefined) {
+        throw new Error("Public live fuzz candidates require at least one action.");
     }
 
-    return fc
-        .tuple(
-            liveFuzzCommandSequenceArbitrary({
-                maxCommands: config.maxCommands,
-                requireArchive: config.requireArchive,
-            }),
-            fixture.createPayloadArbitrary,
-            fc.bigInt({ min: 0n, max: (2n ** 128n) - 1n }),
-        )
-        .map(([commands, amountSuffix, campaignNonce]) => ({
-            commands,
-            amountSuffix,
-            campaignNonce,
-        }));
+    else if (actions.some((action) =>
+        action.amountSuffix !== first.amountSuffix
+        || action.campaignNonce !== first.campaignNonce
+    )) {
+        throw new Error("Public live fuzz candidates must retain one amount and nonce.");
+    }
+
+    return {
+        commands: actions.map(({ command }) => command),
+        amountSuffix: first.amountSuffix,
+        campaignNonce: first.campaignNonce,
+    };
+}
+
+function publicLiveFuzzActionKey(
+    actions: readonly PublicLiveFuzzAction[],
+): string {
+    return liveFuzzInputKey(publicLiveFuzzInputFromActions(actions));
+}
+
+function toCampaignMetricOutcome(
+    outcome: Awaited<ReturnType<typeof executeLiveFuzzCommandAsync>>,
+    action: PublicLiveFuzzAction,
+): CampaignMetricOutcome {
+    if (outcome.kind === "accepted") {
+        return {
+            kind: "accepted",
+            updateId: `live-fuzz:${action.campaignNonce.toString()}:${action.targetKey}`,
+        };
+    }
+
+    return {
+        kind: outcome.kind,
+        reason: outcome.details,
+    };
 }
 
 async function loadReplayInputsAsync(

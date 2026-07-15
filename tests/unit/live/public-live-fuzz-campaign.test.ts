@@ -31,6 +31,16 @@ describe("public live fuzz campaign adapter", () => {
         ]);
     });
 
+    test("preserves the configured fast-check replay controls", () => {
+        const campaign = createPublicLiveFuzzCampaign({
+            ...readLiveFuzzConfig(),
+            seed: 123,
+            path: "0:1",
+        });
+
+        expect(campaign.config).toMatchObject({ seed: 123, path: "0:1" });
+    });
+
     test("adapts each exact legacy command into one public campaign action", () => {
         process.env.FUZZ_LIVE_DEPTH = "4";
         process.env.FUZZ_LIVE_REQUIRE_ARCHIVE = "1";
