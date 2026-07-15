@@ -48,7 +48,7 @@ Cover:
 - `FUZZ_LIVE_ACTION_WEIGHTS` parses whitespace, non-negative integers, duplicates, unknown actions, empty entries, and unsafe values;
 - default weights include `query`, `fetch`, `events`, `exercise`, and `probe`;
 - `FUZZ_LIVE_ACTORS` defaults to issuer/owner, rejects unsupported names, and requires issuer;
-- `FUZZ_LIVE_FAILURE_DIR` and `FUZZ_LIVE_REPLAY_FILE` are returned without exposing credentials;
+- `FUZZ_LIVE_FAILURE_DIR` defaults to `tests/live/.artifacts/failures` when artifact persistence is enabled, and `FUZZ_LIVE_REPLAY_FILE` is returned without exposing credentials;
 - `FUZZ_LIVE_REPLAY_FAILURES=true|false` defaults to true when a failure directory is configured, and explicit replay is validated before any client or party setup;
 - archive smoke mode requires strict revert mode and preserves legacy maximum behavior; and
 - `FUZZ_LIVE_REQUIRE_ARCHIVE` accepts both `true|false` and legacy `1|0`, legacy maximum mode preserves the four-action smoke sequence when the maximum is at least four, and omitting `owner` removes owner-targeted generated reads without removing the cross-participant visibility fixture;
@@ -99,6 +99,7 @@ Assert that exact mode:
 - produces deterministic inputs from the same seed and path.
 
 Assert the discriminated command outcome union distinguishes accepted, protocol-revert, transport, timeout, malformed-response, and unknown-commit outcomes. Model transitions must apply state changes only for accepted commands.
+Exercise the classifier with concrete gRPC status/details fixtures and assert one-and-only-one outcome is emitted for each submitted action, including ambiguous commit responses.
 
 - [ ] **Step 2: Run the focused test to establish failure.**
 
@@ -112,7 +113,7 @@ Define a generated input containing `commands`, `amountSuffix`, and `campaignNon
 
 - [ ] **Step 4: Implement typed outcomes and model transitions.**
 
-Add pure classification and transition helpers. Classify the concrete SDK/gRPC rejection shape by status code/details: known protocol rejection is `protocol-revert`; `UNAVAILABLE`, `DEADLINE_EXCEEDED`, `INTERNAL`, unknown codes, malformed responses, and ambiguous commit status are distinct fatal classes. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes, and assert each submission is classified exactly once.
+Add pure classification and transition helpers. Classify the concrete raw SDK/gRPC rejection shape using the numeric gRPC status code plus normalized `details`/message: only the documented Canton command-rejection status/details predicate is `protocol-revert`; `UNAVAILABLE` is transport, `DEADLINE_EXCEEDED` is timeout, `INTERNAL` is transport, unknown codes are unknown-commit or transport according to whether commit visibility is ambiguous, and malformed response shapes are malformed-response. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes, and assert every action submission has exactly one classification (no duplicate or missing outcome).
 
 - [ ] **Step 5: Run tests, build, and lint.**
 
@@ -149,6 +150,7 @@ Assert the route matrix:
 
 Test `evaluateLiveInvariants(phase, snapshot)` for after-action, end-of-campaign, and post-cleanup policies. Include accepted/reverted outcomes, uniqueness of run-marked active contracts, ledger-end monotonicity, lifecycle evidence, and final absence.
 Add an orchestration spy asserting after-action invariants run after every action, end-of-campaign invariants run before cleanup, post-cleanup invariants run after cleanup, and a primary action/property error is preserved if diagnostics also fail.
+Verify cleanup archives any remaining run-marked contracts, confirms their absence, and only then evaluates post-cleanup invariants.
 
 - [ ] **Step 2: Run the focused tests to establish failure.**
 
@@ -162,7 +164,7 @@ Replace implicit participant handling with descriptors carrying actor, participa
 
 - [ ] **Step 4: Implement campaign snapshots and invariant aggregation.**
 
-Add a read-only snapshot containing model state, ACS summaries, ledger ends, lifecycle records, run-marked contract IDs, and the latest action record. Route all action handlers through `evaluateLiveInvariants`; keep polling and cleanup diagnostics intact. On unknown commit outcomes, always run the exact marker scan before deciding cleanup is complete.
+Add a read-only snapshot containing model state, ACS summaries, ledger ends, lifecycle records, run-marked contract IDs, and the latest action record. Route all action handlers through `evaluateLiveInvariants`; keep polling and cleanup diagnostics intact. On unknown commit outcomes, always run the exact marker scan before deciding cleanup is complete. Cleanup must archive every remaining run-marked contract, verify their absence, and only then invoke `post-cleanup` invariants.
 
 - [ ] **Step 5: Run offline tests, build, and lint.**
 
@@ -190,9 +192,10 @@ rtk git commit -m "test: add explicit live fuzz routes and invariants"
 
 Cover:
 
-- canonical JSON and SHA-256 fixture/configuration fingerprints;
+- canonical JSON and SHA-256 fixture/configuration fingerprints over exactly schema version, fixture version, template ID, actor names, route-matrix version, depth mode/value, and action weights, excluding endpoints, credentials, and run-specific nonce/marker;
 - allowlisted artifact serialization with no endpoint, token, headers, or arbitrary error fields;
 - schema validation and stale/foreign fingerprint rejection;
+- default failure-directory resolution to `tests/live/.artifacts/failures` when persistence is enabled;
 - replay identity matching for run ID and party IDs;
 - safe filename generation;
 - `0700` directory and `0600` file modes;
@@ -200,7 +203,7 @@ Cover:
 - no-clobber atomic writes using same-directory temporary files, `fsync`, hard-link destination, cleanup, and directory `fsync`; and
 - replay loading of exact actions/payload without regeneration;
 - required artifact fields for schema/configuration fingerprint, fixture fingerprint, run ID, seed/path, depth mode and value, weights, actors/parties, nonce, payload marker, action routes/outcomes, contract ID, ledger ends, invariant failures, `numRuns`, `numShrinks`, and `counterexamplePath`;
-- collision rejection for two invocations with the same marker inputs but different run IDs/nonces; and
+- distinct run IDs/nonces produce distinct markers, while duplicate complete generated inputs within one invocation are rejected; and
 - final minimized-input trace selection rather than an intermediate generated trace.
 
 - [ ] **Step 2: Run the focused test to establish failure.**
