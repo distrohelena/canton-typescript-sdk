@@ -32,6 +32,11 @@ export {
     handler,
 } from "./handlers/handler.js";
 export {
+    CantonTestRoute,
+    CantonTestRuntime,
+    createCantonTestRuntime,
+} from "./runtime/canton-test-runtime.js";
+export {
     CampaignInvariant,
     CampaignIsolation,
     CampaignRuntime,
