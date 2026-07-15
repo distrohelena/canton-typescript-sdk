@@ -9,6 +9,7 @@ import {
 import {
     createDamlTestingCatalog,
 } from "../../../src/testing/daml/daml-testing-catalog.js";
+import { TestingConfigurationError } from "../../../src/testing/errors/testing-configuration-error.js";
 
 describe("declarative invariant targets", () => {
     test("builds immutable template and choice selectors", () => {
@@ -92,5 +93,9 @@ describe("declarative invariant targets", () => {
             targetTemplate("pkg:Main:Iou").actors(["issuer"]).allChoices(),
             excludeTemplate("pkg:Main:Iou"),
         ])).toEqual([]);
+
+        expect(() => resolveDeclarativeTargets(catalog, [
+            targetTemplate("pkg:Main:Missing").actors(["issuer"]).allChoices(),
+        ])).toThrow(TestingConfigurationError);
     });
 });

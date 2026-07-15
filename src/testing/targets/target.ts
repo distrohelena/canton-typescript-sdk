@@ -1,4 +1,5 @@
 import { DamlTestingCatalog } from "../daml/daml-testing-catalog.js";
+import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
 
 export interface TemplateTarget {
     readonly allChoices?: true;
@@ -126,7 +127,9 @@ export function resolveDeclarativeTargets(
             );
 
             if (template === undefined) {
-                return [];
+                throw new TestingConfigurationError(
+                    `Declarative target '${descriptor.templateId}' is absent from the DAML catalog.`,
+                );
             }
 
             const choices = descriptor.allChoices === true
