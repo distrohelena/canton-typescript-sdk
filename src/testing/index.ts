@@ -52,6 +52,10 @@ export {
     pollUntilAsync,
 } from "./runtime/canton-test-runtime.js";
 export {
+    CampaignRunIsolation,
+    runWithCampaignIsolationAsync,
+} from "./runtime/campaign-isolation.js";
+export {
     excludeChoice,
     ExcludedChoiceTarget,
     targetTemplate,
