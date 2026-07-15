@@ -30,6 +30,12 @@ export {
     scheduleCampaignSlots,
 } from "./campaign/campaign-scheduler.js";
 export {
+    createDamlTestingCatalog,
+    DamlTestingCatalog,
+    DamlTestingChoice,
+    DamlTestingTemplate,
+} from "./daml/daml-testing-catalog.js";
+export {
     bound,
     CampaignHandler,
     CampaignHandlerCleanup,
