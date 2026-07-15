@@ -2,10 +2,12 @@ import { describe, expect, test } from "vitest";
 import * as fc from "fast-check";
 import {
     evaluateCampaignInvariantsAsync,
+    runInvariantCampaignCheckAsync,
     runCampaignLifecycleCheckAsync,
     runCampaignCheckAsync,
 } from "../../../src/testing/campaign/campaign-runner.js";
 import { CampaignMetricOutcome } from "../../../src/testing/campaign/campaign-metrics.js";
+import { defineInvariantCampaign } from "../../../src/testing/campaign/campaign-definition.js";
 
 describe("campaign invariant checkpoints", () => {
     test("aggregates every invariant failure at a checkpoint", async () => {
@@ -141,5 +143,46 @@ describe("campaign lifecycle execution", () => {
         expect(result.details.failed).toBe(true);
         expect(result.counterexampleTrace?.actions).toHaveLength(1);
         expect(calls).toEqual(["execute", "cleanup"]);
+    });
+
+    test("evaluates declared campaign invariants at lifecycle checkpoints", async () => {
+        const campaign = defineInvariantCampaign<{ readonly balanced: boolean }>({
+            runtime: {
+                actors: { issuer: { party: "Issuer", participant: "issuer" } },
+                isolation: { kind: "external" },
+            },
+            config: { runs: 1, depth: 1 },
+            targets: [{ key: "Main:Iou:Create", actors: ["issuer"] }],
+            invariants: [({ model }) => {
+                if (!model.balanced) {
+                    throw new Error("ledger is unbalanced");
+                }
+            }],
+        });
+
+        const result = await runInvariantCampaignCheckAsync({
+            campaign,
+            arbitrary: fc.constant([{ actor: "issuer", targetKey: "Main:Iou:Create" }]),
+            key: () => "unbalanced",
+            setupAsync: async () => ({ model: { balanced: false }, ghost: {} }),
+            executeAsync: async (): Promise<CampaignMetricOutcome> => ({
+                kind: "accepted",
+                updateId: "update-1",
+            }),
+        });
+
+        expect(result.details.failed).toBe(true);
+        expect(result.counterexampleTrace?.failures).toEqual([
+            {
+                invariant: "invariant-1",
+                code: "thrown",
+                message: "ledger is unbalanced",
+            },
+            {
+                invariant: "invariant-1",
+                code: "thrown",
+                message: "ledger is unbalanced",
+            },
+        ]);
     });
 });

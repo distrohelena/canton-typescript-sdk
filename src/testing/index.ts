@@ -20,6 +20,7 @@ export {
     CampaignLifecycleTrace,
     evaluateCampaignInvariantsAsync,
     runCampaignLifecycleCheckAsync,
+    runInvariantCampaignCheckAsync,
     runCampaignCheckAsync,
 } from "./campaign/campaign-runner.js";
 export {

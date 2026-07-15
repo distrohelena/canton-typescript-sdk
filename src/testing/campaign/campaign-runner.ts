@@ -6,6 +6,7 @@ import {
     createCampaignMetrics,
     recordCampaignAction,
 } from "./campaign-metrics.js";
+import { InvariantCampaign } from "./campaign-types.js";
 
 export interface CampaignInvariantFailure {
     readonly code: string;
@@ -140,6 +141,72 @@ export async function runCampaignLifecycleCheckAsync<
         numRuns: init.numRuns,
         seed: init.seed,
         executeAsync: async (actions) => runCampaignCandidateAsync(init, actions),
+    });
+}
+
+/**
+ * Runs a declared invariant campaign and evaluates its invariant functions at
+ * every lifecycle checkpoint. The caller supplies the ledger-specific action
+ * executor and model hydration hooks; the campaign supplies runs, depth,
+ * seed, revert policy, and declared invariants.
+ */
+export async function runInvariantCampaignCheckAsync<
+    Model,
+    Ghost,
+    Action extends CampaignExecutableAction,
+    Context extends { readonly ghost: Ghost; readonly model: Model },
+>(init: {
+    readonly arbitrary: fc.Arbitrary<readonly Action[]>;
+    readonly campaign: InvariantCampaign<Model, Ghost>;
+    readonly checkInvariantsAsync?: (
+        context: Context,
+        phase: CampaignLifecyclePhase<Action>,
+    ) => Promise<readonly CampaignInvariantFailure[]>;
+    readonly cleanupAsync?: (context: Context) => Promise<void>;
+    readonly executeAsync: (
+        context: Context,
+        action: Action,
+    ) => Promise<CampaignMetricOutcome>;
+    readonly key: (actions: readonly Action[]) => string;
+    readonly reconcileAsync?: (
+        context: Context,
+        phase: CampaignLifecyclePhase<Action>,
+    ) => Promise<void>;
+    readonly setupAsync: () => Promise<Context>;
+}): Promise<{
+    readonly counterexampleTrace?: CampaignLifecycleTrace<Action>;
+    readonly details: fc.RunDetails<[readonly Action[]]>;
+}> {
+    return runCampaignLifecycleCheckAsync({
+        arbitrary: init.arbitrary,
+        depth: init.campaign.config.depth,
+        failOnRevert: init.campaign.config.failOnRevert,
+        key: init.key,
+        numRuns: init.campaign.config.runs,
+        seed: init.campaign.config.seed,
+        setupAsync: init.setupAsync,
+        executeAsync: init.executeAsync,
+        cleanupAsync: init.cleanupAsync,
+        reconcileAsync: init.reconcileAsync,
+        checkInvariantsAsync: async (context, phase) => {
+            const declaredFailures = await evaluateCampaignInvariantsAsync(
+                init.campaign.invariants.map((invariant, index) => ({
+                    name: invariant.name || `invariant-${index + 1}`,
+                    check: async () => {
+                        await invariant({
+                            model: context.model,
+                            ghost: context.ghost,
+                        });
+
+                        return undefined;
+                    },
+                })),
+            );
+
+            const additionalFailures = await init.checkInvariantsAsync?.(context, phase) ?? [];
+
+            return [...declaredFailures, ...additionalFailures];
+        },
     });
 }
 
