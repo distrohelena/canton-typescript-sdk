@@ -185,13 +185,18 @@ Every mutating target or handler also declares one of these cleanup contracts:
 - `cleanup: "none"`, allowed only with `snapshot` or `external` isolation;
 - `cleanup: { discover, archive }`, where the caller supplies deterministic
   discovery and an authorized archive/close action; or
-- `cleanup: { trackCreated, archive }`, where `execute` reports created
-  contract IDs and the caller supplies the authorized archive/close action.
+- `cleanup: { discover, trackCreated?, archive }`, where `discover` supplies
+  reconciliation-capable recovery and `execute` may report created contract
+  IDs to optimize normal cleanup.
 
 `cleanup` isolation rejects campaign construction if any mutating action lacks
-an authorized cleanup contract. The engine never assumes an arbitrary DAML
-choice is named `Archive`, nor does it inject a marker into a payload unless
-the target generator explicitly consumes `context.runMarker`.
+an authorized cleanup contract with `discover`. This is required because a
+timed-out or ambiguous submission may have committed without returning a
+created ID. The engine never assumes an arbitrary DAML choice is named
+`Archive`, nor does it inject a marker into a payload unless the target
+generator explicitly consumes `context.runMarker`. A target that cannot
+discover its possible ambiguous creations must use `snapshot` or `external`
+isolation instead.
 
 ## Campaign execution
 
@@ -215,8 +220,10 @@ type CampaignActionOutcome =
 ```
 
 Only `protocol-revert` continues when `failOnRevert` is false. An ambiguous
-commit outcome is always a failure and triggers cleanup by deterministic run
-marker. `discarded` inputs are tracked separately from rejected commands.
+commit outcome is always a failure and triggers every configured `discover`
+cleanup strategy. A deterministic run-marker scan is a common, but optional,
+implementation of `discover`. `discarded` inputs are tracked separately from
+rejected commands.
 
 Hooks run in this order for each run: `beforeRun`, action execution,
 `afterAction` invariants after every action, end-of-run invariants,
