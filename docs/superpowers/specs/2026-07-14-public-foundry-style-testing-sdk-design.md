@@ -77,6 +77,31 @@ The actual API may use factory functions rather than mutable builders, but it
 must preserve the concepts and type boundaries above. All public configuration
 is immutable after `defineInvariantCampaign` returns.
 
+The first stable type boundary is deliberately explicit:
+
+```ts
+interface CantonTestActor {
+  readonly party: string;
+  readonly participant: string;
+  readonly actAs?: readonly string[];
+  readonly readAs?: readonly string[];
+}
+
+interface CampaignRuntime {
+  readonly actors: Readonly<Record<string, CantonTestActor>>;
+  submit(route: CampaignCommandRoute, command: LedgerCommand): Promise<CommandResult>;
+  readActiveContracts(query: ActiveContractQuery): Promise<readonly ActiveContract[]>;
+  readLedgerEnd(participant: string): Promise<string>;
+  isolate: CampaignIsolation;
+}
+```
+
+The public package also exposes named interfaces for `InvariantCampaignConfig`,
+`CampaignTarget`, `CampaignHandler`, `CampaignInvariant`, `CampaignAction`,
+`CampaignTrace`, `CampaignReplayArtifact`, `CampaignMetrics`, and
+`InvariantCampaignFailure`. Type tests lock these interfaces before the
+experimental export is declared stable.
+
 ## Declarative and custom targets
 
 ### Declarative targets
@@ -91,6 +116,22 @@ that information is available from metadata.
 selection API. Target precedence is explicit and deterministic: specific
 choice/interface inclusions override exclusions; exclusions override broad
 template selections; broad selections override automatic discovery.
+
+Automatic submission never infers authorization from DAML metadata. Every
+mutating declarative target must name one or more actor keys with `.actors()`
+or provide a `resolveRoute(context, action)` callback. The scheduler chooses
+uniformly among the eligible named actors unless action weights state
+otherwise. The resolved actor supplies its participant, `actAs` (defaulting to
+that actor's party), and `readAs` (defaulting to the actor configuration).
+Reads use the selected actor's participant and party visibility. Missing actor
+configuration, a callback that returns an unknown actor, or a target without
+a route resolver is a campaign-definition error, not a generated revert.
+
+Generated DAML party values are likewise explicit: `auto` draws only from the
+campaign's `valueParties` list, which defaults to no parties. A target needing
+a party-valued field must set `valueParties`, provide a field generator, or is
+reported as unsupported. This prevents the engine from treating a generated
+payload party as a usable submitting actor.
 
 For each selected create or choice action, the auto generator produces only
 well-typed DAML values for supported LF types. It supports primitives,
@@ -129,6 +170,19 @@ helper that maps generated numbers and bigints into an inclusive range. Both
 are available through handler context. A handler may declare which contract
 IDs it creates, consumes, or observes so the campaign model can reject
 impossible follow-up actions before submission.
+
+Every mutating target or handler also declares one of these cleanup contracts:
+
+- `cleanup: "none"`, allowed only with `snapshot` or `external` isolation;
+- `cleanup: { discover, archive }`, where the caller supplies deterministic
+  discovery and an authorized archive/close action; or
+- `cleanup: { trackCreated, archive }`, where `execute` reports created
+  contract IDs and the caller supplies the authorized archive/close action.
+
+`cleanup` isolation rejects campaign construction if any mutating action lacks
+an authorized cleanup contract. The engine never assumes an arbitrary DAML
+choice is named `Archive`, nor does it inject a marker into a payload unless
+the target generator explicitly consumes `context.runMarker`.
 
 ## Campaign execution
 
@@ -175,6 +229,19 @@ choice, actor, outcome, discard reason, action count, and invariant count.
 This is the public equivalent of Foundry `show_metrics`: a campaign that
 mostly reverts or discards must be visible in output.
 
+The active-contract model has two layers. At `beforeRun`, the runtime hydrates
+the ledger layer by querying the ACS for every selected template and configured
+reader route. That layer, including visibility and contract IDs, is the source
+of truth for target eligibility. The runner records an accepted command's
+reported events, then performs bounded ledger reconciliation before the next
+slot; only reconciled creates and archives alter the ledger layer. A handler's
+`apply` function may update ghost state only after this reconciliation and may
+not manufacture ledger contracts. Before every invariant checkpoint and at
+run end, the runner refreshes the selected ACS/offset view and reports
+unexpected external changes as structured observations. An unknown commit
+outcome performs the same reconciliation for cleanup diagnostics but always
+fails the run without applying ghost state.
+
 ## Reproducibility and artifacts
 
 The engine uses `fc.check` and persists only the final minimized
@@ -204,7 +271,7 @@ Isolation is declared, never inferred:
 | Policy | Requirement | Per-run behavior |
 | --- | --- | --- |
 | `snapshot` | caller supplies supported create/restore callbacks | create/restore snapshot |
-| `cleanup` | runner can identify test-created contracts | archive run-marked contracts and verify absence |
+| `cleanup` | every mutating target supplies an authorized cleanup contract | discover/track only those contracts, call the supplied close action, and verify absence |
 | `external` | caller supplies reset callback | call reset before/after runs as configured |
 
 The runtime optionally exposes ledger-time advancement. It only advertises
