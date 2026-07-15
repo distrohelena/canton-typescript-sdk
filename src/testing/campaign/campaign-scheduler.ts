@@ -1,5 +1,7 @@
 import * as fc from "fast-check";
 
+import { InvariantCampaign } from "./campaign-types.js";
+
 export interface CampaignSchedulingTarget {
     readonly actors: readonly string[];
     readonly key: string;
@@ -38,6 +40,29 @@ export function createCampaignScheduleArbitrary(init: {
         targetRolls,
         actorRolls,
     }));
+}
+
+/**
+ * Projects a public invariant campaign definition onto generated scheduling
+ * slots. Targets without explicit actors use every configured actor in stable
+ * name order, allowing lightweight read/probe targets to share the campaign
+ * actor matrix.
+ */
+export function createInvariantCampaignScheduleArbitrary(
+    campaign: InvariantCampaign,
+    options: { readonly hasActiveContract?: boolean } = {},
+): fc.Arbitrary<readonly ScheduledCampaignSlot[]> {
+    const defaultActors = Object.keys(campaign.runtime.actors).sort();
+
+    return createCampaignScheduleArbitrary({
+        depth: campaign.config.depth,
+        hasActiveContract: options.hasActiveContract ?? true,
+        targets: campaign.targets.map((target) => ({
+            key: target.key,
+            weight: 1,
+            actors: target.actors ?? defaultActors,
+        })),
+    });
 }
 
 export function scheduleCampaignSlots(init: {

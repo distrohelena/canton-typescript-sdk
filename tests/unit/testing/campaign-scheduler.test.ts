@@ -1,9 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
+    createInvariantCampaignScheduleArbitrary,
     createCampaignScheduleArbitrary,
     scheduleCampaignSlots,
 } from "../../../src/testing/campaign/campaign-scheduler.js";
 import * as fc from "fast-check";
+import { defineInvariantCampaign } from "../../../src/testing/campaign/campaign-definition.js";
 
 describe("scheduleCampaignSlots", () => {
     test("fills every depth slot with a probe when no action is eligible", () => {
@@ -91,5 +93,35 @@ describe("scheduleCampaignSlots", () => {
 
         expect(first).toEqual(second);
         expect(first.every((schedule) => schedule.length === 4)).toBe(true);
+    });
+
+    test("derives scheduler actions from a public campaign definition", () => {
+        const campaign = defineInvariantCampaign({
+            runtime: {
+                actors: {
+                    issuer: { party: "Issuer", participant: "issuer" },
+                    owner: { party: "Owner", participant: "owner" },
+                },
+                isolation: { kind: "external" },
+            },
+            config: { runs: 1, depth: 3 },
+            targets: [
+                { key: "Main:Iou:Create", actors: ["issuer"] },
+                { key: "Main:Iou:Query" },
+            ],
+            invariants: [],
+        });
+
+        const schedules = fc.sample(
+            createInvariantCampaignScheduleArbitrary(campaign),
+            { seed: 41, numRuns: 5 },
+        );
+
+        expect(schedules.every((schedule) => schedule.length === campaign.config.depth))
+            .toBe(true);
+        expect(schedules.flat().every((slot) =>
+            slot.kind === "probe"
+            || (slot.targetKey === "Main:Iou:Create" ? slot.actor === "issuer" : true),
+        )).toBe(true);
     });
 });

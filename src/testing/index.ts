@@ -31,6 +31,7 @@ export {
 export {
     CampaignSchedulingTarget,
     createCampaignScheduleArbitrary,
+    createInvariantCampaignScheduleArbitrary,
     ScheduledCampaignSlot,
     scheduleCampaignSlots,
 } from "./campaign/campaign-scheduler.js";
