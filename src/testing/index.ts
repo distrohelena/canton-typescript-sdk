@@ -1,5 +1,11 @@
 export { defineInvariantCampaign } from "./campaign/campaign-definition.js";
 export {
+    applyAcceptedGhostTransition,
+    CampaignModel,
+    createCampaignModel,
+    reconcileCampaignModel,
+} from "./campaign/campaign-model.js";
+export {
     CampaignMetricOutcome,
     CampaignMetrics,
     createCampaignMetrics,
@@ -10,6 +16,13 @@ export {
     ScheduledCampaignSlot,
     scheduleCampaignSlots,
 } from "./campaign/campaign-scheduler.js";
+export {
+    bound,
+    CampaignHandler,
+    CampaignHandlerCleanup,
+    evaluateHandlerAssumptionAsync,
+    handler,
+} from "./handlers/handler.js";
 export {
     CampaignInvariant,
     CampaignIsolation,

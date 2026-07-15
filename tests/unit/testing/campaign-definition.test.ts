@@ -80,4 +80,28 @@ describe("defineInvariantCampaign", () => {
             }),
         ).toThrow("at least one target");
     });
+
+    test("requires discovery cleanup for mutating handlers on cleanup isolation", async () => {
+        const modulePath = "../../../src/testing/index.js";
+
+        const { defineInvariantCampaign, handler } = await import(modulePath);
+
+        expect(() =>
+            defineInvariantCampaign({
+                runtime: {
+                    actors: {
+                        issuer: {
+                            party: "Issuer",
+                            participant: "participant-a",
+                        },
+                    },
+                    isolation: { kind: "cleanup" },
+                },
+                config: { runs: 1, depth: 1 },
+                targets: [{ key: "write", actors: ["issuer"] }],
+                handlers: [handler("write", { cleanup: "none" })],
+                invariants: [],
+            }),
+        ).toThrow("discovery cleanup");
+    });
 });

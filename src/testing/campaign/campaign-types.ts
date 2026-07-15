@@ -47,5 +47,7 @@ export interface InvariantCampaign<Model = unknown, Ghost = unknown> {
     readonly runtime: CampaignRuntime;
     readonly config: ResolvedInvariantCampaignConfig;
     readonly targets: readonly CampaignTarget[];
+    readonly handlers: readonly CampaignHandler[];
     readonly invariants: readonly CampaignInvariant<Model, Ghost>[];
 }
+import { CampaignHandler } from "../handlers/handler.js";
