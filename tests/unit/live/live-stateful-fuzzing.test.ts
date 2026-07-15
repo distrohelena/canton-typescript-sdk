@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, stat, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import * as fc from "fast-check";
 import { propertyParameters } from "../../property/property-test-options.js";
@@ -29,6 +32,14 @@ import {
     liveFuzzEligibleActions,
     evaluateLiveInvariants,
 } from "../../live/fuzz/live-fuzz-campaign.js";
+import {
+    canonicalLiveFuzzJson,
+    createLiveFuzzFingerprint,
+    loadLiveFuzzArtifactAsync,
+    safeLiveFuzzArtifactFilename,
+    serializeLiveFuzzArtifact,
+    writeLiveFuzzArtifactAsync,
+} from "../../live/fuzz/live-fuzz-artifacts.js";
 
 const environmentKeys = [
     "SDK_TEST_ENABLE_LIVE_FUZZING",
@@ -511,6 +522,125 @@ describe("live fuzz configuration", () => {
         ).toEqual(expect.arrayContaining([
             expect.objectContaining({ code: "run-marked-contract-remains" }),
         ]));
+    });
+
+    it("canonicalizes fingerprints with explicit inputs and excludes secrets", () => {
+        const base = {
+            schemaVersion: 1,
+            fixtureVersion: "main-iou-v1",
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            actors: ["issuer", "owner"],
+            routeMatrixVersion: "v1",
+            depthMode: "exact" as const,
+            depth: 8,
+            actionWeights: readLiveFuzzConfig().actionWeights,
+            revertPolicy: "permissive" as const,
+        };
+
+        const first = createLiveFuzzFingerprint(base);
+
+        const second = createLiveFuzzFingerprint({
+            ...base,
+            endpoint: "secret-endpoint",
+            token: "secret-token",
+        });
+
+        expect(first).toBe(second);
+        expect(createLiveFuzzFingerprint({ ...base, revertPolicy: "strict" })).not.toBe(first);
+        expect(canonicalLiveFuzzJson({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
+    });
+
+    it("writes and reloads an allowlisted artifact with restrictive permissions", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "live-fuzz-artifact-"));
+
+        const artifact = {
+            schemaVersion: 1,
+            fixtureFingerprint: "fixture-fingerprint",
+            configFingerprint: "config-fingerprint",
+            runId: "run-1",
+            parties: { issuer: "issuer::abc", owner: "owner::def" },
+            seed: 123,
+            path: "0:1",
+            depthMode: "exact" as const,
+            depth: 4,
+            actionWeights: readLiveFuzzConfig().actionWeights,
+            actors: ["issuer", "owner"] as const,
+            campaignNonce: "1",
+            payloadMarker: "marker-1",
+            actions: [{ kind: "create", outcome: "accepted" }],
+            contractId: "contract-1",
+            ledgerEnds: { issuer: "10", owner: "11" },
+            invariantFailures: [],
+            numRuns: 1,
+            numShrinks: 2,
+            counterexamplePath: "0",
+            arbitraryError: "must-not-be-written",
+        };
+
+        const destination = join(directory, safeLiveFuzzArtifactFilename(artifact.runId, artifact.campaignNonce));
+
+        await writeLiveFuzzArtifactAsync(destination, artifact);
+
+        const loaded = await loadLiveFuzzArtifactAsync(destination, {
+            fixtureFingerprint: artifact.fixtureFingerprint,
+            configFingerprint: artifact.configFingerprint,
+            runId: artifact.runId,
+            parties: artifact.parties,
+        });
+
+        expect(loaded).toMatchObject({
+            runId: "run-1",
+            actions: [{ kind: "create", outcome: "accepted" }],
+        });
+        expect(serializeLiveFuzzArtifact(artifact)).not.toContain("arbitraryError");
+        expect(JSON.parse(await readFile(destination, "utf8"))).not.toHaveProperty("arbitraryError");
+        expect((await stat(directory)).mode & 0o777).toBe(0o700);
+        expect((await stat(destination)).mode & 0o777).toBe(0o600);
+    });
+
+    it("rejects stale fingerprints, symlink parents, and destination collisions", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "live-fuzz-artifact-"));
+
+        const symlinkTarget = await mkdtemp(join(tmpdir(), "live-fuzz-target-"));
+
+        const symlinkPath = join(directory, "symlink");
+
+        await symlink(symlinkTarget, symlinkPath);
+
+        const artifact = {
+            schemaVersion: 1,
+            fixtureFingerprint: "fixture-fingerprint",
+            configFingerprint: "config-fingerprint",
+            runId: "run-1",
+            parties: { issuer: "issuer::abc", owner: "owner::def" },
+            seed: 123,
+            path: "0",
+            depthMode: "exact" as const,
+            depth: 1,
+            actionWeights: readLiveFuzzConfig().actionWeights,
+            actors: ["issuer", "owner"] as const,
+            campaignNonce: "1",
+            payloadMarker: "marker-1",
+            actions: [{ kind: "create", outcome: "accepted" }],
+            ledgerEnds: {},
+            invariantFailures: [],
+            numRuns: 1,
+            numShrinks: 0,
+            counterexamplePath: "0",
+        };
+
+        const destination = join(directory, safeLiveFuzzArtifactFilename(artifact.runId, artifact.campaignNonce));
+
+        await writeLiveFuzzArtifactAsync(destination, artifact);
+
+        await expect(writeLiveFuzzArtifactAsync(destination, artifact)).rejects.toThrow(/exist|collision/i);
+        await expect(loadLiveFuzzArtifactAsync(destination, {
+            fixtureFingerprint: "stale",
+            configFingerprint: artifact.configFingerprint,
+            runId: artifact.runId,
+            parties: artifact.parties,
+        })).rejects.toThrow(/fingerprint/i);
+        await expect(writeLiveFuzzArtifactAsync(join(symlinkPath, "artifact.json"), artifact)).rejects.toThrow(/symlink/i);
     });
 
     it("replays command generation from a fixed seed", () => {
