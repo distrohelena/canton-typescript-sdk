@@ -2,8 +2,10 @@ export { defineInvariantCampaign } from "./campaign/campaign-definition.js";
 export {
     CampaignReplayArtifact,
     createCampaignFingerprint,
+    loadCampaignReplayArtifactAsync,
     selectCampaignCounterexampleTrace,
     serializeCampaignReplayArtifact,
+    writeCampaignReplayArtifactAsync,
 } from "./campaign/campaign-artifact.js";
 export {
     applyAcceptedGhostTransition,
