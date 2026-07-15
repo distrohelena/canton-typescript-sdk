@@ -68,6 +68,15 @@ const campaign = defineInvariantCampaign({
       // application assertion
     }),
   ],
+  handlers: [
+    handler("deposit", {
+      actors: ["issuer"],
+      weight: 4,
+      generate: ({ fc }) => ({ amount: fc.bigInt({ min: 1n, max: 1_000n }) }),
+      execute: async (context, input) => context.submit(/* command */),
+      apply: (model, result) => model.recordDeposit(result),
+    }),
+  ],
 });
 
 await campaign.run();
@@ -153,7 +162,7 @@ automatic action using the same target key or introduce a composed workflow
 such as mint/approve/deposit.
 
 ```ts
-campaign.handler("deposit", {
+handler("deposit", {
   actors: ["alice", "bob"],
   weight: 4,
   generate: ({ fc }) => ({
@@ -210,10 +219,11 @@ commit outcome is always a failure and triggers cleanup by deterministic run
 marker. `discarded` inputs are tracked separately from rejected commands.
 
 Hooks run in this order for each run: `beforeRun`, action execution,
-`afterAction` invariants, end-of-run invariants, `afterInvariant`, isolation
-cleanup or restore, then post-cleanup invariants. One campaign owns a fresh
-model per run. Campaigns run serially by default because a shared Canton
-environment cannot be assumed safe for concurrent mutation.
+`afterAction` invariants after every action, end-of-run invariants,
+`afterInvariant` once after those end-of-run invariants, isolation cleanup or
+restore, then post-cleanup invariants. One campaign owns a fresh model per run.
+Campaigns run serially by default because a shared Canton environment cannot
+be assumed safe for concurrent mutation.
 
 ## Invariants, metrics, and failure reporting
 
@@ -239,8 +249,11 @@ slot; only reconciled creates and archives alter the ledger layer. A handler's
 not manufacture ledger contracts. Before every invariant checkpoint and at
 run end, the runner refreshes the selected ACS/offset view and reports
 unexpected external changes as structured observations. An unknown commit
-outcome performs the same reconciliation for cleanup diagnostics but always
-fails the run without applying ghost state.
+outcome performs the same reconciliation for cleanup diagnostics, invokes
+every configured `trackCreated` and `discover` cleanup strategy, and always
+fails the run without applying ghost state. A deterministic run-marker scan is
+an optional `discover` implementation when the relevant target generator
+explicitly included `context.runMarker`; it is never assumed to exist.
 
 ## Reproducibility and artifacts
 
