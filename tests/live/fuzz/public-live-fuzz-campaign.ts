@@ -1,6 +1,17 @@
 import { defineInvariantCampaign, InvariantCampaign } from "../../../src/testing/index.js";
+import * as fc from "fast-check";
 
 import { LiveFuzzConfig } from "./live-fuzz-config.js";
+import { LiveFuzzCommand } from "./live-fuzz-commands.js";
+import { liveFuzzExactInputArbitrary } from "./live-fuzz-campaign.js";
+
+export interface PublicLiveFuzzAction {
+    readonly actor: "issuer" | "owner";
+    readonly targetKey: string;
+    readonly command: LiveFuzzCommand;
+    readonly amountSuffix: number;
+    readonly campaignNonce: bigint;
+}
 
 /**
  * Compatibility definition for the existing Main:Iou live fixture.
@@ -50,4 +61,55 @@ export function createPublicLiveFuzzCampaign(
         ],
         invariants: [],
     });
+}
+
+/**
+ * Adapts the compatibility generator to the public runner's exact action
+ * slots. The run-specific amount and nonce travel with every slot so one
+ * setup context can execute, shrink, and clean up the whole sequence.
+ */
+export function createPublicLiveFuzzActionArbitrary(
+    config: LiveFuzzConfig,
+): fc.Arbitrary<readonly PublicLiveFuzzAction[]> {
+    if (config.depthMode !== "exact") {
+        throw new Error(
+            "The public Main:Iou campaign requires exact FUZZ_LIVE_DEPTH mode.",
+        );
+    }
+
+    return liveFuzzExactInputArbitrary({
+        depth: config.depth,
+        actionWeights: config.actionWeights,
+        actors: config.actors,
+        requireArchive: config.requireArchive,
+    }).map((input) => input.commands.map((command) => ({
+        actor: actionActor(command),
+        targetKey: actionTargetKey(command),
+        command,
+        amountSuffix: input.amountSuffix,
+        campaignNonce: input.campaignNonce,
+    })));
+}
+
+function actionActor(command: LiveFuzzCommand): "issuer" | "owner" {
+    return command.kind === "create" || command.kind === "exercise"
+        ? "issuer"
+        : command.participant;
+}
+
+function actionTargetKey(command: LiveFuzzCommand): string {
+    switch (command.kind) {
+        case "create":
+            return "Main:Iou:Create";
+        case "query":
+            return "Main:Iou:Query";
+        case "fetch":
+            return "Main:Iou:Fetch";
+        case "events":
+            return "Main:Iou:Events";
+        case "exercise":
+            return "Main:Iou:Archive";
+        case "probe":
+            return "Main:Iou:Probe";
+    }
 }
