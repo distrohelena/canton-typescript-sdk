@@ -107,6 +107,29 @@ describe("defineInvariantCampaign", () => {
         ).toThrow("target 'Main:Iou:Create' is duplicated");
     });
 
+    test("rejects targets with an explicitly empty actor set", async () => {
+        const modulePath = "../../../src/testing/index.js";
+
+        const { defineInvariantCampaign } = await import(modulePath);
+
+        expect(() =>
+            defineInvariantCampaign({
+                runtime: {
+                    actors: {
+                        issuer: {
+                            party: "Issuer",
+                            participant: "participant-a",
+                        },
+                    },
+                    isolation: { kind: "external" },
+                },
+                config: { runs: 1, depth: 1 },
+                targets: [{ key: "Main:Iou:Create", actors: [] }],
+                invariants: [],
+            }),
+        ).toThrow("requires at least one actor");
+    });
+
     test("requires discovery cleanup for mutating handlers on cleanup isolation", async () => {
         const modulePath = "../../../src/testing/index.js";
 

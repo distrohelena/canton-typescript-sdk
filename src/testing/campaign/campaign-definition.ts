@@ -115,6 +115,12 @@ function validateTarget(
         );
     }
 
+    else if (target.actors !== undefined && target.actors.length === 0) {
+        throw new TestingConfigurationError(
+            `Invariant campaign target '${target.key}' requires at least one actor.`,
+        );
+    }
+
     for (const actor of target.actors ?? []) {
         if (runtime.actors[actor] === undefined) {
             throw new TestingConfigurationError(
