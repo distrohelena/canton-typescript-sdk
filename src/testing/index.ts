@@ -35,6 +35,7 @@ export {
     DamlTestingChoice,
     DamlTestingTemplate,
 } from "./daml/daml-testing-catalog.js";
+export { createDamlValueArbitrary } from "./daml/daml-value-arbitrary.js";
 export {
     bound,
     CampaignHandler,
