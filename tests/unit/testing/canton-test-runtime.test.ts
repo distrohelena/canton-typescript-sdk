@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
     classifyCantonCommandOutcome,
     createCantonTestRuntime,
+    pollUntilAsync,
 } from "../../../src/testing/runtime/canton-test-runtime.js";
 
 describe("Canton test runtime", () => {
@@ -91,5 +92,21 @@ describe("Canton command outcomes", () => {
             statusCode: 10,
             details: "aborted",
         });
+    });
+});
+
+describe("Canton runtime polling", () => {
+    test("retries until the observed value satisfies the readiness predicate", async () => {
+        let attempts = 0;
+
+        await expect(
+            pollUntilAsync({
+                intervalMs: 0,
+                timeoutMs: 100,
+                readAsync: async () => ++attempts,
+                isReady: (value) => value === 3,
+            }),
+        ).resolves.toBe(3);
+        expect(attempts).toBe(3);
     });
 });

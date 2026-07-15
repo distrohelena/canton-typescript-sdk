@@ -136,6 +136,29 @@ export function classifyCantonCommandOutcome(input: {
     return { kind: "unknown-commit-outcome", statusCode, details };
 }
 
+export async function pollUntilAsync<T>(init: {
+    readonly intervalMs: number;
+    readonly isReady: (value: T) => boolean;
+    readonly readAsync: () => Promise<T>;
+    readonly timeoutMs: number;
+}): Promise<T> {
+    const deadline = Date.now() + init.timeoutMs;
+
+    while (true) {
+        const value = await init.readAsync();
+
+        if (init.isReady(value)) {
+            return value;
+        } else if (Date.now() >= deadline) {
+            throw new Error("Canton test runtime polling timed out.");
+        }
+
+        await new Promise<void>((resolveDelay) => {
+            setTimeout(resolveDelay, init.intervalMs);
+        });
+    }
+}
+
 function readNumberProperty(value: unknown, key: string): number | undefined {
     const candidate = value as Record<string, unknown>;
 

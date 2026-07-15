@@ -37,6 +37,7 @@ export {
     CantonTestRuntime,
     classifyCantonCommandOutcome,
     createCantonTestRuntime,
+    pollUntilAsync,
 } from "./runtime/canton-test-runtime.js";
 export {
     CampaignInvariant,
