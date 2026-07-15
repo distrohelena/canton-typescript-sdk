@@ -12,12 +12,17 @@ const expectedExportKeys = [
     "./json",
     "./daml-lf",
     "./daml-interface",
+    "./testing",
 ];
 const helpText =
     "Runs npm package verification against the packed tarball surface.";
 
 export function getHelpText() {
     return helpText;
+}
+
+export function getExpectedExportKeys() {
+    return [...expectedExportKeys];
 }
 
 export function createNpmPackArguments(

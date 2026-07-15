@@ -26,6 +26,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
         packDestinationPath: string,
     ) => string[];
     getHelpText: () => string;
+    getExpectedExportKeys: () => readonly string[];
     getPackedTarballFileName: (packageName: string, packageVersion: string) => string;
     isAllowedPackedPath: (value: string) => boolean;
 }> {
@@ -40,6 +41,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
             packDestinationPath: string,
         ) => string[];
         getHelpText: () => string;
+        getExpectedExportKeys: () => readonly string[];
         getPackedTarballFileName: (
             packageName: string,
             packageVersion: string,
@@ -76,6 +78,12 @@ describe("npm pack verifier", () => {
         const verifyPackModule = await loadVerifyPackModuleAsync();
 
         expect(verifyPackModule.getHelpText()).toContain("package verification");
+    });
+
+    it("requires the experimental testing entry point in packed exports", async () => {
+        const verifyPackModule = await loadVerifyPackModuleAsync();
+
+        expect(verifyPackModule.getExpectedExportKeys()).toContain("./testing");
     });
 
     it("recognizes allowed packed paths", async () => {

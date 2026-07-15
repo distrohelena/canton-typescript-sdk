@@ -13,6 +13,56 @@ TypeScript SDK for Canton with:
 npm install @distrohelena/canton-typescript-sdk
 ```
 
+## Experimental invariant testing
+
+`@distrohelena/canton-typescript-sdk/testing` is an experimental, opt-in
+Foundry-style fuzzing surface for Canton. It provides semantic parity for
+campaign runs, exact depth, handlers, permissive or strict protocol reverts,
+invariants, shrinking, replay traces, and safe artifacts. It does not attempt
+to reproduce Foundry's EVM, ABI, PRNG, or shrink sequence byte-for-byte.
+
+Define the campaign once, keep ledger I/O in explicit runtime hooks, and use
+safe isolation. Shared or production ledgers must use an explicit external or
+snapshot policy; cleanup policies need contract discovery for ambiguous
+submissions.
+
+```ts
+import * as fc from "fast-check";
+import {
+    defineInvariantCampaign,
+    runInvariantCampaignCheckAsync,
+} from "@distrohelena/canton-typescript-sdk/testing";
+
+const campaign = defineInvariantCampaign<{ total: number }>({
+    runtime: {
+        actors: {
+            issuer: { party: "Issuer", participant: "participant-a" },
+        },
+        isolation: { kind: "external" },
+    },
+    config: { runs: 100, depth: 8, failOnRevert: false, seed: 42 },
+    targets: [{ key: "Main:Iou:Create", actors: ["issuer"] }],
+    invariants: [async ({ model }) => {
+        if (model.total < 0) throw new Error("negative total");
+    }],
+});
+
+await runInvariantCampaignCheckAsync({
+    campaign,
+    arbitrary: fc.constant([{ actor: "issuer", targetKey: "Main:Iou:Create" }]),
+    key: (actions) => JSON.stringify(actions),
+    setupAsync: async () => ({ model: { total: 0 }, ghost: {} }),
+    executeAsync: async () => ({ kind: "accepted", updateId: "update-1" }),
+});
+```
+
+Use `createDamlTestingCatalog`, `targetTemplate`,
+`resolveDeclarativeTargets`, and `createDeclarativeChoiceActionArbitrary` to
+derive typed DAML choice inputs. `handler`, `bound`, and handler assumptions
+support custom operations alongside those declarative actions. A failed check
+returns the shrunk counterexample trace; `InvariantCampaignFailure` and replay
+artifacts expose only allowlisted diagnostics.
+
 ## Live Integration Tests
 
 The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
