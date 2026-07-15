@@ -148,7 +148,7 @@ rtk git commit -m "feat: add experimental testing package boundary"
 
 - [ ] **Step 1: Write failing exact-depth scheduling tests.**
 
-Cover fixed `depth`, weight renormalization, target/actor exclusions, deterministic selection from the same seed values, no contract-dependent choice when no active contract is known, and a mandatory read-only probe fallback when no mutating target is eligible. Test these distinct outcomes:
+Cover fixed `depth`, weight renormalization, target/actor exclusions, deterministic selection from the same seed values, no contract-dependent choice when no active contract is known, and a mandatory read-only probe fallback when no mutating target is eligible. For a declarative action with `N` eligible named actors and no explicit actor weights, feed one complete cycle of scheduler actor-roll values and assert each actor is selected exactly once; assert excluded and route-invalid actors are absent before this uniform selection. Test these distinct outcomes:
 
 ```ts
 type CampaignActionOutcome =
@@ -169,7 +169,7 @@ Expected: FAIL because no public scheduler exists.
 
 - [ ] **Step 3: Implement pure action eligibility and weighted selection.**
 
-Keep all ledger reads outside this module. Accept an immutable scheduling snapshot with active contract handles, enabled actors, target filters, and handler-provided eligibility. Represent a generated slot as a target key, actor key, input, route requirement, and probe flag. Ensure rejected commands consume slots; only `protocol-revert` may be nonfatal later in the runner.
+Keep all ledger reads outside this module. Accept an immutable scheduling snapshot with active contract handles, enabled actors, target filters, and handler-provided eligibility. First sample an eligible action by action weight; then select among that action's eligible actors uniformly with an independent generated actor-roll whenever no actor-specific weights have been introduced. Represent a generated slot as a target key, actor key, input, route requirement, and probe flag. Ensure rejected commands consume slots; only `protocol-revert` may be nonfatal later in the runner.
 
 - [ ] **Step 4: Implement deterministic metric aggregation.**
 
@@ -177,7 +177,7 @@ Aggregate actions by target, template/choice, actor, outcome, discard reason, an
 
 - [ ] **Step 5: Add scheduler property tests.**
 
-Use fast-check to generate legal target graphs and assert: every schedule has exact depth; no emitted slot violates its eligibility predicate; all non-negative weights are renormalized without changing relative positive weights; and no slot is omitted after a discard/revert outcome.
+Use fast-check to generate legal target graphs and assert: every schedule has exact depth; no emitted slot violates its eligibility predicate; all non-negative weights are renormalized without changing relative positive weights; actor rolls distribute uniformly over each action's eligible actor set when no actor weights are configured; and no slot is omitted after a discard/revert outcome.
 
 - [ ] **Step 6: Run verification.**
 
