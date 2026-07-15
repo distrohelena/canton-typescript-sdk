@@ -71,6 +71,7 @@ export {
     pollUntilAsync,
     toCampaignMetricOutcome,
 } from "./runtime/canton-test-runtime.js";
+export { executeDeclarativeActionAsync } from "./runtime/declarative-action-executor.js";
 export {
     CampaignRunIsolation,
     runWithCampaignIsolationAsync,
