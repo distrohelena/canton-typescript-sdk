@@ -15,7 +15,11 @@ export {
 } from "./campaign/campaign-model.js";
 export {
     CampaignInvariantFailure,
+    CampaignExecutableAction,
+    CampaignLifecyclePhase,
+    CampaignLifecycleTrace,
     evaluateCampaignInvariantsAsync,
+    runCampaignLifecycleCheckAsync,
     runCampaignCheckAsync,
 } from "./campaign/campaign-runner.js";
 export {
