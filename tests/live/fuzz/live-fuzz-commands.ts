@@ -7,7 +7,8 @@ export type LiveFuzzCommand =
     | { readonly kind: "query"; readonly participant: LiveFuzzParticipant }
     | { readonly kind: "fetch"; readonly participant: LiveFuzzParticipant }
     | { readonly kind: "events"; readonly participant: LiveFuzzParticipant }
-    | { readonly kind: "exercise"; readonly participant: LiveFuzzParticipant };
+    | { readonly kind: "exercise"; readonly participant: LiveFuzzParticipant }
+    | { readonly kind: "probe"; readonly participant: LiveFuzzParticipant };
 
 export interface LiveFuzzModel {
     readonly templateId: string;
@@ -171,6 +172,8 @@ export function applyLiveFuzzModelCommand(
                 ...model,
                 active: false,
             };
+        case "probe":
+            return model;
     }
 }
 

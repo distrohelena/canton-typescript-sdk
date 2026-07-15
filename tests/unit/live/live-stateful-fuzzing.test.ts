@@ -21,6 +21,12 @@ import {
     matchesLiveFuzzContract,
     summarizeLiveFuzzContract,
 } from "../../live/fuzz/live-fuzz-runner.js";
+import {
+    applyLiveFuzzCommandOutcome,
+    classifyLiveFuzzCommandOutcome,
+    liveFuzzExactInputArbitrary,
+    liveFuzzEligibleActions,
+} from "../../live/fuzz/live-fuzz-campaign.js";
 
 const environmentKeys = [
     "SDK_TEST_ENABLE_LIVE_FUZZING",
@@ -280,6 +286,128 @@ describe("live fuzz configuration", () => {
             expect(sequence.length).toBeLessThanOrEqual(8);
             expect(sequence.filter(({ kind }) => kind === "exercise").length).toBeLessThanOrEqual(1);
         }
+    });
+
+    it("generates exact-depth inputs with a 128-bit nonce and valid state transitions", () => {
+        const inputs = fc.sample(
+            liveFuzzExactInputArbitrary({
+                depth: 8,
+                actionWeights: readLiveFuzzConfig().actionWeights,
+                actors: ["issuer", "owner"],
+            }),
+            100,
+        );
+
+        for (const input of inputs) {
+            expect(input.commands).toHaveLength(8);
+            expect(input.commands[0]).toEqual({ kind: "create" });
+            expect(input.campaignNonce).toBeGreaterThanOrEqual(0n);
+            expect(input.campaignNonce).toBeLessThan(2n ** 128n);
+
+            let active = true;
+
+            for (const command of input.commands.slice(1)) {
+                if (command.kind === "fetch" || command.kind === "exercise") {
+                    expect(active).toBe(true);
+                }
+
+                if (command.kind === "exercise") {
+                    active = false;
+                }
+            }
+        }
+    });
+
+    it("uses probe as the only eligible action when create was rejected", () => {
+        expect(
+            liveFuzzEligibleActions({
+                knownContract: false,
+                active: false,
+                actors: ["issuer", "owner"],
+            }),
+        ).toEqual(["probe"]);
+    });
+
+    it("preserves deterministic exact-depth inputs for the same seed", () => {
+        const arbitrary = liveFuzzExactInputArbitrary({
+            depth: 6,
+            actionWeights: readLiveFuzzConfig().actionWeights,
+            actors: ["issuer"],
+        });
+
+        expect(fc.sample(arbitrary, { seed: 123, numRuns: 10 })).toEqual(
+            fc.sample(arbitrary, { seed: 123, numRuns: 10 }),
+        );
+    });
+
+    it("keeps the strict four-action smoke sequence in exact mode", () => {
+        expect(
+            fc.sample(
+                liveFuzzExactInputArbitrary({
+                    depth: 4,
+                    actionWeights: readLiveFuzzConfig().actionWeights,
+                    actors: ["issuer", "owner"],
+                    requireArchive: true,
+                }),
+                1,
+            )[0].commands,
+        ).toEqual([
+            { kind: "create" },
+            { kind: "query", participant: "issuer" },
+            { kind: "fetch", participant: "owner" },
+            { kind: "exercise", participant: "issuer" },
+        ]);
+    });
+
+    it("classifies SDK and gRPC command outcomes", () => {
+        expect(
+            classifyLiveFuzzCommandOutcome({ response: { transactionId: "tx-1" } }),
+        ).toMatchObject({ kind: "accepted" });
+        expect(
+            classifyLiveFuzzCommandOutcome({
+                error: {
+                    code: 9,
+                    details: "DAML_INTERPRETATION_ERROR(1,abc): rejected",
+                },
+            }),
+        ).toMatchObject({ kind: "protocol-revert" });
+        expect(
+            classifyLiveFuzzCommandOutcome({
+                error: {
+                    code: 14,
+                    details: "SERVICE_NOT_RUNNING(1,abc): unavailable",
+                },
+            }),
+        ).toMatchObject({ kind: "transport-error" });
+        expect(
+            classifyLiveFuzzCommandOutcome({
+                error: { code: 4, details: "deadline" },
+            }),
+        ).toMatchObject({ kind: "timeout" });
+        expect(
+            classifyLiveFuzzCommandOutcome({ response: {} }),
+        ).toMatchObject({ kind: "malformed-response" });
+        expect(
+            classifyLiveFuzzCommandOutcome({ error: { code: 10, details: "ABORTED" } }),
+        ).toMatchObject({ kind: "unknown-commit-outcome" });
+    });
+
+    it("changes the model only after an accepted command", () => {
+        const model = createInitialLiveFuzzModel({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: { issuer: "issuer::abc", owner: "owner::def", amount: 1 },
+        });
+
+        expect(
+            applyLiveFuzzCommandOutcome(model, { kind: "create" }, {
+                kind: "protocol-revert",
+                statusCode: 9,
+                details: "DAML_INTERPRETATION_ERROR(1,abc): rejected",
+            }),
+        ).toEqual(model);
+        expect(
+            applyLiveFuzzCommandOutcome(model, { kind: "create" }, { kind: "accepted" }),
+        ).toEqual(model);
     });
 
     it("replays command generation from a fixed seed", () => {
