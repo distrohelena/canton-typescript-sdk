@@ -76,7 +76,7 @@ Do not begin a later delivery checkpoint until the preceding checkpoint's focuse
 
 - [ ] **Step 1: Write the failing public-import and type-boundary tests.**
 
-Assert that `@distrohelena/canton-typescript-sdk/testing` is an exported package entry, that it does not leak internal client fields, and that a campaign cannot be mutated after construction. Use `@ts-expect-error` assertions for invalid actor names, missing cleanup under cleanup isolation, and handler mutation attempts.
+Assert that `@distrohelena/canton-typescript-sdk/testing` is an exported package entry, that it does not leak internal client fields, and that a campaign cannot be mutated after construction. Assert that omitted `failOnRevert` resolves to `false`, while explicit `true` remains strict. Use `@ts-expect-error` assertions for invalid actor names, missing cleanup under cleanup isolation, and handler mutation attempts.
 
 - [ ] **Step 2: Run the focused tests to establish failure.**
 
@@ -114,6 +114,7 @@ export function defineInvariantCampaign<Model, Ghost>(init: {
 ```
 
 Freeze copied arrays/configuration at definition time and reject duplicate target keys, duplicate handler names, unknown actor references, non-positive `runs`/`depth`, and an empty executable target set. Keep runtime implementation details out of this task.
+Normalize omitted `failOnRevert` to the required Foundry-compatible `false` in the immutable resolved configuration; never defer this default to runner code.
 
 - [ ] **Step 4: Add the package export and runtime dependency.**
 
@@ -384,7 +385,7 @@ rtk git commit -m "feat: add explicit invariant campaign isolation"
 
 - [ ] **Step 1: Write failing runner-order tests.**
 
-Use a fake runtime/handler to assert this exact per-run order: isolation setup, initial ACS hydration, `beforeRun`, each action, reconciliation, `afterAction` invariants, end-of-run invariants, one `afterInvariant`, isolation cleanup/restore, and post-cleanup invariants. Assert a protocol revert continues only when `failOnRevert` is false; every other non-accepted outcome fails; invariant failures stop the candidate and preserve the original cause.
+Use a fake runtime/handler to assert this exact per-run order: isolation setup, initial ACS hydration, `beforeRun`, each action, reconciliation, `afterAction` invariants, end-of-run invariants, one `afterInvariant`, isolation cleanup/restore, and post-cleanup invariants. Assert a protocol revert continues only when the normalized `failOnRevert` is false; every other non-accepted outcome fails. At every checkpoint, install three invariants where two fail (one by returning a structured failure and one by throwing): assert all three execute, both failures are normalized/aggregated into the trace and artifact, then the candidate stops while preserving the original thrown cause.
 
 - [ ] **Step 2: Run focused runner tests to establish failure.**
 
@@ -394,7 +395,7 @@ Expected: FAIL because the core cannot execute a campaign.
 
 - [ ] **Step 3: Implement `fc.check` orchestration.**
 
-Generate campaign inputs through the scheduler, record each candidate trace by canonical input including a 128-bit nonce, and call `fc.check` rather than `fc.assert`. Persist only the trace for `RunDetails.counterexample` after shrinking. Explicit replay executes the stored action list without regeneration; automatic replay is opt-in and never overwrites artifacts.
+Generate campaign inputs through the scheduler, record each candidate trace by canonical input including a 128-bit nonce, and call `fc.check` rather than `fc.assert`. At each invariant checkpoint, execute every registered invariant, convert returned and thrown failures into a stable aggregate, and only then fail the candidate. Persist only the trace for `RunDetails.counterexample` after shrinking. Explicit replay executes the stored action list without regeneration; automatic replay is opt-in and never overwrites artifacts.
 
 - [ ] **Step 4: Reconcile the ledger projection at every checkpoint.**
 
@@ -419,32 +420,46 @@ rtk git commit -m "feat: run public invariant campaigns"
 
 **Files:**
 - Create: `src/testing/daml/daml-testing-catalog.ts`
-- Modify: `src/testing/targets/target.ts`
+- Create: `src/testing/targets/target.ts`
 - Modify: `src/testing/campaign/campaign-definition.ts`
+- Modify: `src/testing/index.ts`
 - Test: `tests/unit/testing/daml-testing-catalog.test.ts`
+- Test: `tests/unit/testing/public-testing-api.test.ts`
 - Verify only: `src/daml-lf/daml-lf-package-loader.ts`, `src/daml-lf/daml-lf-compilation.ts`, `src/daml-lf/semantics/daml-lf-semantic-model.ts`
 
 - [ ] **Step 1: Write catalog fixture tests.**
 
-Use existing DAR/DAML-LF fixture builders to verify template ID, create fields, choice names, parameter types, signatory/observer/controller metadata when available, deterministic selection precedence, and unsupported metadata diagnostics. Cover specific choice/interface inclusion overriding exclusion, exclusion overriding broad template selection, and broad selection overriding automatic discovery.
+Use existing DAR/DAML-LF fixture builders to verify `loadDamlTestingCatalogAsync` accepts both a preloaded `DamlLfCompilation` and the SDK's DAR/package loader source, then returns an immutable catalog. Verify template ID, create fields, choice names, parameter types, signatory/observer/controller metadata when available, deterministic selection precedence, and unsupported metadata diagnostics. Cover public exports and construction of `targetTemplate`, `targetInterface`, `targetChoice`, `excludeTemplate`, `excludeChoice`, `targetActor`, and `excludeActor`; cover specific choice/interface inclusion overriding exclusion, exclusion overriding broad template selection, and broad selection overriding automatic discovery.
 
 - [ ] **Step 2: Run focused catalog tests to establish failure.**
 
-Run: `rtk npm test -- tests/unit/testing/daml-testing-catalog.test.ts`
+Run: `rtk npm test -- tests/unit/testing/daml-testing-catalog.test.ts tests/unit/testing/public-testing-api.test.ts`
 
 Expected: FAIL because the testing catalog is missing.
 
 - [ ] **Step 3: Implement catalog construction from existing DAML-LF semantic models.**
 
-Reuse the package loader and semantic model; do not parse DAR archives a second way. Produce a testing-specific immutable catalog that preserves raw LF type information needed by arbitraries instead of reusing the current `DamlInterfaceAnalyzer`, which intentionally rejects most non-text shapes.
+Reuse the package loader and semantic model; do not parse DAR archives a second way. Implement and export:
+
+```ts
+type DamlTestingCatalogSource =
+  | { readonly kind: "compilation"; readonly compilation: DamlLfCompilation }
+  | { readonly kind: "dar"; readonly path: string };
+
+async function loadDamlTestingCatalogAsync(
+  source: DamlTestingCatalogSource,
+): Promise<DamlTestingCatalog>;
+```
+
+The user loads the catalog before `defineInvariantCampaign` and passes it through the immutable campaign definition. This keeps definition validation synchronous and makes package I/O explicit. Produce a testing-specific immutable catalog that preserves raw LF type information needed by arbitraries instead of reusing the current `DamlInterfaceAnalyzer`, which intentionally rejects most non-text shapes.
 
 - [ ] **Step 4: Implement declarative target route validation.**
 
-Require `.actors()` or `resolveRoute` on every mutating declarative action. Default route uses the selected actor's participant, `actAs`, and `readAs`; missing route configuration fails at campaign definition. Require explicit `valueParties` or a field generator for party-valued fields.
+Create and export the target builder functions named in Step 1. Their output is immutable declarative target data consumed by `defineInvariantCampaign({ catalog, targets })`. Require `.actors()` or `resolveRoute` on every mutating declarative action. Default route uses the selected actor's participant, `actAs`, and `readAs`; missing route configuration fails at campaign definition. Require explicit `valueParties` or a field generator for party-valued fields.
 
 - [ ] **Step 5: Run verification.**
 
-Run: `rtk npm test -- tests/unit/testing/daml-testing-catalog.test.ts tests/unit/testing/campaign-definition.test.ts`
+Run: `rtk npm test -- tests/unit/testing/daml-testing-catalog.test.ts tests/unit/testing/public-testing-api.test.ts tests/unit/testing/campaign-definition.test.ts`
 
 Run: `rtk npm run build`
 
@@ -453,7 +468,7 @@ Run: `rtk npx eslint src/testing/daml src/testing/targets tests/unit/testing/dam
 - [ ] **Step 6: Commit declarative discovery.**
 
 ```bash
-rtk git add src/testing/daml/daml-testing-catalog.ts src/testing/targets src/testing/campaign/campaign-definition.ts tests/unit/testing/daml-testing-catalog.test.ts tests/unit/testing/campaign-definition.test.ts
+rtk git add src/testing/daml/daml-testing-catalog.ts src/testing/targets src/testing/campaign/campaign-definition.ts src/testing/index.ts tests/unit/testing/daml-testing-catalog.test.ts tests/unit/testing/public-testing-api.test.ts tests/unit/testing/campaign-definition.test.ts
 rtk git commit -m "feat: add declarative DAML invariant targets"
 ```
 
