@@ -40,6 +40,29 @@ describe("Canton test runtime", () => {
             }),
         ).toThrow("unknown participant 'missing'");
     });
+
+    test("reads a ledger end through the selected participant", async () => {
+        const runtime = createCantonTestRuntime({
+            participants: {
+                participantA: {
+                    stateService: {
+                        getLedgerEndAsync: async () => ({ offset: "00000042" }),
+                    },
+                },
+            },
+            actors: {
+                issuer: {
+                    party: "Issuer",
+                    participant: "participantA",
+                },
+            },
+            isolation: { kind: "external" },
+        });
+
+        await expect(runtime.readLedgerEndAsync("participantA")).resolves.toBe(
+            "00000042",
+        );
+    });
 });
 
 describe("Canton command outcomes", () => {

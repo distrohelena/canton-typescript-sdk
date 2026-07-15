@@ -37,6 +37,7 @@ export interface CantonTestRuntime<Participant = unknown> {
     readonly actors: Readonly<Record<string, CantonTestActor>>;
     readonly isolation: CampaignIsolation;
     readonly participants: Readonly<Record<string, Participant>>;
+    readLedgerEndAsync(participant: string): Promise<string>;
     resolveRoute(actor: string): CantonTestRoute;
 }
 
@@ -61,6 +62,34 @@ export function createCantonTestRuntime<Participant>(init: {
         actors,
         participants,
         isolation: init.isolation,
+        async readLedgerEndAsync(participantName: string): Promise<string> {
+            const participant = participants[participantName];
+
+            const stateService = readObjectProperty(participant, "stateService");
+
+            const getLedgerEndAsync = readFunctionProperty(
+                stateService,
+                "getLedgerEndAsync",
+            );
+
+            if (getLedgerEndAsync === undefined) {
+                throw new TestingConfigurationError(
+                    `Canton test participant '${participantName}' has no stateService.getLedgerEndAsync method.`,
+                );
+            }
+
+            const response = await getLedgerEndAsync.call(stateService);
+
+            const offset = readStringProperty(response, "offset");
+
+            if (offset === undefined) {
+                throw new TestingConfigurationError(
+                    `Canton test participant '${participantName}' returned no ledger end offset.`,
+                );
+            }
+
+            return offset;
+        },
         resolveRoute(actorName: string): CantonTestRoute {
             const actor = actors[actorName];
 
@@ -113,6 +142,30 @@ function readNumberProperty(value: unknown, key: string): number | undefined {
     const property = candidate?.[key];
 
     return typeof property === "number" ? property : undefined;
+}
+
+function readObjectProperty(
+    value: unknown,
+    key: string,
+): Record<string, unknown> | undefined {
+    const candidate = value as Record<string, unknown>;
+
+    const property = candidate?.[key];
+
+    return property !== null && typeof property === "object"
+        ? property as Record<string, unknown>
+        : undefined;
+}
+
+function readFunctionProperty(
+    value: Record<string, unknown> | undefined,
+    key: string,
+): (() => Promise<unknown>) | undefined {
+    const property = value?.[key];
+
+    return typeof property === "function"
+        ? property as () => Promise<unknown>
+        : undefined;
 }
 
 function readStringProperty(value: unknown, key: string): string | undefined {
