@@ -126,9 +126,24 @@ function isCampaignReplayArtifact(value: unknown): value is CampaignReplayArtifa
         && (value as { schemaVersion?: unknown }).schemaVersion === 1
         && typeof (value as { fingerprint?: unknown }).fingerprint === "string"
         && Array.isArray((value as { actions?: unknown }).actions)
+        && (value as { actions: unknown[] }).actions.every(isReplayAction)
         && isCampaignMetrics((value as { metrics?: unknown }).metrics)
         && isPositiveSafeInteger((value as { numRuns?: unknown }).numRuns)
         && isNonNegativeSafeInteger((value as { numShrinks?: unknown }).numShrinks);
+}
+
+function isReplayAction(value: unknown): value is Readonly<Record<string, string>> {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return false;
+    }
+
+    const action = value as Record<string, unknown>;
+
+    const allowedKeys = new Set(["actor", "outcome", "targetKey"]);
+
+    return Object.entries(action).every(([key, field]) =>
+        allowedKeys.has(key) && typeof field === "string",
+    );
 }
 
 function isPositiveSafeInteger(value: unknown): value is number {

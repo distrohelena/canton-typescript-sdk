@@ -160,4 +160,27 @@ describe("campaign replay artifacts", () => {
             await rm(directory, { recursive: true, force: true });
         }
     });
+
+    test("rejects replay actions with non-allowlisted fields", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "campaign-artifact-"));
+
+        const filename = join(directory, "unsafe-action.json");
+
+        try {
+            await writeFile(filename, JSON.stringify({
+                schemaVersion: 1,
+                fingerprint: "fingerprint",
+                actions: [{ targetKey: "Main:Iou:Create", endpoint: "https://secret" }],
+                metrics: { byActor: {}, byTarget: {} },
+                numRuns: 1,
+                numShrinks: 0,
+            }));
+
+            await expect(
+                loadCampaignReplayArtifactAsync(filename, "fingerprint"),
+            ).rejects.toThrow("invalid schema");
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
 });
