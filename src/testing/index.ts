@@ -16,6 +16,7 @@ export {
 export {
     CampaignInvariantFailure,
     evaluateCampaignInvariantsAsync,
+    runCampaignCheckAsync,
 } from "./campaign/campaign-runner.js";
 export {
     CampaignMetricOutcome,

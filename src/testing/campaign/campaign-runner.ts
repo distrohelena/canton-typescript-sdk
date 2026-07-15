@@ -31,3 +31,39 @@ export async function evaluateCampaignInvariantsAsync(init: readonly {
 
     return failures;
 }
+
+export async function runCampaignCheckAsync<Input, Trace>(init: {
+    readonly arbitrary: fc.Arbitrary<Input>;
+    readonly executeAsync: (input: Input) => Promise<{
+        readonly passed: boolean;
+        readonly trace: Trace;
+    }>;
+    readonly key: (input: Input) => string;
+    readonly numRuns: number;
+}): Promise<{
+    readonly counterexampleTrace?: Trace;
+    readonly details: fc.RunDetails<[Input]>;
+}> {
+    const traces = new Map<string, Trace>();
+
+    const details = await fc.check(
+        fc.asyncProperty(init.arbitrary, async (input) => {
+            const result = await init.executeAsync(input);
+
+            traces.set(init.key(input), result.trace);
+
+            return result.passed;
+        }),
+        { numRuns: init.numRuns },
+    );
+
+    const counterexample = details.counterexample?.[0];
+
+    return {
+        details,
+        ...(counterexample === undefined
+            ? {}
+            : { counterexampleTrace: traces.get(init.key(counterexample)) }),
+    };
+}
+import * as fc from "fast-check";

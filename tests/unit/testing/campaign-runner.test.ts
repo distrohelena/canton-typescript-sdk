@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import * as fc from "fast-check";
 import {
     evaluateCampaignInvariantsAsync,
+    runCampaignCheckAsync,
 } from "../../../src/testing/campaign/campaign-runner.js";
 
 describe("campaign invariant checkpoints", () => {
@@ -37,5 +39,22 @@ describe("campaign invariant checkpoints", () => {
             { invariant: "first", code: "first-failure", message: "first failed" },
             { invariant: "second", code: "thrown", message: "second failed" },
         ]);
+    });
+});
+
+describe("fast-check campaign execution", () => {
+    test("returns the trace for the final minimized counterexample", async () => {
+        const result = await runCampaignCheckAsync({
+            arbitrary: fc.integer({ min: 0, max: 20 }),
+            numRuns: 20,
+            key: (value) => String(value),
+            executeAsync: async (value) => ({
+                passed: value < 7,
+                trace: { value },
+            }),
+        });
+
+        expect(result.details.failed).toBe(true);
+        expect(result.counterexampleTrace).toEqual({ value: 7 });
     });
 });
