@@ -38,12 +38,32 @@ export interface CampaignTarget {
     readonly actors?: readonly string[];
 }
 
-export type CampaignInvariant<Model = unknown, Ghost = unknown> = (
+export type CampaignInvariant<Model = unknown, Ghost = unknown> = ((
     context: {
         readonly model: Model;
         readonly ghost: Ghost;
     },
-) => void | Promise<void>;
+) => void | Promise<void>) & {
+    readonly label?: string;
+};
+
+export function invariant<Model = unknown, Ghost = unknown>(
+    label: string,
+    check: CampaignInvariant<Model, Ghost>,
+): CampaignInvariant<Model, Ghost> {
+    if (label.length === 0) {
+        throw new Error("Invariant campaign invariant names must not be empty.");
+    }
+
+    const named: CampaignInvariant<Model, Ghost> = (context) => check(context);
+
+    Object.defineProperty(named, "label", {
+        value: label,
+        enumerable: true,
+    });
+
+    return Object.freeze(named);
+}
 
 export interface InvariantCampaign<Model = unknown, Ghost = unknown> {
     readonly runtime: CampaignRuntime;

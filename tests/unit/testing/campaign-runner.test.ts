@@ -8,6 +8,7 @@ import {
 } from "../../../src/testing/campaign/campaign-runner.js";
 import { CampaignMetricOutcome } from "../../../src/testing/campaign/campaign-metrics.js";
 import { defineInvariantCampaign } from "../../../src/testing/campaign/campaign-definition.js";
+import { invariant } from "../../../src/testing/campaign/campaign-types.js";
 
 describe("campaign invariant checkpoints", () => {
     test("aggregates every invariant failure at a checkpoint", async () => {
@@ -230,5 +231,34 @@ describe("campaign lifecycle execution", () => {
         });
 
         expect(result.details.interrupted).toBe(true);
+    });
+
+    test("uses declared invariant names in counterexample diagnostics", async () => {
+        const campaign = defineInvariantCampaign({
+            runtime: {
+                actors: { issuer: { party: "Issuer", participant: "issuer" } },
+                isolation: { kind: "external" },
+            },
+            config: { runs: 1, depth: 1 },
+            targets: [{ key: "Main:Iou:Create", actors: ["issuer"] }],
+            invariants: [invariant("total-is-positive", () => {
+                throw new Error("total is negative");
+            })],
+        });
+
+        const result = await runInvariantCampaignCheckAsync({
+            campaign,
+            arbitrary: fc.constant([{ actor: "issuer", targetKey: "Main:Iou:Create" }]),
+            key: () => "negative-total",
+            setupAsync: async () => ({ model: {}, ghost: {} }),
+            executeAsync: async (): Promise<CampaignMetricOutcome> => ({
+                kind: "accepted",
+                updateId: "update-1",
+            }),
+        });
+
+        expect(result.counterexampleTrace?.failures[0]?.invariant).toBe(
+            "total-is-positive",
+        );
     });
 });

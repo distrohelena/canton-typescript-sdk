@@ -203,7 +203,7 @@ export async function runInvariantCampaignCheckAsync<
         checkInvariantsAsync: async (context, phase) => {
             const declaredFailures = await evaluateCampaignInvariantsAsync(
                 init.campaign.invariants.map((invariant, index) => ({
-                    name: invariant.name || `invariant-${index + 1}`,
+                    name: invariant.label ?? (invariant.name || `invariant-${index + 1}`),
                     check: async () => {
                         await invariant({
                             model: context.model,

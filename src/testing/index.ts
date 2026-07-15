@@ -84,6 +84,7 @@ export {
     CantonTestActor,
     InvariantCampaign,
     InvariantCampaignConfig,
+    invariant,
     ResolvedInvariantCampaignConfig,
 } from "./campaign/campaign-types.js";
 export { TestingConfigurationError } from "./errors/testing-configuration-error.js";
