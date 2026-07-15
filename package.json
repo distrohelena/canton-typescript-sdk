@@ -52,6 +52,10 @@
         "./json": {
             "types": "./dist/json/index.d.ts",
             "import": "./dist/json/index.js"
+        },
+        "./testing": {
+            "types": "./dist/testing/index.d.ts",
+            "import": "./dist/testing/index.js"
         }
     },
     "scripts": {
@@ -75,6 +79,7 @@
         "@protobuf-ts/grpc-transport": "^2.11.1",
         "@protobuf-ts/runtime": "^2.11.1",
         "@protobuf-ts/runtime-rpc": "^2.11.1",
+        "fast-check": "^4.9.0",
         "fflate": "^0.8.3"
     },
     "devDependencies": {
@@ -83,7 +88,6 @@
         "@typescript-eslint/parser": "^8.62.1",
         "@typescript-eslint/utils": "^8.62.1",
         "eslint": "^10.6.0",
-        "fast-check": "^4.9.0",
         "prettier": "^3.9.4",
         "typescript": "^5.9.2",
         "vitest": "^3.2.4"
