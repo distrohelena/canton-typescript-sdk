@@ -44,6 +44,10 @@ export {
 } from "./daml/daml-testing-catalog.js";
 export { createDamlValueArbitrary } from "./daml/daml-value-arbitrary.js";
 export {
+    createDeclarativeChoiceActionArbitrary,
+    DeclarativeChoiceAction,
+} from "./daml/daml-choice-action-arbitrary.js";
+export {
     bound,
     CampaignHandler,
     CampaignHandlerCleanup,
