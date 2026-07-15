@@ -99,7 +99,7 @@ Assert that exact mode:
 - produces deterministic inputs from the same seed and path.
 
 Assert the discriminated command outcome union distinguishes accepted, protocol-revert, transport, timeout, malformed-response, and unknown-commit outcomes. Model transitions must apply state changes only for accepted commands.
-Exercise the classifier with concrete gRPC status/details fixtures and assert one-and-only-one outcome is emitted for each submitted action, including ambiguous commit responses.
+Exercise the classifier with concrete gRPC status/details fixtures and assert one SDK submission attempt and one-and-only-one outcome for every action, including ambiguous commit responses. The classifier table is explicit: a valid response with non-empty `updateId` is accepted; `FAILED_PRECONDITION` plus details beginning with the machine-readable Canton `DAML_INTERPRETATION_ERROR(` code is protocol-revert; `INVALID_ARGUMENT` plus `DAML_AUTHORIZATION_ERROR(` is protocol-revert; `UNAVAILABLE` or `INTERNAL` is transport; `DEADLINE_EXCEEDED` is timeout; `ABORTED` and `UNKNOWN` are unknown-commit when submission visibility is ambiguous; and every other status/details combination is fatal unknown or malformed-response. Human-readable message suffixes are never parsed.
 
 - [ ] **Step 2: Run the focused test to establish failure.**
 
@@ -113,7 +113,7 @@ Define a generated input containing `commands`, `amountSuffix`, and `campaignNon
 
 - [ ] **Step 4: Implement typed outcomes and model transitions.**
 
-Add pure classification and transition helpers. Classify the concrete raw SDK/gRPC rejection shape using the numeric gRPC status code plus normalized `details`/message: only the documented Canton command-rejection status/details predicate is `protocol-revert`; `UNAVAILABLE` is transport, `DEADLINE_EXCEEDED` is timeout, `INTERNAL` is transport, unknown codes are unknown-commit or transport according to whether commit visibility is ambiguous, and malformed response shapes are malformed-response. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes, and assert every action submission has exactly one classification (no duplicate or missing outcome).
+Add pure classification and transition helpers using the explicit status/details table above. Parse only the machine-readable Canton error-code prefix in `details` and never the mutable human-readable suffix. A protocol revert records an outcome and leaves model state unchanged in permissive mode; all other failure classes remain fatal. Keep invariant failures separate from command outcomes, and assert every action submission has exactly one classification (no duplicate or missing outcome).
 
 - [ ] **Step 5: Run tests, build, and lint.**
 
@@ -192,7 +192,7 @@ rtk git commit -m "test: add explicit live fuzz routes and invariants"
 
 Cover:
 
-- canonical JSON and SHA-256 fixture/configuration fingerprints over exactly schema version, fixture version, template ID, actor names, route-matrix version, depth mode/value, and action weights, excluding endpoints, credentials, and run-specific nonce/marker;
+- canonical JSON and SHA-256 fixture/configuration fingerprints over exactly schema version, fixture version, template ID, actor names, route-matrix version, depth mode/value, action weights, and `revertPolicy` (`failOnRevert`), excluding endpoints, credentials, and run-specific nonce/marker; changing any included field must change the fingerprint;
 - allowlisted artifact serialization with no endpoint, token, headers, or arbitrary error fields;
 - schema validation and stale/foreign fingerprint rejection;
 - default failure-directory resolution to `tests/live/.artifacts/failures` when persistence is enabled;
