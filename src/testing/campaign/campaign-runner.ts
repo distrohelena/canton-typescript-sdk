@@ -50,7 +50,9 @@ export async function runCampaignCheckAsync<Input, Trace>(init: {
     }>;
     readonly key: (input: Input) => string;
     readonly numRuns: number;
+    readonly path?: string;
     readonly seed?: number;
+    readonly timeoutMs?: number;
 }): Promise<{
     readonly counterexampleTrace?: Trace;
     readonly details: fc.RunDetails<[Input]>;
@@ -68,6 +70,10 @@ export async function runCampaignCheckAsync<Input, Trace>(init: {
         {
             numRuns: init.numRuns,
             ...(init.seed === undefined ? {} : { seed: init.seed }),
+            ...(init.path === undefined ? {} : { path: init.path }),
+            ...(init.timeoutMs === undefined
+                ? {}
+                : { interruptAfterTimeLimit: init.timeoutMs }),
         },
     );
 

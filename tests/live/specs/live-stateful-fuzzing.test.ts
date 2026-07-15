@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 import { afterAll, describe, expect, it } from "vitest";
+import { runCampaignCheckAsync } from "../../../src/testing/index.js";
 import {
     createLiveFuzzFixtureAsync,
 } from "../fuzz/live-fuzz-fixture.js";
@@ -16,7 +17,6 @@ import {
     loadLiveFuzzArtifactAsync,
     liveFuzzInputKey,
     safeLiveFuzzArtifactFilename,
-    selectLiveFuzzCounterexampleTrace,
     writeLiveFuzzArtifactAsync,
 } from "../fuzz/live-fuzz-artifacts.js";
 import { LiveFuzzConfig, readLiveFuzzConfig } from "../fuzz/live-fuzz-config.js";
@@ -62,31 +62,37 @@ describe("live stateful fuzzing", () => {
 
             const inputArbitrary = createLiveFuzzInputArbitrary(fixture, config);
 
-            const traces = new Map<string, LiveFuzzTrace>();
-
-            const details = await fc.check(
-                fc.asyncProperty(inputArbitrary, async (input) => {
+            const result = await runCampaignCheckAsync({
+                arbitrary: inputArbitrary,
+                numRuns: config.numRuns,
+                key: liveFuzzInputKey,
+                ...(config.seed === undefined ? {} : { seed: config.seed }),
+                ...(config.path === undefined ? {} : { path: config.path }),
+                timeoutMs: config.testTimeoutMs,
+                executeAsync: async (input) => {
                     const trace = createLiveFuzzTrace(input);
 
-                    const key = liveFuzzInputKey(input);
+                    try {
+                        await runLiveFuzzInputAsync(fixture, config, input, trace);
 
-                    if (traces.has(key)) {
-                        throw new Error("Duplicate complete live fuzz input in one invocation.");
+                        return { passed: true, trace };
+                    } catch (error) {
+                        return {
+                            passed: false,
+                            trace: { ...trace, error },
+                        };
                     }
-
-                    traces.set(key, trace);
-                    await runLiveFuzzInputAsync(fixture, config, input, trace);
-                }),
-                {
-                    numRuns: config.numRuns,
-                    ...(config.seed === undefined ? {} : { seed: config.seed }),
-                    ...(config.path === undefined ? {} : { path: config.path }),
-                    interruptAfterTimeLimit: config.testTimeoutMs,
                 },
-            );
+            });
+
+            const details = result.details;
 
             if (details.failed) {
-                const trace = selectLiveFuzzCounterexampleTrace(details, traces);
+                const trace = result.counterexampleTrace;
+
+                if (trace === undefined) {
+                    throw new Error("Public campaign runner did not retain the counterexample trace.");
+                }
 
                 try {
                     await writeLiveFuzzFailureArtifactAsync(
@@ -103,7 +109,7 @@ describe("live stateful fuzzing", () => {
                     console.error(`Live fuzz artifact write failed: ${message}`);
                 }
 
-                throwFailure(details.errorInstance);
+                throwFailure(trace.error ?? details.errorInstance);
             }
 
             expect(fixture.clients.all).toHaveLength(2);
@@ -113,6 +119,7 @@ describe("live stateful fuzzing", () => {
 });
 
 interface LiveFuzzTrace {
+    readonly error?: unknown;
     readonly input: LiveFuzzExactInput;
     readonly outcomes: Readonly<Record<string, unknown>>[];
 }
