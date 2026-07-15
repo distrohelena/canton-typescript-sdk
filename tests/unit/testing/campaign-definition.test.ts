@@ -60,6 +60,32 @@ describe("defineInvariantCampaign", () => {
         ).toThrow("unknown actor 'missing'");
     });
 
+    test("rejects invalid replay seeds and timeouts", async () => {
+        const modulePath = "../../../src/testing/index.js";
+
+        const { defineInvariantCampaign } = await import(modulePath);
+
+        const campaign = {
+            runtime: {
+                actors: {
+                    issuer: { party: "Issuer", participant: "participant-a" },
+                },
+                isolation: { kind: "external" as const },
+            },
+            targets: [{ key: "read", actors: ["issuer"] }],
+            invariants: [],
+        };
+
+        expect(() => defineInvariantCampaign({
+            ...campaign,
+            config: { runs: 1, depth: 1, seed: 1.5 },
+        })).toThrow("seed must be a safe integer");
+        expect(() => defineInvariantCampaign({
+            ...campaign,
+            config: { runs: 1, depth: 1, timeoutMs: 0 },
+        })).toThrow("timeout must be a positive safe integer");
+    });
+
     test("rejects a campaign with no executable targets", async () => {
         const modulePath = "../../../src/testing/index.js";
 

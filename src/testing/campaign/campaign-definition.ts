@@ -96,6 +96,21 @@ function resolveConfig(
         );
     }
 
+    else if (config.seed !== undefined && !Number.isSafeInteger(config.seed)) {
+        throw new TestingConfigurationError(
+            "Invariant campaign seed must be a safe integer.",
+        );
+    }
+
+    else if (
+        config.timeoutMs !== undefined
+        && (!Number.isSafeInteger(config.timeoutMs) || config.timeoutMs < 1)
+    ) {
+        throw new TestingConfigurationError(
+            "Invariant campaign timeout must be a positive safe integer.",
+        );
+    }
+
     return Object.freeze({
         runs: config.runs,
         depth: config.depth,
