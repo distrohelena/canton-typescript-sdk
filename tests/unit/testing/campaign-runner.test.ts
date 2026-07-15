@@ -61,6 +61,24 @@ describe("fast-check campaign execution", () => {
         expect(result.details.failed).toBe(true);
         expect(result.counterexampleTrace).toEqual({ value: 7 });
     });
+
+    test("honors a configured timeout instead of allowing unbounded candidates", async () => {
+        const result = await runCampaignCheckAsync({
+            arbitrary: fc.constant("slow"),
+            numRuns: 10,
+            timeoutMs: 1,
+            key: (value) => value,
+            executeAsync: async () => {
+                await new Promise<void>((resolveDelay) => {
+                    setTimeout(resolveDelay, 25);
+                });
+
+                return { passed: true, trace: { kind: "slow" } };
+            },
+        });
+
+        expect(result.details.interrupted).toBe(true);
+    });
 });
 
 describe("campaign lifecycle execution", () => {
@@ -184,5 +202,33 @@ describe("campaign lifecycle execution", () => {
                 message: "ledger is unbalanced",
             },
         ]);
+    });
+
+    test("propagates a declared campaign timeout to fast-check", async () => {
+        const campaign = defineInvariantCampaign({
+            runtime: {
+                actors: { issuer: { party: "Issuer", participant: "issuer" } },
+                isolation: { kind: "external" },
+            },
+            config: { runs: 10, depth: 1, timeoutMs: 1 },
+            targets: [{ key: "Main:Iou:Create", actors: ["issuer"] }],
+            invariants: [],
+        });
+
+        const result = await runInvariantCampaignCheckAsync({
+            campaign,
+            arbitrary: fc.constant([{ actor: "issuer", targetKey: "Main:Iou:Create" }]),
+            key: () => "slow-action",
+            setupAsync: async () => ({ model: {}, ghost: {} }),
+            executeAsync: async (): Promise<CampaignMetricOutcome> => {
+                await new Promise<void>((resolveDelay) => {
+                    setTimeout(resolveDelay, 25);
+                });
+
+                return { kind: "accepted", updateId: "update-1" };
+            },
+        });
+
+        expect(result.details.interrupted).toBe(true);
     });
 });

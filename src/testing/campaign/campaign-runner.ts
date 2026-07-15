@@ -131,12 +131,14 @@ export async function runCampaignLifecycleCheckAsync<
     readonly failOnRevert: boolean;
     readonly key: (actions: readonly Action[]) => string;
     readonly numRuns: number;
+    readonly path?: string;
     readonly reconcileAsync?: (
         context: Context,
         phase: CampaignLifecyclePhase<Action>,
     ) => Promise<void>;
     readonly seed?: number;
     readonly setupAsync: () => Promise<Context>;
+    readonly timeoutMs?: number;
 }): Promise<{
     readonly counterexampleTrace?: CampaignLifecycleTrace<Action>;
     readonly details: fc.RunDetails<[readonly Action[]]>;
@@ -145,7 +147,9 @@ export async function runCampaignLifecycleCheckAsync<
         arbitrary: init.arbitrary,
         key: init.key,
         numRuns: init.numRuns,
+        path: init.path,
         seed: init.seed,
+        timeoutMs: init.timeoutMs,
         executeAsync: async (actions) => runCampaignCandidateAsync(init, actions),
     });
 }
@@ -190,6 +194,7 @@ export async function runInvariantCampaignCheckAsync<
         key: init.key,
         numRuns: init.campaign.config.runs,
         seed: init.campaign.config.seed,
+        timeoutMs: init.campaign.config.timeoutMs,
         setupAsync: init.setupAsync,
         executeAsync: init.executeAsync,
         cleanupAsync: init.cleanupAsync,
