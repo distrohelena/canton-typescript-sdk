@@ -136,8 +136,15 @@ export function resolveDeclarativeTargets(
                 ? template.choices
                 : descriptor.choices;
 
+            const missingChoice = choices.find((choice) => !template.choices.includes(choice));
+
+            if (missingChoice !== undefined) {
+                throw new TestingConfigurationError(
+                    `Declarative target '${descriptor.templateId}:${missingChoice}' is absent from the DAML catalog.`,
+                );
+            }
+
             return choices
-                .filter((choice) => template.choices.includes(choice))
                 .filter((choice) => !excluded.has(`${descriptor.templateId}:${choice}`))
                 .map((choice) => Object.freeze({
                     key: `${descriptor.templateId}:${choice}`,
