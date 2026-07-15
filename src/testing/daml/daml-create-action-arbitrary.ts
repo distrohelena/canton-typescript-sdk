@@ -38,6 +38,17 @@ export function createDeclarativeCreateActionArbitrary(
         );
     }
 
+    const templateFieldNames = new Set(template.fields.map((field) => field.name));
+
+    const unknownField = Object.keys(options.fieldArbitraries ?? {})
+        .find((name) => !templateFieldNames.has(name));
+
+    if (unknownField !== undefined) {
+        throw new TestingConfigurationError(
+            `Declarative target '${target.key}' has no field generator '${unknownField}'.`,
+        );
+    }
+
     const payload = fc.record(Object.fromEntries(template.fields.map((field) => [
         field.name,
         options.fieldArbitraries?.[field.name]

@@ -128,4 +128,29 @@ describe("declarative DAML create actions", () => {
             owner: new DamlParty("Owner"),
         });
     });
+
+    test("rejects field generators that do not belong to the target template", () => {
+        const catalog = createDamlTestingCatalog({
+            getTemplates: () => [{
+                templateId: {
+                    packageId: "pkg",
+                    moduleName: "Main",
+                    templateName: "Iou",
+                },
+                fields: [],
+                choices: [],
+            }],
+        });
+
+        expect(() => createDeclarativeCreateActionArbitrary(
+            catalog,
+            {
+                key: "pkg:Main:Iou:create",
+                templateId: "pkg:Main:Iou",
+                actors: ["issuer"],
+                kind: "create",
+            },
+            { fieldArbitraries: { missing: fc.constant("value") } },
+        )).toThrow("field generator 'missing'");
+    });
 });
