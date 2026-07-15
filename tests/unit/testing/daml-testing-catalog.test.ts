@@ -30,6 +30,10 @@ describe("DAML testing catalog", () => {
             choice: "Archive",
             templateId: "pkg:Main:Iou",
         });
+        expect(catalog.getTemplate("pkg:Main:Iou")).toEqual({
+            templateId: "pkg:Main:Iou",
+            choices: ["Archive", "Transfer"],
+        });
     });
 
     test("preserves a choice argument type for automatic value generation", () => {

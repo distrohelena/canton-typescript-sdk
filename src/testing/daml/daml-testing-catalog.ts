@@ -14,6 +14,7 @@ export interface DamlTestingTemplate {
 export interface DamlTestingCatalog {
     readonly templates: readonly DamlTestingTemplate[];
     getChoice(templateId: string, choice: string): DamlTestingChoice | undefined;
+    getTemplate(templateId: string): DamlTestingTemplate | undefined;
 }
 
 export function createDamlTestingCatalog(init: {
@@ -59,6 +60,9 @@ export function createDamlTestingCatalog(init: {
         templates: Object.freeze(templates),
         getChoice(templateId: string, choice: string): DamlTestingChoice | undefined {
             return choices.get(createChoiceKey(templateId, choice));
+        },
+        getTemplate(templateId: string): DamlTestingTemplate | undefined {
+            return templates.find((template) => template.templateId === templateId);
         },
     });
 }
