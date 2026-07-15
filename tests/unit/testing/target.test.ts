@@ -106,6 +106,17 @@ describe("declarative invariant targets", () => {
         ])).toEqual([]);
 
         expect(resolveDeclarativeTargets(catalog, [
+            targetChoice("pkg:Main:Iou", "Archive", ["issuer"]),
+            excludeTemplate("pkg:Main:Iou"),
+            excludeChoice("pkg:Main:Iou", "Archive"),
+        ])).toEqual([{
+            key: "pkg:Main:Iou:Archive",
+            templateId: "pkg:Main:Iou",
+            choice: "Archive",
+            actors: ["issuer"],
+        }]);
+
+        expect(resolveDeclarativeTargets(catalog, [
             targetTemplate("pkg:Main:Iou").actors(["issuer"]).create(),
         ])).toEqual([{
             key: "pkg:Main:Iou:create",

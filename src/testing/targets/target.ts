@@ -180,7 +180,6 @@ export function resolveDeclarativeTargets(
     return descriptors
         .filter((descriptor): descriptor is TemplateTarget | TemplateCreateTarget =>
             descriptor.kind === "template" || descriptor.kind === "template-create")
-        .filter((descriptor) => !excludedTemplates.has(descriptor.templateId))
         .flatMap<ResolvedDeclarativeTarget>((descriptor): readonly ResolvedDeclarativeTarget[] => {
             const template = catalog.getTemplate(descriptor.templateId);
 
@@ -196,9 +195,14 @@ export function resolveDeclarativeTargets(
                     kind: "create" as const,
                 } satisfies ResolvedDeclarativeCreateTarget)];
             } else {
-                const choices = descriptor.allChoices === true
-                    ? template.choices
-                    : descriptor.choices;
+                if (descriptor.allChoices === true && excludedTemplates.has(descriptor.templateId)) {
+                    return [];
+                }
+
+                const choices = (descriptor.allChoices === true
+                    ? template.choices.filter((choice) =>
+                        !excluded.has(`${descriptor.templateId}:${choice}`))
+                    : descriptor.choices);
 
                 const missingChoice = choices.find((choice) => !template.choices.includes(choice));
 
@@ -209,7 +213,6 @@ export function resolveDeclarativeTargets(
                 }
 
                 return choices
-                    .filter((choice) => !excluded.has(`${descriptor.templateId}:${choice}`))
                     .map((choice) => Object.freeze({
                         key: `${descriptor.templateId}:${choice}`,
                         templateId: descriptor.templateId,
