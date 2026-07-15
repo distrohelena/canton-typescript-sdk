@@ -56,12 +56,17 @@ await runInvariantCampaignCheckAsync({
 });
 ```
 
-Use `createDamlTestingCatalog`, `targetTemplate`,
-`resolveDeclarativeTargets`, and `createDeclarativeChoiceActionArbitrary` to
-derive typed DAML choice inputs. `handler`, `bound`, and handler assumptions
-support custom operations alongside those declarative actions. A failed check
-returns the shrunk counterexample trace; `InvariantCampaignFailure` and replay
-artifacts expose only allowlisted diagnostics.
+Use `createDamlTestingCatalog`, `targetTemplate`, and
+`resolveDeclarativeTargets` to discover targets. `targetTemplate(id).create()`
+and `.choice(name)` select create and exercise actions; pair the resolved
+targets with `createDeclarativeCampaignArbitrary` for an exact-depth action
+sequence. In `executeAsync`, pass each action to `executeDeclarativeActionAsync`
+with the campaign runtime and an explicit `resolveContractIdAsync` callback for
+choices. The callback is intentional: the SDK will not guess an active contract
+from stale local state. `handler`, `bound`, and handler assumptions support
+custom operations alongside declarative actions. A failed check returns the
+shrunk counterexample trace; `InvariantCampaignFailure` and replay artifacts
+expose only allowlisted diagnostics.
 
 ## Live Integration Tests
 
