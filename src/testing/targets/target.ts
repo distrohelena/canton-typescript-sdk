@@ -1,6 +1,7 @@
 import { DamlTestingCatalog } from "../daml/daml-testing-catalog.js";
 
 export interface TemplateTarget {
+    readonly allChoices?: true;
     readonly actors: readonly string[];
     readonly choices: readonly string[];
     readonly kind: "template";
@@ -14,6 +15,7 @@ export interface ExcludedChoiceTarget {
 }
 
 export interface TemplateTargetBuilder {
+    allChoices(): TemplateTarget;
     actors(actors: readonly string[]): TemplateTargetBuilder;
     choice(choice: string): TemplateTarget;
 }
@@ -29,6 +31,15 @@ export function targetTemplate(templateId: string): TemplateTargetBuilder {
     let actors: readonly string[] = [];
 
     return Object.freeze({
+        allChoices(): TemplateTarget {
+            return Object.freeze({
+                kind: "template",
+                templateId,
+                actors,
+                choices: Object.freeze([]),
+                allChoices: true,
+            });
+        },
         actors(value: readonly string[]): TemplateTargetBuilder {
             actors = Object.freeze([...value]);
 
@@ -93,7 +104,11 @@ export function resolveDeclarativeTargets(
                 return [];
             }
 
-            return descriptor.choices
+            const choices = descriptor.allChoices === true
+                ? template.choices
+                : descriptor.choices;
+
+            return choices
                 .filter((choice) => template.choices.includes(choice))
                 .filter((choice) => !excluded.has(`${descriptor.templateId}:${choice}`))
                 .map((choice) => Object.freeze({

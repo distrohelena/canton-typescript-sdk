@@ -15,6 +15,10 @@ describe("declarative invariant targets", () => {
             .actors(["issuer", "owner"])
             .choice("Archive");
 
+        const allChoices = targetTemplate("pkg:Main:Iou")
+            .actors(["issuer"])
+            .allChoices();
+
         expect(target).toEqual({
             kind: "template",
             templateId: "pkg:Main:Iou",
@@ -31,6 +35,13 @@ describe("declarative invariant targets", () => {
             templateId: "pkg:Main:Iou",
             actors: ["issuer"],
             choices: ["Archive"],
+        });
+        expect(allChoices).toEqual({
+            kind: "template",
+            templateId: "pkg:Main:Iou",
+            actors: ["issuer"],
+            choices: [],
+            allChoices: true,
         });
     });
 
@@ -57,6 +68,18 @@ describe("declarative invariant targets", () => {
                 actors: ["issuer"],
                 templateId: "pkg:Main:Iou",
                 choice: "Archive",
+            },
+        ]);
+
+        expect(resolveDeclarativeTargets(catalog, [
+            targetTemplate("pkg:Main:Iou").actors(["issuer"]).allChoices(),
+            excludeChoice("pkg:Main:Iou", "Transfer"),
+        ])).toEqual([
+            {
+                key: "pkg:Main:Iou:Archive",
+                templateId: "pkg:Main:Iou",
+                choice: "Archive",
+                actors: ["issuer"],
             },
         ]);
     });
