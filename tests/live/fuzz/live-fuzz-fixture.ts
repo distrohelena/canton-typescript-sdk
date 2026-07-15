@@ -51,7 +51,7 @@ export interface LiveFuzzFixture extends LiveFuzzFixtureDefinition {
     readonly ownerClient: CantonClient;
     readonly templateId: typeof LIVE_IOU_TEMPLATE_ID;
     readonly createPayloadArbitrary: fc.Arbitrary<number>;
-    readonly buildCreateRequest: (amountSuffix: number) => SubmitCommandRequest;
+    readonly buildCreateRequest: (amountSuffix: number, campaignNonce?: bigint) => SubmitCommandRequest;
     readonly buildArchiveRequest: (contractId: string) => SubmitCommandRequest;
 }
 
@@ -104,7 +104,11 @@ export function createAmountArbitrary(): fc.Arbitrary<number> {
     return fc.integer({ min: 0, max: MAX_AMOUNT_SUFFIX });
 }
 
-export function createRunAmount(runId: string, amountSuffix: number): string {
+export function createRunAmount(
+    runId: string,
+    amountSuffix: number,
+    campaignNonce?: bigint,
+): string {
     if (!Number.isSafeInteger(amountSuffix) || amountSuffix < 0 || amountSuffix > MAX_AMOUNT_SUFFIX) {
         throw new Error(
             `Live fuzz amount suffix must be an integer between 0 and ${MAX_AMOUNT_SUFFIX}.`,
@@ -112,7 +116,11 @@ export function createRunAmount(runId: string, amountSuffix: number): string {
     }
 
     const digestPrefix = createHash("sha256")
-        .update(runId)
+        .update(
+            campaignNonce === undefined
+                ? runId
+                : `${runId}\u0000${campaignNonce.toString()}`,
+        )
         .digest()
         .readUInt32BE(0);
 
@@ -136,6 +144,7 @@ export function buildCreateRequest(init: {
     issuerParty: string;
     ownerParty: string;
     amountSuffix: number;
+    campaignNonce?: bigint;
 }): SubmitCommandRequest {
     return new SubmitCommandRequest({
         applicationId: "sdk-live-fuzz",
@@ -145,7 +154,9 @@ export function buildCreateRequest(init: {
             payload: {
                 issuer: init.issuerParty,
                 owner: init.ownerParty,
-                amount: Number(createRunAmount(init.runId, init.amountSuffix)),
+            amount: Number(
+                createRunAmount(init.runId, init.amountSuffix, init.campaignNonce),
+            ),
             },
         }),
     });
@@ -232,8 +243,8 @@ export async function createLiveFuzzFixtureAsync(
                 ownerClient,
                 templateId: LIVE_IOU_TEMPLATE_ID,
                 createPayloadArbitrary: createAmountArbitrary(),
-                buildCreateRequest: (amountSuffix) =>
-                    buildCreateRequest({ ...definition, amountSuffix }),
+                buildCreateRequest: (amountSuffix, campaignNonce) =>
+                    buildCreateRequest({ ...definition, amountSuffix, campaignNonce }),
                 buildArchiveRequest: (contractId) =>
                     buildArchiveRequest({
                         contractId,

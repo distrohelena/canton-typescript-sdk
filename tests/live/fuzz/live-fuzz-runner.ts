@@ -16,7 +16,9 @@ import {
     markLiveFuzzParticipantObserved,
 } from "./live-fuzz-commands.js";
 import {
+    classifyLiveFuzzCommandOutcome,
     evaluateLiveInvariants,
+    LiveFuzzCommandOutcome,
     LiveFuzzInvariantSnapshot,
 } from "./live-fuzz-campaign.js";
 import {
@@ -164,6 +166,11 @@ export async function runLiveFuzzSequenceAsync(init: {
     config: LiveFuzzConfig;
     commands: readonly LiveFuzzCommand[];
     amountSuffix: number;
+    campaignNonce: bigint;
+    readonly recordOutcome?: (
+        command: LiveFuzzCommand,
+        outcome: LiveFuzzCommandOutcome,
+    ) => void;
 }): Promise<void> {
     await withTimeoutAsync(
         runLiveFuzzSequenceWithCleanupAsync(init),
@@ -177,6 +184,11 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
     config: LiveFuzzConfig;
     commands: readonly LiveFuzzCommand[];
     amountSuffix: number;
+    campaignNonce: bigint;
+    readonly recordOutcome?: (
+        command: LiveFuzzCommand,
+        outcome: LiveFuzzCommandOutcome,
+    ) => void;
 }): Promise<void> {
     const expectedPayload = getExpectedPayload(init);
 
@@ -202,9 +214,29 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
             });
 
             if (command.kind === "create") {
-                await getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
-                    init.fixture.buildCreateRequest(init.amountSuffix),
-                );
+                const outcome = await submitLiveFuzzCommandAsync({
+                    ...init,
+                    command,
+                    submitAsync: () =>
+                        getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
+                            init.fixture.buildCreateRequest(init.amountSuffix, init.campaignNonce),
+                        ),
+                });
+
+                if (outcome.kind === "protocol-revert") {
+                    model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+                    await assertLiveFuzzInvariantsAsync({
+                        ...init,
+                        model,
+                        expectedPayload,
+                        ledgerEnds,
+                        lifecycle,
+                        phase: "after-action",
+                    });
+
+                    continue;
+                }
 
                 const issuerSnapshot = await pollForActiveContractAsync({
                     ...init,
@@ -248,14 +280,57 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
                 });
 
                 continue;
+            } else if (
+                model.contractId === undefined &&
+                command.kind !== "probe"
+            ) {
+                await assertProbeAsync({ ...init, ledgerEnds }, command.participant);
+                model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+                await assertLiveFuzzInvariantsAsync({
+                    ...init,
+                    model,
+                    expectedPayload,
+                    ledgerEnds,
+                    lifecycle,
+                    phase: "after-action",
+                });
+
+                continue;
             }
 
             model = applyLiveFuzzModelCommand(model, command);
 
             if (command.kind === "exercise") {
-                await getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
-                    init.fixture.buildArchiveRequest(model.contractId),
-                );
+                const outcome = await submitLiveFuzzCommandAsync({
+                    ...init,
+                    command,
+                    submitAsync: () =>
+                        getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
+                            init.fixture.buildArchiveRequest(model.contractId),
+                        ),
+                });
+
+                if (outcome.kind === "protocol-revert") {
+                    model = {
+                        ...model,
+                        active: true,
+                    };
+
+                    model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+                    await assertLiveFuzzInvariantsAsync({
+                        ...init,
+                        model,
+                        expectedPayload,
+                        ledgerEnds,
+                        lifecycle,
+                        phase: "after-action",
+                    });
+
+                    continue;
+                }
+
                 await assertArchivedOnBothParticipantsAsync(
                     { ...init, ledgerEnds },
                     model,
@@ -367,12 +442,13 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
 function getExpectedPayload(init: {
     fixture: LiveFuzzFixture;
     amountSuffix: number;
+    campaignNonce: bigint;
 }): Readonly<Record<string, unknown>> {
     return {
         issuer: init.fixture.issuerParty,
         owner: init.fixture.ownerParty,
         amount: Number(
-            init.fixture.buildCreateRequest(init.amountSuffix).command.payload.amount,
+            init.fixture.buildCreateRequest(init.amountSuffix, init.campaignNonce).command.payload.amount,
         ),
     };
 }
@@ -518,6 +594,41 @@ async function assertProbeAsync(
     participant: LiveFuzzParticipant,
 ): Promise<void> {
     await readParticipantSnapshotAsync(init.fixture, participant, init.ledgerEnds);
+}
+
+async function submitLiveFuzzCommandAsync(init: {
+    fixture: LiveFuzzFixture;
+    config: LiveFuzzConfig;
+    command: LiveFuzzCommand;
+    submitAsync: () => Promise<unknown>;
+    readonly recordOutcome?: (
+        command: LiveFuzzCommand,
+        outcome: LiveFuzzCommandOutcome,
+    ) => void;
+}): Promise<LiveFuzzCommandOutcome> {
+    let response: unknown;
+
+    let error: unknown;
+
+    try {
+        response = await init.submitAsync();
+    } catch (caught) {
+        error = caught;
+    }
+
+    const outcome = classifyLiveFuzzCommandOutcome({ response, error });
+
+    init.recordOutcome?.(init.command, outcome);
+
+    if (outcome.kind === "accepted") {
+        return outcome;
+    } else if (outcome.kind === "protocol-revert" && !init.config.failOnRevert) {
+        return outcome;
+    } else if (error !== undefined) {
+        throw error;
+    } else {
+        throw new Error(`Live fuzz command failed with ${outcome.kind}.`);
+    }
 }
 
 async function assertLiveFuzzInvariantsAsync(init: {

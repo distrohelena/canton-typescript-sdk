@@ -36,7 +36,10 @@ import {
     canonicalLiveFuzzJson,
     createLiveFuzzFingerprint,
     loadLiveFuzzArtifactAsync,
+    listLiveFuzzArtifactPathsAsync,
+    liveFuzzInputKey,
     safeLiveFuzzArtifactFilename,
+    selectLiveFuzzCounterexampleTrace,
     serializeLiveFuzzArtifact,
     writeLiveFuzzArtifactAsync,
 } from "../../live/fuzz/live-fuzz-artifacts.js";
@@ -268,6 +271,13 @@ describe("live fuzz configuration", () => {
             ownerParty: "owner::def",
             amountSuffix: 42,
         })).toEqual(first);
+        expect(buildCreateRequest({
+            runId: "replay-run",
+            issuerParty: "issuer::abc",
+            ownerParty: "owner::def",
+            amountSuffix: 42,
+            campaignNonce: 1n,
+        }).command.payload.amount).not.toBe(first.command.payload.amount);
     });
 
     it("builds issuer-routed Archive requests and bounded amount values", () => {
@@ -641,6 +651,57 @@ describe("live fuzz configuration", () => {
             parties: artifact.parties,
         })).rejects.toThrow(/fingerprint/i);
         await expect(writeLiveFuzzArtifactAsync(join(symlinkPath, "artifact.json"), artifact)).rejects.toThrow(/symlink/i);
+    });
+
+    it("selects the final minimized counterexample by complete input key", () => {
+        const first = {
+            commands: [{ kind: "create" }],
+            amountSuffix: 1,
+            campaignNonce: 1n,
+        };
+        const second = {
+            commands: [{ kind: "create" }, { kind: "probe", participant: "issuer" }],
+            amountSuffix: 2,
+            campaignNonce: 2n,
+        };
+        const traces = new Map([
+            [liveFuzzInputKey(first), { label: "first" }],
+            [liveFuzzInputKey(second), { label: "second" }],
+        ]);
+
+        expect(
+            selectLiveFuzzCounterexampleTrace({
+                failed: true,
+                counterexample: [second],
+            }, traces),
+        ).toEqual({ label: "second" });
+    });
+
+    it("enumerates only JSON artifacts for automatic replay", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "live-fuzz-replay-"));
+        const artifact = {
+            schemaVersion: 1,
+            fixtureFingerprint: "fixture-fingerprint",
+            configFingerprint: "config-fingerprint",
+            runId: "run-1",
+            parties: { issuer: "issuer::abc", owner: "owner::def" },
+            depthMode: "exact" as const,
+            depth: 1,
+            actionWeights: readLiveFuzzConfig().actionWeights,
+            actors: ["issuer", "owner"] as const,
+            campaignNonce: "1",
+            payloadMarker: "marker-1",
+            actions: [{ kind: "create", outcome: "accepted" }],
+            ledgerEnds: {},
+            invariantFailures: [],
+            numRuns: 1,
+            numShrinks: 0,
+        };
+        const filename = join(directory, safeLiveFuzzArtifactFilename("run-1", "1"));
+
+        await writeLiveFuzzArtifactAsync(filename, artifact);
+
+        expect(await listLiveFuzzArtifactPathsAsync(directory)).toEqual([filename]);
     });
 
     it("replays command generation from a fixed seed", () => {

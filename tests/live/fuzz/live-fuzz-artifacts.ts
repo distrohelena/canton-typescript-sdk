@@ -4,6 +4,7 @@ import {
     lstat,
     mkdir,
     open,
+    readdir,
     readFile,
     unlink,
     link,
@@ -30,6 +31,7 @@ export interface LiveFuzzArtifactInput {
     readonly actionWeights: Readonly<Record<string, number>>;
     readonly actors: readonly string[];
     readonly campaignNonce: string;
+    readonly amountSuffix?: number;
     readonly payloadMarker: string;
     readonly actions: readonly Readonly<Record<string, unknown>>[];
     readonly contractId?: string;
@@ -49,6 +51,55 @@ export interface LiveFuzzReplayIdentity {
         readonly issuer: string;
         readonly owner: string;
     };
+}
+
+export function liveFuzzInputKey(input: {
+    readonly commands: readonly unknown[];
+    readonly amountSuffix: number;
+    readonly campaignNonce: bigint;
+}): string {
+    return canonicalLiveFuzzJson({
+        commands: input.commands,
+        amountSuffix: input.amountSuffix,
+        campaignNonce: input.campaignNonce,
+    });
+}
+
+export function selectLiveFuzzCounterexampleTrace<T>(
+    details: {
+        readonly failed: boolean;
+        readonly counterexample?: readonly [{
+            readonly commands: readonly unknown[];
+            readonly amountSuffix: number;
+            readonly campaignNonce: bigint;
+        }];
+    },
+    traces: ReadonlyMap<string, T>,
+): T {
+    if (!details.failed || details.counterexample === undefined) {
+        throw new Error("Live fuzz run did not produce a counterexample.");
+    }
+
+    const key = liveFuzzInputKey(details.counterexample[0]);
+
+    const trace = traces.get(key);
+
+    if (trace === undefined) {
+        throw new Error("Final live fuzz counterexample has no recorded trace.");
+    }
+
+    return trace;
+}
+
+export async function listLiveFuzzArtifactPathsAsync(
+    directory: string,
+): Promise<readonly string[]> {
+    const entries = await readdir(resolve(directory), { withFileTypes: true });
+
+    return entries
+        .filter((entry) => entry.isFile() && SAFE_ARTIFACT_FILENAME.test(entry.name))
+        .map((entry) => resolve(directory, entry.name))
+        .sort();
 }
 
 export function canonicalLiveFuzzJson(value: unknown): string {
@@ -115,6 +166,7 @@ export function serializeLiveFuzzArtifact(
         actionWeights: input.actionWeights,
         actors: input.actors,
         campaignNonce: input.campaignNonce,
+        ...(input.amountSuffix === undefined ? {} : { amountSuffix: input.amountSuffix }),
         payloadMarker: input.payloadMarker,
         actions: input.actions.map((action) => ({
             ...(typeof action.kind === "string" ? { kind: action.kind } : {}),
@@ -304,6 +356,7 @@ function isLiveFuzzArtifact(value: unknown): value is LiveFuzzArtifactInput {
         Array.isArray(artifact.actors) &&
         artifact.actors.every((actor) => typeof actor === "string") &&
         typeof artifact.campaignNonce === "string" &&
+        (artifact.amountSuffix === undefined || typeof artifact.amountSuffix === "number") &&
         typeof artifact.payloadMarker === "string" &&
         Array.isArray(artifact.actions) &&
         Array.isArray(artifact.invariantFailures) &&
