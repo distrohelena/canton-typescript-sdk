@@ -1,3 +1,5 @@
+import * as fc from "fast-check";
+
 export interface CampaignSchedulingTarget {
     readonly actors: readonly string[];
     readonly key: string;
@@ -12,6 +14,31 @@ export type ScheduledCampaignSlot =
         readonly kind: "target";
         readonly targetKey: string;
     };
+
+/**
+ * Generates exact-depth scheduling inputs with fast-check's seed and shrink
+ * support while delegating all eligibility decisions to the pure scheduler.
+ */
+export function createCampaignScheduleArbitrary(init: {
+    readonly depth: number;
+    readonly hasActiveContract: boolean;
+    readonly targets: readonly CampaignSchedulingTarget[];
+}): fc.Arbitrary<readonly ScheduledCampaignSlot[]> {
+    if (!Number.isSafeInteger(init.depth) || init.depth < 1) {
+        throw new Error("Campaign schedule depth must be a positive safe integer.");
+    }
+
+    const roll = fc.integer({ min: 0, max: Number.MAX_SAFE_INTEGER });
+
+    return fc.tuple(
+        fc.array(roll, { minLength: init.depth, maxLength: init.depth }),
+        fc.array(roll, { minLength: init.depth, maxLength: init.depth }),
+    ).map(([targetRolls, actorRolls]) => scheduleCampaignSlots({
+        ...init,
+        targetRolls,
+        actorRolls,
+    }));
+}
 
 export function scheduleCampaignSlots(init: {
     readonly actorRolls: readonly number[];

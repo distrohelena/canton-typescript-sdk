@@ -30,6 +30,7 @@ export {
 } from "./campaign/campaign-metrics.js";
 export {
     CampaignSchedulingTarget,
+    createCampaignScheduleArbitrary,
     ScheduledCampaignSlot,
     scheduleCampaignSlots,
 } from "./campaign/campaign-scheduler.js";
