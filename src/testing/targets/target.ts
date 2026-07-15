@@ -14,6 +14,11 @@ export interface ExcludedChoiceTarget {
     readonly templateId: string;
 }
 
+export interface ExcludedTemplateTarget {
+    readonly kind: "exclude-template";
+    readonly templateId: string;
+}
+
 export interface TemplateTargetBuilder {
     allChoices(): TemplateTarget;
     actors(actors: readonly string[]): TemplateTargetBuilder;
@@ -81,10 +86,29 @@ export function excludeChoice(
     });
 }
 
+export function excludeTemplate(templateId: string): ExcludedTemplateTarget {
+    return Object.freeze({
+        kind: "exclude-template",
+        templateId,
+    });
+}
+
 export function resolveDeclarativeTargets(
     catalog: DamlTestingCatalog,
-    descriptors: readonly (TemplateTarget | ExcludedChoiceTarget)[],
+    descriptors: readonly (
+        | TemplateTarget
+        | ExcludedChoiceTarget
+        | ExcludedTemplateTarget
+    )[],
 ): readonly ResolvedDeclarativeTarget[] {
+    const excludedTemplates = new Set(
+        descriptors
+            .filter((descriptor): descriptor is ExcludedTemplateTarget =>
+                descriptor.kind === "exclude-template",
+            )
+            .map((descriptor) => descriptor.templateId),
+    );
+
     const excluded = new Set(
         descriptors
             .filter((descriptor): descriptor is ExcludedChoiceTarget =>
@@ -95,6 +119,7 @@ export function resolveDeclarativeTargets(
 
     return descriptors
         .filter((descriptor): descriptor is TemplateTarget => descriptor.kind === "template")
+        .filter((descriptor) => !excludedTemplates.has(descriptor.templateId))
         .flatMap((descriptor) => {
             const template = catalog.templates.find(
                 (item) => item.templateId === descriptor.templateId,
