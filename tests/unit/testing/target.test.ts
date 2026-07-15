@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
     resolveDeclarativeTargets,
     excludeChoice,
+    targetChoice,
     targetTemplate,
 } from "../../../src/testing/targets/target.js";
 import {
@@ -24,6 +25,12 @@ describe("declarative invariant targets", () => {
             kind: "exclude-choice",
             templateId: "pkg:Main:Iou",
             choice: "Transfer",
+        });
+        expect(targetChoice("pkg:Main:Iou", "Archive", ["issuer"])).toEqual({
+            kind: "template",
+            templateId: "pkg:Main:Iou",
+            actors: ["issuer"],
+            choices: ["Archive"],
         });
     });
 

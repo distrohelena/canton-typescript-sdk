@@ -70,6 +70,7 @@ export {
 export {
     excludeChoice,
     ExcludedChoiceTarget,
+    targetChoice,
     targetTemplate,
     resolveDeclarativeTargets,
     ResolvedDeclarativeTarget,

@@ -45,6 +45,20 @@ export function targetTemplate(templateId: string): TemplateTargetBuilder {
     });
 }
 
+/** Builds one immutable declarative template-choice target without a builder chain. */
+export function targetChoice(
+    templateId: string,
+    choice: string,
+    actors: readonly string[],
+): TemplateTarget {
+    return Object.freeze({
+        kind: "template",
+        templateId,
+        actors: Object.freeze([...actors]),
+        choices: Object.freeze([choice]),
+    });
+}
+
 export function excludeChoice(
     templateId: string,
     choice: string,
