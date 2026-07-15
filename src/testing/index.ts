@@ -14,6 +14,10 @@ export {
     reconcileCampaignModel,
 } from "./campaign/campaign-model.js";
 export {
+    CampaignInvariantFailure,
+    evaluateCampaignInvariantsAsync,
+} from "./campaign/campaign-runner.js";
+export {
     CampaignMetricOutcome,
     CampaignMetrics,
     createCampaignMetrics,
