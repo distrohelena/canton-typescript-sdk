@@ -51,6 +51,7 @@ export { DamlParty } from "../core/types/daml-party.js";
 export {
     createDeclarativeActionArbitrary,
     DeclarativeAction,
+    DeclarativeActionGenerationOptions,
 } from "./daml/daml-action-arbitrary.js";
 export { createDeclarativeCampaignArbitrary } from "./daml/declarative-campaign-arbitrary.js";
 export {
@@ -60,6 +61,7 @@ export {
 export {
     createDeclarativeCreateActionArbitrary,
     DeclarativeCreateAction,
+    DeclarativeCreateActionGenerationOptions,
 } from "./daml/daml-create-action-arbitrary.js";
 export {
     bound,

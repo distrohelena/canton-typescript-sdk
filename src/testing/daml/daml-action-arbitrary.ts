@@ -7,12 +7,15 @@ import {
 import {
     createDeclarativeCreateActionArbitrary,
     DeclarativeCreateAction,
+    DeclarativeCreateActionGenerationOptions,
 } from "./daml-create-action-arbitrary.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
 import { ResolvedDeclarativeTarget } from "../targets/target.js";
 
 export type DeclarativeAction = DeclarativeChoiceAction | DeclarativeCreateAction;
+
+export type DeclarativeActionGenerationOptions = DeclarativeCreateActionGenerationOptions;
 
 /**
  * Combines resolved template-create and template-choice targets into one
@@ -22,7 +25,7 @@ export type DeclarativeAction = DeclarativeChoiceAction | DeclarativeCreateActio
 export function createDeclarativeActionArbitrary(
     catalog: DamlTestingCatalog,
     targets: readonly ResolvedDeclarativeTarget[],
-    options: { readonly valueParties?: readonly string[] } = {},
+    options: DeclarativeActionGenerationOptions = {},
 ): fc.Arbitrary<DeclarativeAction> {
     if (targets.length === 0) {
         throw new TestingConfigurationError(
@@ -32,7 +35,11 @@ export function createDeclarativeActionArbitrary(
 
     return fc.oneof(...targets.map((target): fc.Arbitrary<DeclarativeAction> => {
         if ("choice" in target) {
-            return createDeclarativeChoiceActionArbitrary(catalog, target, options);
+            return createDeclarativeChoiceActionArbitrary(catalog, target, {
+                ...(options.valueParties === undefined
+                    ? {}
+                    : { valueParties: options.valueParties }),
+            });
         }
 
         return createDeclarativeCreateActionArbitrary(catalog, target, options);

@@ -11,6 +11,11 @@ export interface DeclarativeCreateAction extends CampaignExecutableAction {
     readonly templateId: string;
 }
 
+export interface DeclarativeCreateActionGenerationOptions {
+    readonly fieldArbitraries?: Readonly<Record<string, fc.Arbitrary<DamlTestingValue>>>;
+    readonly valueParties?: readonly string[];
+}
+
 /**
  * Builds a well-typed, actor-routed automatic create input from declarative
  * DAML template metadata. Ledger command construction stays in the runtime
@@ -19,7 +24,7 @@ export interface DeclarativeCreateAction extends CampaignExecutableAction {
 export function createDeclarativeCreateActionArbitrary(
     catalog: DamlTestingCatalog,
     target: ResolvedDeclarativeCreateTarget,
-    options: { readonly valueParties?: readonly string[] } = {},
+    options: DeclarativeCreateActionGenerationOptions = {},
 ): fc.Arbitrary<DeclarativeCreateAction> {
     const template = catalog.getTemplate(target.templateId);
 
@@ -35,7 +40,8 @@ export function createDeclarativeCreateActionArbitrary(
 
     const payload = fc.record(Object.fromEntries(template.fields.map((field) => [
         field.name,
-        createDamlValueArbitrary(field.type, options),
+        options.fieldArbitraries?.[field.name]
+        ?? createDamlValueArbitrary(field.type, options),
     ])));
 
     return fc.tuple(fc.constantFrom(...target.actors), payload).map(([actor, value]) =>

@@ -84,4 +84,48 @@ describe("declarative DAML create actions", () => {
         expect(value?.payload.issuer).toBeInstanceOf(DamlParty);
         expect(value?.payload.amount).toBeInstanceOf(DamlNumeric);
     });
+
+    test("uses explicit field generators before automatic DAML values", () => {
+        const catalog = createDamlTestingCatalog({
+            getTemplates: () => [{
+                templateId: {
+                    packageId: "pkg",
+                    moduleName: "Main",
+                    templateName: "Iou",
+                },
+                fields: [
+                    new DamlLfField({
+                        name: "issuer",
+                        type: new DamlLfType({ builtinType: DamlLfBuiltinType.party }),
+                    }),
+                    new DamlLfField({
+                        name: "owner",
+                        type: new DamlLfType({ builtinType: DamlLfBuiltinType.party }),
+                    }),
+                ],
+                choices: [],
+            }],
+        });
+
+        const [value] = fc.sample(createDeclarativeCreateActionArbitrary(
+            catalog,
+            {
+                key: "pkg:Main:Iou:create",
+                templateId: "pkg:Main:Iou",
+                actors: ["issuer"],
+                kind: "create",
+            },
+            {
+                fieldArbitraries: {
+                    issuer: fc.constant(new DamlParty("Issuer")),
+                    owner: fc.constant(new DamlParty("Owner")),
+                },
+            },
+        ), { seed: 42, numRuns: 1 });
+
+        expect(value?.payload).toEqual({
+            issuer: new DamlParty("Issuer"),
+            owner: new DamlParty("Owner"),
+        });
+    });
 });

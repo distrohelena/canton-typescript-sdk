@@ -9,7 +9,9 @@ import {
     createDamlTestingCatalog,
 } from "../../../src/testing/daml/daml-testing-catalog.js";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
+import { DamlLfField } from "../../../src/daml-lf/model/daml-lf-field.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
+import { DamlParty } from "../../../src/core/types/daml-party.js";
 import { TestingConfigurationError } from "../../../src/testing/errors/testing-configuration-error.js";
 
 describe("declarative campaign arbitrary", () => {
@@ -94,5 +96,48 @@ describe("declarative campaign arbitrary", () => {
                 actors: ["issuer"],
             }],
         })).toThrow(TestingConfigurationError);
+    });
+
+    test("passes field generators through the exact-depth campaign arbitrary", () => {
+        const campaign = defineInvariantCampaign({
+            runtime: {
+                actors: { issuer: { party: "Issuer", participant: "participant-a" } },
+                isolation: { kind: "external" },
+            },
+            config: { runs: 1, depth: 1 },
+            targets: [{ key: "pkg:Main:Iou:create", actors: ["issuer"] }],
+            invariants: [],
+        });
+
+        const catalog = createDamlTestingCatalog({
+            getTemplates: () => [{
+                templateId: {
+                    packageId: "pkg",
+                    moduleName: "Main",
+                    templateName: "Iou",
+                },
+                fields: [new DamlLfField({
+                    name: "issuer",
+                    type: new DamlLfType({ builtinType: DamlLfBuiltinType.party }),
+                })],
+                choices: [],
+            }],
+        });
+
+        const [actions] = fc.sample(createDeclarativeCampaignArbitrary({
+            campaign,
+            catalog,
+            targets: [{
+                key: "pkg:Main:Iou:create",
+                templateId: "pkg:Main:Iou",
+                actors: ["issuer"],
+                kind: "create",
+            }],
+            fieldArbitraries: { issuer: fc.constant(new DamlParty("Issuer")) },
+        }), { seed: 37, numRuns: 1 });
+
+        expect(actions?.[0]).toMatchObject({
+            payload: { issuer: new DamlParty("Issuer") },
+        });
     });
 });

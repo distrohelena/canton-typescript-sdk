@@ -6,6 +6,7 @@ import { ResolvedDeclarativeTarget } from "../targets/target.js";
 import {
     createDeclarativeActionArbitrary,
     DeclarativeAction,
+    DeclarativeActionGenerationOptions,
 } from "./daml-action-arbitrary.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 
@@ -18,14 +19,11 @@ export function createDeclarativeCampaignArbitrary(init: {
     readonly campaign: InvariantCampaign;
     readonly catalog: DamlTestingCatalog;
     readonly targets: readonly ResolvedDeclarativeTarget[];
-    readonly valueParties?: readonly string[];
-}): fc.Arbitrary<readonly DeclarativeAction[]> {
+} & DeclarativeActionGenerationOptions): fc.Arbitrary<readonly DeclarativeAction[]> {
     validateTargets(init.campaign, init.targets);
 
     return fc.array(
-        createDeclarativeActionArbitrary(init.catalog, init.targets, {
-            ...(init.valueParties === undefined ? {} : { valueParties: init.valueParties }),
-        }),
+        createDeclarativeActionArbitrary(init.catalog, init.targets, init),
         {
             minLength: init.campaign.config.depth,
             maxLength: init.campaign.config.depth,
