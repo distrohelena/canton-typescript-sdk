@@ -68,6 +68,11 @@ custom operations alongside declarative actions. A failed check returns the
 shrunk counterexample trace; `InvariantCampaignFailure` and replay artifacts
 expose only allowlisted diagnostics.
 
+Automatic Party fields require an explicit `valueParties` list. When writing
+commands by hand, use `DamlParty` and `DamlNumeric` for Party and exact decimal
+Numeric values; a plain string is DAML `Text` and a plain JavaScript number is
+not an exact Numeric value.
+
 ## Live Integration Tests
 
 The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
