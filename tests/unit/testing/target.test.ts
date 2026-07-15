@@ -100,5 +100,9 @@ describe("declarative invariant targets", () => {
         expect(() => resolveDeclarativeTargets(catalog, [
             targetChoice("pkg:Main:Iou", "Missing", ["issuer"]),
         ])).toThrow(TestingConfigurationError);
+        expect(() => resolveDeclarativeTargets(catalog, [
+            targetTemplate("pkg:Main:Iou").actors(["issuer"]).allChoices(),
+            excludeChoice("pkg:Main:Iou", "Missing"),
+        ])).toThrow(TestingConfigurationError);
     });
 });

@@ -102,6 +102,27 @@ export function resolveDeclarativeTargets(
         | ExcludedTemplateTarget
     )[],
 ): readonly ResolvedDeclarativeTarget[] {
+    for (const descriptor of descriptors) {
+        if (descriptor.kind === "template") {
+            continue;
+        }
+
+        const template = catalog.getTemplate(descriptor.templateId);
+
+        if (template === undefined) {
+            throw new TestingConfigurationError(
+                `Declarative target '${descriptor.templateId}' is absent from the DAML catalog.`,
+            );
+        } else if (
+            descriptor.kind === "exclude-choice"
+            && !template.choices.includes(descriptor.choice)
+        ) {
+            throw new TestingConfigurationError(
+                `Declarative target '${descriptor.templateId}:${descriptor.choice}' is absent from the DAML catalog.`,
+            );
+        }
+    }
+
     const excludedTemplates = new Set(
         descriptors
             .filter((descriptor): descriptor is ExcludedTemplateTarget =>
