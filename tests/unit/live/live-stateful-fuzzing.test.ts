@@ -27,7 +27,14 @@ const environmentKeys = [
     "FUZZ_NUM_RUNS",
     "FUZZ_SEED",
     "FUZZ_PATH",
+    "FUZZ_LIVE_DEPTH",
     "FUZZ_LIVE_MAX_COMMANDS",
+    "FUZZ_LIVE_FAIL_ON_REVERT",
+    "FUZZ_LIVE_ACTION_WEIGHTS",
+    "FUZZ_LIVE_ACTORS",
+    "FUZZ_LIVE_FAILURE_DIR",
+    "FUZZ_LIVE_REPLAY_FILE",
+    "FUZZ_LIVE_REPLAY_FAILURES",
     "FUZZ_LIVE_POLL_TIMEOUT_MS",
     "FUZZ_LIVE_POLL_INTERVAL_MS",
     "FUZZ_LIVE_TEST_TIMEOUT_MS",
@@ -68,7 +75,18 @@ describe("live fuzz configuration", () => {
 
         expect(readLiveFuzzConfig()).toMatchObject({
             numRuns: 20,
+            depthMode: "exact",
+            depth: 8,
             maxCommands: 8,
+            failOnRevert: false,
+            actors: ["issuer", "owner"],
+            actionWeights: {
+                query: 30,
+                fetch: 20,
+                events: 20,
+                exercise: 10,
+                probe: 20,
+            },
             pollTimeoutMs: 10_000,
             pollIntervalMs: 100,
             testTimeoutMs: 300_000,
@@ -83,6 +101,10 @@ describe("live fuzz configuration", () => {
         process.env.FUZZ_SEED = "123";
         process.env.FUZZ_PATH = "0:1";
         process.env.FUZZ_LIVE_REQUIRE_ARCHIVE = "1";
+        process.env.FUZZ_LIVE_FAIL_ON_REVERT = "true";
+        process.env.FUZZ_LIVE_REPLAY_FAILURES = "false";
+        process.env.FUZZ_LIVE_FAILURE_DIR = "artifacts";
+        process.env.FUZZ_LIVE_REPLAY_FILE = "failure.json";
         process.env.FUZZ_LIVE_RUN_ID = "replay-run";
         process.env.FUZZ_LIVE_ISSUER_PARTY = "issuer::abc";
         process.env.FUZZ_LIVE_OWNER_PARTY = "owner::def";
@@ -93,10 +115,95 @@ describe("live fuzz configuration", () => {
             seed: 123,
             path: "0:1",
             requireArchive: true,
+            failOnRevert: true,
+            replayFailures: false,
+            failureDir: "artifacts",
+            replayFile: "failure.json",
             runId: "replay-run",
             issuerParty: "issuer::abc",
             ownerParty: "owner::def",
         });
+    });
+
+    it("uses exact depth unless only the legacy maximum is supplied", () => {
+        process.env.FUZZ_LIVE_DEPTH = "5";
+
+        expect(readLiveFuzzConfig()).toMatchObject({
+            depthMode: "exact",
+            depth: 5,
+            maxCommands: 5,
+        });
+
+        delete process.env.FUZZ_LIVE_DEPTH;
+        process.env.FUZZ_LIVE_MAX_COMMANDS = "6";
+
+        expect(readLiveFuzzConfig()).toMatchObject({
+            depthMode: "legacy-max",
+            depth: 6,
+            maxCommands: 6,
+        });
+    });
+
+    it("accepts equal depth and legacy maximum but rejects conflicts", () => {
+        process.env.FUZZ_LIVE_DEPTH = "6";
+        process.env.FUZZ_LIVE_MAX_COMMANDS = "6";
+
+        expect(readLiveFuzzConfig().depthMode).toBe("exact");
+
+        process.env.FUZZ_LIVE_MAX_COMMANDS = "7";
+
+        expect(() => readLiveFuzzConfig()).toThrow(/conflict/);
+    });
+
+    it.each(["1", "0", "TRUE", "False"]) (
+        "rejects non-lowercase fail-on-revert value %s",
+        (value) => {
+            process.env.FUZZ_LIVE_FAIL_ON_REVERT = value;
+
+            expect(() => readLiveFuzzConfig()).toThrow(/FUZZ_LIVE_FAIL_ON_REVERT/);
+        },
+    );
+
+    it("parses weighted actions and rejects malformed entries", () => {
+        process.env.FUZZ_LIVE_ACTION_WEIGHTS = " query=3, probe=7 ";
+
+        expect(readLiveFuzzConfig().actionWeights).toMatchObject({
+            query: 3,
+            probe: 7,
+        });
+
+        for (const value of [
+            "query=1,query=2",
+            "unknown=1",
+            "query=",
+            "query=-1",
+            "query=1,,probe=1",
+        ]) {
+            process.env.FUZZ_LIVE_ACTION_WEIGHTS = value;
+
+            expect(() => readLiveFuzzConfig()).toThrow(/FUZZ_LIVE_ACTION_WEIGHTS/);
+        }
+    });
+
+    it("supports issuer-only actor campaigns without owner-targeted reads", () => {
+        process.env.FUZZ_LIVE_ISSUER_PARTY = "issuer::abc";
+        process.env.FUZZ_LIVE_ACTORS = "issuer";
+
+        expect(readLiveFuzzConfig()).toMatchObject({
+            actors: ["issuer"],
+            issuerParty: "issuer::abc",
+        });
+    });
+
+    it("requires an issuer actor and owner party when owner reads are enabled", () => {
+        process.env.FUZZ_LIVE_ACTORS = "owner";
+
+        expect(() => readLiveFuzzConfig()).toThrow(/issuer/);
+
+        process.env.FUZZ_LIVE_ACTORS = "issuer,owner";
+        process.env.FUZZ_LIVE_ISSUER_PARTY = "issuer::abc";
+
+        expect(() => readLiveFuzzConfig()).toThrow(/together/);
     });
 
     it.each([
