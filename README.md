@@ -78,11 +78,46 @@ an owner on participant B unless `FUZZ_LIVE_ISSUER_PARTY` and
 `FUZZ_LIVE_OWNER_PARTY` are both supplied. For exact replay, keep those party
 IDs, `FUZZ_LIVE_RUN_ID`, `FUZZ_SEED`, and `FUZZ_PATH` unchanged.
 
-Useful campaign controls include `FUZZ_LIVE_MAX_COMMANDS`,
-`FUZZ_LIVE_POLL_TIMEOUT_MS`, `FUZZ_LIVE_POLL_INTERVAL_MS`,
-`FUZZ_LIVE_TEST_TIMEOUT_MS`, and `FUZZ_LIVE_CLEANUP_TIMEOUT_MS`. A four-step
-archive smoke run is available with `FUZZ_LIVE_REQUIRE_ARCHIVE=1` and
-`FUZZ_LIVE_MAX_COMMANDS=4`.
+Campaign controls include:
+
+- `FUZZ_LIVE_DEPTH=N` for exact-depth Foundry-style runs. If it is absent,
+  `FUZZ_LIVE_MAX_COMMANDS=N` retains the legacy variable-length behavior;
+  equal values are accepted when both are supplied, while conflicting values
+  fail fast.
+- `FUZZ_LIVE_FAIL_ON_REVERT=true|false` controls protocol reverts. It defaults
+  to `false`; transport errors, timeouts, malformed responses, and ambiguous
+  commit outcomes remain fatal. `FUZZ_LIVE_REQUIRE_ARCHIVE=true|false` also
+  accepts legacy `1|0` and requires strict reverts for archive smoke mode.
+- `FUZZ_LIVE_ACTION_WEIGHTS=query=30,fetch=20,events=20,exercise=10,probe=20`
+  sets non-negative action weights. Exact-depth campaigns always retain a
+  no-contract `probe` fallback and a post-archive read action.
+- `FUZZ_LIVE_ACTORS=issuer,owner` selects eligible actors. `issuer` is
+  mandatory; omitting `owner` removes owner-targeted generated reads while
+  retaining the cross-participant fixture checks.
+- `FUZZ_LIVE_POLL_TIMEOUT_MS`, `FUZZ_LIVE_POLL_INTERVAL_MS`,
+  `FUZZ_LIVE_TEST_TIMEOUT_MS`, and `FUZZ_LIVE_CLEANUP_TIMEOUT_MS` control
+  polling and timeouts.
+- `FUZZ_LIVE_FAILURE_DIR` defaults to `tests/live/.artifacts/failures`.
+  `FUZZ_LIVE_REPLAY_FAILURES=true|false` enables automatic replay of valid
+  artifacts in that directory; stale or corrupt automatic artifacts are
+  reported and skipped. `FUZZ_LIVE_REPLAY_FILE=/path/to/failure.json` performs
+  explicit replay and validates run ID, party IDs, and fingerprints before
+  connecting to participants.
+
+Artifacts contain allowlisted campaign data only: endpoints, credentials,
+headers, and arbitrary error objects are never serialized. They are written
+with restrictive permissions and no-clobber atomic persistence. For a strict
+four-step smoke run, use:
+
+```bash
+SDK_TEST_ENABLE_LIVE_FUZZING=1 \
+FUZZ_NUM_RUNS=1 \
+FUZZ_LIVE_DEPTH=4 \
+FUZZ_LIVE_FAIL_ON_REVERT=true \
+FUZZ_LIVE_REQUIRE_ARCHIVE=1 \
+FUZZ_LIVE_FAILURE_DIR=tests/live/.artifacts/smoke \
+npm run test:live:fuzz
+```
 
 This fixture assumes the CN quickstart already has the `Main:Iou` package on
 both participants. The ledger-only DAML Ops localnet launcher is not a

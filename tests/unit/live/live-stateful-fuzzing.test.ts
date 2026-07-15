@@ -659,11 +659,13 @@ describe("live fuzz configuration", () => {
             amountSuffix: 1,
             campaignNonce: 1n,
         };
+
         const second = {
             commands: [{ kind: "create" }, { kind: "probe", participant: "issuer" }],
             amountSuffix: 2,
             campaignNonce: 2n,
         };
+
         const traces = new Map([
             [liveFuzzInputKey(first), { label: "first" }],
             [liveFuzzInputKey(second), { label: "second" }],
@@ -679,6 +681,7 @@ describe("live fuzz configuration", () => {
 
     it("enumerates only JSON artifacts for automatic replay", async () => {
         const directory = await mkdtemp(join(tmpdir(), "live-fuzz-replay-"));
+
         const artifact = {
             schemaVersion: 1,
             fixtureFingerprint: "fixture-fingerprint",
@@ -697,6 +700,7 @@ describe("live fuzz configuration", () => {
             numRuns: 1,
             numShrinks: 0,
         };
+
         const filename = join(directory, safeLiveFuzzArtifactFilename("run-1", "1"));
 
         await writeLiveFuzzArtifactAsync(filename, artifact);
