@@ -75,3 +75,7 @@ export {
     ResolvedInvariantCampaignConfig,
 } from "./campaign/campaign-types.js";
 export { TestingConfigurationError } from "./errors/testing-configuration-error.js";
+export {
+    InvariantCampaignFailure,
+    InvariantCampaignFailureInit,
+} from "./errors/invariant-campaign-failure.js";
