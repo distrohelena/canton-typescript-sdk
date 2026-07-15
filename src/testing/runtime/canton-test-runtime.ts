@@ -9,6 +9,30 @@ export interface CantonTestRoute {
     readonly readAs: readonly string[];
 }
 
+export type CantonCommandOutcome =
+    | { readonly kind: "accepted" }
+    | {
+        readonly details: string;
+        readonly kind: "protocol-revert";
+        readonly statusCode: number;
+    }
+    | {
+        readonly details: string;
+        readonly kind: "transport-error";
+        readonly statusCode?: number;
+    }
+    | {
+        readonly details: string;
+        readonly kind: "timeout";
+        readonly statusCode?: number;
+    }
+    | { readonly details: string; readonly kind: "malformed-response" }
+    | {
+        readonly details: string;
+        readonly kind: "unknown-commit-outcome";
+        readonly statusCode?: number;
+    };
+
 export interface CantonTestRuntime<Participant = unknown> {
     readonly actors: Readonly<Record<string, CantonTestActor>>;
     readonly isolation: CampaignIsolation;
@@ -55,4 +79,46 @@ export function createCantonTestRuntime<Participant>(init: {
             });
         },
     });
+}
+
+export function classifyCantonCommandOutcome(input: {
+    readonly error?: unknown;
+    readonly response?: unknown;
+}): CantonCommandOutcome {
+    if (input.error === undefined) {
+        return { kind: "accepted" };
+    }
+
+    const statusCode = readNumberProperty(input.error, "code");
+
+    const details = readStringProperty(input.error, "details") ?? "Unknown command failure.";
+
+    if (
+        (statusCode === 9 && details.startsWith("DAML_INTERPRETATION_ERROR("))
+        || (statusCode === 3 && details.startsWith("DAML_AUTHORIZATION_ERROR("))
+    ) {
+        return { kind: "protocol-revert", statusCode, details };
+    } else if (statusCode === 14 || statusCode === 13) {
+        return { kind: "transport-error", statusCode, details };
+    } else if (statusCode === 4) {
+        return { kind: "timeout", statusCode, details };
+    }
+
+    return { kind: "unknown-commit-outcome", statusCode, details };
+}
+
+function readNumberProperty(value: unknown, key: string): number | undefined {
+    const candidate = value as Record<string, unknown>;
+
+    const property = candidate?.[key];
+
+    return typeof property === "number" ? property : undefined;
+}
+
+function readStringProperty(value: unknown, key: string): string | undefined {
+    const candidate = value as Record<string, unknown>;
+
+    const property = candidate?.[key];
+
+    return typeof property === "string" ? property : undefined;
 }

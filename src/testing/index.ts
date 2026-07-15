@@ -32,8 +32,10 @@ export {
     handler,
 } from "./handlers/handler.js";
 export {
+    CantonCommandOutcome,
     CantonTestRoute,
     CantonTestRuntime,
+    classifyCantonCommandOutcome,
     createCantonTestRuntime,
 } from "./runtime/canton-test-runtime.js";
 export {
