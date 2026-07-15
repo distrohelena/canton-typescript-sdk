@@ -44,6 +44,10 @@ export {
 } from "./daml/daml-testing-catalog.js";
 export { createDamlValueArbitrary } from "./daml/daml-value-arbitrary.js";
 export {
+    createDeclarativeActionArbitrary,
+    DeclarativeAction,
+} from "./daml/daml-action-arbitrary.js";
+export {
     createDeclarativeChoiceActionArbitrary,
     DeclarativeChoiceAction,
 } from "./daml/daml-choice-action-arbitrary.js";
