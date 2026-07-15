@@ -137,4 +137,27 @@ describe("campaign replay artifacts", () => {
             await rm(directory, { recursive: true, force: true });
         }
     });
+
+    test("rejects replay artifacts with invalid execution counts", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "campaign-artifact-"));
+
+        const filename = join(directory, "invalid-count.json");
+
+        try {
+            await writeFile(filename, JSON.stringify({
+                schemaVersion: 1,
+                fingerprint: "fingerprint",
+                actions: [],
+                metrics: { byActor: {}, byTarget: {} },
+                numRuns: 0,
+                numShrinks: -1,
+            }));
+
+            await expect(
+                loadCampaignReplayArtifactAsync(filename, "fingerprint"),
+            ).rejects.toThrow("invalid schema");
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
 });

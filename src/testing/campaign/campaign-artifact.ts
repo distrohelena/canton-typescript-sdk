@@ -127,8 +127,16 @@ function isCampaignReplayArtifact(value: unknown): value is CampaignReplayArtifa
         && typeof (value as { fingerprint?: unknown }).fingerprint === "string"
         && Array.isArray((value as { actions?: unknown }).actions)
         && isCampaignMetrics((value as { metrics?: unknown }).metrics)
-        && typeof (value as { numRuns?: unknown }).numRuns === "number"
-        && typeof (value as { numShrinks?: unknown }).numShrinks === "number";
+        && isPositiveSafeInteger((value as { numRuns?: unknown }).numRuns)
+        && isNonNegativeSafeInteger((value as { numShrinks?: unknown }).numShrinks);
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function isNonNegativeSafeInteger(value: unknown): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function isCampaignMetrics(value: unknown): value is CampaignMetrics {
