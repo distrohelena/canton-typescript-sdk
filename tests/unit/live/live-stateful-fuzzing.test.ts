@@ -8,6 +8,7 @@ import {
     buildCreateRequest,
     createAmountArbitrary,
     createRunAmount,
+    describeLiveFuzzRoute,
 } from "../../live/fuzz/live-fuzz-fixture.js";
 import {
     applyLiveFuzzModelCommand,
@@ -26,6 +27,7 @@ import {
     classifyLiveFuzzCommandOutcome,
     liveFuzzExactInputArbitrary,
     liveFuzzEligibleActions,
+    evaluateLiveInvariants,
 } from "../../live/fuzz/live-fuzz-campaign.js";
 
 const environmentKeys = [
@@ -408,6 +410,107 @@ describe("live fuzz configuration", () => {
         expect(
             applyLiveFuzzCommandOutcome(model, { kind: "create" }, { kind: "accepted" }),
         ).toEqual(model);
+    });
+
+    it("describes the explicit Foundry-style route matrix", () => {
+        const parties = {
+            issuer: "issuer::abc",
+            owner: "owner::def",
+        } as const;
+
+        expect(describeLiveFuzzRoute({ kind: "create" }, parties)).toMatchObject({
+            participant: "issuer",
+            actAs: ["issuer::abc"],
+            readAs: [],
+            operation: "create",
+        });
+        expect(
+            describeLiveFuzzRoute({ kind: "query", participant: "issuer" }, parties),
+        ).toMatchObject({
+            participant: "issuer",
+            queryingParty: "issuer::abc",
+            operation: "query",
+        });
+        expect(
+            describeLiveFuzzRoute({ kind: "fetch", participant: "owner" }, parties),
+        ).toMatchObject({
+            participant: "owner",
+            queryingParty: "owner::def",
+            operation: "fetch",
+        });
+        expect(
+            describeLiveFuzzRoute({ kind: "exercise", participant: "issuer" }, parties),
+        ).toMatchObject({
+            participant: "issuer",
+            actAs: ["issuer::abc"],
+            readAs: [],
+            operation: "archive",
+        });
+        expect(
+            describeLiveFuzzRoute({ kind: "probe", participant: "owner" }, parties),
+        ).toMatchObject({
+            participant: "owner",
+            queryingParty: "owner::def",
+            operation: "probe",
+        });
+    });
+
+    it("aggregates after-action and cleanup invariant failures", () => {
+        const baseSnapshot = {
+            model: {
+                templateId: LIVE_IOU_TEMPLATE_ID,
+                payload: { issuer: "issuer::abc", owner: "owner::def", amount: 1 },
+                contractId: "contract-1",
+                active: true,
+                createdSeenBy: { issuer: true, owner: true },
+                lastLedgerEndByParticipant: {},
+            },
+            expectedPayload: {
+                issuer: "issuer::abc",
+                owner: "owner::def",
+                amount: 1,
+            },
+            participants: {
+                issuer: {
+                    ledgerEnd: "10",
+                    contracts: [{
+                        contractId: "contract-1",
+                        templateId: LIVE_IOU_TEMPLATE_ID,
+                        payload: {
+                            issuer: "issuer::abc",
+                            owner: "owner::def",
+                            amount: 1,
+                        },
+                    }],
+                },
+                owner: {
+                    ledgerEnd: "11",
+                    contracts: [{
+                        contractId: "contract-1",
+                        templateId: LIVE_IOU_TEMPLATE_ID,
+                        payload: {
+                            issuer: "issuer::abc",
+                            owner: "owner::def",
+                            amount: 1,
+                        },
+                    }],
+                },
+            },
+            previousLedgerEnds: { issuer: "9", owner: "10" },
+            lifecycle: { created: ["contract-1"], archived: [] },
+            runMarkedContractIds: ["contract-1"],
+        } as const;
+
+        expect(evaluateLiveInvariants("after-action", baseSnapshot)).toEqual([]);
+
+        expect(
+            evaluateLiveInvariants("post-cleanup", {
+                ...baseSnapshot,
+                runMarkedContractIds: ["contract-1"],
+            }),
+        ).toEqual(expect.arrayContaining([
+            expect.objectContaining({ code: "run-marked-contract-remains" }),
+        ]));
     });
 
     it("replays command generation from a fixed seed", () => {

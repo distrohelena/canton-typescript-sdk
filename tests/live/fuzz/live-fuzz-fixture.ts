@@ -28,6 +28,7 @@ import {
     createLiveMultiNodeEnvironment,
 } from "../runtime/live-multi-node-test-environment.js";
 import { LiveFuzzConfig } from "./live-fuzz-config.js";
+import { LiveFuzzCommand } from "./live-fuzz-commands.js";
 
 export const LIVE_IOU_TEMPLATE_ID = "Main:Iou";
 
@@ -52,6 +53,51 @@ export interface LiveFuzzFixture extends LiveFuzzFixtureDefinition {
     readonly createPayloadArbitrary: fc.Arbitrary<number>;
     readonly buildCreateRequest: (amountSuffix: number) => SubmitCommandRequest;
     readonly buildArchiveRequest: (contractId: string) => SubmitCommandRequest;
+}
+
+export interface LiveFuzzRouteDescriptor {
+    readonly operation: "create" | "query" | "fetch" | "events" | "archive" | "probe";
+    readonly participant: "issuer" | "owner";
+    readonly queryingParty?: string;
+    readonly actAs: readonly string[];
+    readonly readAs: readonly string[];
+}
+
+export function describeLiveFuzzRoute(
+    command: LiveFuzzCommand,
+    parties: { readonly issuer: string; readonly owner: string },
+): LiveFuzzRouteDescriptor {
+    if (command.kind === "create") {
+        return {
+            operation: "create",
+            participant: "issuer",
+            actAs: [parties.issuer],
+            readAs: [],
+        };
+    } else if (command.kind === "exercise") {
+        return {
+            operation: "archive",
+            participant: "issuer",
+            actAs: [parties.issuer],
+            readAs: [],
+        };
+    } else if (command.kind === "probe") {
+        return {
+            operation: "probe",
+            participant: command.participant,
+            queryingParty: parties[command.participant],
+            actAs: [],
+            readAs: [],
+        };
+    } else {
+        return {
+            operation: command.kind,
+            participant: command.participant,
+            queryingParty: parties[command.participant],
+            actAs: [],
+            readAs: [],
+        };
+    }
 }
 
 export function createAmountArbitrary(): fc.Arbitrary<number> {

@@ -28,6 +28,37 @@ export interface LiveFuzzActionEligibility {
     readonly actors: readonly LiveFuzzActor[];
 }
 
+export interface LiveFuzzInvariantContract {
+    readonly contractId: string;
+    readonly templateId: string;
+    readonly payload: Readonly<Record<string, unknown>>;
+}
+
+export interface LiveFuzzInvariantSnapshot {
+    readonly model: LiveFuzzModel;
+    readonly expectedPayload: Readonly<Record<string, unknown>>;
+    readonly participants: Readonly<
+        Record<LiveFuzzParticipant, {
+            readonly contracts: readonly LiveFuzzInvariantContract[];
+            readonly ledgerEnd: string;
+        }>
+    >;
+    readonly previousLedgerEnds: Readonly<
+        Partial<Record<LiveFuzzParticipant, string>>
+    >;
+    readonly lifecycle: {
+        readonly created: readonly string[];
+        readonly archived: readonly string[];
+    };
+    readonly runMarkedContractIds: readonly string[];
+}
+
+export interface LiveFuzzInvariantFailure {
+    readonly phase: "after-action" | "end-of-campaign" | "post-cleanup";
+    readonly code: string;
+    readonly message: string;
+}
+
 export type LiveFuzzCommandOutcome =
     | { readonly kind: "accepted" }
     | {
@@ -54,6 +85,79 @@ export type LiveFuzzCommandOutcome =
         readonly statusCode?: number;
         readonly details: string;
     };
+
+export function evaluateLiveInvariants(
+    phase: LiveFuzzInvariantFailure["phase"],
+    snapshot: LiveFuzzInvariantSnapshot,
+): readonly LiveFuzzInvariantFailure[] {
+    const failures: LiveFuzzInvariantFailure[] = [];
+
+    const contracts = Object.values(snapshot.participants).flatMap(
+        (participant) => participant.contracts,
+    );
+
+    const activeContractIds = [...new Set(contracts.map(({ contractId }) => contractId))];
+
+    if (activeContractIds.length > 1) {
+        failures.push({
+            phase,
+            code: "multiple-active-run-contracts",
+            message: `Expected at most one active run contract, found ${activeContractIds.join(", ")}.`,
+        });
+    }
+
+    for (const participant of ["issuer", "owner"] as const) {
+        const previous = snapshot.previousLedgerEnds[participant];
+
+        if (
+            previous !== undefined &&
+            compareLiveFuzzOffsets(snapshot.participants[participant].ledgerEnd, previous) < 0
+        ) {
+            failures.push({
+                phase,
+                code: "ledger-end-regressed",
+                message: `Ledger end regressed on ${participant}.`,
+            });
+        }
+    }
+
+    if (snapshot.model.contractId !== undefined) {
+        if (!snapshot.lifecycle.created.includes(snapshot.model.contractId)) {
+            failures.push({
+                phase,
+                code: "missing-create-evidence",
+                message: `No create lifecycle evidence for ${snapshot.model.contractId}.`,
+            });
+        }
+
+        if (snapshot.model.active) {
+            const matchingContracts = contracts.filter(
+                (contract) =>
+                    contract.contractId === snapshot.model.contractId &&
+                    contract.templateId === snapshot.model.templateId &&
+                    JSON.stringify(contract.payload) === JSON.stringify(snapshot.expectedPayload),
+            );
+
+            if (matchingContracts.length === 0) {
+                failures.push({
+                    phase,
+                    code: "active-contract-mismatch",
+                    message: "The active model contract is missing or has the wrong template/payload.",
+                });
+            }
+        }
+    }
+
+    if (phase === "post-cleanup" && snapshot.runMarkedContractIds.length > 0) {
+        failures.push({
+            phase,
+            code: "run-marked-contract-remains",
+            message: `Cleanup left run-marked contracts: ${snapshot.runMarkedContractIds.join(", ")}.`,
+        });
+    }
+
+    return failures;
+}
 
 export function liveFuzzExactInputArbitrary(init: {
     depth: number;
@@ -230,6 +334,14 @@ function chooseWeightedAction(
     }
 
     return eligible[eligible.length - 1];
+}
+
+function compareLiveFuzzOffsets(left: string, right: string): number {
+    const leftOffset = BigInt(left);
+
+    const rightOffset = BigInt(right);
+
+    return leftOffset < rightOffset ? -1 : leftOffset > rightOffset ? 1 : 0;
 }
 
 function toCommand(

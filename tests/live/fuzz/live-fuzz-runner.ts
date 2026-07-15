@@ -16,8 +16,13 @@ import {
     markLiveFuzzParticipantObserved,
 } from "./live-fuzz-commands.js";
 import {
+    evaluateLiveInvariants,
+    LiveFuzzInvariantSnapshot,
+} from "./live-fuzz-campaign.js";
+import {
     LiveFuzzFixture,
     LIVE_IOU_TEMPLATE_ID,
+    describeLiveFuzzRoute,
 } from "./live-fuzz-fixture.js";
 import { LiveFuzzConfig } from "./live-fuzz-config.js";
 
@@ -182,12 +187,22 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
 
     const ledgerEnds: LedgerEndTracker = new Map();
 
+    const lifecycle = {
+        created: [] as string[],
+        archived: [] as string[],
+    };
+
     let primaryError: unknown;
 
     try {
         for (const command of init.commands) {
+            const route = describeLiveFuzzRoute(command, {
+                issuer: init.fixture.issuerParty,
+                owner: init.fixture.ownerParty,
+            });
+
             if (command.kind === "create") {
-                await init.fixture.issuerClient.commandService.submitAndWaitAsync(
+                await getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
                     init.fixture.buildCreateRequest(init.amountSuffix),
                 );
 
@@ -207,6 +222,7 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
                     throw new Error("Live fuzz create did not produce the expected Main:Iou.");
                 }
 
+                lifecycle.created.push(contract.contractId);
                 model = markLiveFuzzContractCreated(model, contract.contractId);
                 model = markLiveFuzzParticipantObserved(model, "issuer");
 
@@ -222,20 +238,39 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
                 model = markLiveFuzzParticipantObserved(model, "owner");
                 model = recordTrackedLedgerEnds(model, ledgerEnds);
 
+                await assertLiveFuzzInvariantsAsync({
+                    ...init,
+                    model,
+                    expectedPayload,
+                    ledgerEnds,
+                    lifecycle,
+                    phase: "after-action",
+                });
+
                 continue;
             }
 
             model = applyLiveFuzzModelCommand(model, command);
 
             if (command.kind === "exercise") {
-                await init.fixture.issuerClient.commandService.submitAndWaitAsync(
+                await getClient(init.fixture, route.participant).commandService.submitAndWaitAsync(
                     init.fixture.buildArchiveRequest(model.contractId),
                 );
                 await assertArchivedOnBothParticipantsAsync(
                     { ...init, ledgerEnds },
                     model,
                 );
+                lifecycle.archived.push(model.contractId);
                 model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+                await assertLiveFuzzInvariantsAsync({
+                    ...init,
+                    model,
+                    expectedPayload,
+                    ledgerEnds,
+                    lifecycle,
+                    phase: "after-action",
+                });
 
                 continue;
             } else if (command.kind === "query") {
@@ -250,6 +285,11 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
                     model,
                     command.participant,
                 );
+            } else if (command.kind === "probe") {
+                await assertProbeAsync(
+                    { ...init, ledgerEnds },
+                    command.participant,
+                );
             } else {
                 await assertEventsAsync(
                     { ...init, ledgerEnds },
@@ -259,7 +299,25 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
             }
 
             model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+            await assertLiveFuzzInvariantsAsync({
+                ...init,
+                model,
+                expectedPayload,
+                ledgerEnds,
+                lifecycle,
+                phase: "after-action",
+            });
         }
+
+        await assertLiveFuzzInvariantsAsync({
+            ...init,
+            model,
+            expectedPayload,
+            ledgerEnds,
+            lifecycle,
+            phase: "end-of-campaign",
+        });
     } catch (error) {
         primaryError = error;
     }
@@ -281,6 +339,23 @@ async function runLiveFuzzSequenceWithCleanupAsync(init: {
 
         if (primaryError === undefined) {
             primaryError = cleanupError;
+        }
+    }
+
+    if (primaryError === undefined) {
+        model = recordTrackedLedgerEnds(model, ledgerEnds);
+
+        try {
+            await assertLiveFuzzInvariantsAsync({
+                ...init,
+                model,
+                expectedPayload,
+                ledgerEnds,
+                lifecycle,
+                phase: "post-cleanup",
+            });
+        } catch (invariantError) {
+            primaryError = invariantError;
         }
     }
 
@@ -433,6 +508,62 @@ async function assertEventsAsync(
             ],
         }),
     });
+}
+
+async function assertProbeAsync(
+    init: {
+        fixture: LiveFuzzFixture;
+        ledgerEnds: LedgerEndTracker;
+    },
+    participant: LiveFuzzParticipant,
+): Promise<void> {
+    await readParticipantSnapshotAsync(init.fixture, participant, init.ledgerEnds);
+}
+
+async function assertLiveFuzzInvariantsAsync(init: {
+    fixture: LiveFuzzFixture;
+    config: LiveFuzzConfig;
+    model: LiveFuzzModel;
+    expectedPayload: Readonly<Record<string, unknown>>;
+    ledgerEnds: LedgerEndTracker;
+    lifecycle: {
+        readonly created: readonly string[];
+        readonly archived: readonly string[];
+    };
+    phase: "after-action" | "end-of-campaign" | "post-cleanup";
+}): Promise<void> {
+    const [issuer, owner] = await Promise.all([
+        readParticipantSnapshotAsync(init.fixture, "issuer", init.ledgerEnds),
+        readParticipantSnapshotAsync(init.fixture, "owner", init.ledgerEnds),
+    ]);
+
+    const snapshot: LiveFuzzInvariantSnapshot = {
+        model: init.model,
+        expectedPayload: init.expectedPayload,
+        participants: { issuer, owner },
+        previousLedgerEnds: init.model.lastLedgerEndByParticipant,
+        lifecycle: init.lifecycle,
+        runMarkedContractIds: [...new Set(
+            [...issuer.contracts, ...owner.contracts]
+                .filter((contract) =>
+                    matchesLiveFuzzContract(contract, {
+                        templateId: LIVE_IOU_TEMPLATE_ID,
+                        payload: init.expectedPayload,
+                    }),
+                )
+                .map(({ contractId }) => contractId),
+        )],
+    };
+
+    const failures = evaluateLiveInvariants(init.phase, snapshot);
+
+    if (failures.length > 0) {
+        throw new Error(
+            `Live fuzz invariant failure (${init.phase}): ${failures
+                .map(({ code, message }) => `${code}: ${message}`)
+                .join(" | ")}`,
+        );
+    }
 }
 
 async function assertArchivedOnBothParticipantsAsync(
