@@ -41,6 +41,19 @@ interface ParticipantSnapshot {
 
 type LedgerEndTracker = Map<LiveFuzzParticipant, string>;
 
+/** Mutable state owned by exactly one generated live campaign sequence. */
+export interface LiveFuzzRunContext {
+    readonly fixture: LiveFuzzFixture;
+    readonly config: LiveFuzzConfig;
+    readonly expectedPayload: Readonly<Record<string, unknown>>;
+    readonly ledgerEnds: LedgerEndTracker;
+    readonly lifecycle: {
+        readonly created: string[];
+        readonly archived: string[];
+    };
+    model: LiveFuzzModel;
+}
+
 interface PollingTimeoutDiagnostic {
     readonly participant: LiveFuzzParticipant;
     readonly expectedState: string;
@@ -177,6 +190,32 @@ export async function runLiveFuzzSequenceAsync(init: {
         init.config.testTimeoutMs,
         `Live fuzz run ${init.config.runId}`,
     );
+}
+
+/**
+ * Initializes deterministic state for one generated sequence. It is separate
+ * from fixture allocation so the public campaign runner can set up a fresh
+ * model for every fast-check candidate while reusing live clients.
+ */
+export function createLiveFuzzRunContext(init: {
+    readonly fixture: LiveFuzzFixture;
+    readonly config: LiveFuzzConfig;
+    readonly amountSuffix: number;
+    readonly campaignNonce: bigint;
+}): LiveFuzzRunContext {
+    const expectedPayload = getExpectedPayload(init);
+
+    return {
+        fixture: init.fixture,
+        config: init.config,
+        expectedPayload,
+        ledgerEnds: new Map(),
+        lifecycle: { created: [], archived: [] },
+        model: createInitialLiveFuzzModel({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            payload: expectedPayload,
+        }),
+    };
 }
 
 async function runLiveFuzzSequenceWithCleanupAsync(init: {

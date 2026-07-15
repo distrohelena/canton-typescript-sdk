@@ -21,6 +21,7 @@ import {
 } from "../../live/fuzz/live-fuzz-commands.js";
 import {
     compareLedgerOffsets,
+    createLiveFuzzRunContext,
     formatPollingTimeout,
     matchesLiveFuzzContract,
     summarizeLiveFuzzContract,
@@ -84,6 +85,40 @@ afterEach(() => {
 });
 
 describe("live fuzz configuration", () => {
+    it("creates deterministic per-sequence state from the generated amount and nonce", () => {
+        const config = readLiveFuzzConfig();
+
+        const fixture = {
+            issuerParty: "Issuer",
+            ownerParty: "Owner",
+            buildCreateRequest: (amountSuffix: number, campaignNonce?: bigint) =>
+                buildCreateRequest({
+                    runId: "context-run",
+                    issuerParty: "Issuer",
+                    ownerParty: "Owner",
+                    amountSuffix,
+                    campaignNonce,
+                }),
+        };
+
+        const context = createLiveFuzzRunContext({
+            fixture: fixture as never,
+            config,
+            amountSuffix: 7,
+            campaignNonce: 9n,
+        });
+
+        expect(context.model).toMatchObject({
+            templateId: LIVE_IOU_TEMPLATE_ID,
+            active: false,
+            payload: { issuer: "Issuer", owner: "Owner" },
+        });
+        expect(context.expectedPayload.amount).toBe(
+            Number(createRunAmount("context-run", 7, 9n)),
+        );
+        expect(context.lifecycle).toEqual({ created: [], archived: [] });
+    });
+
     it("is disabled unless explicitly enabled", () => {
         delete process.env.SDK_TEST_ENABLE_LIVE_FUZZING;
 
