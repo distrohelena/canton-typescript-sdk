@@ -22,6 +22,26 @@ describe("DAML testing value arbitraries", () => {
         expect(integers.every((value) => typeof value === "bigint")).toBe(true);
     });
 
+    test("generates bounded decimal numeric values", () => {
+        const numeric = fc.sample(
+            createDamlValueArbitrary(new DamlLfType({
+                builtinType: DamlLfBuiltinType.numeric,
+                numericScale: 10,
+            })),
+            20,
+        );
+
+        expect(numeric.every((value) => typeof value === "number" && Number.isFinite(value)))
+            .toBe(true);
+    });
+
+    test("rejects scale-zero numeric values rather than sending an int64", () => {
+        expect(() => createDamlValueArbitrary(new DamlLfType({
+            builtinType: DamlLfBuiltinType.numeric,
+            numericScale: 0,
+        }))).toThrow("scale of at least one");
+    });
+
     test("generates party values only from the explicit actor set", () => {
         const values = fc.sample(
             createDamlValueArbitrary(

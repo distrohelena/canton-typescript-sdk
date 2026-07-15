@@ -7,7 +7,7 @@ import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 import { createDamlValueArbitrary } from "./daml-value-arbitrary.js";
 
 export interface DeclarativeChoiceAction extends CampaignExecutableAction {
-    readonly argument: string | bigint;
+    readonly argument: string | bigint | number;
     readonly choice: string;
     readonly templateId: string;
 }

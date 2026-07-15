@@ -75,11 +75,25 @@ export class Lf2ModelMapper {
         }
 
         if (rawType?.sum.oneofKind === "tapp") {
-            return Lf2ModelMapper.mapType(
+            const lhs = Lf2ModelMapper.mapType(
                 currentPackageId,
                 rawPackage,
                 rawType.sum.tapp.lhs,
             );
+
+            const numericScale = lhs.builtinType === DamlLfBuiltinType.numeric
+                ? Lf2ModelMapper.readNumericScale(rawType.sum.tapp.rhs)
+                : undefined;
+
+            return numericScale === undefined
+                ? lhs
+                : new DamlLfType({
+                    builtinType: lhs.builtinType,
+                    numericScale,
+                    ...(lhs.typeConReference === undefined
+                        ? {}
+                        : { typeConReference: lhs.typeConReference }),
+                });
         }
 
         if (rawType?.sum.oneofKind === "forall") {
@@ -102,21 +116,43 @@ export class Lf2ModelMapper {
         }
 
         else if (rawType?.sum.oneofKind === "builtin") {
+            const builtinType = rawType.sum.builtin.builtin === BuiltinType.INT64
+                ? DamlLfBuiltinType.int64
+                : rawType.sum.builtin.builtin === BuiltinType.NUMERIC
+                ? DamlLfBuiltinType.numeric
+                : rawType.sum.builtin.builtin === BuiltinType.PARTY
+                ? DamlLfBuiltinType.party
+                : rawType.sum.builtin.builtin === BuiltinType.TEXT
+                ? DamlLfBuiltinType.text
+                : DamlLfBuiltinType.unknown;
+
             return new DamlLfType({
-                builtinType:
-                    rawType.sum.builtin.builtin === BuiltinType.INT64
-                        ? DamlLfBuiltinType.int64
-                        : rawType.sum.builtin.builtin === BuiltinType.PARTY
-                        ? DamlLfBuiltinType.party
-                        : rawType.sum.builtin.builtin === BuiltinType.TEXT
-                        ? DamlLfBuiltinType.text
-                        : DamlLfBuiltinType.unknown,
+                builtinType,
+                ...(builtinType !== DamlLfBuiltinType.numeric
+                    ? {}
+                    : {
+                        numericScale: Lf2ModelMapper.readNumericScale(
+                            rawType.sum.builtin.args[0],
+                        ),
+                    }),
             });
         }
 
         return new DamlLfType({
             builtinType: DamlLfBuiltinType.unknown,
         });
+    }
+
+    private static readNumericScale(rawType: Type | undefined): number | undefined {
+        if (rawType?.sum.oneofKind !== "nat") {
+            return undefined;
+        }
+
+        const scale = Number(rawType.sum.nat);
+
+        return Number.isSafeInteger(scale) && scale >= 0 && scale <= 37
+            ? scale
+            : undefined;
     }
 
     private static mapModule(

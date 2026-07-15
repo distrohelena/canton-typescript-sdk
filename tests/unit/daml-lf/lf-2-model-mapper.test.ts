@@ -3,6 +3,7 @@ import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package
 import { DamlLfCompilation } from "../../../src/daml-lf/daml-lf-compilation.js";
 import { DamlLfPackageLoader } from "../../../src/daml-lf/daml-lf-package-loader.js";
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
+import { Lf2ModelMapper } from "../../../src/daml-lf/model/lf-2-model-mapper.js";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfNodeKind } from "../../../src/daml-lf/model/daml-lf-node-kind.js";
 import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
@@ -29,6 +30,7 @@ describe("LF 2.x model mapper", () => {
 
         expect(DamlLfNodeKind.package).toBe("package");
         expect(DamlLfBuiltinType.text).toBe("text");
+        expect(DamlLfBuiltinType.numeric).toBe("numeric");
         expect(packageModel.packageId).toBe("sample-hash");
         expect(packageModel.packageName).toBe("sample-package");
         expect(packageModel.packageVersion).toBe("1.0.0");
@@ -51,6 +53,35 @@ describe("LF 2.x model mapper", () => {
             (packageModel.modules[0].definitions[2] as DamlLfTemplate).choices[0]
                 ?.updateExpression?.textLiteral,
         ).toBe("newOwner");
+    });
+
+    it("preserves an applied DAML numeric scale in field metadata", () => {
+        const mapType = Lf2ModelMapper as unknown as {
+            mapType: (packageId: string, rawPackage: Package, rawType: unknown) => {
+                readonly builtinType: DamlLfBuiltinType;
+                readonly numericScale?: number;
+            };
+        };
+
+        const type = mapType.mapType("sample-hash", { internedTypes: [] } as Package, {
+            sum: {
+                oneofKind: "tapp",
+                tapp: {
+                    lhs: {
+                        sum: {
+                            oneofKind: "builtin",
+                            builtin: { builtin: BuiltinType.NUMERIC, args: [] },
+                        },
+                    },
+                    rhs: { sum: { oneofKind: "nat", nat: "10" } },
+                },
+            },
+        });
+
+        expect(type).toMatchObject({
+            builtinType: DamlLfBuiltinType.numeric,
+            numericScale: 10,
+        });
     });
 
     it("maps value references inside expressions", () => {
