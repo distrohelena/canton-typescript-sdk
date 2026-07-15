@@ -1,4 +1,7 @@
+import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
+
 export interface DamlTestingChoice {
+    readonly argumentType?: DamlLfType;
     readonly choice: string;
     readonly templateId: string;
 }
@@ -15,7 +18,10 @@ export interface DamlTestingCatalog {
 
 export function createDamlTestingCatalog(init: {
     readonly getTemplates: () => readonly {
-        readonly choices: readonly { readonly name: string }[];
+        readonly choices: readonly {
+            readonly name: string;
+            readonly parameter?: { readonly type: DamlLfType };
+        }[];
         readonly templateId: {
             readonly moduleName: string;
             readonly packageId: string;
@@ -23,21 +29,36 @@ export function createDamlTestingCatalog(init: {
         };
     }[];
 }): DamlTestingCatalog {
+    const choices = new Map<string, DamlTestingChoice>();
+
     const templates = init.getTemplates()
-        .map((template) => Object.freeze({
-            templateId: formatTemplateId(template.templateId),
-            choices: Object.freeze(template.choices.map(({ name }) => name)),
-        }))
+        .map((template) => {
+            const templateId = formatTemplateId(template.templateId);
+
+            for (const choice of template.choices) {
+                choices.set(
+                    createChoiceKey(templateId, choice.name),
+                    Object.freeze({
+                        templateId,
+                        choice: choice.name,
+                        ...(choice.parameter === undefined
+                            ? {}
+                            : { argumentType: choice.parameter.type }),
+                    }),
+                );
+            }
+
+            return Object.freeze({
+                templateId,
+                choices: Object.freeze(template.choices.map(({ name }) => name)),
+            });
+        })
         .sort((left, right) => left.templateId.localeCompare(right.templateId));
 
     return Object.freeze({
         templates: Object.freeze(templates),
         getChoice(templateId: string, choice: string): DamlTestingChoice | undefined {
-            const template = templates.find((item) => item.templateId === templateId);
-
-            return template?.choices.includes(choice) === true
-                ? Object.freeze({ templateId, choice })
-                : undefined;
+            return choices.get(createChoiceKey(templateId, choice));
         },
     });
 }
@@ -48,4 +69,8 @@ function formatTemplateId(value: {
     readonly templateName: string;
 }): string {
     return `${value.packageId}:${value.moduleName}:${value.templateName}`;
+}
+
+function createChoiceKey(templateId: string, choice: string): string {
+    return `${templateId}:${choice}`;
 }
