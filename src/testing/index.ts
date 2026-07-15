@@ -59,6 +59,8 @@ export {
     excludeChoice,
     ExcludedChoiceTarget,
     targetTemplate,
+    resolveDeclarativeTargets,
+    ResolvedDeclarativeTarget,
     TemplateTarget,
     TemplateTargetBuilder,
 } from "./targets/target.js";
