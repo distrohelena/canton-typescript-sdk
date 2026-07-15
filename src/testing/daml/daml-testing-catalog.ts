@@ -8,6 +8,10 @@ export interface DamlTestingChoice {
 
 export interface DamlTestingTemplate {
     readonly choices: readonly string[];
+    readonly fields: readonly {
+        readonly name: string;
+        readonly type: DamlLfType;
+    }[];
     readonly templateId: string;
 }
 
@@ -22,6 +26,10 @@ export function createDamlTestingCatalog(init: {
         readonly choices: readonly {
             readonly name: string;
             readonly parameter?: { readonly type: DamlLfType };
+        }[];
+        readonly fields?: readonly {
+            readonly name: string;
+            readonly type: DamlLfType;
         }[];
         readonly templateId: {
             readonly moduleName: string;
@@ -52,6 +60,10 @@ export function createDamlTestingCatalog(init: {
             return Object.freeze({
                 templateId,
                 choices: Object.freeze(template.choices.map(({ name }) => name)),
+                fields: Object.freeze((template.fields ?? []).map((field) => Object.freeze({
+                    name: field.name,
+                    type: field.type,
+                }))),
             });
         })
         .sort((left, right) => left.templateId.localeCompare(right.templateId));

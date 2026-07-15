@@ -3,6 +3,7 @@ import {
     createDamlTestingCatalog,
 } from "../../../src/testing/daml/daml-testing-catalog.js";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
+import { DamlLfField } from "../../../src/daml-lf/model/daml-lf-field.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
 
 describe("DAML testing catalog", () => {
@@ -24,6 +25,7 @@ describe("DAML testing catalog", () => {
             {
                 templateId: "pkg:Main:Iou",
                 choices: ["Archive", "Transfer"],
+                fields: [],
             },
         ]);
         expect(catalog.getChoice("pkg:Main:Iou", "Archive")).toEqual({
@@ -33,6 +35,7 @@ describe("DAML testing catalog", () => {
         expect(catalog.getTemplate("pkg:Main:Iou")).toEqual({
             templateId: "pkg:Main:Iou",
             choices: ["Archive", "Transfer"],
+            fields: [],
         });
     });
 
@@ -54,6 +57,28 @@ describe("DAML testing catalog", () => {
             choice: "Transfer",
             templateId: "pkg:Main:Iou",
             argumentType,
+        });
+    });
+
+    test("preserves template field metadata for automatic create generation", () => {
+        const ownerType = new DamlLfType({ builtinType: DamlLfBuiltinType.party });
+
+        const catalog = createDamlTestingCatalog({
+            getTemplates: () => [{
+                templateId: {
+                    packageId: "pkg",
+                    moduleName: "Main",
+                    templateName: "Iou",
+                },
+                fields: [new DamlLfField({ name: "owner", type: ownerType })],
+                choices: [],
+            }],
+        });
+
+        expect(catalog.getTemplate("pkg:Main:Iou")).toEqual({
+            templateId: "pkg:Main:Iou",
+            choices: [],
+            fields: [{ name: "owner", type: ownerType }],
         });
     });
 });

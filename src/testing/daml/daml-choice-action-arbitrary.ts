@@ -2,7 +2,7 @@ import * as fc from "fast-check";
 
 import { CampaignExecutableAction } from "../campaign/campaign-runner.js";
 import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
-import { ResolvedDeclarativeTarget } from "../targets/target.js";
+import { ResolvedDeclarativeChoiceTarget } from "../targets/target.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 import { createDamlValueArbitrary } from "./daml-value-arbitrary.js";
 
@@ -19,7 +19,7 @@ export interface DeclarativeChoiceAction extends CampaignExecutableAction {
  */
 export function createDeclarativeChoiceActionArbitrary(
     catalog: DamlTestingCatalog,
-    target: ResolvedDeclarativeTarget,
+    target: ResolvedDeclarativeChoiceTarget,
     options: { readonly valueParties?: readonly string[] } = {},
 ): fc.Arbitrary<DeclarativeChoiceAction> {
     const choice = catalog.getChoice(target.templateId, target.choice);

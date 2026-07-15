@@ -48,6 +48,10 @@ export {
     DeclarativeChoiceAction,
 } from "./daml/daml-choice-action-arbitrary.js";
 export {
+    createDeclarativeCreateActionArbitrary,
+    DeclarativeCreateAction,
+} from "./daml/daml-create-action-arbitrary.js";
+export {
     bound,
     CampaignHandler,
     CampaignHandlerCleanup,
@@ -72,10 +76,14 @@ export {
     ExcludedChoiceTarget,
     excludeTemplate,
     ExcludedTemplateTarget,
+    targetCreate,
     targetChoice,
     targetTemplate,
     resolveDeclarativeTargets,
+    ResolvedDeclarativeChoiceTarget,
+    ResolvedDeclarativeCreateTarget,
     ResolvedDeclarativeTarget,
+    TemplateCreateTarget,
     TemplateTarget,
     TemplateTargetBuilder,
 } from "./targets/target.js";

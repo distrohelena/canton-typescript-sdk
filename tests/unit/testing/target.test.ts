@@ -3,6 +3,7 @@ import {
     resolveDeclarativeTargets,
     excludeChoice,
     excludeTemplate,
+    targetCreate,
     targetChoice,
     targetTemplate,
 } from "../../../src/testing/targets/target.js";
@@ -20,6 +21,10 @@ describe("declarative invariant targets", () => {
         const allChoices = targetTemplate("pkg:Main:Iou")
             .actors(["issuer"])
             .allChoices();
+
+        const create = targetTemplate("pkg:Main:Iou")
+            .actors(["issuer"])
+            .create();
 
         expect(target).toEqual({
             kind: "template",
@@ -49,6 +54,12 @@ describe("declarative invariant targets", () => {
             choices: [],
             allChoices: true,
         });
+        expect(create).toEqual({
+            kind: "template-create",
+            templateId: "pkg:Main:Iou",
+            actors: ["issuer"],
+        });
+        expect(targetCreate("pkg:Main:Iou", ["issuer"])).toEqual(create);
     });
 
     test("resolves included choices while honoring explicit exclusions", () => {
@@ -93,6 +104,15 @@ describe("declarative invariant targets", () => {
             targetTemplate("pkg:Main:Iou").actors(["issuer"]).allChoices(),
             excludeTemplate("pkg:Main:Iou"),
         ])).toEqual([]);
+
+        expect(resolveDeclarativeTargets(catalog, [
+            targetTemplate("pkg:Main:Iou").actors(["issuer"]).create(),
+        ])).toEqual([{
+            key: "pkg:Main:Iou:create",
+            templateId: "pkg:Main:Iou",
+            actors: ["issuer"],
+            kind: "create",
+        }]);
 
         expect(() => resolveDeclarativeTargets(catalog, [
             targetTemplate("pkg:Main:Missing").actors(["issuer"]).allChoices(),
