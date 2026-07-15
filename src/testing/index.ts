@@ -42,7 +42,12 @@ export {
     DamlTestingChoice,
     DamlTestingTemplate,
 } from "./daml/daml-testing-catalog.js";
-export { createDamlValueArbitrary } from "./daml/daml-value-arbitrary.js";
+export {
+    createDamlValueArbitrary,
+    DamlTestingValue,
+} from "./daml/daml-value-arbitrary.js";
+export { DamlNumeric } from "../core/types/daml-numeric.js";
+export { DamlParty } from "../core/types/daml-party.js";
 export {
     createDeclarativeActionArbitrary,
     DeclarativeAction,

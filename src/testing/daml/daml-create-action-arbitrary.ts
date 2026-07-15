@@ -4,10 +4,10 @@ import { CampaignExecutableAction } from "../campaign/campaign-runner.js";
 import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
 import { ResolvedDeclarativeCreateTarget } from "../targets/target.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
-import { createDamlValueArbitrary } from "./daml-value-arbitrary.js";
+import { createDamlValueArbitrary, DamlTestingValue } from "./daml-value-arbitrary.js";
 
 export interface DeclarativeCreateAction extends CampaignExecutableAction {
-    readonly payload: Readonly<Record<string, string | bigint | number>>;
+    readonly payload: Readonly<Record<string, DamlTestingValue>>;
     readonly templateId: string;
 }
 

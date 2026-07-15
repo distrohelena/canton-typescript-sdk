@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlNumeric,
+    DamlParty,
     ExerciseByKeyCommand,
     ExerciseCommand,
     SubmitCommandRequest,
@@ -43,6 +45,29 @@ describe("json command submission mapper", () => {
                     },
                 },
             ],
+        });
+    });
+
+    it("unwraps explicit DAML party and numeric values for JSON commands", () => {
+        const payload = mapJsonSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: "Main:Iou",
+                    payload: {
+                        issuer: new DamlParty("Alice"),
+                        amount: new DamlNumeric("10.50"),
+                    },
+                }),
+            }),
+        );
+
+        expect(payload.commands[0]).toEqual({
+            CreateCommand: {
+                templateId: "Main:Iou",
+                createArguments: { issuer: "Alice", amount: "10.50" },
+            },
         });
     });
 

@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { ValidationError } from "../../../core/errors/validation-error.js";
 import { CreateAndExerciseCommand } from "../../../core/types/commands/create-and-exercise-command.js";
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
+import { DamlNumeric } from "../../../core/types/daml-numeric.js";
+import { DamlParty } from "../../../core/types/daml-party.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
@@ -128,6 +130,24 @@ export function mapValue(value: unknown): Value {
             sum: {
                 oneofKind: "optional",
                 optional: {},
+            },
+        };
+    }
+
+    else if (value instanceof DamlParty) {
+        return {
+            sum: {
+                oneofKind: "party",
+                party: value.value,
+            },
+        };
+    }
+
+    else if (value instanceof DamlNumeric) {
+        return {
+            sum: {
+                oneofKind: "numeric",
+                numeric: value.value,
             },
         };
     }

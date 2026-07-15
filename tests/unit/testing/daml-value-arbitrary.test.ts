@@ -2,6 +2,8 @@ import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
+import { DamlNumeric } from "../../../src/core/types/daml-numeric.js";
+import { DamlParty } from "../../../src/core/types/daml-party.js";
 import {
     createDamlValueArbitrary,
 } from "../../../src/testing/daml/daml-value-arbitrary.js";
@@ -31,7 +33,7 @@ describe("DAML testing value arbitraries", () => {
             20,
         );
 
-        expect(numeric.every((value) => typeof value === "number" && Number.isFinite(value)))
+        expect(numeric.every((value) => value instanceof DamlNumeric))
             .toBe(true);
     });
 
@@ -51,7 +53,9 @@ describe("DAML testing value arbitraries", () => {
             30,
         );
 
-        expect(values.every((value) => value === "Alice" || value === "Bob")).toBe(true);
+        expect(values.every((value) =>
+            value instanceof DamlParty && (value.value === "Alice" || value.value === "Bob")))
+            .toBe(true);
     });
 
     test("rejects automatic party generation without configured value parties", () => {

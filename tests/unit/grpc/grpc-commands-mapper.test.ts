@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlNumeric,
+    DamlParty,
     ExerciseByKeyCommand,
     ExerciseCommand,
     SubmitCommandRequest,
@@ -46,6 +48,36 @@ describe("grpc command mapper", () => {
                         },
                     },
                 ],
+            },
+        });
+    });
+
+    it("preserves explicit DAML party and numeric value kinds", () => {
+        const payload = mapGrpcSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: "Main:Iou",
+                    payload: {
+                        issuer: new DamlParty("Alice"),
+                        amount: new DamlNumeric("10.50"),
+                    },
+                }),
+            }),
+        );
+
+        expect(payload.commands.commands[0]).toMatchObject({
+            command: {
+                oneofKind: "create",
+                create: {
+                    createArguments: {
+                        fields: [
+                            { label: "issuer", value: { sum: { oneofKind: "party", party: "Alice" } } },
+                            { label: "amount", value: { sum: { oneofKind: "numeric", numeric: "10.50" } } },
+                        ],
+                    },
+                },
             },
         });
     });

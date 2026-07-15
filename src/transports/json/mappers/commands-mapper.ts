@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { ValidationError } from "../../../core/errors/validation-error.js";
 import { CreateAndExerciseCommand } from "../../../core/types/commands/create-and-exercise-command.js";
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
+import { DamlNumeric } from "../../../core/types/daml-numeric.js";
+import { DamlParty } from "../../../core/types/daml-party.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
@@ -52,7 +54,7 @@ function mapJsonCommand(command: LedgerCommand): unknown {
         return {
             CreateCommand: {
                 templateId: command.templateId,
-                createArguments: command.payload,
+                createArguments: mapJsonValue(command.payload),
             },
         };
     } else if (command instanceof ExerciseCommand) {
@@ -61,28 +63,42 @@ function mapJsonCommand(command: LedgerCommand): unknown {
                 templateId: command.templateId,
                 contractId: command.contractId,
                 choice: command.choice,
-                choiceArgument: command.argument,
+                choiceArgument: mapJsonValue(command.argument),
             },
         };
     } else if (command instanceof ExerciseByKeyCommand) {
         return {
             ExerciseByKeyCommand: {
                 templateId: command.templateId,
-                contractKey: command.contractKey,
+                contractKey: mapJsonValue(command.contractKey),
                 choice: command.choice,
-                choiceArgument: command.argument,
+                choiceArgument: mapJsonValue(command.argument),
             },
         };
     } else if (command instanceof CreateAndExerciseCommand) {
         return {
             CreateAndExerciseCommand: {
                 templateId: command.templateId,
-                createArguments: command.payload,
+                createArguments: mapJsonValue(command.payload),
                 choice: command.choice,
-                choiceArgument: command.argument,
+                choiceArgument: mapJsonValue(command.argument),
             },
         };
     }
 
     throw new ValidationError("unsupported submit command type");
+}
+
+function mapJsonValue(value: unknown): unknown {
+    if (value instanceof DamlParty || value instanceof DamlNumeric) {
+        return value.value;
+    } else if (Array.isArray(value)) {
+        return value.map(mapJsonValue);
+    } else if (value !== null && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [key, mapJsonValue(item)]),
+        );
+    }
+
+    return value;
 }

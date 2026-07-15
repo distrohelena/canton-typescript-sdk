@@ -72,6 +72,8 @@ export { CommitmentTimeRange } from "./core/types/commitment-time-range.js";
 export { CounterParticipantInfo } from "./core/types/counter-participant-info.js";
 export { ContractArchived } from "./core/types/contract-archived.js";
 export { ContractCreated } from "./core/types/contract-created.js";
+export { DamlNumeric } from "./core/types/daml-numeric.js";
+export { DamlParty } from "./core/types/daml-party.js";
 export { EventStreamKind } from "./core/types/event-stream-kind.js";
 export { UserRightKind } from "./core/types/user-right-kind.js";
 export { IdentityProviderConfig } from "./core/types/identity-provider-config.js";
