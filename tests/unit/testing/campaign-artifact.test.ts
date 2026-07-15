@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, readFile, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -111,6 +111,28 @@ describe("campaign replay artifacts", () => {
             await expect(
                 writeCampaignReplayArtifactAsync(join(linked, "failure.json"), artifact),
             ).rejects.toThrow("symlink");
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    test("rejects corrupt replay artifacts that omit the metric summary", async () => {
+        const directory = await mkdtemp(join(tmpdir(), "campaign-artifact-"));
+
+        const filename = join(directory, "corrupt.json");
+
+        try {
+            await writeFile(filename, JSON.stringify({
+                schemaVersion: 1,
+                fingerprint: "fingerprint",
+                actions: [],
+                numRuns: 1,
+                numShrinks: 0,
+            }));
+
+            await expect(
+                loadCampaignReplayArtifactAsync(filename, "fingerprint"),
+            ).rejects.toThrow("invalid schema");
         } finally {
             await rm(directory, { recursive: true, force: true });
         }

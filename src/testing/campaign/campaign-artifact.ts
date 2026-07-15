@@ -126,8 +126,37 @@ function isCampaignReplayArtifact(value: unknown): value is CampaignReplayArtifa
         && (value as { schemaVersion?: unknown }).schemaVersion === 1
         && typeof (value as { fingerprint?: unknown }).fingerprint === "string"
         && Array.isArray((value as { actions?: unknown }).actions)
+        && isCampaignMetrics((value as { metrics?: unknown }).metrics)
         && typeof (value as { numRuns?: unknown }).numRuns === "number"
         && typeof (value as { numShrinks?: unknown }).numShrinks === "number";
+}
+
+function isCampaignMetrics(value: unknown): value is CampaignMetrics {
+    if (value === null || typeof value !== "object") {
+        return false;
+    }
+
+    const candidate = value as {
+        byActor?: unknown;
+        byTarget?: unknown;
+    };
+
+    return isMetricGroup(candidate.byActor) && isMetricGroup(candidate.byTarget);
+}
+
+function isMetricGroup(value: unknown): boolean {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return false;
+    }
+
+    return Object.values(value).every((outcomes) =>
+        outcomes !== null
+        && typeof outcomes === "object"
+        && !Array.isArray(outcomes)
+        && Object.values(outcomes).every((count) =>
+            typeof count === "number" && Number.isSafeInteger(count) && count >= 0,
+        ),
+    );
 }
 
 async function ensureSecureDirectoryAsync(directory: string): Promise<void> {
