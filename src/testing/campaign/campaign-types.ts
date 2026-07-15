@@ -19,6 +19,7 @@ export interface InvariantCampaignConfig {
     readonly runs: number;
     readonly depth: number;
     readonly failOnRevert?: boolean;
+    readonly path?: string;
     readonly seed?: number;
     readonly timeoutMs?: number;
 }
@@ -27,6 +28,7 @@ export interface ResolvedInvariantCampaignConfig {
     readonly runs: number;
     readonly depth: number;
     readonly failOnRevert: boolean;
+    readonly path?: string;
     readonly seed?: number;
     readonly timeoutMs?: number;
 }

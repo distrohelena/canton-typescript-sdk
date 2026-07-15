@@ -193,6 +193,7 @@ export async function runInvariantCampaignCheckAsync<
         failOnRevert: init.campaign.config.failOnRevert,
         key: init.key,
         numRuns: init.campaign.config.runs,
+        path: init.campaign.config.path,
         seed: init.campaign.config.seed,
         timeoutMs: init.campaign.config.timeoutMs,
         setupAsync: init.setupAsync,

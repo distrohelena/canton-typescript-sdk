@@ -100,6 +100,7 @@ function resolveConfig(
         runs: config.runs,
         depth: config.depth,
         failOnRevert: config.failOnRevert ?? false,
+        ...(config.path === undefined ? {} : { path: config.path }),
         ...(config.seed === undefined ? {} : { seed: config.seed }),
         ...(config.timeoutMs === undefined ? {} : { timeoutMs: config.timeoutMs }),
     });

@@ -18,7 +18,7 @@ describe("defineInvariantCampaign", () => {
                 },
                 isolation: { kind: "external" },
             },
-            config: { runs: 2, depth: 3 },
+            config: { runs: 2, depth: 3, path: "0:1", seed: 42 },
             targets,
             invariants: [],
         });
@@ -29,6 +29,8 @@ describe("defineInvariantCampaign", () => {
             runs: 2,
             depth: 3,
             failOnRevert: false,
+            path: "0:1",
+            seed: 42,
         });
         expect(campaign.targets).toEqual([{ key: "read", actors: ["issuer"] }]);
         expect(Object.isFrozen(campaign.config)).toBe(true);
