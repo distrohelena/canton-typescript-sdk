@@ -47,6 +47,7 @@ export {
     createDeclarativeActionArbitrary,
     DeclarativeAction,
 } from "./daml/daml-action-arbitrary.js";
+export { createDeclarativeCampaignArbitrary } from "./daml/declarative-campaign-arbitrary.js";
 export {
     createDeclarativeChoiceActionArbitrary,
     DeclarativeChoiceAction,
