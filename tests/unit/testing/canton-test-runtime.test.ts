@@ -3,6 +3,7 @@ import {
     classifyCantonCommandOutcome,
     createCantonTestRuntime,
     pollUntilAsync,
+    toCampaignMetricOutcome,
 } from "../../../src/testing/runtime/canton-test-runtime.js";
 
 describe("Canton test runtime", () => {
@@ -120,6 +121,16 @@ describe("Canton command outcomes", () => {
             kind: "unknown-commit-outcome",
             statusCode: 10,
             details: "aborted",
+        });
+    });
+
+    test("maps accepted and malformed Canton responses to campaign outcomes", () => {
+        expect(
+            toCampaignMetricOutcome({ kind: "accepted", transactionId: "update-1" }),
+        ).toEqual({ kind: "accepted", updateId: "update-1" });
+        expect(toCampaignMetricOutcome({ kind: "accepted" })).toEqual({
+            kind: "malformed-response",
+            reason: "Canton command response has no transaction or command ID.",
         });
     });
 });

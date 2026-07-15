@@ -1,4 +1,5 @@
 import { CampaignIsolation, CantonTestActor } from "../campaign/campaign-types.js";
+import { CampaignMetricOutcome } from "../campaign/campaign-metrics.js";
 import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
 
 export interface CantonTestRoute {
@@ -178,6 +179,27 @@ export function classifyCantonCommandOutcome(input: {
     }
 
     return { kind: "unknown-commit-outcome", statusCode, details };
+}
+
+/** Converts the runtime's transport-safe outcome into the campaign metric union. */
+export function toCampaignMetricOutcome(
+    outcome: CantonCommandOutcome,
+): CampaignMetricOutcome {
+    if (outcome.kind !== "accepted") {
+        return {
+                kind: outcome.kind,
+                reason: outcome.details,
+            };
+    }
+
+    const updateId = outcome.transactionId ?? outcome.commandId;
+
+    return updateId === undefined
+        ? {
+            kind: "malformed-response",
+            reason: "Canton command response has no transaction or command ID.",
+        }
+        : { kind: "accepted", updateId };
 }
 
 export async function pollUntilAsync<T>(init: {

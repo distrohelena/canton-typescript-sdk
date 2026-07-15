@@ -61,6 +61,7 @@ export {
     classifyCantonCommandOutcome,
     createCantonTestRuntime,
     pollUntilAsync,
+    toCampaignMetricOutcome,
 } from "./runtime/canton-test-runtime.js";
 export {
     CampaignRunIsolation,
