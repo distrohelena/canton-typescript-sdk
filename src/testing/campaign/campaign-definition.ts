@@ -18,8 +18,18 @@ export function defineInvariantCampaign<Model = unknown, Ghost = unknown>(init: 
 }): InvariantCampaign<Model, Ghost> {
     const config = resolveConfig(init.config);
 
+    const targetKeys = new Set<string>();
+
     const targets = init.targets.map((target) => {
         validateTarget(target, init.runtime);
+
+        if (targetKeys.has(target.key)) {
+            throw new TestingConfigurationError(
+                `Invariant campaign target '${target.key}' is duplicated.`,
+            );
+        }
+
+        targetKeys.add(target.key);
 
         return Object.freeze({
             key: target.key,
