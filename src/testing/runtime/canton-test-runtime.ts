@@ -10,7 +10,11 @@ export interface CantonTestRoute {
 }
 
 export type CantonCommandOutcome =
-    | { readonly kind: "accepted" }
+    | {
+        readonly commandId?: string;
+        readonly kind: "accepted";
+        readonly transactionId?: string;
+    }
     | {
         readonly details: string;
         readonly kind: "protocol-revert";
@@ -39,6 +43,7 @@ export interface CantonTestRuntime<Participant = unknown> {
     readonly participants: Readonly<Record<string, Participant>>;
     readLedgerEndAsync(participant: string): Promise<string>;
     resolveRoute(actor: string): CantonTestRoute;
+    submitAndWaitAsync(actor: string, request: unknown): Promise<CantonCommandOutcome>;
 }
 
 export function createCantonTestRuntime<Participant>(init: {
@@ -57,6 +62,24 @@ export function createCantonTestRuntime<Participant>(init: {
     const actors = Object.freeze({ ...init.actors });
 
     const participants = Object.freeze({ ...init.participants });
+
+    const resolveRoute = (actorName: string): CantonTestRoute => {
+        const actor = actors[actorName];
+
+        if (actor === undefined) {
+            throw new TestingConfigurationError(
+                `Canton test runtime has no actor '${actorName}'.`,
+            );
+        }
+
+        return Object.freeze({
+            actor: actorName,
+            participant: actor.participant,
+            party: actor.party,
+            actAs: Object.freeze([...(actor.actAs ?? [actor.party])]),
+            readAs: Object.freeze([...(actor.readAs ?? [])]),
+        });
+    };
 
     return Object.freeze({
         actors,
@@ -90,22 +113,35 @@ export function createCantonTestRuntime<Participant>(init: {
 
             return offset;
         },
-        resolveRoute(actorName: string): CantonTestRoute {
-            const actor = actors[actorName];
+        resolveRoute,
+        async submitAndWaitAsync(
+            actorName: string,
+            request: unknown,
+        ): Promise<CantonCommandOutcome> {
+            const route = resolveRoute(actorName);
 
-            if (actor === undefined) {
+            const participant = participants[route.participant];
+
+            const commandService = readObjectProperty(participant, "commandService");
+
+            const submitAndWaitAsync = readFunctionProperty(
+                commandService,
+                "submitAndWaitAsync",
+            );
+
+            if (submitAndWaitAsync === undefined) {
                 throw new TestingConfigurationError(
-                    `Canton test runtime has no actor '${actorName}'.`,
+                    `Canton test participant '${route.participant}' has no commandService.submitAndWaitAsync method.`,
                 );
             }
 
-            return Object.freeze({
-                actor: actorName,
-                participant: actor.participant,
-                party: actor.party,
-                actAs: Object.freeze([...(actor.actAs ?? [actor.party])]),
-                readAs: Object.freeze([...(actor.readAs ?? [])]),
-            });
+            try {
+                return classifyCantonCommandOutcome({
+                    response: await submitAndWaitAsync.call(commandService, request),
+                });
+            } catch (error) {
+                return classifyCantonCommandOutcome({ error });
+            }
         },
     });
 }
@@ -115,7 +151,15 @@ export function classifyCantonCommandOutcome(input: {
     readonly response?: unknown;
 }): CantonCommandOutcome {
     if (input.error === undefined) {
-        return { kind: "accepted" };
+        const transactionId = readStringProperty(input.response, "transactionId");
+
+        const commandId = readStringProperty(input.response, "commandId");
+
+        return {
+            kind: "accepted",
+            ...(transactionId === undefined ? {} : { transactionId }),
+            ...(commandId === undefined ? {} : { commandId }),
+        };
     }
 
     const statusCode = readNumberProperty(input.error, "code");
@@ -183,11 +227,11 @@ function readObjectProperty(
 function readFunctionProperty(
     value: Record<string, unknown> | undefined,
     key: string,
-): (() => Promise<unknown>) | undefined {
+): ((...arguments_: unknown[]) => Promise<unknown>) | undefined {
     const property = value?.[key];
 
     return typeof property === "function"
-        ? property as () => Promise<unknown>
+        ? property as (...arguments_: unknown[]) => Promise<unknown>
         : undefined;
 }
 

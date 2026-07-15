@@ -64,6 +64,35 @@ describe("Canton test runtime", () => {
             "00000042",
         );
     });
+
+    test("submits through the selected actor participant and classifies the response", async () => {
+        const requests: unknown[] = [];
+
+        const runtime = createCantonTestRuntime({
+            participants: {
+                participantA: {
+                    commandService: {
+                        submitAndWaitAsync: async (request: unknown) => {
+                            requests.push(request);
+
+                            return { transactionId: "update-1" };
+                        },
+                    },
+                },
+            },
+            actors: {
+                issuer: {
+                    party: "Issuer",
+                    participant: "participantA",
+                },
+            },
+            isolation: { kind: "external" },
+        });
+
+        await expect(runtime.submitAndWaitAsync("issuer", { id: "command-1" }))
+            .resolves.toEqual({ kind: "accepted", transactionId: "update-1" });
+        expect(requests).toEqual([{ id: "command-1" }]);
+    });
 });
 
 describe("Canton command outcomes", () => {
