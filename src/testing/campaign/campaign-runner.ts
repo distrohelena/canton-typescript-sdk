@@ -137,7 +137,8 @@ export async function runCampaignLifecycleCheckAsync<
         phase: CampaignLifecyclePhase<Action>,
     ) => Promise<void>;
     readonly seed?: number;
-    readonly setupAsync: () => Promise<Context>;
+    /** Receives the candidate so setup can derive deterministic run state. */
+    readonly setupAsync: (actions: readonly Action[]) => Promise<Context>;
     readonly timeoutMs?: number;
 }): Promise<{
     readonly counterexampleTrace?: CampaignLifecycleTrace<Action>;
@@ -182,7 +183,7 @@ export async function runInvariantCampaignCheckAsync<
         context: Context,
         phase: CampaignLifecyclePhase<Action>,
     ) => Promise<void>;
-    readonly setupAsync: () => Promise<Context>;
+    readonly setupAsync: (actions: readonly Action[]) => Promise<Context>;
 }): Promise<{
     readonly counterexampleTrace?: CampaignLifecycleTrace<Action>;
     readonly details: fc.RunDetails<[readonly Action[]]>;
@@ -242,7 +243,7 @@ async function runCampaignCandidateAsync<
             context: Context,
             phase: CampaignLifecyclePhase<Action>,
         ) => Promise<void>;
-        readonly setupAsync: () => Promise<Context>;
+        readonly setupAsync: (actions: readonly Action[]) => Promise<Context>;
     },
     actions: readonly Action[],
 ): Promise<{ readonly passed: boolean; readonly trace: CampaignLifecycleTrace<Action> }> {
@@ -288,7 +289,7 @@ async function runCampaignCandidateAsync<
     };
 
     try {
-        context = await init.setupAsync();
+        context = await init.setupAsync(actions);
 
         const beforeRun = { kind: "before-run" } as const;
 

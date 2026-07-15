@@ -83,6 +83,35 @@ describe("fast-check campaign execution", () => {
 });
 
 describe("campaign lifecycle execution", () => {
+    test("passes the exact candidate actions into setup", async () => {
+        const actions = [
+            { actor: "issuer", targetKey: "Main:Iou:Create", id: "create" },
+            { actor: "issuer", targetKey: "Main:Iou:Archive", id: "archive" },
+        ] as const;
+
+        const result = await runCampaignLifecycleCheckAsync({
+            arbitrary: fc.constant(actions),
+            depth: 2,
+            failOnRevert: false,
+            key: () => "setup-actions",
+            numRuns: 1,
+            setupAsync: async (candidate) => ({ candidate }),
+            executeAsync: async (): Promise<CampaignMetricOutcome> => ({
+                kind: "accepted",
+                updateId: "update-1",
+            }),
+            checkInvariantsAsync: async (context, phase) => {
+                if (phase.kind === "before-run") {
+                    expect(context.candidate).toEqual(actions);
+                }
+
+                return [];
+            },
+        });
+
+        expect(result.details.failed).toBe(false);
+    });
+
     test("continues through a permissive protocol revert while preserving exact depth", async () => {
         const calls: string[] = [];
 
