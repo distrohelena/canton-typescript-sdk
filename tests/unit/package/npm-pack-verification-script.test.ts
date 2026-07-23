@@ -141,6 +141,9 @@ describe("npm pack verifier", () => {
             ),
         ).toBe(true);
         expect(
+            verifyPackModule.isAllowedPackedPath("package/node/es256-jwt.mjs"),
+        ).toBe(true);
+        expect(
             verifyPackModule.isAllowedPackedPath("package/node/unexpected.sh"),
         ).toBe(false);
         expect(verifyPackModule.isAllowedPackedPath("package/src/index.ts")).toBe(

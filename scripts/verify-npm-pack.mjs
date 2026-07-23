@@ -23,6 +23,7 @@ const requiredLocalnetPackedPaths = Object.freeze([
     "package/node/stop-local.sh",
     "package/node/test-start-local.sh",
     "package/node/test-stop-local.sh",
+    "package/node/es256-jwt.mjs",
 ]);
 const helpText =
     "Runs npm package verification against the packed tarball surface.";
