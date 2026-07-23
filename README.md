@@ -101,6 +101,32 @@ npm exec --package @distrohelena/canton-typescript-sdk canton-localnet-stop
 These commands launch and stop CN Quickstart; they do not provision a
 Quickstart checkout.
 
+### Optional ES256 bearer tokens
+
+Set `LOCALNET_ES256_JWT=1` when starting the localnet to add ES256 JWT
+verification to the primary participants and any `EXTRA_PARTICIPANTS`. The
+existing `AUTH_MODE` stays active for Quickstart's internal services.
+
+By default, the launcher creates reusable P-256 development key material and
+a JWKS sidecar in `.generated/localnet-es256` at the package root. Set
+`LOCALNET_ES256_ROTATE=1` to replace generated material, or set both
+`LOCALNET_ES256_PRIVATE_KEY_PATH` and `LOCALNET_ES256_JWKS_URL` to use your
+own matching PEM private key and reachable JWKS endpoint.
+
+The launcher writes a short-lived (ten-minute) token for `ledger-api-user` to
+`ledger-api-user.token` in that runtime directory and prints its path. Use it
+with the live SDK suite:
+
+```bash
+SDK_TEST_LEDGER_BEARER_TOKEN="$(cat .generated/localnet-es256/ledger-api-user.token)" \
+npm run test:live
+```
+
+This is development-only key material. A custom `LOCALNET_ES256_SUBJECT` must
+already be a Ledger API user with the appropriate rights on each participant.
+Extra participants use the existing shared-secret onboarding flow; the current
+OAuth2-plus-extras limitation still applies.
+
 The live suite runs single-worker with an extended timeout because it mutates and reads a shared localnet.
 
 Prerequisites:
