@@ -17,6 +17,10 @@ interface Es256JwtModule {
         readonly subject: string;
         readonly ttlSeconds: number;
     }): Promise<string>;
+    validateSuppliedKeyAsync(init: {
+        readonly jwks: { readonly keys: readonly JsonWebKey[] };
+        readonly privateKeyPath: string;
+    }): Promise<void>;
 }
 
 async function loadModuleAsync(): Promise<Es256JwtModule> {
@@ -94,6 +98,24 @@ describe("ES256 localnet JWT helper", () => {
                     ttlSeconds: 601,
                 }),
             ).rejects.toThrow("TTL");
+        } finally {
+            await rm(runtimeDirectory, { force: true, recursive: true });
+        }
+    });
+
+    it("rejects a supplied JWKS that does not contain the private key", async () => {
+        const runtimeDirectory = await mkdtemp(join(tmpdir(), "es256-jwt-test-"));
+
+        try {
+            const helper = await loadModuleAsync();
+            const material = await helper.generateKeyMaterialAsync(runtimeDirectory);
+
+            await expect(
+                helper.validateSuppliedKeyAsync({
+                    jwks: { keys: [] },
+                    privateKeyPath: material.privateKeyPath,
+                }),
+            ).rejects.toThrow("matching");
         } finally {
             await rm(runtimeDirectory, { force: true, recursive: true });
         }

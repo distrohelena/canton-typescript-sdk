@@ -98,6 +98,23 @@ export async function mintTokenAsync({
     return `${signingInput}.${signature.toString("base64url")}`;
 }
 
+export async function validateSuppliedKeyAsync({ jwks, privateKeyPath }) {
+    const privateKey = createPrivateKey(await readFile(privateKeyPath));
+    const expectedJwk = toPublicJwk(createPublicKey(privateKey));
+    const matches = jwks.keys.some(
+        (jwk) =>
+            jwk.kid === expectedJwk.kid &&
+            jwk.kty === expectedJwk.kty &&
+            jwk.crv === expectedJwk.crv &&
+            jwk.x === expectedJwk.x &&
+            jwk.y === expectedJwk.y,
+    );
+
+    if (!matches) {
+        throw new Error("Supplied JWKS does not contain a matching P-256 public key.");
+    }
+}
+
 function getArgument(argumentsList, name) {
     const index = argumentsList.indexOf(name);
 
@@ -130,7 +147,18 @@ async function mainAsync() {
         return;
     }
 
-    throw new Error("Expected 'init' or 'mint'.");
+    if (command === "validate-supplied") {
+        const jwks = JSON.parse(
+            await readFile(getArgument(argumentsList, "--jwks-path"), "utf8"),
+        );
+        await validateSuppliedKeyAsync({
+            jwks,
+            privateKeyPath: getArgument(argumentsList, "--private-key-path"),
+        });
+        return;
+    }
+
+    throw new Error("Expected 'init', 'mint', or 'validate-supplied'.");
 }
 
 const scriptPath = fileURLToPath(import.meta.url);

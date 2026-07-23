@@ -126,6 +126,16 @@ prepare_es256_runtime_files() {
       echo "LOCALNET_ES256_PRIVATE_KEY_PATH is not readable: $private_key_path" >&2
       return 1
     fi
+    local supplied_jwks_path="$runtime_dir/supplied-jwks.json"
+    if ! curl --fail --silent --show-error "$jwks_url" > "$supplied_jwks_path"; then
+      echo "Unable to fetch LOCALNET_ES256_JWKS_URL: $jwks_url" >&2
+      return 1
+    fi
+    if ! node "$SCRIPT_DIR/es256-jwt.mjs" validate-supplied \
+      --private-key-path "$private_key_path" \
+      --jwks-path "$supplied_jwks_path"; then
+      return 1
+    fi
   else
     if [[ "${LOCALNET_ES256_ROTATE:-0}" == "1" ]]; then
       rm -f "$private_key_path" "$jwks_path"
