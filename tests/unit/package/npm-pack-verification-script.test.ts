@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 interface PackageJsonShape {
+    readonly bin?: Record<string, string>;
     readonly files?: readonly string[];
     readonly license?: string;
     readonly name?: string;
@@ -27,6 +28,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
     ) => string[];
     getHelpText: () => string;
     getExpectedExportKeys: () => readonly string[];
+    getExpectedLocalnetBinEntries: () => Readonly<Record<string, string>>;
     getPackedTarballFileName: (packageName: string, packageVersion: string) => string;
     isAllowedPackedPath: (value: string) => boolean;
 }> {
@@ -42,6 +44,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
         ) => string[];
         getHelpText: () => string;
         getExpectedExportKeys: () => readonly string[];
+        getExpectedLocalnetBinEntries: () => Readonly<Record<string, string>>;
         getPackedTarballFileName: (
             packageName: string,
             packageVersion: string,
@@ -58,9 +61,21 @@ describe("npm publish metadata", () => {
         expect(packageJson.private).toBeUndefined();
         expect(packageJson.license).toBe("Apache-2.0");
         expect(packageJson.publishConfig?.access).toBe("public");
-        expect(packageJson.files).toEqual(["dist", "README.md", "LICENSE"]);
+        expect(packageJson.files).toEqual([
+            "dist",
+            "node",
+            "README.md",
+            "LICENSE",
+        ]);
+        expect(packageJson.bin).toEqual({
+            "canton-localnet-start": "node/start-local.sh",
+            "canton-localnet-stop": "node/stop-local.sh",
+        });
         expect(packageJson.scripts?.build).toBe(
             "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+        );
+        expect(packageJson.scripts?.["test:stop-local-script"]).toBe(
+            "bash node/test-stop-local.sh",
         );
     });
 
@@ -86,6 +101,15 @@ describe("npm pack verifier", () => {
         expect(verifyPackModule.getExpectedExportKeys()).toContain("./testing");
     });
 
+    it("requires both published localnet launcher commands", async () => {
+        const verifyPackModule = await loadVerifyPackModuleAsync();
+
+        expect(verifyPackModule.getExpectedLocalnetBinEntries()).toEqual({
+            "canton-localnet-start": "node/start-local.sh",
+            "canton-localnet-stop": "node/stop-local.sh",
+        });
+    });
+
     it("recognizes allowed packed paths", async () => {
         const verifyPackModule = await loadVerifyPackModuleAsync();
 
@@ -99,6 +123,25 @@ describe("npm pack verifier", () => {
             verifyPackModule.isAllowedPackedPath(
                 "package/dist/tests/unit/example.test.js",
             ),
+        ).toBe(false);
+        expect(
+            verifyPackModule.isAllowedPackedPath("package/node/start-local.sh"),
+        ).toBe(true);
+        expect(
+            verifyPackModule.isAllowedPackedPath("package/node/stop-local.sh"),
+        ).toBe(true);
+        expect(
+            verifyPackModule.isAllowedPackedPath(
+                "package/node/test-start-local.sh",
+            ),
+        ).toBe(true);
+        expect(
+            verifyPackModule.isAllowedPackedPath(
+                "package/node/test-stop-local.sh",
+            ),
+        ).toBe(true);
+        expect(
+            verifyPackModule.isAllowedPackedPath("package/node/unexpected.sh"),
         ).toBe(false);
         expect(verifyPackModule.isAllowedPackedPath("package/src/index.ts")).toBe(
             false,

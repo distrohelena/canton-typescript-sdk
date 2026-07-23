@@ -14,6 +14,16 @@ const expectedExportKeys = [
     "./daml-interface",
     "./testing",
 ];
+const expectedLocalnetBinEntries = Object.freeze({
+    "canton-localnet-start": "node/start-local.sh",
+    "canton-localnet-stop": "node/stop-local.sh",
+});
+const requiredLocalnetPackedPaths = Object.freeze([
+    "package/node/start-local.sh",
+    "package/node/stop-local.sh",
+    "package/node/test-start-local.sh",
+    "package/node/test-stop-local.sh",
+]);
 const helpText =
     "Runs npm package verification against the packed tarball surface.";
 
@@ -23,6 +33,10 @@ export function getHelpText() {
 
 export function getExpectedExportKeys() {
     return [...expectedExportKeys];
+}
+
+export function getExpectedLocalnetBinEntries() {
+    return { ...expectedLocalnetBinEntries };
 }
 
 export function createNpmPackArguments(
@@ -46,6 +60,10 @@ export function getPackedTarballFileName(packageName, packageVersion) {
 }
 
 export function isAllowedPackedPath(value) {
+    if (requiredLocalnetPackedPaths.includes(value)) {
+        return true;
+    }
+
     if (value.startsWith("package/dist/src/")) {
         return false;
     }
@@ -165,6 +183,16 @@ function validateEntries(entries) {
             `Found unexpected packed files: ${disallowedEntries.join(", ")}`,
         );
     }
+
+    const missingEntries = requiredLocalnetPackedPaths.filter(
+        (value) => !entries.includes(value),
+    );
+
+    if (missingEntries.length > 0) {
+        throw new Error(
+            `Packed package is missing required localnet launcher files: ${missingEntries.join(", ")}`,
+        );
+    }
 }
 
 function validateExports(packageJson) {
@@ -183,6 +211,30 @@ function validateExports(packageJson) {
     }
 }
 
+function validateLocalnetBinEntries(packageJson) {
+    const actualBinEntries =
+        packageJson.bin !== null && typeof packageJson.bin === "object"
+            ? packageJson.bin
+            : {};
+    const actualKeys = Object.keys(actualBinEntries).sort();
+    const expectedKeys = Object.keys(expectedLocalnetBinEntries).sort();
+    const missingOrMismatchedEntries = expectedKeys.filter(
+        (key) => actualBinEntries[key] !== expectedLocalnetBinEntries[key],
+    );
+    const unexpectedEntries = actualKeys.filter(
+        (key) => !expectedKeys.includes(key),
+    );
+
+    if (
+        missingOrMismatchedEntries.length > 0 ||
+        unexpectedEntries.length > 0
+    ) {
+        throw new Error(
+            `Packed package has invalid localnet bin entries: missing or mismatched ${missingOrMismatchedEntries.join(", ") || "none"}; unexpected ${unexpectedEntries.join(", ") || "none"}.`,
+        );
+    }
+}
+
 async function verifyPackAsync() {
     const packedTarball = await getPackedTarballPathAsync();
 
@@ -194,6 +246,7 @@ async function verifyPackAsync() {
 
         validateEntries(entries);
         validateExports(packedPackageJson);
+        validateLocalnetBinEntries(packedPackageJson);
 
         await writeStdoutLineAsync(
             `Verified package verification for ${packedTarball.tarballPath}.`,

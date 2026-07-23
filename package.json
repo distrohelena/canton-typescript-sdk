@@ -7,9 +7,14 @@
     "types": "./dist/index.d.ts",
     "files": [
         "dist",
+        "node",
         "README.md",
         "LICENSE"
     ],
+    "bin": {
+        "canton-localnet-start": "node/start-local.sh",
+        "canton-localnet-stop": "node/stop-local.sh"
+    },
     "keywords": [
         "canton",
         "daml",
@@ -67,6 +72,7 @@
         "start:local-ledger": "bash node/start-local.sh",
         "stop:local-ledger": "bash node/stop-local.sh",
         "test:start-local-script": "bash node/test-start-local.sh",
+        "test:stop-local-script": "bash node/test-stop-local.sh",
         "test": "vitest run --maxWorkers=1 --testTimeout=15000",
         "test:property": "vitest run tests/property --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run tests/live --maxWorkers=1 --testTimeout=15000",
