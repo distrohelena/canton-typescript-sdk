@@ -121,6 +121,7 @@ describe("CantonClientOptions", () => {
 
     it("stores an optional gRPC error observer", () => {
         const onGrpcError = vi.fn();
+
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,
             onGrpcError,

@@ -21,7 +21,9 @@ describe("gRPC call-options factory", () => {
             methodName: "GetLedgerApiVersion",
             meta: { "x-canton-correlation-id": "request-123" },
         });
+
         const onGrpcError = vi.fn();
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -54,9 +56,11 @@ describe("gRPC call-options factory", () => {
             code: "UNAUTHENTICATED",
             meta: {},
         });
+
         const onGrpcError = vi.fn(() => {
             throw new Error("logging unavailable");
         });
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -81,7 +85,9 @@ describe("gRPC call-options factory", () => {
 
     it("preserves non-gRPC failures without notifying the observer", async () => {
         const rawError = new Error("network unavailable");
+
         const onGrpcError = vi.fn();
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,
@@ -108,7 +114,9 @@ describe("gRPC call-options factory", () => {
             code: "PERMISSION_DENIED",
             meta: {},
         });
+
         const onGrpcError = vi.fn();
+
         const operations = createGrpcOperations(
             new CantonClientOptions({
                 transportKind: TransportKind.grpc,

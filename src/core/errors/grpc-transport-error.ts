@@ -37,6 +37,7 @@ export class GrpcTransportError extends TransportError {
         }
 
         const metadata = copyMetadata(error.meta);
+
         const status = decodeStatusDetails(error.meta);
 
         return new GrpcTransportError(
@@ -120,6 +121,7 @@ function formatMessage(error: RpcErrorLike): string {
     const operation = [error.serviceName, error.methodName]
         .filter((part): part is string => part !== undefined)
         .join(".");
+
     const location = operation.length > 0 ? ` from ${operation}` : "";
 
     return `gRPC ${error.code}${location}: ${error.message}`;

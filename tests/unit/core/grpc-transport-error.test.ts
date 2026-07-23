@@ -40,6 +40,7 @@ function encodedStatus(): Uint8Array {
 describe("GrpcTransportError", () => {
     it("normalizes an RpcError with decoded status details", () => {
         const bytes = encodedStatus();
+
         const rawError = createRpcError({
             meta: {
                 "x-canton-correlation-id": "request-123",
@@ -99,6 +100,7 @@ describe("GrpcTransportError", () => {
                 "x-canton-correlation-id": ["request-123"],
             },
         });
+
         const parsed = GrpcTransportError.fromUnknown(rawError)!;
 
         expect(Reflect.set(parsed.metadata, "new-value", ["nope"])).toBe(false);
