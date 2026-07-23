@@ -2,6 +2,7 @@ import { TransportKind } from "../core/types/transport-kind.js";
 import { GrpcChannelSecurity } from "../core/types/grpc-channel-security.js";
 import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
+import type { GrpcTransportError } from "../core/errors/grpc-transport-error.js";
 
 export class CantonClientOptions {
     public readonly transportKind: TransportKind;
@@ -18,6 +19,7 @@ export class CantonClientOptions {
     public readonly ledgerAdminAuthProvider?: IAuthProvider;
     public readonly participantAdminAuthProvider?: IAuthProvider;
     public readonly commandSigner?: ICommandSigner;
+    public readonly onGrpcError?: (error: GrpcTransportError) => void;
 
     public constructor(init: {
         transportKind: TransportKind;
@@ -34,6 +36,7 @@ export class CantonClientOptions {
         ledgerAdminAuthProvider?: IAuthProvider;
         participantAdminAuthProvider?: IAuthProvider;
         commandSigner?: ICommandSigner;
+        onGrpcError?: (error: GrpcTransportError) => void;
     }) {
         this.transportKind = init.transportKind;
         this.ledgerEndpoint = init.ledgerEndpoint;
@@ -53,5 +56,6 @@ export class CantonClientOptions {
         this.participantAdminAuthProvider =
             init.participantAdminAuthProvider;
         this.commandSigner = init.commandSigner;
+        this.onGrpcError = init.onGrpcError;
     }
 }

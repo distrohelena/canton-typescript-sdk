@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
     CantonClientOptions,
     GrpcChannelSecurity,
@@ -117,5 +117,15 @@ describe("CantonClientOptions", () => {
 
         expect(options.defaultRequestTimeoutMs).toBe(5_000);
         expect(options.grpcConnectTimeoutMs).toBe(2_000);
+    });
+
+    it("stores an optional gRPC error observer", () => {
+        const onGrpcError = vi.fn();
+        const options = new CantonClientOptions({
+            transportKind: TransportKind.grpc,
+            onGrpcError,
+        });
+
+        expect(options.onGrpcError).toBe(onGrpcError);
     });
 });

@@ -1,5 +1,6 @@
 import { GrpcTransport as ProtobufGrpcTransport } from "@protobuf-ts/grpc-transport";
 import { CantonClientOptions } from "../../client/canton-client-options.js";
+import { GrpcTransportError } from "../../core/errors/grpc-transport-error.js";
 import {
     IPackageServiceClient as IParticipantPackageServiceClient,
     PackageServiceClient as ParticipantPackageServiceClient,
@@ -673,7 +674,7 @@ export function createGrpcOperations(
         dependencies.commandServiceClient
         ?? new CommandServiceClient(rpcTransport);
 
-    return {
+    const operations: GrpcOperations = {
         async disposeAsync(): Promise<void> {
             rpcTransport.close();
         },
@@ -2272,6 +2273,8 @@ export function createGrpcOperations(
             );
         },
     };
+
+    return wrapGrpcOperations(operations, options.onGrpcError);
 }
 
 async function buildCallOptionsForLedgerSurfaceAsync(
@@ -2313,6 +2316,41 @@ function normalizeGrpcHost(endpoint: string): string {
     }
 
     return endpoint;
+}
+
+function wrapGrpcOperations(
+    operations: GrpcOperations,
+    onGrpcError?: (error: GrpcTransportError) => void,
+): GrpcOperations {
+    return new Proxy(operations, {
+        get(target, property, receiver) {
+            const operation = Reflect.get(target, property, receiver);
+
+            if (typeof operation !== "function") {
+                return operation;
+            }
+
+            return async (...args: unknown[]) => {
+                try {
+                    return await operation.apply(target, args);
+                } catch (error) {
+                    const parsedError = GrpcTransportError.fromUnknown(error);
+
+                    if (parsedError === undefined) {
+                        throw error;
+                    }
+
+                    try {
+                        onGrpcError?.(parsedError);
+                    } catch {
+                        // Error observers must not replace the RPC failure.
+                    }
+
+                    throw parsedError;
+                }
+            };
+        },
+    });
 }
 
 async function unwrapUnaryResponse<TResponse>(

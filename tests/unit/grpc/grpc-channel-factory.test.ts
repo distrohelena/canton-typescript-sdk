@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
     CantonClientOptions,
     GrpcChannelSecurity,
@@ -6,12 +6,134 @@ import {
     TransportKind,
 } from "../../../src";
 import { createGrpcOperations } from "../../../src/transports/grpc/grpc-channel-factory.js";
+import { GrpcTransportError } from "../../../src/core/errors/grpc-transport-error.js";
 import {
     buildGrpcCallOptionsAsync,
     createGrpcChannelCredentials,
 } from "../../../src/transports/grpc/grpc-call-options-factory.js";
 
 describe("gRPC call-options factory", () => {
+    it("normalizes RPC failures and notifies an observer once", async () => {
+        const rawError = Object.assign(new Error("token expired"), {
+            name: "RpcError",
+            code: "UNAUTHENTICATED",
+            serviceName: "com.daml.ledger.api.v2.VersionService",
+            methodName: "GetLedgerApiVersion",
+            meta: { "x-canton-correlation-id": "request-123" },
+        });
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(
+            new CantonClientOptions({
+                transportKind: TransportKind.grpc,
+                onGrpcError,
+            }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
+            {
+                versionServiceClient: {
+                    getLedgerApiVersion: () => ({
+                        response: Promise.reject(rawError),
+                    }),
+                },
+            },
+        );
+
+        await expect(operations.getHealthAsync()).rejects.toMatchObject({
+            grpcCode: "UNAUTHENTICATED",
+            methodName: "GetLedgerApiVersion",
+        });
+        expect(onGrpcError).toHaveBeenCalledTimes(1);
+        expect(onGrpcError).toHaveBeenCalledWith(
+            expect.any(GrpcTransportError),
+        );
+    });
+
+    it("does not let an observer failure replace a gRPC failure", async () => {
+        const rawError = Object.assign(new Error("token expired"), {
+            name: "RpcError",
+            code: "UNAUTHENTICATED",
+            meta: {},
+        });
+        const onGrpcError = vi.fn(() => {
+            throw new Error("logging unavailable");
+        });
+        const operations = createGrpcOperations(
+            new CantonClientOptions({
+                transportKind: TransportKind.grpc,
+                onGrpcError,
+            }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
+            {
+                versionServiceClient: {
+                    getLedgerApiVersion: () => ({
+                        response: Promise.reject(rawError),
+                    }),
+                },
+            },
+        );
+
+        await expect(operations.getHealthAsync()).rejects.toBeInstanceOf(
+            GrpcTransportError,
+        );
+        expect(onGrpcError).toHaveBeenCalledTimes(1);
+    });
+
+    it("preserves non-gRPC failures without notifying the observer", async () => {
+        const rawError = new Error("network unavailable");
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(
+            new CantonClientOptions({
+                transportKind: TransportKind.grpc,
+                onGrpcError,
+            }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
+            {
+                versionServiceClient: {
+                    getLedgerApiVersion: () => ({
+                        response: Promise.reject(rawError),
+                    }),
+                },
+            },
+        );
+
+        await expect(operations.getHealthAsync()).rejects.toBe(rawError);
+        expect(onGrpcError).not.toHaveBeenCalled();
+    });
+
+    it("normalizes failures while collecting a server stream", async () => {
+        const rawError = Object.assign(new Error("permission denied"), {
+            name: "RpcError",
+            code: "PERMISSION_DENIED",
+            meta: {},
+        });
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(
+            new CantonClientOptions({
+                transportKind: TransportKind.grpc,
+                onGrpcError,
+            }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
+            {
+                updateServiceClient: {
+                    getUpdates: () => ({
+                        responses: (async function* () {
+                            throw rawError;
+                        })(),
+                        status: Promise.resolve({}),
+                    }),
+                },
+            },
+        );
+
+        await expect(operations.streamTransactionsAsync({})).rejects.toMatchObject({
+            grpcCode: "PERMISSION_DENIED",
+        });
+        expect(onGrpcError).toHaveBeenCalledTimes(1);
+    });
+
     it("creates insecure channel credentials", () => {
         const credentials = createGrpcChannelCredentials(
             GrpcChannelSecurity.insecure,
