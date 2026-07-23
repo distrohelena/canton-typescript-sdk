@@ -77,6 +77,30 @@ not an exact Numeric value.
 
 The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
 
+## Localnet launchers
+
+The published package includes launchers for an existing CN Quickstart checkout.
+Docker Compose must be installed and available. Set `CN_QUICKSTART_DIR` to the
+checkout (or its `quickstart/` directory) when it is not in a supported relative
+location.
+
+After installing the package, run:
+
+```bash
+canton-localnet-start
+canton-localnet-stop
+```
+
+You can also run them without a global install:
+
+```bash
+npm exec --package @distrohelena/canton-typescript-sdk canton-localnet-start
+npm exec --package @distrohelena/canton-typescript-sdk canton-localnet-stop
+```
+
+These commands launch and stop CN Quickstart; they do not provision a
+Quickstart checkout.
+
 The live suite runs single-worker with an extended timeout because it mutates and reads a shared localnet.
 
 Prerequisites:
