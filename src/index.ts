@@ -386,6 +386,11 @@ export { ValidationError } from "./core/errors/validation-error.js";
 export { AuthenticationError } from "./core/errors/authentication-error.js";
 export { AuthorizationError } from "./core/errors/authorization-error.js";
 export { TransportError } from "./core/errors/transport-error.js";
+export { GrpcTransportError } from "./core/errors/grpc-transport-error.js";
+export type {
+    GrpcErrorMetadata,
+    GrpcStatusDetails,
+} from "./core/errors/grpc-transport-error.js";
 export { SigningError } from "./core/errors/signing-error.js";
 export { TimeoutError } from "./core/errors/timeout-error.js";
 export { ConflictError } from "./core/errors/conflict-error.js";

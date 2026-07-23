@@ -308,6 +308,36 @@ For gRPC, channel security resolves per surface:
 - ledger admin services use `ledgerAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 - participant admin services use `participantAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 
+### gRPC error handling
+
+gRPC failures reject with `GrpcTransportError`, a `TransportError` subclass
+with the gRPC status code, service/method, copied metadata, and decoded
+`google.rpc.Status` trailer when Canton provides one. Use `onGrpcError` for
+centralized logging or telemetry; it observes the error but cannot replace the
+rejection if the callback itself fails.
+
+```ts
+import { GrpcTransportError } from "@distrohelena/canton-typescript-sdk";
+
+const client = new CantonClient(new CantonClientOptions({
+    // existing gRPC connection options,
+    onGrpcError: (error) => {
+        logger.error({ code: error.grpcCode, status: error.status });
+    },
+}));
+
+try {
+    await client.userManagementService.listUsersAsync(/* request */);
+} catch (error) {
+    if (error instanceof GrpcTransportError) {
+        console.error(error.grpcCode, error.serviceName, error.methodName);
+    }
+}
+```
+
+Application-specific `google.protobuf.Any` values in `error.status.details`
+remain opaque (`typeUrl` and bytes) unless the application knows that type.
+
 ## Service Map
 
 - Ledger endpoint:

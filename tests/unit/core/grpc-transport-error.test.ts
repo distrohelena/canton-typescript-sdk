@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { GrpcTransportError } from "../../../src";
 import { TransportError } from "../../../src/core/errors/transport-error.js";
-import { GrpcTransportError } from "../../../src/core/errors/grpc-transport-error.js";
 import { Status } from "../../../src/transports/grpc/generated/canton/google/rpc/status.js";
 
 type RpcErrorFixture = Error & {
