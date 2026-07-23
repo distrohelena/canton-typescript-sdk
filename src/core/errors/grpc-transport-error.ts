@@ -67,7 +67,7 @@ function isRpcErrorLike(error: unknown): error is RpcErrorLike {
 }
 
 function copyMetadata(metadata: Record<string, unknown> | undefined): GrpcErrorMetadata {
-    const copied: Record<string, readonly string[]> = {};
+    const copied: Record<string, readonly string[]> = Object.create(null);
 
     for (const [key, value] of Object.entries(metadata ?? {})) {
         const strings = asArray(value).filter(

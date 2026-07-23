@@ -119,6 +119,24 @@ describe("GrpcTransportError", () => {
         ]);
     });
 
+    it("preserves __proto__ as an ordinary metadata key", () => {
+        const metadata = Object.create(null) as Record<string, unknown>;
+
+        Object.defineProperty(metadata, "__proto__", {
+            value: "metadata-value",
+            enumerable: true,
+        });
+
+        const rawError = createRpcError({
+            meta: metadata,
+        });
+
+        const parsed = GrpcTransportError.fromUnknown(rawError)!;
+
+        expect(Object.getPrototypeOf(parsed.metadata)).toBeNull();
+        expect(parsed.metadata.__proto__).toEqual(["metadata-value"]);
+    });
+
     it("leaves status undefined for malformed status details", () => {
         const rawError = createRpcError({
             meta: { "grpc-status-details-bin": "not-valid-protobuf" },
