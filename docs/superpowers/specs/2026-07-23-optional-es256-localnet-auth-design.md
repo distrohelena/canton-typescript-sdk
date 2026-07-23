@@ -15,6 +15,12 @@ intentional: Quickstart-owned onboarding and PQS services still use their
 existing tokens, while SDK users can authenticate to any participant with a
 self-managed ES256 bearer token.
 
+`EXTRA_PARTICIPANTS` continues to use the existing supported
+`AUTH_MODE=shared-secret` provisioning flow. ES256 is additive to that flow
+and works for every extra participant. The pre-existing OAuth2-plus-extras
+limitation remains out of scope because Quickstart's extra-PQS onboarding still
+depends on its shared-secret token generator.
+
 ## Key and JWKS sources
 
 The launcher supports two modes:
