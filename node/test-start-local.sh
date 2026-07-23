@@ -293,10 +293,14 @@ run_case $'.PHONY: start\nstart:\n' 'stub docker-compose -f compose.yaml -f '"$t
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env down -v --remove-orphans' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate pqs-extra-1 pqs-extra-2 pqs-extra-3' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/es256/ledger-api-user.token' shared-secret default 3 '' '' 1
-assert_file_contains "$tmpdir/es256/canton-es256.conf" 'canton.participants.app-provider.ledger-api.auth-services += [{'
-assert_file_contains "$tmpdir/es256/canton-es256.conf" '  type = jwt-jwks'
-assert_file_contains "$tmpdir/es256/canton-es256.conf" '  url = "http://localnet-es256-jwks:8080/jwks.json"'
-assert_file_contains "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-3.ledger-api.auth-services += [{'
+assert_file_contains "$tmpdir/es256/canton-es256.conf" 'canton.participants.app-provider.ledger-api.auth-services = ['
+assert_file_contains "$tmpdir/es256/canton-es256.conf" '    type = jwt-es-256-crt'
+assert_file_contains "$tmpdir/es256/canton-es256.conf" '    certificate = "/app/es256-certificate.pem"'
+if grep -Fq 'canton.participants.app-user.ledger-api.auth-services' "$tmpdir/es256/canton-es256.conf"; then
+  echo "unexpected ES256 configuration for inactive app-user participant" >&2
+  exit 1
+fi
+assert_file_contains "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-3.ledger-api.auth-services = ['
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'CREATE_DATABASE_EXTRA_1=participant-extra-1'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'CREATE_DATABASE_EXTRA_VALIDATOR_1=validator-extra-1'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_PARTICIPANT_1_ADMIN_API_PORT=5902'

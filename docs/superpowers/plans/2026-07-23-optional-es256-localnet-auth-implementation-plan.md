@@ -129,11 +129,11 @@
   In both launchers, parse `LOCALNET_ES256_JWT` strictly as `0|1` (default `0`). Keep the existing `EXTRA_PARTICIPANTS` plus OAuth2 rejection: ES256 supports extras through the existing shared-secret provisioning path, not OAuth2 extra-PQS provisioning. Add one helper to resolve runtime state:
 
   - default runtime directory: `${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}`;
-  - default JWKS URL: `http://localnet-es256-jwks:8080/jwks.json`;
+  - default JWKS URL: `http://localnet-es256-jwks/jwks.json`;
   - `LOCALNET_ES256_ROTATE=1` regenerates generated material;
   - call `node/es256-jwt.mjs init` and `mint` only in generated mode;
   - generate `compose-es256-jwks.yaml` using a static `nginx:alpine` service and a read-only JWKS volume;
-  - in that same Compose overlay, override `canton` by mounting the original `${LOCALNET_DIR}/conf/canton/app.conf` at `/app/base-app.conf`, mounting the generated composite file at `/app/app.conf`, and declaring `depends_on.localnet-es256-jwks.condition: service_started`; the composite begins `include file("/app/base-app.conf")` and then appends `auth-services += [{ type = jwt-jwks, url = ..., target-audience = "https://canton.network.global" }]` for `app-provider`, `app-user`, and `sv`;
+  - in that same Compose overlay, override `canton` by mounting the original `${LOCALNET_DIR}/conf/canton/app.conf` at `/app/base-app.conf`, mounting the generated composite file at `/app/app.conf`, and declaring `depends_on.localnet-es256-jwks.condition: service_started`; the composite begins `include file("/app/base-app.conf")` and then appends `auth-services += { type = jwt-jwks, url = ..., target-audience = "https://canton.network.global" }` for `app-provider`, `app-user`, and `sv`;
   - add the same `jwt-jwks` object to generated extra participant ledger APIs.
 
   Append the overlay consistently to direct start and stop Compose args, and include `localnet-es256-jwks` in the initial `up -d` service list. When ES256 is enabled, bypass `make start-local-ledger` / `make stop-local-ledger` because their targets cannot receive this generated Compose file; retain the Make-target preference unchanged when disabled. Add explicit tests for both the disabled Make path and the enabled direct-Compose path. Preserve all disabled-mode behavior and existing shared-secret/OAuth2 profiles.

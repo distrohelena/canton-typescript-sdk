@@ -108,10 +108,10 @@ verification to the primary participants and any `EXTRA_PARTICIPANTS`. The
 existing `AUTH_MODE` stays active for Quickstart's internal services.
 
 By default, the launcher creates reusable P-256 development key material and
-a JWKS sidecar in `.generated/localnet-es256` at the package root. Set
+a self-signed certificate in `.generated/localnet-es256` at the package root. Set
 `LOCALNET_ES256_ROTATE=1` to replace generated material, or set both
-`LOCALNET_ES256_PRIVATE_KEY_PATH` and `LOCALNET_ES256_JWKS_URL` to use your
-own matching PEM private key and reachable JWKS endpoint.
+`LOCALNET_ES256_PRIVATE_KEY_PATH` and `LOCALNET_ES256_CERTIFICATE_PATH` to
+use your own matching PEM private key and certificate.
 
 The launcher writes a short-lived (ten-minute) token for `ledger-api-user` to
 `ledger-api-user.token` in that runtime directory and prints its path. Use it

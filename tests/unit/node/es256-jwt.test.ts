@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createPublicKey, verify } from "node:crypto";
@@ -65,6 +65,7 @@ describe("ES256 localnet JWT helper", () => {
             expect(header).toEqual({ alg: "ES256", kid: jwk.kid, typ: "JWT" });
             expect(payload).toMatchObject({
                 aud: "https://canton.network.global",
+                scope: "daml_ledger_api",
                 sub: "ledger-api-user",
             });
             expect(payload.exp).toBeTypeOf("number");
@@ -78,6 +79,7 @@ describe("ES256 localnet JWT helper", () => {
                 ),
             ).toBe(true);
             expect((await readFile(material.privateKeyPath)).byteLength).toBeGreaterThan(0);
+            expect((await stat(material.jwksPath)).mode & 0o777).toBe(0o644);
         } finally {
             await rm(runtimeDirectory, { force: true, recursive: true });
         }

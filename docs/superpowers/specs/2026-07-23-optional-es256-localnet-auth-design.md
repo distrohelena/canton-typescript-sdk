@@ -21,20 +21,17 @@ and works for every extra participant. The pre-existing OAuth2-plus-extras
 limitation remains out of scope because Quickstart's extra-PQS onboarding still
 depends on its shared-secret token generator.
 
-## Key and JWKS sources
+## Key and certificate sources
 
 The launcher supports two modes:
 
 1. **Generated mode (default when enabled):** create a P-256 private key and
-   corresponding public JWK in `START_LOCAL_ES256_RUNTIME_DIR` (default:
-   `$REPO_ROOT/.generated/localnet-es256`). Generate a Compose sidecar that
-   serves the JWKS at an internal URL reachable by all Canton containers. The
-   material is reused across restarts; `LOCALNET_ES256_ROTATE=1` explicitly
-   replaces it.
+   self-signed X.509 certificate in `START_LOCAL_ES256_RUNTIME_DIR` (default:
+   `$REPO_ROOT/.generated/localnet-es256`). The material is reused across
+   restarts; `LOCALNET_ES256_ROTATE=1` explicitly replaces it.
 2. **Supplied mode:** `LOCALNET_ES256_PRIVATE_KEY_PATH` points to a persistent
-   PEM private key and `LOCALNET_ES256_JWKS_URL` points to the corresponding
-   reachable JWKS endpoint. The launcher validates that both are supplied
-   together and does not create or serve replacement key material.
+   PEM private key and `LOCALNET_ES256_CERTIFICATE_PATH` points to the
+   matching certificate. The launcher requires both values together.
 
 Generated credentials are local development material only. They are excluded
 from the npm package and are never printed in full. The launcher writes a
@@ -49,10 +46,14 @@ The generated Compose/configuration overlay adds this exact service to each
 ledger API:
 
 ```hocon
-auth-services += [{
-  type = jwt-jwks
-  url = ${LOCALNET_ES256_JWKS_URL}
+auth-services = [{
+  type = unsafe-jwt-hmac-256
   target-audience = "https://canton.network.global"
+  secret = "unsafe"
+}, {
+  type = jwt-es-256-crt
+  certificate = "/app/es256-certificate.pem"
+  target-audience = "https://canton.network.global/es256"
 }]
 ```
 
@@ -62,9 +63,8 @@ entries remain first in the list, so Quickstart's current shared-secret or
 OAuth2 internal flows continue to work; Canton tries subsequent auth services
 when earlier ones reject a presented token.
 
-The launcher's stop path includes the generated JWKS sidecar and uses the
-same generated configuration metadata, so start and stop select the same
-Compose topology.
+The launcher's stop path uses the same generated configuration metadata, so
+start and stop select the same Compose topology.
 
 ## Token surface
 

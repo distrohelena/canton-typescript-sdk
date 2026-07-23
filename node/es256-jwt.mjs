@@ -49,6 +49,11 @@ async function writePrivateFileAsync(path, content) {
     await chmod(path, 0o600);
 }
 
+async function writePublicFileAsync(path, content) {
+    await writeFile(path, content, { mode: 0o644 });
+    await chmod(path, 0o644);
+}
+
 export async function generateKeyMaterialAsync(runtimeDirectory) {
     await mkdir(runtimeDirectory, { recursive: true });
 
@@ -63,7 +68,7 @@ export async function generateKeyMaterialAsync(runtimeDirectory) {
         privateKeyPath,
         privateKey.export({ format: "pem", type: "pkcs8" }),
     );
-    await writePrivateFileAsync(jwksPath, `${JSON.stringify({ keys: [jwk] })}\n`);
+    await writePublicFileAsync(jwksPath, `${JSON.stringify({ keys: [jwk] })}\n`);
 
     return { jwk, jwks: { keys: [jwk] }, jwksPath, privateKeyPath };
 }
@@ -87,6 +92,7 @@ export async function mintTokenAsync({
         exp: issuedAt + ttlSeconds,
         iat: issuedAt,
         nbf: issuedAt,
+        scope: "daml_ledger_api",
         sub: subject,
     });
     const signingInput = `${encodedHeader}.${encodedPayload}`;

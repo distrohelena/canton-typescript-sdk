@@ -108,41 +108,34 @@ prepare_es256_runtime_files() {
   fi
 
   local private_key_path="$runtime_dir/es256-private-key.pem"
-  local jwks_path="$runtime_dir/jwks.json"
+  local certificate_path="$runtime_dir/es256-certificate.pem"
   local token_path="$runtime_dir/ledger-api-user.token"
-  local compose_file="$runtime_dir/compose-es256-jwks.yaml"
+  local compose_file="$runtime_dir/compose-es256.yaml"
   local canton_config_file="$runtime_dir/canton-es256.conf"
-  local jwks_url="${LOCALNET_ES256_JWKS_URL:-http://localnet-es256-jwks:8080/jwks.json}"
   local subject="${LOCALNET_ES256_SUBJECT:-ledger-api-user}"
   local ttl_seconds="${LOCALNET_ES256_TOKEN_TTL_SECONDS:-600}"
 
-  if [[ -n "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -n "${LOCALNET_ES256_JWKS_URL:-}" ]]; then
-    if [[ -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -z "${LOCALNET_ES256_JWKS_URL:-}" ]]; then
-      echo "LOCALNET_ES256_PRIVATE_KEY_PATH and LOCALNET_ES256_JWKS_URL must be set together." >&2
+  if [[ -n "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -n "${LOCALNET_ES256_CERTIFICATE_PATH:-}" ]]; then
+    if [[ -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -z "${LOCALNET_ES256_CERTIFICATE_PATH:-}" ]]; then
+      echo "LOCALNET_ES256_PRIVATE_KEY_PATH and LOCALNET_ES256_CERTIFICATE_PATH must be set together." >&2
       return 1
     fi
     private_key_path="$LOCALNET_ES256_PRIVATE_KEY_PATH"
-    if [[ ! -r "$private_key_path" ]]; then
-      echo "LOCALNET_ES256_PRIVATE_KEY_PATH is not readable: $private_key_path" >&2
-      return 1
-    fi
-    local supplied_jwks_path="$runtime_dir/supplied-jwks.json"
-    if ! curl --fail --silent --show-error "$jwks_url" > "$supplied_jwks_path"; then
-      echo "Unable to fetch LOCALNET_ES256_JWKS_URL: $jwks_url" >&2
-      return 1
-    fi
-    if ! node "$SCRIPT_DIR/es256-jwt.mjs" validate-supplied \
-      --private-key-path "$private_key_path" \
-      --jwks-path "$supplied_jwks_path"; then
+    certificate_path="$LOCALNET_ES256_CERTIFICATE_PATH"
+    if [[ ! -r "$private_key_path" || ! -r "$certificate_path" ]]; then
+      echo "Supplied ES256 private key or certificate is not readable." >&2
       return 1
     fi
   else
     if [[ "${LOCALNET_ES256_ROTATE:-0}" == "1" ]]; then
-      rm -f "$private_key_path" "$jwks_path"
+      rm -f "$private_key_path" "$certificate_path"
     fi
-    if [[ ! -f "$private_key_path" || ! -f "$jwks_path" ]]; then
+    if [[ ! -f "$private_key_path" ]]; then
       mkdir -p "$runtime_dir"
       node "$SCRIPT_DIR/es256-jwt.mjs" init --runtime-dir "$runtime_dir" >/dev/null
+    fi
+    if [[ ! -f "$certificate_path" ]]; then
+      openssl req -x509 -new -sha256 -days 3650 -key "$private_key_path" -subj "/CN=localnet-es256" -out "$certificate_path" >/dev/null 2>&1
     fi
   fi
 
@@ -150,57 +143,47 @@ prepare_es256_runtime_files() {
   node "$SCRIPT_DIR/es256-jwt.mjs" mint \
     --private-key-path "$private_key_path" \
     --subject "$subject" \
-    --audience "https://canton.network.global" \
+    --audience "https://canton.network.global/es256" \
     --ttl-seconds "$ttl_seconds" > "$token_path"
   chmod 600 "$token_path"
 
   cat > "$canton_config_file" <<EOF
 include file("/app/base-app.conf")
 
-canton.participants.app-provider.ledger-api.auth-services += [{
-  type = jwt-jwks
-  url = "$jwks_url"
-  target-audience = "https://canton.network.global"
-}]
-canton.participants.app-user.ledger-api.auth-services += [{
-  type = jwt-jwks
-  url = "$jwks_url"
-  target-audience = "https://canton.network.global"
-}]
-canton.participants.sv.ledger-api.auth-services += [{
-  type = jwt-jwks
-  url = "$jwks_url"
-  target-audience = "https://canton.network.global"
-}]
 EOF
+  local participant profile
+  for participant in app-provider app-user sv; do
+    case "$participant" in
+      app-provider) profile="$APP_PROVIDER_PROFILE" ;;
+      app-user) profile="$APP_USER_PROFILE" ;;
+      sv) profile="$SV_PROFILE" ;;
+    esac
+    if [[ "$profile" != "off" ]]; then
+      cat >> "$canton_config_file" <<EOF
+canton.participants.${participant}.ledger-api.auth-services = [
+  {
+    type = unsafe-jwt-hmac-256
+    target-audience = "https://canton.network.global"
+    secret = "unsafe"
+  },
+  {
+    type = jwt-es-256-crt
+    certificate = "/app/es256-certificate.pem"
+    target-audience = "https://canton.network.global/es256"
+  }
+]
+EOF
+    fi
+  done
 
-  if [[ -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" ]]; then
-    cat > "$compose_file" <<EOF
-services:
-  localnet-es256-jwks:
-    image: nginx:alpine
-    container_name: localnet-es256-jwks
-    volumes:
-      - "$jwks_path:/usr/share/nginx/html/jwks.json:ro"
-  canton:
-    depends_on:
-      localnet-es256-jwks:
-        condition: service_started
-    volumes:
-      - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
-      - "$canton_config_file:/app/app.conf:ro"
-EOF
-  else
-    cat > "$compose_file" <<EOF
+  cat > "$compose_file" <<EOF
 services:
   canton:
     volumes:
       - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
       - "$canton_config_file:/app/app.conf:ro"
+      - "$certificate_path:/app/es256-certificate.pem:ro"
 EOF
-  fi
-
-  export LOCALNET_ES256_JWKS_URL="$jwks_url"
   export LOCALNET_ES256_COMPOSE_FILE="$compose_file"
   export LOCALNET_ES256_TOKEN_PATH="$token_path"
 }
@@ -418,11 +401,18 @@ EOF
     local index
     for ((index = 1; index <= count; index++)); do
       cat >> "$canton_config_file" <<EOF
-canton.participants.extra-${index}.ledger-api.auth-services += [{
-  type = jwt-jwks
-  url = "$LOCALNET_ES256_JWKS_URL"
-  target-audience = "https://canton.network.global"
-}]
+canton.participants.extra-${index}.ledger-api.auth-services = [
+  {
+    type = unsafe-jwt-hmac-256
+    target-audience = "https://canton.network.global"
+    secret = "unsafe"
+  },
+  {
+    type = jwt-es-256-crt
+    certificate = "/app/es256-certificate.pem"
+    target-audience = "https://canton.network.global/es256"
+  }
+]
 
 EOF
     done
@@ -856,9 +846,6 @@ start_ledger_stack() {
   mapfile -t startup_services < <(prerequisite_services "$auth_mode")
   mapfile -t followup_services < <(dependent_services)
 
-  if [[ "$(resolve_es256_enabled)" == "1" && -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" ]]; then
-    startup_services=(localnet-es256-jwks "${startup_services[@]}")
-  fi
   docker_compose "${compose_args[@]}" up -d --no-recreate "${startup_services[@]}"
   wait_for_canton_health "$extra_participants"
 

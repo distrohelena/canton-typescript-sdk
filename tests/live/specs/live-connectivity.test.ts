@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GrpcChannelSecurity, TransportKind } from "../../../src/index.js";
+import {
+    GrpcChannelSecurity,
+    ListUsersRequest,
+    TransportKind,
+} from "../../../src/index.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
+import { createLiveClient } from "../runtime/live-client-factory.js";
 import { assertLiveConnectivityAsync } from "../runtime/live-connectivity-preflight.js";
 
 describe("live quickstart connectivity harness", () => {
@@ -50,5 +55,22 @@ describe("live quickstart connectivity harness", () => {
         await expect(
             assertLiveConnectivityAsync(jsonEnvironment),
         ).resolves.toBeUndefined();
+    });
+
+    it("accepts the configured bearer token for user-management requests", async () => {
+        const environment = createLiveTestEnvironment({
+            transportKind: TransportKind.grpc,
+        });
+        const client = createLiveClient(environment);
+
+        try {
+            await expect(
+                client.userManagementService.listUsersAsync(
+                    new ListUsersRequest({ pageSize: 1 }),
+                ),
+            ).resolves.toBeDefined();
+        } finally {
+            await client.disposeAsync();
+        }
     });
 });
