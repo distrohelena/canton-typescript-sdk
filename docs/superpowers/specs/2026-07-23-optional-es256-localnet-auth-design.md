@@ -69,7 +69,9 @@ payload has `sub` (default `ledger-api-user`, overridable through
 `LOCALNET_ES256_SUBJECT`), the fixed audience above, and numeric `iat`, `nbf`,
 and `exp` claims. The default TTL is ten minutes and can be shortened through
 `LOCALNET_ES256_TOKEN_TTL_SECONDS`; it must be positive and at most ten
-minutes.
+minutes. The signer explicitly uses Node crypto's `dsaEncoding: "ieee-p1363"`
+so the ES256 signature is JWT/JOSE's required fixed-width `R || S` form rather
+than DER.
 
 The default subject is deliberate: all three Quickstart participants and each
 generated extra participant configure `ledger-api-user` as their additional
@@ -102,4 +104,7 @@ supplied mode, generated Compose inclusion, participant and extra-participant
 Unit tests will cover token-helper claim/header generation and invalid input.
 The packed-tarball verifier will require the helper as a published runtime
 asset. Existing localnet script and package verification suites remain part of
-the final check.
+the final check. When Docker is available, the integration check starts the
+generated ES256 localnet and proves the emitted bearer token is accepted by a
+configured Ledger API health/version call; parsing a token locally is not
+enough.
