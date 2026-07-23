@@ -99,8 +99,9 @@ environment values are logged.
 - Reject a supplied private key that is not readable P-256 material, or whose
   derived public JWK does not occur in the supplied JWKS.
 - Preserve the current behavior when ES256 is disabled.
-- Retain `EXTRA_PARTICIPANTS` support for enabled ES256 mode; do not use the
-  current shared-secret-only guard for this additive option.
+- Retain `EXTRA_PARTICIPANTS` support for enabled ES256 mode through the
+  existing shared-secret provisioning path; preserve the current OAuth2-plus-
+  extras rejection.
 
 ## Testing
 
