@@ -31,6 +31,7 @@ run_case() {
   local extra_participants="${5:-}"
   local cn_quickstart_dir_override="${6:-}"
   local repo_root_env_contents="${7:-}"
+  local es256_enabled="${8:-0}"
   local quickstart_dir="$tmpdir/quickstart"
   local quickstart_root_dir="$tmpdir/cn-quickstart"
   local stubbin="$tmpdir/bin"
@@ -156,12 +157,16 @@ EOF
         HOME="$HOME" \
         TERM="${TERM:-dumb}" \
         START_LOCAL_GENERATED_DIR="$generated_dir" \
+        START_LOCAL_ES256_RUNTIME_DIR="$tmpdir/es256" \
+        LOCALNET_ES256_JWT="$es256_enabled" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
         bash ./start-local.sh
     else
       CN_QUICKSTART_DIR="${cn_quickstart_dir_override:-$quickstart_dir}" \
         START_LOCAL_GENERATED_DIR="$generated_dir" \
+        START_LOCAL_ES256_RUNTIME_DIR="$tmpdir/es256" \
+        LOCALNET_ES256_JWT="$es256_enabled" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
         bash ./start-local.sh
@@ -287,6 +292,11 @@ run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$t
 run_case $'.PHONY: start\nstart:\n' 'stub docker-compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans' shared-secret compose-v1
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env down -v --remove-orphans' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate pqs-extra-1 pqs-extra-2 pqs-extra-3' shared-secret default 3
+run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/es256/ledger-api-user.token' shared-secret default 3 '' '' 1
+assert_file_contains "$tmpdir/es256/canton-es256.conf" 'canton.participants.app-provider.ledger-api.auth-services += [{'
+assert_file_contains "$tmpdir/es256/canton-es256.conf" '  type = jwt-jwks'
+assert_file_contains "$tmpdir/es256/canton-es256.conf" '  url = "http://localnet-es256-jwks:8080/jwks.json"'
+assert_file_contains "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-3.ledger-api.auth-services += [{'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'CREATE_DATABASE_EXTRA_1=participant-extra-1'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'CREATE_DATABASE_EXTRA_VALIDATOR_1=validator-extra-1'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_PARTICIPANT_1_ADMIN_API_PORT=5902'
@@ -338,4 +348,3 @@ assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf"
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" '  domains.global.buy-extra-traffic {'
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" 'canton.sv-apps.sv.expected-validator-onboardings += { secret = "${EXTRA_VALIDATOR_3_ONBOARDING_SECRET}" }'
 run_repo_root_env_case
-

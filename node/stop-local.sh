@@ -79,6 +79,29 @@ generated_dir() {
   printf '%s\n' "${START_LOCAL_GENERATED_DIR:-$SCRIPT_DIR/.generated/start-local}"
 }
 
+resolve_es256_enabled() {
+  local value="${LOCALNET_ES256_JWT:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_ES256_JWT must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+es256_runtime_dir() {
+  printf '%s\n' "${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}"
+}
+
+append_es256_args() {
+  local -n compose_args_ref="$1"
+  if [[ "$(resolve_es256_enabled)" == "1" ]]; then
+    local compose_file="$(es256_runtime_dir)/compose-es256-jwks.yaml"
+    if [[ -f "$compose_file" ]]; then
+      compose_args_ref+=( -f "$compose_file" )
+    fi
+  fi
+}
+
 resolve_docker_compose_cmd() {
   if (( ${#DOCKER_COMPOSE_CMD[@]} > 0 )); then
     return 0
@@ -154,6 +177,7 @@ stop_ledger_stack() {
   fi
 
   append_existing_extra_participant_args compose_args
+  append_es256_args compose_args
   docker_compose "${compose_args[@]}" down -v --remove-orphans
 }
 
@@ -166,7 +190,7 @@ if [[ ! -f .env.local ]]; then
   exit 0
 fi
 
-if make_target_exists stop-local-ledger; then
+if [[ "$(resolve_es256_enabled)" != "1" ]] && make_target_exists stop-local-ledger; then
   make stop-local-ledger
 else
   auth_mode="$(read_env_value AUTH_MODE || true)"
@@ -174,4 +198,3 @@ else
   echo "stop-local-ledger target not found. Stopping ledger-only compose stack directly."
   stop_ledger_stack "$auth_mode"
 fi
-

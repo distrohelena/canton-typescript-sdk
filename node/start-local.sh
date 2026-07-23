@@ -85,6 +85,123 @@ generated_dir() {
   printf '%s\n' "${START_LOCAL_GENERATED_DIR:-$SCRIPT_DIR/.generated/start-local}"
 }
 
+resolve_es256_enabled() {
+  local value="${LOCALNET_ES256_JWT:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_ES256_JWT must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+es256_runtime_dir() {
+  printf '%s\n' "${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}"
+}
+
+prepare_es256_runtime_files() {
+  local runtime_dir
+  runtime_dir="$(es256_runtime_dir)"
+  local enabled
+  enabled="$(resolve_es256_enabled)"
+  if [[ "$enabled" != "1" ]]; then
+    return 0
+  fi
+
+  local private_key_path="$runtime_dir/es256-private-key.pem"
+  local jwks_path="$runtime_dir/jwks.json"
+  local token_path="$runtime_dir/ledger-api-user.token"
+  local compose_file="$runtime_dir/compose-es256-jwks.yaml"
+  local canton_config_file="$runtime_dir/canton-es256.conf"
+  local jwks_url="${LOCALNET_ES256_JWKS_URL:-http://localnet-es256-jwks:8080/jwks.json}"
+  local subject="${LOCALNET_ES256_SUBJECT:-ledger-api-user}"
+  local ttl_seconds="${LOCALNET_ES256_TOKEN_TTL_SECONDS:-600}"
+
+  if [[ -n "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -n "${LOCALNET_ES256_JWKS_URL:-}" ]]; then
+    if [[ -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" || -z "${LOCALNET_ES256_JWKS_URL:-}" ]]; then
+      echo "LOCALNET_ES256_PRIVATE_KEY_PATH and LOCALNET_ES256_JWKS_URL must be set together." >&2
+      return 1
+    fi
+    private_key_path="$LOCALNET_ES256_PRIVATE_KEY_PATH"
+    if [[ ! -r "$private_key_path" ]]; then
+      echo "LOCALNET_ES256_PRIVATE_KEY_PATH is not readable: $private_key_path" >&2
+      return 1
+    fi
+  else
+    if [[ "${LOCALNET_ES256_ROTATE:-0}" == "1" ]]; then
+      rm -f "$private_key_path" "$jwks_path"
+    fi
+    if [[ ! -f "$private_key_path" || ! -f "$jwks_path" ]]; then
+      mkdir -p "$runtime_dir"
+      node "$SCRIPT_DIR/es256-jwt.mjs" init --runtime-dir "$runtime_dir" >/dev/null
+    fi
+  fi
+
+  mkdir -p "$runtime_dir"
+  node "$SCRIPT_DIR/es256-jwt.mjs" mint \
+    --private-key-path "$private_key_path" \
+    --subject "$subject" \
+    --audience "https://canton.network.global" \
+    --ttl-seconds "$ttl_seconds" > "$token_path"
+  chmod 600 "$token_path"
+
+  cat > "$canton_config_file" <<EOF
+include file("/app/base-app.conf")
+
+canton.participants.app-provider.ledger-api.auth-services += [{
+  type = jwt-jwks
+  url = "$jwks_url"
+  target-audience = "https://canton.network.global"
+}]
+canton.participants.app-user.ledger-api.auth-services += [{
+  type = jwt-jwks
+  url = "$jwks_url"
+  target-audience = "https://canton.network.global"
+}]
+canton.participants.sv.ledger-api.auth-services += [{
+  type = jwt-jwks
+  url = "$jwks_url"
+  target-audience = "https://canton.network.global"
+}]
+EOF
+
+  if [[ -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" ]]; then
+    cat > "$compose_file" <<EOF
+services:
+  localnet-es256-jwks:
+    image: nginx:alpine
+    container_name: localnet-es256-jwks
+    volumes:
+      - "$jwks_path:/usr/share/nginx/html/jwks.json:ro"
+  canton:
+    depends_on:
+      localnet-es256-jwks:
+        condition: service_started
+    volumes:
+      - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
+      - "$canton_config_file:/app/app.conf:ro"
+EOF
+  else
+    cat > "$compose_file" <<EOF
+services:
+  canton:
+    volumes:
+      - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
+      - "$canton_config_file:/app/app.conf:ro"
+EOF
+  fi
+
+  export LOCALNET_ES256_JWKS_URL="$jwks_url"
+  export LOCALNET_ES256_COMPOSE_FILE="$compose_file"
+  export LOCALNET_ES256_TOKEN_PATH="$token_path"
+}
+
+append_es256_args() {
+  local -n compose_args_ref="$1"
+  if [[ "$(resolve_es256_enabled)" == "1" ]]; then
+    compose_args_ref+=( -f "$LOCALNET_ES256_COMPOSE_FILE" )
+  fi
+}
+
 resolve_docker_compose_cmd() {
   if (( ${#DOCKER_COMPOSE_CMD[@]} > 0 )); then
     return 0
@@ -286,6 +403,20 @@ canton.participants.extra-${index} = \$\${_participant} {
 EOF
     done
   } > "$canton_config_file"
+
+  if [[ "$(resolve_es256_enabled)" == "1" ]]; then
+    local index
+    for ((index = 1; index <= count; index++)); do
+      cat >> "$canton_config_file" <<EOF
+canton.participants.extra-${index}.ledger-api.auth-services += [{
+  type = jwt-jwks
+  url = "$LOCALNET_ES256_JWKS_URL"
+  target-audience = "https://canton.network.global"
+}]
+
+EOF
+    done
+  fi
 
   {
     local index
@@ -677,6 +808,7 @@ start_ledger_stack() {
   export SV_PROFILE=on
   export PQS_SV_PROFILE=on
   load_localnet_common_env "$localnet_dir/env/common.env"
+  prepare_es256_runtime_files
   local extra_participants
   extra_participants="$(resolve_extra_participants)"
   if (( extra_participants > 0 )) && [[ "$auth_mode" != "shared-secret" ]]; then
@@ -709,10 +841,14 @@ start_ledger_stack() {
   fi
 
   append_extra_participant_args "$extra_participants" "$auth_mode" compose_args
+  append_es256_args compose_args
   docker_compose "${compose_args[@]}" down -v --remove-orphans
   mapfile -t startup_services < <(prerequisite_services "$auth_mode")
   mapfile -t followup_services < <(dependent_services)
 
+  if [[ "$(resolve_es256_enabled)" == "1" && -z "${LOCALNET_ES256_PRIVATE_KEY_PATH:-}" ]]; then
+    startup_services=(localnet-es256-jwks "${startup_services[@]}")
+  fi
   docker_compose "${compose_args[@]}" up -d --no-recreate "${startup_services[@]}"
   wait_for_canton_health "$extra_participants"
 
@@ -740,12 +876,14 @@ if [[ ! -f .env.local ]]; then
   make setup
 fi
 
-if make_target_exists start-local-ledger; then
+if [[ "$(resolve_es256_enabled)" != "1" ]] && make_target_exists start-local-ledger; then
   make start-local-ledger
 else
   auth_mode="$(read_env_value AUTH_MODE || true)"
   auth_mode="${auth_mode:-shared-secret}"
   echo "start-local-ledger target not found. Starting ledger-only compose stack directly."
   start_ledger_stack "$auth_mode"
+  if [[ "$(resolve_es256_enabled)" == "1" ]]; then
+    echo "ES256 bearer token written to $LOCALNET_ES256_TOKEN_PATH"
+  fi
 fi
-
