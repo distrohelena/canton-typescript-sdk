@@ -15,10 +15,9 @@ export class MemoryQueryCache implements QueryCacheStore {
 
         if (entry === undefined) {
             return undefined;
-        }
-
-        if (entry.expiresAt <= this.now()) {
+        } else if (entry.expiresAt <= this.now()) {
             this.entries.delete(key);
+
             return undefined;
         }
 

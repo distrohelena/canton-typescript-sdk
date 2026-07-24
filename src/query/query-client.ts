@@ -8,6 +8,7 @@ import {
 
 export interface QueryClient {
     readonly source: QuerySource;
+    $queryRaw<TRow>(sql: string, values?: readonly unknown[]): Promise<readonly TRow[]>;
     readonly contracts: {
         findMany(args?: ContractFindManyArgs): Promise<readonly ContractRow[]>;
         findUnique(args: ContractFindUniqueArgs): Promise<ContractRow | undefined>;

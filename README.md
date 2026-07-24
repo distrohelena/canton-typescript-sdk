@@ -380,6 +380,46 @@ signature format and algorithm. This convenience operation is gRPC-only.
 
 ## Service Map
 
+## Canton Manager queries
+
+`CantonManager` keeps gRPC as the write path and selects a single query source
+at initialization. PQS exposes the complete PQS relation surface; gRPC exposes
+an all-hosted-party active-contract snapshot.
+
+```ts
+import {
+    CantonManager,
+    MemoryQueryCache,
+    QuerySource,
+    TransportKind,
+} from "@distrohelena/canton-typescript-sdk";
+
+const manager = new CantonManager({
+    grpc: { transportKind: TransportKind.grpc, ledgerEndpoint: "localhost:6865" },
+    querySource: QuerySource.pqs,
+    pqs: { connectionString: process.env.PQS_URL!, schema: "public" },
+    cache: { store: new MemoryQueryCache(), ttlMs: 5_000 },
+});
+
+const contracts = await manager.query.contracts.findMany({
+    where: { templateId: { equals: "packageId:Module:Template" }, active: true },
+    take: 50,
+});
+
+await manager.grpc.commandService.submitAndWaitAsync(/* existing command request */);
+await manager.disposeAsync();
+```
+
+With `QuerySource.grpc`, omit `pqs`; contract queries fetch the participant's
+active-contract snapshot using the Ledger API wildcard for all hosted parties.
+PQS-only relation delegates and raw SQL then reject with `QueryCapabilityError`.
+
+PQS managers expose `contracts`, `contractTypes`, `events`, `exercises`,
+`exerciseTypes`, `packages`, `transactions`, and `watermark`. Raw SQL is
+available through `manager.query.$queryRaw(...)` when the selected client is
+PQS-specific. It accepts one read-only statement with positional parameters;
+use a read-only PostgreSQL role as defense in depth.
+
 - Ledger endpoint:
 - `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
 - `healthService.checkAsync(...)`: `grpc` only

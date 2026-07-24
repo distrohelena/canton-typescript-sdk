@@ -84,20 +84,20 @@ function createEventFormat(
     },
 ): EventFormat {
     const filters = createFilters(request);
+
     const parties = request.parties ?? (request.party === undefined ? [] : [request.party]);
 
     if (request.allParties === true) {
         if (parties.length > 0) {
             throw new ValidationError("allParties cannot be combined with party filters");
         }
+
         return {
             filtersByParty: {},
             filtersForAnyParty: filters,
             verbose: true,
         };
-    }
-
-    if (parties.length === 0) {
+    } else if (parties.length === 0) {
         throw new ValidationError("A party filter or allParties is required");
     }
 
@@ -116,6 +116,7 @@ function createFilters(
     },
 ): Filters {
     const cumulative: CumulativeFilter[] = [];
+
     const includeCreatedEventBlob = request.includeCreatedEventBlob ?? false;
 
     if (request.templateId) {

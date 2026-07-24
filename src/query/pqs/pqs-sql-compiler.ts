@@ -17,39 +17,51 @@ export function compileContractFindMany(
     assertQueryPageArgs(args);
 
     const values: unknown[] = [];
+
     const addValue = (value: unknown): string => {
         values.push(value);
+
         return `$${values.length}`;
     };
+
     const conditions: string[] = [];
+
     const where = args.where;
 
     if (where?.contractId?.equals !== undefined) {
         conditions.push(`contract_row.contract_id = ${addValue(where.contractId.equals)}`);
     }
+
     if (where?.templateId?.equals !== undefined) {
         conditions.push(
             `(contract_row.creation_package_id || ':' || contract_tpe_row.module_name || ':' || contract_tpe_row.entity_name) = ${addValue(where.templateId.equals)}`,
         );
     }
+
     if (where?.packageId?.equals !== undefined) {
         conditions.push(
             `contract_row.creation_package_id = ${addValue(where.packageId.equals)}`,
         );
     }
+
     if (where?.active === true) {
         conditions.push("contract_row.archived_at_ix is null");
     }
+
     if (where?.active === false) {
         conditions.push("contract_row.archived_at_ix is not null");
     }
+
     if (where?.witnesses?.has !== undefined) {
         conditions.push(`${addValue(where.witnesses.has)} = any(contract_row.witnesses)`);
     }
 
     const orderBy = compileOrderBy(args.orderBy);
+
     const whereSql = conditions.length === 0 ? "" : `where ${conditions.join(" and ")}`;
+
     const limitSql = args.take === undefined ? "" : `limit ${addValue(args.take)}`;
+
     const offsetSql = args.skip === undefined ? "" : `offset ${addValue(args.skip)}`;
 
     return {
@@ -90,6 +102,7 @@ function compileOrderBy(
         archivedEventOffset: "contract_row.archived_at_ix",
         archivedAt: "archived_tx.effective_at",
     };
+
     const entries = Object.entries(orderBy) as [ContractOrderField, "asc" | "desc"][];
 
     if (entries.length !== 1) {
@@ -97,5 +110,6 @@ function compileOrderBy(
     }
 
     const [field, direction] = entries[0];
+
     return `order by ${fields[field]} ${direction}`;
 }

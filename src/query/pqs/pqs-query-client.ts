@@ -53,6 +53,7 @@ export class PqsQueryClient implements QueryClient {
 
         try {
             const result = await this.executor.query(sql, values);
+
             return result.rows as readonly TRow[];
         } catch (cause) {
             throw new PqsQueryError({
@@ -71,6 +72,7 @@ export class PqsQueryClient implements QueryClient {
                         `select * from ${this.profile.relation(relation)}`,
                         [],
                     );
+
                     return result.rows;
                 } catch (cause) {
                     throw new PqsQueryError({
@@ -90,6 +92,7 @@ export class PqsQueryClient implements QueryClient {
 
         try {
             const result = await this.executor.query(compiled.text, compiled.values);
+
             return result.rows.map(mapContractRow);
         } catch (cause) {
             throw new PqsQueryError({

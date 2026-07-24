@@ -20,6 +20,7 @@ describe("PQS query client", () => {
                 },
             ],
         });
+
         const client = new PqsQueryClient(
             { query } as never,
             new PqsSchemaProfileV1(),
@@ -37,6 +38,7 @@ describe("PQS query client", () => {
 
     it("runs validated raw queries with separate values", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
+
         const client = new PqsQueryClient(
             { query } as never,
             new PqsSchemaProfileV1(),
@@ -56,6 +58,7 @@ describe("PQS query client", () => {
 
     it("queries physical PQS relations through typed delegates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ id: "package-id" }] });
+
         const client = new PqsQueryClient(
             { query } as never,
             new PqsSchemaProfileV1(),

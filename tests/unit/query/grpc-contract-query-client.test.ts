@@ -13,6 +13,7 @@ describe("gRPC contract query client", () => {
             ],
             activeAtOffset: "42",
         });
+
         const client = new GrpcContractQueryClient(
             { getActiveContractsPageAsync } as never,
             new MemoryQueryCache(),

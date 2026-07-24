@@ -18,15 +18,14 @@ export class CantonManager {
     public constructor(options: CantonManagerOptions) {
         if (options.grpc.transportKind !== TransportKind.grpc) {
             throw new ValidationError("CantonManager requires grpc transport for writes.");
-        }
-        if (options.querySource === QuerySource.grpc && options.pqs !== undefined) {
+        } else if (options.querySource === QuerySource.grpc && options.pqs !== undefined) {
             throw new ValidationError("PQS options require QuerySource.pqs.");
-        }
-        if (options.querySource === QuerySource.pqs && options.pqs === undefined) {
+        } else if (options.querySource === QuerySource.pqs && options.pqs === undefined) {
             throw new ValidationError("QuerySource.pqs requires PQS options.");
         }
 
         this.grpc = new CantonClient(options.grpc);
+
         if (options.querySource === QuerySource.pqs) {
             this.pqsPool = PqsPool.create(options.pqs!.connectionString);
             this.query = new PqsQueryClient(
@@ -44,7 +43,10 @@ export class CantonManager {
     }
 
     public async disposeAsync(): Promise<void> {
-        if (this.disposed) return;
+        if (this.disposed) {
+            return;
+        }
+
         this.disposed = true;
         await this.pqsPool?.disposeAsync();
         await this.grpc.disposeAsync();

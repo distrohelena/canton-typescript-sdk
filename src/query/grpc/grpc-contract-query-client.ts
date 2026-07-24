@@ -42,6 +42,13 @@ export class GrpcContractQueryClient implements QueryClient {
         private readonly cacheScope: string,
     ) {}
 
+    public async $queryRaw<TRow>(
+        _sql: string,
+        _values: readonly unknown[] = [],
+    ): Promise<readonly TRow[]> {
+        throw new QueryCapabilityError(QuerySource.grpc, "query.$queryRaw");
+    }
+
     private async findManyAsync(
         args: ContractFindManyArgs | ContractCountArgs,
     ): Promise<readonly ContractRow[]> {
@@ -50,16 +57,19 @@ export class GrpcContractQueryClient implements QueryClient {
         }
 
         const snapshot = await this.readSnapshotAsync(args.parties);
+
         let rows = snapshot.filter((row) =>
             args.where?.contractId?.equals === undefined
                 ? true
                 : row.contractId === args.where.contractId.equals,
         );
+
         if (args.where?.templateId?.equals !== undefined) {
             rows = rows.filter(
                 (row) => row.templateId === args.where?.templateId?.equals,
             );
         }
+
         return rows;
     }
 
@@ -75,14 +85,19 @@ export class GrpcContractQueryClient implements QueryClient {
         parties: readonly string[] | undefined,
     ): Promise<readonly ContractRow[]> {
         const key = `${this.cacheScope}:${parties?.join(",") ?? "*"}`;
+
         const cached = this.cache === undefined ? undefined : await this.cache.getAsync<readonly ContractRow[]>(key);
+
         if (cached !== undefined) {
             return cached;
         }
 
         const rows: ContractRow[] = [];
+
         let pageToken: Uint8Array | undefined;
+
         let activeAtOffset: string | undefined;
+
         do {
             const response = await this.stateService.getActiveContractsPageAsync(
                 new GetActiveContractsPageRequest(
@@ -91,6 +106,7 @@ export class GrpcContractQueryClient implements QueryClient {
                         : { parties, activeAtOffset, pageToken },
                 ),
             );
+
             activeAtOffset ??= response.activeAtOffset;
             pageToken = response.nextPageToken;
             rows.push(...response.contracts.map(mapGrpcContract));
@@ -99,6 +115,7 @@ export class GrpcContractQueryClient implements QueryClient {
         if (this.cache !== undefined && this.cacheTtlMs !== undefined) {
             await this.cache.setAsync(key, rows, this.cacheTtlMs);
         }
+
         return rows;
     }
 }
@@ -108,7 +125,9 @@ function mapGrpcContract(value: unknown): ContractRow {
         contractId?: string;
         templateId?: { packageId?: string; moduleName?: string; entityName?: string };
     };
+
     const template = row.templateId;
+
     return {
         contractId: row.contractId ?? "",
         templateId: `${template?.packageId ?? ""}:${template?.moduleName ?? ""}:${template?.entityName ?? ""}`,

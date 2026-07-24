@@ -26,6 +26,7 @@ describe("query public contracts", () => {
 
     it("expires memory cache entries", async () => {
         const now = vi.fn(() => 1_000);
+
         const cache = new MemoryQueryCache(now);
 
         await cache.setAsync("contracts", ["one"], 50);

@@ -118,9 +118,11 @@ export async function validatePqsSchemaAsync(
         "select table_name, column_name from information_schema.columns where table_schema = $1 and table_name = any($2::text[])",
         [profile.schema, requiredPqsRelations],
     );
+
     const actual = new Set(
         result.rows.map((row) => `${row.table_name}.${row.column_name}`),
     );
+
     const missing = requiredPqsRelations.flatMap((relation) =>
         requiredPqsColumns[relation]
             .filter((column) => !actual.has(`${relation}.${column}`))

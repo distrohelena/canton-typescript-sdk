@@ -1895,6 +1895,7 @@ export class GrpcTransport implements ITransport {
         const response = mapGrpcQueryContracts(
             payload as { contracts?: unknown[] },
         );
+
         const pagePayload = payload as {
             activeAtOffset?: string;
             nextPageToken?: Uint8Array;
@@ -2092,27 +2093,22 @@ export class GrpcTransport implements ITransport {
             return mapGrpcSubmitCommand(
                 payload as { commandId?: string; transactionId?: string },
             );
-        }
-
-        if (request.actAs.length !== 1) {
+        } else if (request.actAs.length !== 1) {
             throw new ValidationError(
                 "interactive gRPC command signing currently requires exactly one actAs party",
             );
-        }
-
-        if (!this.operations.prepareSubmissionAsync) {
+        } else if (!this.operations.prepareSubmissionAsync) {
             throw new NotSupportedError(
                 "interactive gRPC command signing is not available on this transport",
             );
-        }
-
-        if (!this.operations.executeSubmissionAndWaitAsync) {
+        } else if (!this.operations.executeSubmissionAndWaitAsync) {
             throw new NotSupportedError(
                 "interactive gRPC command signing is not available on this transport",
             );
         }
 
         const commandId = randomUUID();
+
         const submissionId = randomUUID();
 
         const prepared = await this.operations.prepareSubmissionAsync(
