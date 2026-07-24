@@ -28,21 +28,9 @@ export function compileContractFindMany(
 
     const where = args.where;
 
-    if (where?.contractId?.equals !== undefined) {
-        conditions.push(`contract_row.contract_id = ${addValue(where.contractId.equals)}`);
-    }
-
-    if (where?.templateId?.equals !== undefined) {
-        conditions.push(
-            `(contract_row.creation_package_id || ':' || contract_tpe_row.module_name || ':' || contract_tpe_row.entity_name) = ${addValue(where.templateId.equals)}`,
-        );
-    }
-
-    if (where?.packageId?.equals !== undefined) {
-        conditions.push(
-            `contract_row.creation_package_id = ${addValue(where.packageId.equals)}`,
-        );
-    }
+    addScalarFilter(conditions, "contract_row.contract_id", where?.contractId, addValue);
+    addScalarFilter(conditions, "(contract_row.creation_package_id || ':' || contract_tpe_row.module_name || ':' || contract_tpe_row.entity_name)", where?.templateId, addValue);
+    addScalarFilter(conditions, "contract_row.creation_package_id", where?.packageId, addValue);
 
     if (where?.active === true) {
         conditions.push("contract_row.archived_at_ix is null");
@@ -54,6 +42,10 @@ export function compileContractFindMany(
 
     if (where?.witnesses?.has !== undefined) {
         conditions.push(`${addValue(where.witnesses.has)} = any(contract_row.witnesses)`);
+    }
+
+    if (args.parties !== undefined) {
+        conditions.push(`contract_row.witnesses && ${addValue(args.parties)}::text[]`);
     }
 
     const orderBy = compileOrderBy(args.orderBy);
@@ -86,6 +78,29 @@ ${limitSql}
 ${offsetSql}`,
         values,
     };
+}
+
+function addScalarFilter(
+    conditions: string[],
+    column: string,
+    filter: { readonly equals?: string; readonly in?: readonly string[]; readonly is?: null; readonly isNot?: null } | undefined,
+    addValue: (value: unknown) => string,
+): void {
+    if (filter?.is === null) {
+        conditions.push(`${column} is null`);
+    }
+
+    if (filter?.isNot === null) {
+        conditions.push(`${column} is not null`);
+    }
+
+    if (filter?.equals !== undefined) {
+        conditions.push(`${column} = ${addValue(filter.equals)}`);
+    }
+
+    if (filter?.in !== undefined) {
+        conditions.push(filter.in.length === 0 ? "false" : `${column} = any(${addValue(filter.in)})`);
+    }
 }
 
 function compileOrderBy(

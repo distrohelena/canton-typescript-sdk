@@ -4,7 +4,7 @@ import { ValidationError } from "../core/errors/validation-error.js";
 import { GrpcContractQueryClient } from "./grpc/grpc-contract-query-client.js";
 import { PqsPool } from "./pqs/pqs-pool.js";
 import { PqsQueryClient } from "./pqs/pqs-query-client.js";
-import { PqsSchemaProfileV1 } from "./pqs/pqs-schema-profile.js";
+import { PqsSchemaProfileV1, validatePqsSchemaAsync } from "./pqs/pqs-schema-profile.js";
 import { CantonManagerOptions } from "./canton-manager-options.js";
 import { QueryClient } from "./query-client.js";
 import { QuerySource } from "./query-source.js";
@@ -28,9 +28,13 @@ export class CantonManager {
 
         if (options.querySource === QuerySource.pqs) {
             this.pqsPool = PqsPool.create(options.pqs!.connectionString);
+
+            const profile = new PqsSchemaProfileV1(options.pqs!.schema);
+
             this.query = new PqsQueryClient(
-                this.pqsPool.pool as never,
-                new PqsSchemaProfileV1(options.pqs!.schema),
+                this.pqsPool.pool,
+                profile,
+                validatePqsSchemaAsync(this.pqsPool.pool, profile),
             );
         } else {
             this.query = new GrpcContractQueryClient(

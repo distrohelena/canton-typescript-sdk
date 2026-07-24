@@ -3,7 +3,23 @@ export type QueryOrder = "asc" | "desc";
 export interface ScalarFilter<T> {
     readonly equals?: T;
     readonly in?: readonly T[];
+    readonly is?: null;
+    readonly isNot?: null;
 }
+
+export interface ArrayMembershipFilter {
+    readonly has: string;
+}
+
+export type RowWhere<TRow> = Partial<{
+    readonly [TField in keyof TRow]: TRow[TField] extends readonly string[]
+        ? ScalarFilter<TRow[TField]> | ArrayMembershipFilter
+        : ScalarFilter<TRow[TField]>;
+}>;
+
+export type RowSelect<TRow> = Partial<Record<keyof TRow, boolean>>;
+
+export type RowOrderBy<TRow> = Partial<Record<keyof TRow, QueryOrder>>;
 
 export interface QueryPageArgs {
     readonly skip?: number;
@@ -128,6 +144,34 @@ export interface WatermarkRow {
     readonly offset: string | null;
     readonly instanceId: string | null;
 }
+
+export type ContractTypeWhere = RowWhere<ContractTypeRow>;
+export type ContractTypeSelect = RowSelect<ContractTypeRow>;
+export type ContractTypeOrderBy = RowOrderBy<ContractTypeRow>;
+export type ContractTypeUnique = { readonly pk: string };
+export type EventWhere = RowWhere<EventRow>;
+export type EventSelect = RowSelect<EventRow>;
+export type EventOrderBy = RowOrderBy<EventRow>;
+export type EventUnique = { readonly pk: string };
+export type ExerciseWhere = RowWhere<ExerciseRow>;
+export type ExerciseSelect = RowSelect<ExerciseRow>;
+export type ExerciseOrderBy = RowOrderBy<ExerciseRow>;
+export type ExerciseTypeWhere = RowWhere<ExerciseTypeRow>;
+export type ExerciseTypeSelect = RowSelect<ExerciseTypeRow>;
+export type ExerciseTypeOrderBy = RowOrderBy<ExerciseTypeRow>;
+export type ExerciseTypeUnique = { readonly pk: string };
+export type PackageWhere = RowWhere<PackageRow>;
+export type PackageSelect = RowSelect<PackageRow>;
+export type PackageOrderBy = RowOrderBy<PackageRow>;
+export type PackageUnique = { readonly pk: string } | { readonly id: string };
+export type TransactionWhere = RowWhere<TransactionRow>;
+export type TransactionSelect = RowSelect<TransactionRow>;
+export type TransactionOrderBy = RowOrderBy<TransactionRow>;
+export type TransactionUnique = { readonly ix: string } | { readonly offset: string };
+export type WatermarkWhere = RowWhere<WatermarkRow>;
+export type WatermarkSelect = RowSelect<WatermarkRow>;
+export type WatermarkOrderBy = RowOrderBy<WatermarkRow>;
+export type WatermarkUnique = { readonly singleton: boolean };
 
 export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.skip, "skip");

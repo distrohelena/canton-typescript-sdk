@@ -16,7 +16,18 @@ export type {
     ContractFindUniqueArgs,
     ContractCountArgs,
     ContractRow,
+    ContractTypeRow,
+    EventRow,
+    ExerciseRow,
+    ExerciseTypeRow,
+    PackageRow,
+    TransactionRow,
+    WatermarkRow,
+    RowWhere,
+    RowSelect,
+    RowOrderBy,
 } from "./query/model-types.js";
+export type { QueryClient, QueryDelegate, QueryCollectionDelegate } from "./query/query-client.js";
 export { CantonHashingClient } from "./client/canton-hashing-client.js";
 export { CantonClientOptions } from "./client/canton-client-options.js";
 export { ExternalPartyActivationClient } from "./client/external-party-activation-client.js";

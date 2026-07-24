@@ -72,6 +72,7 @@ describe("PQS query client", () => {
 
     it("binds physical relation filters and pagination", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
+
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.packages.findMany({
@@ -87,6 +88,7 @@ describe("PQS query client", () => {
 
     it("rejects physical fields outside the selected profile relation", async () => {
         const query = vi.fn();
+
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(
@@ -97,10 +99,71 @@ describe("PQS query client", () => {
 
     it("counts physical relation rows with a bound filter", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ count: "2" }] });
+
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.count({ where: { name: { equals: "app" } } })).resolves.toBe(2);
         expect(query.mock.calls[0][0]).toContain("count(*)");
         expect(query.mock.calls[0][1]).toEqual(["app"]);
+    });
+
+    it("supports unique reads, in/null predicates, ordering, and public field aliases", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ pk: "1", id: "package-id" }] });
+
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findUnique({ where: { id: "package-id" } })).resolves.toEqual({ pk: "1", id: "package-id" });
+        expect(query.mock.calls[0][0]).toContain('"id" = $1');
+        expect(query.mock.calls[0][0]).toContain("limit $2");
+        expect(query.mock.calls[0][1]).toEqual(["package-id", 1]);
+
+        await client.transactions.findMany({
+            where: { transactionId: { in: ["a", "b"], isNot: null } },
+            orderBy: { ix: "desc" },
+        });
+        expect(query.mock.calls[1][0]).toContain('"transaction_id" is not null');
+        expect(query.mock.calls[1][0]).toContain('"transaction_id" = any($1)');
+        expect(query.mock.calls[1][0]).toContain('order by "ix" desc');
+        expect(query.mock.calls[1][1]).toEqual([["a", "b"]]);
+    });
+
+    it("supports profile-controlled numeric aggregates", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ count: "2", min_pk: "1", sum_pk: "3" }] });
+
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.aggregate({ count: true, min: ["pk"], sum: ["pk"] })).resolves.toEqual({
+            count: 2,
+            min: { pk: "1" },
+            sum: { pk: "3" },
+        });
+        expect(query.mock.calls[0][0]).toContain('min("pk")::text as "min_pk"');
+        await expect(client.packages.aggregate({ max: ["id"] })).rejects.toThrow("id is not a numeric aggregate field");
+    });
+
+    it("does not expose findUnique for exercises", () => {
+        const client = new PqsQueryClient({ query: vi.fn() } as never, new PqsSchemaProfileV1());
+
+        expect("findUnique" in client.exercises).toBe(false);
+    });
+
+    it("creates a profile-controlled delegate for every physical relation", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await Promise.all([
+            client.contractTypes.findMany(),
+            client.events.findMany(),
+            client.exercises.findMany(),
+            client.exerciseTypes.findMany(),
+            client.packages.findMany(),
+            client.transactions.findMany(),
+            client.watermark.findMany(),
+        ]);
+
+        for (const relation of ["__contract_tpe", "__events", "__exercises", "__exercise_tpe", "__packages", "__transactions", "__watermark"]) {
+            expect(query.mock.calls.some(([sql]) => sql.includes(`"${relation}"`))).toBe(true);
+        }
     });
 });

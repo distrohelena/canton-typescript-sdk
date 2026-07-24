@@ -20,20 +20,28 @@ export class GrpcContractQueryClient implements QueryClient {
     public readonly source = QuerySource.grpc;
     public readonly contracts = {
         findMany: (args: ContractFindManyArgs = {}) => this.findManyAsync(args),
-        findUnique: (args: ContractFindUniqueArgs) =>
-            this.findManyAsync({ where: { contractId: { equals: args.where.contractId } } }).then(
+        findUnique: (args: ContractFindUniqueArgs) => {
+            if (args.select !== undefined) {
+                return Promise.reject(new QueryCapabilityError(QuerySource.grpc, "contracts.findUnique"));
+            }
+
+            return this.findManyAsync({ where: { contractId: { equals: args.where.contractId } } }).then(
                 (rows) => rows[0],
-            ),
+            );
+        },
         count: async (args: ContractCountArgs = {}) =>
             (await this.findManyAsync(args)).length,
+        aggregate: async (): Promise<never> => {
+            throw new QueryCapabilityError(QuerySource.grpc, "contracts.aggregate");
+        },
     };
-    public readonly contractTypes = this.unsupported("contractTypes.findMany");
-    public readonly events = this.unsupported("events.findMany");
-    public readonly exercises = this.unsupported("exercises.findMany");
-    public readonly exerciseTypes = this.unsupported("exerciseTypes.findMany");
-    public readonly packages = this.unsupported("packages.findMany");
-    public readonly transactions = this.unsupported("transactions.findMany");
-    public readonly watermark = this.unsupported("watermark.findMany");
+    public readonly contractTypes = this.unsupported("contractTypes") as QueryClient["contractTypes"];
+    public readonly events = this.unsupported("events") as QueryClient["events"];
+    public readonly exercises = this.unsupported("exercises") as QueryClient["exercises"];
+    public readonly exerciseTypes = this.unsupported("exerciseTypes") as QueryClient["exerciseTypes"];
+    public readonly packages = this.unsupported("packages") as QueryClient["packages"];
+    public readonly transactions = this.unsupported("transactions") as QueryClient["transactions"];
+    public readonly watermark = this.unsupported("watermark") as QueryClient["watermark"];
 
     public constructor(
         private readonly stateService: ActiveContractsReader,
@@ -52,7 +60,23 @@ export class GrpcContractQueryClient implements QueryClient {
     private async findManyAsync(
         args: ContractFindManyArgs | ContractCountArgs,
     ): Promise<readonly ContractRow[]> {
-        if (args.where?.active === false || args.where?.packageId !== undefined) {
+        if (
+            args.where?.active === false ||
+            args.where?.packageId !== undefined ||
+            args.where?.witnesses !== undefined ||
+            args.where?.contractId?.in !== undefined ||
+            args.where?.contractId?.is !== undefined ||
+            args.where?.contractId?.isNot !== undefined ||
+            args.where?.templateId?.in !== undefined ||
+            args.where?.templateId?.is !== undefined ||
+            args.where?.templateId?.isNot !== undefined
+        ) {
+            throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
+        }
+
+        const findArgs = args as ContractFindManyArgs;
+
+        if (findArgs.select !== undefined || findArgs.orderBy !== undefined || findArgs.skip !== undefined || findArgs.take !== undefined) {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
         }
 
@@ -75,8 +99,17 @@ export class GrpcContractQueryClient implements QueryClient {
 
     private unsupported(operation: string) {
         return {
-            findMany: async (): Promise<readonly Record<string, unknown>[]> => {
-                throw new QueryCapabilityError(QuerySource.grpc, operation);
+            findMany: async (): Promise<never> => {
+                throw new QueryCapabilityError(QuerySource.grpc, `${operation}.findMany`);
+            },
+            findUnique: async (): Promise<never> => {
+                throw new QueryCapabilityError(QuerySource.grpc, `${operation}.findUnique`);
+            },
+            count: async (): Promise<never> => {
+                throw new QueryCapabilityError(QuerySource.grpc, `${operation}.count`);
+            },
+            aggregate: async (): Promise<never> => {
+                throw new QueryCapabilityError(QuerySource.grpc, `${operation}.aggregate`);
             },
         };
     }

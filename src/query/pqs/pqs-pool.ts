@@ -1,6 +1,7 @@
 import { Pool } from "pg";
 
 export interface PqsPoolLike {
+    query(text: string, values: readonly unknown[]): Promise<{ readonly rows: readonly Record<string, unknown>[] }>;
     end(): Promise<void>;
 }
 

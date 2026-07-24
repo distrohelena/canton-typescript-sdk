@@ -420,6 +420,16 @@ available through `manager.query.$queryRaw(...)` when the selected client is
 PQS-specific. It accepts one read-only statement with positional parameters;
 use a read-only PostgreSQL role as defense in depth.
 
+The PQS relation delegates use a Prisma-like surface: `findMany({ where,
+select, orderBy, skip, take })`, `findUnique({ where, select })`, `count`, and
+`aggregate({ count, min, max, sum })`. Filters support `equals`, `in`,
+`{ is: null }`, `{ isNot: null }`, and `{ has: party }` on array fields.
+Ordering accepts one field. `exercises` intentionally has no `findUnique`
+because the v1 PQS profile does not declare a stable key. The manager validates
+the selected PQS schema profile before its first query. In gRPC mode, only the
+active-contract `findMany`, `findUnique`, and `count` subset is available;
+unsupported query features reject with `QueryCapabilityError`.
+
 - Ledger endpoint:
 - `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
 - `healthService.checkAsync(...)`: `grpc` only

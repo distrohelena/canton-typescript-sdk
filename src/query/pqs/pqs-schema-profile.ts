@@ -15,6 +15,26 @@ export const requiredPqsRelations = [
 
 export type PqsRelation = (typeof requiredPqsRelations)[number];
 
+export interface PqsRelationMetadata {
+    readonly fields: Readonly<Record<string, string>>;
+    readonly uniqueKeys: readonly (readonly string[])[];
+    readonly numericFields: readonly string[];
+    readonly arrayFields: readonly string[];
+    readonly dateFields: readonly string[];
+    readonly binaryFields: readonly string[];
+}
+
+export const pqsRelationMetadata: Readonly<Record<PqsRelation, PqsRelationMetadata>> = {
+    __contracts: { fields: {}, uniqueKeys: [["contractId"]], numericFields: ["createdEventOffset", "archivedEventOffset"], arrayFields: ["witnesses"], dateFields: ["createdAt", "archivedAt"], binaryFields: [] },
+    __contract_tpe: { fields: { pk: "pk", payloadType: "payload_type", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn" }, uniqueKeys: [["pk"]], numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [] },
+    __events: { fields: { pk: "pk", txIx: "tx_ix", eventId: "event_id", type: "type" }, uniqueKeys: [["pk"]], numericFields: ["pk", "txIx"], arrayFields: [], dateFields: [], binaryFields: [] },
+    __exercises: { fields: { tpePk: "tpe_pk", contractTpePk: "contract_tpe_pk", exerciseEventPk: "exercise_event_pk", exercisedAtIx: "exercised_at_ix", contractId: "contract_id", argument: "argument", result: "result", redactionId: "redaction_id", packagePk: "package_pk", controllers: "controllers", lastDescendantNodeId: "last_descendant_node_id", witnesses: "witnesses" }, uniqueKeys: [], numericFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk", "lastDescendantNodeId"], arrayFields: ["controllers", "witnesses"], dateFields: [], binaryFields: [] },
+    __exercise_tpe: { fields: { pk: "pk", choice: "choice", consuming: "consuming", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn", choiceFqn: "choice_fqn" }, uniqueKeys: [["pk"]], numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [] },
+    __packages: { fields: { pk: "pk", name: "name", version: "version", id: "id" }, uniqueKeys: [["pk"], ["id"]], numericFields: ["pk"], arrayFields: [], dateFields: [], binaryFields: [] },
+    __transactions: { fields: { ix: "ix", offset: "offset", transactionId: "transaction_id", effectiveAt: "effective_at", workflowId: "workflow_id", domainId: "domain_id", traceContext: "trace_context", externalTransactionHash: "external_transaction_hash", paidTrafficCost: "paid_traffic_cost" }, uniqueKeys: [["ix"], ["offset"]], numericFields: ["ix", "offset", "paidTrafficCost"], arrayFields: [], dateFields: ["effectiveAt"], binaryFields: ["externalTransactionHash"] },
+    __watermark: { fields: { singleton: "singleton", ix: "ix", offset: "offset", instanceId: "instance_id" }, uniqueKeys: [["singleton"]], numericFields: ["ix", "offset"], arrayFields: [], dateFields: [], binaryFields: [] },
+};
+
 export const requiredPqsColumns: Readonly<
     Record<PqsRelation, readonly string[]>
 > = {
@@ -103,10 +123,7 @@ export class PqsSchemaProfileV1 {
 
 export interface PqsSchemaClient {
     query(query: string, values: readonly unknown[]): Promise<{
-        readonly rows: readonly {
-            readonly table_name: string;
-            readonly column_name: string;
-        }[];
+        readonly rows: readonly Record<string, unknown>[];
     }>;
 }
 
@@ -120,7 +137,7 @@ export async function validatePqsSchemaAsync(
     );
 
     const actual = new Set(
-        result.rows.map((row) => `${row.table_name}.${row.column_name}`),
+        result.rows.map((row) => `${String(row.table_name)}.${String(row.column_name)}`),
     );
 
     const missing = requiredPqsRelations.flatMap((relation) =>

@@ -24,4 +24,14 @@ describe("PQS SQL compiler", () => {
         expect(query.text).not.toContain("package:Module:Template");
         expect(query.values).toEqual(["package:Module:Template", "Alice", 20, 10]);
     });
+
+    it("narrows logical contract reads to witnesses when parties are supplied", () => {
+        const compiled = compileContractFindMany(
+            { parties: ["Alice", "Bob"] },
+            new PqsSchemaProfileV1(),
+        );
+
+        expect(compiled.text).toContain("contract_row.witnesses && $1::text[]");
+        expect(compiled.values).toEqual([["Alice", "Bob"]]);
+    });
 });
