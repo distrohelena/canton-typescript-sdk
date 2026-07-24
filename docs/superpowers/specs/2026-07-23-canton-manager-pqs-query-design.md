@@ -33,6 +33,11 @@ const manager = new CantonManager({
 requires a PostgreSQL connection string and accepts an optional schema that
 defaults to `public`.
 
+PQS support uses the `pg` driver and its `Pool` implementation. The manager
+owns the pool it creates and `disposeAsync()` closes that pool before disposing
+its owned `CantonClient`. The feature supports the same Node.js runtime range
+as the SDK and adds `pg` as a production dependency.
+
 The manager exposes:
 
 - `manager.grpc`: the complete existing `CantonClient` service surface and
@@ -88,8 +93,24 @@ replacement for typed delegates.
 
 The gRPC query backend adapts Ledger API reads. Contract delegate operations
 fetch the active-contract snapshot through gRPC and apply the same supported
-filtering, ordering, projection, and pagination locally. This deliberately
-accepts the higher read cost of gRPC.
+filtering, ordering, projection, and pagination locally. By default it uses
+the Ledger API's `filtersForAnyParty` wildcard, which reads contracts visible
+for every party hosted by the participant. A query can instead provide one or
+more parties to narrow the visibility filter. This deliberately accepts the
+higher read cost of gRPC.
+
+The initial backend capability matrix is:
+
+| Query capability | PQS | gRPC |
+| --- | --- | --- |
+| `contracts.findMany`, `findUnique`, `count` | Current and historical rows where represented by PQS | Active-contract snapshot only, filtered locally |
+| PQS relation delegates other than `contracts` | Supported | `QueryCapabilityError` |
+| `$queryRaw` | Supported subject to read-only policy | `QueryCapabilityError` |
+| Ledger API reads not modelled as a delegate | Available through `manager.grpc` | Available through `manager.grpc` |
+
+Historical or archived contract semantics are never simulated from gRPC ACS
+data. They require `QuerySource.pqs` or an explicit gRPC service operation
+through `manager.grpc`.
 
 The manager does not silently switch sources. A delegate or raw query that
 cannot be served by the selected backend rejects with `QueryCapabilityError`,
@@ -108,6 +129,32 @@ allowing several distinct local Prisma-style queries to reuse one snapshot
 until expiry. Query calls can bypass caching and callers can invalidate cache
 entries, particularly after writes. The SDK makes no freshness guarantee
 beyond the configured TTL and explicit invalidation.
+
+## PQS schema contract
+
+The typed layer defines a versioned `PqsSchemaProfile.v1`, rather than treating
+the database as an arbitrary PostgreSQL schema. The profile owns the eight
+allowlisted relations and maps their physical snake_case columns to stable,
+camelCase TypeScript row fields. It also declares which fields are filterable,
+sortable, selectable, aggregateable, and uniquely identifying for each
+delegate. The first implementation derives this metadata from the PQS layout
+used by Canton Explorer and verifies required relations and columns through
+`information_schema` when the client is initialized.
+
+An unknown or incompatible layout fails initialization with a descriptive
+schema-profile error. New PQS columns and future PQS versions require a new
+profile; they are not silently exposed as typed fields. Raw SQL remains the
+intentional escape hatch for database-specific access.
+
+## Raw-query safety
+
+`$queryRaw` uses PostgreSQL positional `$1`, `$2`, and subsequent placeholders
+with a separate values array. It accepts a single SQL statement beginning with
+`SELECT`, `WITH`, `EXPLAIN`, or `SHOW`; all other statement classes, multiple
+statements, and mutable `WITH` bodies are rejected before execution. The
+documentation additionally requires a read-only PostgreSQL role for
+defense-in-depth. Parameters and connection strings are never included in a
+reported error.
 
 ## Errors
 
