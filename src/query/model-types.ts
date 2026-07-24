@@ -134,6 +134,14 @@ export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.take, "take");
 }
 
+export function assertQueryOrderBy(
+    orderBy: Readonly<Record<string, QueryOrder>>,
+): void {
+    if (Object.keys(orderBy).length !== 1) {
+        throw new Error("orderBy must specify exactly one field");
+    }
+}
+
 function assertPageValue(value: number | undefined, name: string): void {
     if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
         throw new Error(`${name} must be a non-negative integer`);
