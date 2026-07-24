@@ -84,4 +84,14 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).toContain("where \"id\" = $1");
         expect(query.mock.calls[0][1]).toEqual(["package-id", 10, 5]);
     });
+
+    it("rejects physical fields outside the selected profile relation", async () => {
+        const query = vi.fn();
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(
+            client.packages.findMany({ where: { unexpected: { equals: "x" } } }),
+        ).rejects.toThrow("unexpected is not a field of __packages");
+        expect(query).not.toHaveBeenCalled();
+    });
 });

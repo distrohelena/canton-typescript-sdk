@@ -8,7 +8,11 @@ import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany } from "./pqs-sql-compiler.js";
-import { PqsRelation, PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
+import {
+    PqsRelation,
+    PqsSchemaProfileV1,
+    requiredPqsColumns,
+} from "./pqs-schema-profile.js";
 import { assertReadOnlySql } from "./read-only-sql.js";
 
 export interface PqsQueryExecutor {
@@ -69,9 +73,18 @@ export class PqsQueryClient implements QueryClient {
             findMany: async (args: {
                 readonly where?: Readonly<Record<string, { readonly equals?: unknown }>>;
                 readonly select?: Readonly<Record<string, boolean>>;
-                readonly take?: number;
-                readonly skip?: number;
-            } = {}): Promise<readonly Record<string, unknown>[]> => {
+            readonly take?: number;
+            readonly skip?: number;
+        } = {}): Promise<readonly Record<string, unknown>[]> => {
+                for (const field of [
+                    ...Object.keys(args.where ?? {}),
+                    ...Object.keys(args.select ?? {}),
+                ]) {
+                    if (!requiredPqsColumns[relation].includes(field)) {
+                        throw new Error(`${field} is not a field of ${relation}`);
+                    }
+                }
+
                 try {
                     const values: unknown[] = [];
                     const add = (value: unknown) => {
