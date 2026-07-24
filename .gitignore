@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 tests/live/.artifacts/
+.generated/
+node/.generated/
