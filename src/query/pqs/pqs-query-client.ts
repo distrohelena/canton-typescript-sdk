@@ -9,6 +9,7 @@ import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany } from "./pqs-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
+import { assertReadOnlySql } from "./read-only-sql.js";
 
 export interface PqsQueryExecutor {
     query(
@@ -36,6 +37,24 @@ export class PqsQueryClient implements QueryClient {
         private readonly executor: PqsQueryExecutor,
         private readonly profile: PqsSchemaProfileV1,
     ) {}
+
+    public async $queryRaw<TRow>(
+        sql: string,
+        values: readonly unknown[] = [],
+    ): Promise<readonly TRow[]> {
+        assertReadOnlySql(sql);
+
+        try {
+            const result = await this.executor.query(sql, values);
+            return result.rows as readonly TRow[];
+        } catch (cause) {
+            throw new PqsQueryError({
+                operation: "$queryRaw",
+                code: getPqsCode(cause),
+                cause,
+            });
+        }
+    }
 
     private async findContractsAsync(
         args: ContractFindManyArgs | ContractCountArgs,

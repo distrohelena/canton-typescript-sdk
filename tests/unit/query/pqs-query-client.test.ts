@@ -34,4 +34,23 @@ describe("PQS query client", () => {
         ]);
         expect(query.mock.calls[0][1]).toEqual(["pkg:Module:Template"]);
     });
+
+    it("runs validated raw queries with separate values", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
+        const client = new PqsQueryClient(
+            { query } as never,
+            new PqsSchemaProfileV1(),
+        );
+
+        await expect(
+            client.$queryRaw<{ contract_id: string }>(
+                "select contract_id from __contracts where contract_id = $1",
+                ["cid"],
+            ),
+        ).resolves.toEqual([{ contract_id: "cid" }]);
+        expect(query).toHaveBeenCalledWith(
+            "select contract_id from __contracts where contract_id = $1",
+            ["cid"],
+        );
+    });
 });
