@@ -58,13 +58,7 @@ export class PqsQueryClient implements QueryClient {
             }).then((rows) => rows[0]),
         count: async (args: ContractCountArgs = {}) =>
             (await this.findContractsAsync(args)).length,
-        aggregate: async (args: { readonly where?: ContractCountArgs["where"]; readonly count?: true }) => {
-            if (!args.count) {
-                throw new Error("contracts.aggregate currently supports count only");
-            }
-
-            return { count: (await this.findContractsAsync({ where: args.where })).length };
-        },
+        aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),
     };
     public readonly contractTypes = this.createPhysicalDelegate("__contract_tpe") as unknown as QueryClient["contractTypes"];
     public readonly events = this.createPhysicalDelegate("__events") as unknown as QueryClient["events"];
@@ -369,6 +363,33 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
+    private async aggregateContractsAsync(args: Parameters<QueryClient["contracts"]["aggregate"]>[0]): Promise<Awaited<ReturnType<QueryClient["contracts"]["aggregate"]>>> {
+        if (!args.count && args.min === undefined && args.max === undefined && args.sum === undefined) {
+            throw new Error("aggregate must request at least one result");
+        }
+
+        const rows = await this.findContractsAsync({ where: args.where });
+
+        const result: {
+            count?: number;
+            min?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>;
+            max?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>;
+            sum?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>;
+        } = {};
+
+        if (args.count) {
+            result.count = rows.length;
+        }
+
+        for (const [operation, fields] of [["min", args.min], ["max", args.max], ["sum", args.sum]] as const) {
+            if (fields !== undefined) {
+                result[operation] = Object.fromEntries(fields.map((field) => [field, aggregateNumeric(rows.map((row) => row[field]), operation)]));
+            }
+        }
+
+        return result;
+    }
+
     private wrap(operation: string, cause: unknown): PqsQueryError {
         return new PqsQueryError({ operation, code: getPqsCode(cause), cause });
     }
@@ -405,4 +426,16 @@ function stringArray(value: unknown): readonly string[] {
 }
 function getPqsCode(cause: unknown): string | undefined {
     return typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string" ? cause.code : undefined;
+}
+
+function aggregateNumeric(values: readonly (string | null)[], operation: "min" | "max" | "sum"): string | null {
+    const numbers = values.filter((value): value is string => value !== null).map(BigInt);
+
+    if (numbers.length === 0) {
+        return null;
+    } else if (operation === "sum") {
+        return numbers.reduce((total, value) => total + value, 0n).toString();
+    }
+
+    return numbers.reduce((result, value) => operation === "min" ? value < result ? value : result : value > result ? value : result).toString();
 }

@@ -141,6 +141,23 @@ describe("PQS query client", () => {
         await expect(client.packages.aggregate({ max: ["id"] })).rejects.toThrow("id is not a numeric aggregate field");
     });
 
+    it("aggregates logical contract lifecycle offsets", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [
+                { contract_id: "one", template_id: "pkg:M:T", package_id: "pkg", witnesses: [], created_event_offset: "10", archived_event_offset: null, active: true },
+                { contract_id: "two", template_id: "pkg:M:T", package_id: "pkg", witnesses: [], created_event_offset: "20", archived_event_offset: "30", active: false },
+            ],
+        });
+
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.aggregate({ count: true, min: ["createdEventOffset"], sum: ["createdEventOffset", "archivedEventOffset"] })).resolves.toEqual({
+            count: 2,
+            min: { createdEventOffset: "10" },
+            sum: { createdEventOffset: "30", archivedEventOffset: "30" },
+        });
+    });
+
     it("does not expose findUnique for exercises", () => {
         const client = new PqsQueryClient({ query: vi.fn() } as never, new PqsSchemaProfileV1());
 

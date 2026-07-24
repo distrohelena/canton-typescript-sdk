@@ -78,7 +78,18 @@ export interface QueryClient {
         findMany(args?: ContractFindManyArgs): Promise<readonly ContractRow[]>;
         findUnique(args: ContractFindUniqueArgs): Promise<ContractRow | undefined>;
         count(args?: ContractCountArgs): Promise<number>;
-        aggregate(args: { readonly where?: ContractCountArgs["where"]; readonly count?: true }): Promise<{ readonly count?: number }>;
+        aggregate(args: {
+            readonly where?: ContractCountArgs["where"];
+            readonly count?: true;
+            readonly min?: readonly ContractNumericField[];
+            readonly max?: readonly ContractNumericField[];
+            readonly sum?: readonly ContractNumericField[];
+        }): Promise<{
+            readonly count?: number;
+            readonly min?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
+            readonly max?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
+            readonly sum?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
+        }>;
     };
     readonly contractTypes: QueryDelegate<ContractTypeRow, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique>;
     readonly events: QueryDelegate<EventRow, EventWhere, EventSelect, EventOrderBy, EventUnique>;
@@ -88,3 +99,5 @@ export interface QueryClient {
     readonly transactions: QueryDelegate<TransactionRow, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique>;
     readonly watermark: QueryDelegate<WatermarkRow, WatermarkWhere, WatermarkSelect, WatermarkOrderBy, WatermarkUnique>;
 }
+
+export type ContractNumericField = "createdEventOffset" | "archivedEventOffset";
