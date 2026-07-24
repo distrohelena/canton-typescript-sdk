@@ -1,0 +1,89 @@
+import {
+    ContractCountArgs,
+    ContractFindManyArgs,
+    ContractFindUniqueArgs,
+    ContractRow,
+} from "../model-types.js";
+import { QueryClient } from "../query-client.js";
+import { QuerySource } from "../query-source.js";
+import { PqsQueryError } from "../errors/pqs-query-error.js";
+import { compileContractFindMany } from "./pqs-sql-compiler.js";
+import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
+
+export interface PqsQueryExecutor {
+    query(
+        text: string,
+        values: readonly unknown[],
+    ): Promise<{ readonly rows: readonly Record<string, unknown>[] }>;
+}
+
+export class PqsQueryClient implements QueryClient {
+    public readonly source = QuerySource.pqs;
+    public readonly contracts = {
+        findMany: (args: ContractFindManyArgs = {}) =>
+            this.findContractsAsync(args),
+        findUnique: (args: ContractFindUniqueArgs) =>
+            this.findContractsAsync({
+                where: { contractId: { equals: args.where.contractId } },
+                select: args.select,
+                take: 1,
+            }).then((rows) => rows[0]),
+        count: async (args: ContractCountArgs = {}) =>
+            (await this.findContractsAsync(args)).length,
+    };
+
+    public constructor(
+        private readonly executor: PqsQueryExecutor,
+        private readonly profile: PqsSchemaProfileV1,
+    ) {}
+
+    private async findContractsAsync(
+        args: ContractFindManyArgs | ContractCountArgs,
+    ): Promise<readonly ContractRow[]> {
+        const compiled = compileContractFindMany(args, this.profile);
+
+        try {
+            const result = await this.executor.query(compiled.text, compiled.values);
+            return result.rows.map(mapContractRow);
+        } catch (cause) {
+            throw new PqsQueryError({
+                operation: "contracts.findMany",
+                code: getPqsCode(cause),
+                cause,
+            });
+        }
+    }
+}
+
+function mapContractRow(row: Record<string, unknown>): ContractRow {
+    return {
+        contractId: String(row.contract_id),
+        templateId: String(row.template_id),
+        packageId: nullableString(row.package_id),
+        payload: row.payload,
+        witnesses: stringArray(row.witnesses),
+        createdEventOffset: String(row.created_event_offset),
+        createdAt: nullableDate(row.created_at),
+        archivedEventOffset: nullableString(row.archived_event_offset),
+        archivedAt: nullableDate(row.archived_at),
+        active: row.active === true,
+    };
+}
+
+function nullableString(value: unknown): string | null {
+    return typeof value === "string" ? value : value === null ? null : String(value);
+}
+
+function nullableDate(value: unknown): Date | null {
+    return value instanceof Date ? value : value === null || value === undefined ? null : new Date(String(value));
+}
+
+function stringArray(value: unknown): readonly string[] {
+    return Array.isArray(value) ? value.map(String) : [];
+}
+
+function getPqsCode(cause: unknown): string | undefined {
+    return typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string"
+        ? cause.code
+        : undefined;
+}
