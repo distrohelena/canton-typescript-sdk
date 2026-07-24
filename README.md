@@ -347,6 +347,15 @@ transaction and its multihash, then allocates the party. It never receives a
 private key.
 
 ```ts
+import {
+    CreateExternalPartyRequest,
+    ExternalPartyCryptoKeyFormat,
+    ExternalPartySignatureFormat,
+    ExternalPartySigningAlgorithmSpec,
+    ExternalPartySigningKeySpec,
+    ExternalPartySigningPublicKey,
+} from "@distrohelena/canton-typescript-sdk";
+
 const party = await client.partyManagementService.createExternalPartyAsync(
     new CreateExternalPartyRequest({
         synchronizer: "sync::sandbox",
@@ -367,7 +376,7 @@ const party = await client.partyManagementService.createExternalPartyAsync(
 
 Use the same flow for secp256k1 by supplying
 `ExternalPartySigningKeySpec.ecSecp256k1` and the signer’s compatible Canton
-signature format and algorithm.
+signature format and algorithm. This convenience operation is gRPC-only.
 
 ## Service Map
 
@@ -394,6 +403,7 @@ signature format and algorithm.
 - `partyManagementService.getPartiesAsync(...)`: `grpc` only
 - `partyManagementService.generateExternalPartyTopologyAsync(...)`: `grpc` only
 - `partyManagementService.allocateExternalPartyAsync(...)`: `grpc` only
+- `partyManagementService.createExternalPartyAsync(...)`: `grpc` only
 - `userManagementService.grantUserRightsAsync(...)`: `json`, `grpc`
 - `packageManagementService.uploadDarFileAsync(...)`: `json`, `grpc`
 

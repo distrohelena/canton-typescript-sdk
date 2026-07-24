@@ -325,9 +325,17 @@ describe("PartyManagementServiceClient", () => {
             partyId: generated.partyId,
             publicKeyFingerprint: "fingerprint",
         }));
+        expect(sign).toHaveBeenNthCalledWith(2, expect.objectContaining({
+            payload: new Uint8Array([4, 5, 6]),
+            kind: "topology-transaction",
+            partyId: generated.partyId,
+            publicKeyFingerprint: "fingerprint",
+        }));
         expect(sign).toHaveBeenNthCalledWith(3, expect.objectContaining({
             payload: new Uint8Array([7, 8, 9]),
             kind: "multi-hash",
+            partyId: generated.partyId,
+            publicKeyFingerprint: "fingerprint",
         }));
         expect(allocateExternalPartyAsync).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -351,5 +359,47 @@ describe("PartyManagementServiceClient", () => {
             options,
         );
         expect(result.partyId).toBe(generated.partyId);
+
+        const signerError = new Error("HSM unavailable");
+
+        allocateExternalPartyAsync.mockClear();
+        sign.mockRejectedValueOnce(signerError);
+
+        await expect(
+            client.createExternalPartyAsync(
+                new CreateExternalPartyRequest({
+                    synchronizer: "sync::sandbox",
+                    partyHint: "signer-failure",
+                    publicKey: new ExternalPartySigningPublicKey({
+                        format: ExternalPartyCryptoKeyFormat.raw,
+                        keyData: new Uint8Array([10, 11, 12]),
+                        keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                    }),
+                    sign,
+                }),
+            ),
+        ).rejects.toBe(signerError);
+        expect(allocateExternalPartyAsync).not.toHaveBeenCalled();
+
+        const topologyError = new Error("topology unavailable");
+
+        sign.mockClear();
+        generateExternalPartyTopologyAsync.mockRejectedValueOnce(topologyError);
+
+        await expect(
+            client.createExternalPartyAsync(
+                new CreateExternalPartyRequest({
+                    synchronizer: "sync::sandbox",
+                    partyHint: "topology-failure",
+                    publicKey: new ExternalPartySigningPublicKey({
+                        format: ExternalPartyCryptoKeyFormat.raw,
+                        keyData: new Uint8Array([10, 11, 12]),
+                        keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                    }),
+                    sign,
+                }),
+            ),
+        ).rejects.toBe(topologyError);
+        expect(sign).not.toHaveBeenCalled();
     });
 });
