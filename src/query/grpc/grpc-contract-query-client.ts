@@ -27,6 +27,13 @@ export class GrpcContractQueryClient implements QueryClient {
         count: async (args: ContractCountArgs = {}) =>
             (await this.findManyAsync(args)).length,
     };
+    public readonly contractTypes = this.unsupported("contractTypes.findMany");
+    public readonly events = this.unsupported("events.findMany");
+    public readonly exercises = this.unsupported("exercises.findMany");
+    public readonly exerciseTypes = this.unsupported("exerciseTypes.findMany");
+    public readonly packages = this.unsupported("packages.findMany");
+    public readonly transactions = this.unsupported("transactions.findMany");
+    public readonly watermark = this.unsupported("watermark.findMany");
 
     public constructor(
         private readonly stateService: ActiveContractsReader,
@@ -54,6 +61,14 @@ export class GrpcContractQueryClient implements QueryClient {
             );
         }
         return rows;
+    }
+
+    private unsupported(operation: string) {
+        return {
+            findMany: async (): Promise<readonly Record<string, unknown>[]> => {
+                throw new QueryCapabilityError(QuerySource.grpc, operation);
+            },
+        };
     }
 
     private async readSnapshotAsync(

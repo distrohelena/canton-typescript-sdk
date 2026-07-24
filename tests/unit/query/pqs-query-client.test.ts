@@ -53,4 +53,17 @@ describe("PQS query client", () => {
             ["cid"],
         );
     });
+
+    it("queries physical PQS relations through typed delegates", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ id: "package-id" }] });
+        const client = new PqsQueryClient(
+            { query } as never,
+            new PqsSchemaProfileV1(),
+        );
+
+        await expect(client.packages.findMany()).resolves.toEqual([
+            { id: "package-id" },
+        ]);
+        expect(query.mock.calls[0][0]).toContain('from "public"."__packages"');
+    });
 });

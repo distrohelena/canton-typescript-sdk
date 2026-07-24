@@ -8,7 +8,7 @@ import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany } from "./pqs-sql-compiler.js";
-import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
+import { PqsRelation, PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 import { assertReadOnlySql } from "./read-only-sql.js";
 
 export interface PqsQueryExecutor {
@@ -32,6 +32,13 @@ export class PqsQueryClient implements QueryClient {
         count: async (args: ContractCountArgs = {}) =>
             (await this.findContractsAsync(args)).length,
     };
+    public readonly contractTypes = this.createPhysicalDelegate("__contract_tpe");
+    public readonly events = this.createPhysicalDelegate("__events");
+    public readonly exercises = this.createPhysicalDelegate("__exercises");
+    public readonly exerciseTypes = this.createPhysicalDelegate("__exercise_tpe");
+    public readonly packages = this.createPhysicalDelegate("__packages");
+    public readonly transactions = this.createPhysicalDelegate("__transactions");
+    public readonly watermark = this.createPhysicalDelegate("__watermark");
 
     public constructor(
         private readonly executor: PqsQueryExecutor,
@@ -54,6 +61,26 @@ export class PqsQueryClient implements QueryClient {
                 cause,
             });
         }
+    }
+
+    private createPhysicalDelegate(relation: PqsRelation) {
+        return {
+            findMany: async (): Promise<readonly Record<string, unknown>[]> => {
+                try {
+                    const result = await this.executor.query(
+                        `select * from ${this.profile.relation(relation)}`,
+                        [],
+                    );
+                    return result.rows;
+                } catch (cause) {
+                    throw new PqsQueryError({
+                        operation: `${relation}.findMany`,
+                        code: getPqsCode(cause),
+                        cause,
+                    });
+                }
+            },
+        };
     }
 
     private async findContractsAsync(
