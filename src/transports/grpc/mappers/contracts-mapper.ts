@@ -14,7 +14,9 @@ import { Identifier } from "../generated/canton/com/daml/ledger/api/v2/value.js"
 
 export function mapGrpcQueryContractsRequest(
     request: {
-        party: string;
+        party?: string;
+        parties?: readonly string[];
+        allParties?: boolean;
         templateId?: string;
         interfaceId?: string;
         includeInterfaceView?: boolean;
@@ -72,17 +74,35 @@ export function mapGrpcGetContract(
 
 function createEventFormat(
     request: {
-        party: string;
+        party?: string;
+        parties?: readonly string[];
+        allParties?: boolean;
         templateId?: string;
         interfaceId?: string;
         includeInterfaceView?: boolean;
         includeCreatedEventBlob?: boolean;
     },
 ): EventFormat {
+    const filters = createFilters(request);
+    const parties = request.parties ?? (request.party === undefined ? [] : [request.party]);
+
+    if (request.allParties === true) {
+        if (parties.length > 0) {
+            throw new ValidationError("allParties cannot be combined with party filters");
+        }
+        return {
+            filtersByParty: {},
+            filtersForAnyParty: filters,
+            verbose: true,
+        };
+    }
+
+    if (parties.length === 0) {
+        throw new ValidationError("A party filter or allParties is required");
+    }
+
     return {
-        filtersByParty: {
-            [request.party]: createFilters(request),
-        },
+        filtersByParty: Object.fromEntries(parties.map((party) => [party, filters])),
         verbose: true,
     };
 }
