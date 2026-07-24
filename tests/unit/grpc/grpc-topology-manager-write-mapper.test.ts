@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
     AddTopologyTransactionsRequest,
     AuthorizeTopologyTransactionsRequest,
+    DecentralizedNamespaceDefinition,
     GenerateTopologyTransactionsRequest,
     GeneratedTopologyTransaction,
+    NamespaceDelegation,
     PartyToParticipant,
     PartyToParticipantOnboarding,
     PartyToParticipantParticipant,
@@ -69,6 +71,55 @@ describe("gRPC topology manager write mappers", () => {
             result.proposals[0].mapping?.mapping.partyToParticipant
                 .partySigningKeys?.keys[0].usage,
         ).toEqual([4]);
+    });
+
+    it("maps decentralized namespace and root-delegation proposals", () => {
+        const ownerKey = new TopologySigningPublicKey({
+            format: "raw",
+            publicKey: new Uint8Array([1, 2, 3]),
+            usage: ["namespace"],
+            keySpec: "ecSecp256k1",
+        });
+
+        const result = mapGrpcGenerateTopologyTransactionsRequest(
+            new GenerateTopologyTransactionsRequest({
+                proposals: [
+                    {
+                        operation: TopologyMappingOperation.addReplace,
+                        serial: 1,
+                        mapping: new DecentralizedNamespaceDefinition({
+                            decentralizedNamespace: "decentralized-namespace",
+                            threshold: 2,
+                            owners: ["owner-a", "owner-b"],
+                        }),
+                    },
+                    {
+                        operation: TopologyMappingOperation.addReplace,
+                        serial: 1,
+                        mapping: new NamespaceDelegation({
+                            namespace: "decentralized-namespace",
+                            targetKey: ownerKey,
+                            isRootDelegation: true,
+                        }),
+                    },
+                ],
+            }),
+        );
+
+        expect(result.proposals[0].mapping?.mapping.oneofKind).toBe(
+            "decentralizedNamespaceDefinition",
+        );
+        expect(result.proposals[1].mapping?.mapping.oneofKind).toBe(
+            "namespaceDelegation",
+        );
+        expect(
+            result.proposals[1].mapping?.mapping.namespaceDelegation
+                ?.targetKey?.keySpec,
+        ).toBe(4);
+        expect(
+            result.proposals[1].mapping?.mapping.namespaceDelegation
+                ?.targetKey?.scheme,
+        ).toBe(0);
     });
 
     it("maps signed topology transaction requests and generated responses", () => {

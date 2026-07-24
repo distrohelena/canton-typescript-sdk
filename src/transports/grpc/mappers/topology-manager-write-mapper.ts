@@ -22,7 +22,12 @@ import { ImportTopologySnapshotResponse } from "../../../core/types/responses/im
 import { ImportTopologySnapshotV2Response } from "../../../core/types/responses/import-topology-snapshot-v2-response.js";
 import { SignTopologyTransactionsResponse } from "../../../core/types/responses/sign-topology-transactions-response.js";
 import { GeneratedTopologyTransaction } from "../../../core/types/topology/generated-topology-transaction.js";
+import { DecentralizedNamespaceDefinition } from "../../../core/types/topology/decentralized-namespace-definition.js";
 import { MultiTopologyTransactionSignature } from "../../../core/types/topology/multi-topology-transaction-signature.js";
+import {
+    NamespaceDelegation,
+    NamespaceDelegationRestrictionKind,
+} from "../../../core/types/topology/namespace-delegation.js";
 import {
     PartyToParticipant,
     PartyToParticipantOnboarding,
@@ -74,7 +79,9 @@ import {
     SignTransactionsResponse as GrpcSignTransactionsResponse,
 } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
+    DecentralizedNamespaceDefinition as GrpcDecentralizedNamespaceDefinition,
     Enums_ParticipantPermission,
+    NamespaceDelegation as GrpcNamespaceDelegation,
     PartyToParticipant as GrpcPartyToParticipant,
     SignedTopologyTransaction as GrpcSignedTopologyTransaction,
     TopologyMapping as GrpcTopologyMapping,
@@ -82,6 +89,7 @@ import {
 } from "../generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import {
     mapGrpcTopologyChangeOp,
+    mapGrpcTopologyMappingCode,
     mapGrpcTopologyStoreId,
     mapSdkParticipantPermission,
 } from "./topology-common-mapper.js";
@@ -286,11 +294,78 @@ function mapGrpcTopologyMapping(
                 partyToParticipant: mapGrpcPartyToParticipant(mapping),
             },
         };
+    } else if (mapping instanceof DecentralizedNamespaceDefinition) {
+        return {
+            mapping: {
+                oneofKind: "decentralizedNamespaceDefinition",
+                decentralizedNamespaceDefinition:
+                    mapGrpcDecentralizedNamespaceDefinition(mapping),
+            },
+        };
+    } else if (mapping instanceof NamespaceDelegation) {
+        return {
+            mapping: {
+                oneofKind: "namespaceDelegation",
+                namespaceDelegation: mapGrpcNamespaceDelegation(mapping),
+            },
+        };
     }
 
     throw new ValidationError(
         `Unsupported topology write mapping type: ${mapping.constructor.name}.`,
     );
+}
+
+function mapGrpcDecentralizedNamespaceDefinition(
+    value: DecentralizedNamespaceDefinition,
+): GrpcDecentralizedNamespaceDefinition {
+    return {
+        decentralizedNamespace: value.decentralizedNamespace,
+        threshold: value.threshold,
+        owners: [...value.owners],
+    };
+}
+
+function mapGrpcNamespaceDelegation(
+    value: NamespaceDelegation,
+): GrpcNamespaceDelegation {
+    return {
+        namespace: value.namespace,
+        targetKey:
+            value.targetKey === undefined
+                ? undefined
+                : mapGrpcSigningPublicKey(value.targetKey),
+        isRootDelegation: value.isRootDelegation,
+        restriction: mapGrpcNamespaceDelegationRestriction(value),
+    };
+}
+
+function mapGrpcNamespaceDelegationRestriction(
+    value: NamespaceDelegation,
+): GrpcNamespaceDelegation["restriction"] {
+    switch (value.restriction?.kind) {
+        case NamespaceDelegationRestrictionKind.canSignAllMappings:
+            return {
+                oneofKind: "canSignAllMappings",
+                canSignAllMappings: {},
+            };
+        case NamespaceDelegationRestrictionKind.canSignAllButNamespaceDelegations:
+            return {
+                oneofKind: "canSignAllButNamespaceDelegations",
+                canSignAllButNamespaceDelegations: {},
+            };
+        case NamespaceDelegationRestrictionKind.canSignSpecificMappings:
+            return {
+                oneofKind: "canSignSpecificMapings",
+                canSignSpecificMapings: {
+                    mappings: value.restriction.mappings.map(
+                        mapGrpcTopologyMappingCode,
+                    ),
+                },
+            };
+        default:
+            return { oneofKind: undefined };
+    }
 }
 
 function mapGrpcPartyToParticipant(
