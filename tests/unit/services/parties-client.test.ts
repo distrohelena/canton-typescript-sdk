@@ -20,6 +20,7 @@ import {
     PartyDetails,
     RequestOptions,
 } from "../../../src";
+import { CreateExternalPartyRequest } from "../../../src/core/types/requests/create-external-party-request.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 
 describe("PartyManagementServiceClient", () => {
@@ -194,5 +195,26 @@ describe("PartyManagementServiceClient", () => {
             allocateExternalRequest,
             options,
         );
+    });
+
+    it("validates and preserves an external party lifecycle request", () => {
+        const sign = vi.fn();
+        const request = new CreateExternalPartyRequest({
+            synchronizer: "sync::sandbox",
+            partyHint: "alice",
+            publicKey: new ExternalPartySigningPublicKey({
+                format: ExternalPartyCryptoKeyFormat.raw,
+                keyData: new Uint8Array([1, 2, 3]),
+                keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+            }),
+            sign,
+            waitForAllocation: true,
+        });
+
+        expect(request.synchronizer).toBe("sync::sandbox");
+        expect(request.partyHint).toBe("alice");
+        expect(request.sign).toBe(sign);
+        expect(request.waitForAllocation).toBe(true);
+        expect(() => new CreateExternalPartyRequest({ sign })).toThrow();
     });
 });
