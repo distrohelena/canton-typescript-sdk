@@ -1,5 +1,6 @@
 import { CreateCommand } from "../../core/types/commands/create-command.js";
 import { ExerciseCommand } from "../../core/types/commands/exercise-command.js";
+import { DamlRecord } from "../../core/types/daml-values.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { DeclarativeAction } from "../daml/daml-action-arbitrary.js";
 import { DeclarativeChoiceAction } from "../daml/daml-choice-action-arbitrary.js";
@@ -27,8 +28,8 @@ export async function executeDeclarativeActionAsync(init: {
     const command = "choice" in init.action
         ? await createExerciseCommandAsync(init.action, init.resolveContractIdAsync)
         : new CreateCommand({
-            templateId: init.action.templateId,
-            payload: { ...init.action.payload },
+            templateId: toTemplateId(init.action.templateId),
+            createArguments: new DamlRecord({ ...init.action.payload }),
         });
 
     return toCampaignMetricOutcome(await init.runtime.submitAndWaitAsync(
@@ -61,9 +62,17 @@ async function createExerciseCommandAsync(
     }
 
     return new ExerciseCommand({
-        templateId: action.templateId,
+        templateId: toTemplateId(action.templateId),
         contractId,
         choice: action.choice,
-        argument: action.argument,
+        choiceArgument: action.argument,
     });
+}
+
+function toTemplateId(templateId: string) {
+    const [packageId = "", moduleName, entityName] = templateId.split(":").length === 2
+        ? ["", ...templateId.split(":")]
+        : templateId.split(":");
+
+    return { packageId, moduleName, entityName };
 }

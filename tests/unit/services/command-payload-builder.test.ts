@@ -13,10 +13,10 @@ describe("command payload builder", () => {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new ExerciseCommand({
-                    templateId: "Main:Vault",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractId: "00abc",
                     choice: "Deposit",
-                    argument: { amount: "10.0" },
+                    choiceArgument: { amount: "10.0" },
                 }),
             }),
         );
@@ -26,5 +26,6 @@ describe("command payload builder", () => {
         expect(decoded).toContain("\"kind\":\"exercise\"");
         expect(decoded).toContain("\"contractId\":\"00abc\"");
         expect(decoded).toContain("\"choice\":\"Deposit\"");
+        expect(decoded).toContain("\"choiceArgument\":{\"amount\":\"10.0\"}");
     });
 });

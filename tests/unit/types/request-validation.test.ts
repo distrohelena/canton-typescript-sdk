@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     ExerciseCommand,
     SubmitCommandRequest,
     ValidationError,
@@ -14,8 +15,8 @@ describe("request validation", () => {
                     applicationId: "app-1",
                     actAs: [],
                     command: new CreateCommand({
-                        templateId: "Main:Iou",
-                        payload: {},
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({}),
                     }),
                 }),
         ).toThrow(ValidationError);
@@ -29,10 +30,10 @@ describe("request validation", () => {
                     userId: "wallet-user",
                     actAs: ["Alice"],
                     command: new ExerciseCommand({
-                        templateId: "Main:Iou",
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         contractId: "00abc",
                         choice: "Archive",
-                        argument: {},
+                        choiceArgument: {},
                     }),
                 }),
         ).not.toThrow();
@@ -44,8 +45,8 @@ describe("request validation", () => {
             userId: "wallet-user",
             actAs: ["Alice"],
             command: new CreateCommand({
-                templateId: "Main:Iou",
-                payload: {},
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
             }),
         });
 

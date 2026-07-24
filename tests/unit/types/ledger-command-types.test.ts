@@ -88,6 +88,18 @@ describe("ledger command sdk types", () => {
         ).toThrow(ValidationError);
     });
 
+    it("rejects non-DamlRecord create-and-exercise arguments", () => {
+        expect(
+            () =>
+                new CreateAndExerciseCommand({
+                    templateId,
+                    createArguments: {} as DamlRecord,
+                    choice: "CreateVault",
+                    choiceArgument: {},
+                }),
+        ).toThrow(ValidationError);
+    });
+
     it("rejects an exercise-by-key command without a contract key", () => {
         expect(
             () =>

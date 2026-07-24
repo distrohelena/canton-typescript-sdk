@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlRecord,
     DamlNumeric,
     DamlParty,
     ExerciseByKeyCommand,
@@ -21,11 +22,11 @@ describe("json command submission mapper", () => {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
                         issuer: "Alice",
                         owner: "Bob",
-                    },
+                    }),
                 }),
             }),
         );
@@ -54,11 +55,11 @@ describe("json command submission mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
                         issuer: new DamlParty("Alice"),
                         amount: new DamlNumeric("10.50"),
-                    },
+                    }),
                 }),
             }),
         );
@@ -71,16 +72,40 @@ describe("json command submission mapper", () => {
         });
     });
 
+    it("formats package-qualified template IDs only at the JSON boundary", () => {
+        const payload = mapJsonSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: {
+                        packageId: "pkg-id",
+                        moduleName: "Main",
+                        entityName: "Iou",
+                    },
+                    createArguments: new DamlRecord({}),
+                }),
+            }),
+        );
+
+        expect(payload.commands[0]).toEqual({
+            CreateCommand: {
+                templateId: "pkg-id:Main:Iou",
+                createArguments: {},
+            },
+        });
+    });
+
     it("maps exercise commands to the V2 JsCommands payload", () => {
         const payload = mapJsonSubmitCommandRequest(
             new SubmitCommandRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new ExerciseCommand({
-                    templateId: "Main:Vault",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractId: "00abc",
                     choice: "Deposit",
-                    argument: {
+                    choiceArgument: {
                         amount: "10.0",
                     },
                 }),
@@ -105,13 +130,13 @@ describe("json command submission mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new ExerciseByKeyCommand({
-                    templateId: "Main:Vault",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractKey: {
                         owner: "Alice",
                         id: "vault-1",
                     },
                     choice: "Redeem",
-                    argument: {
+                    choiceArgument: {
                         amount: "5.0",
                     },
                 }),
@@ -123,12 +148,12 @@ describe("json command submission mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new CreateAndExerciseCommand({
-                    templateId: "Main:VaultFactory",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "VaultFactory" },
+                    createArguments: new DamlRecord({
                         owner: "Alice",
-                    },
+                    }),
                     choice: "CreateVault",
-                    argument: {
+                    choiceArgument: {
                         currency: "USD",
                     },
                 }),

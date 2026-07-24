@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     RequestOptions,
     SubmitCommandRequest,
 } from "../../../src";
@@ -53,15 +54,15 @@ describe("CommandSubmissionPipeline", () => {
             applicationId: "app-1",
             actAs: ["Alice"],
             command: new CreateCommand({
-                templateId: "Main:Iou",
-                payload: {
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({
                     issuer: "Alice",
                     owner: "Bob",
-                },
+                }),
             }),
         });
 
-        expect(request.command.templateId).toBe("Main:Iou");
+        expect(request.command.templateId).toEqual({ packageId: "", moduleName: "Main", entityName: "Iou" });
         await pipeline.submitAsync(request);
 
         expect(signAsync).not.toHaveBeenCalled();
@@ -136,11 +137,11 @@ describe("CommandSubmissionPipeline", () => {
             actAs: ["Alice"],
             readAs: ["Bob"],
             command: new CreateCommand({
-                templateId: "Main:Iou",
-                payload: {
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({
                     issuer: "Alice",
                     owner: "Bob",
-                },
+                }),
             }),
         });
 

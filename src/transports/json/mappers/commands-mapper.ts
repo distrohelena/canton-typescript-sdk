@@ -4,6 +4,7 @@ import { CreateAndExerciseCommand } from "../../../core/types/commands/create-an
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
 import { DamlNumeric } from "../../../core/types/daml-numeric.js";
 import { DamlParty } from "../../../core/types/daml-party.js";
+import { DamlRecord } from "../../../core/types/daml-values.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
@@ -53,35 +54,35 @@ function mapJsonCommand(command: LedgerCommand): unknown {
     if (command instanceof CreateCommand) {
         return {
             CreateCommand: {
-                templateId: command.templateId,
-                createArguments: mapJsonValue(command.payload),
+                templateId: formatTemplateId(command.templateId),
+                createArguments: mapJsonValue(command.createArguments.fields),
             },
         };
     } else if (command instanceof ExerciseCommand) {
         return {
             ExerciseCommand: {
-                templateId: command.templateId,
+                templateId: formatTemplateId(command.templateId),
                 contractId: command.contractId,
                 choice: command.choice,
-                choiceArgument: mapJsonValue(command.argument),
+                choiceArgument: mapJsonValue(command.choiceArgument),
             },
         };
     } else if (command instanceof ExerciseByKeyCommand) {
         return {
             ExerciseByKeyCommand: {
-                templateId: command.templateId,
+                templateId: formatTemplateId(command.templateId),
                 contractKey: mapJsonValue(command.contractKey),
                 choice: command.choice,
-                choiceArgument: mapJsonValue(command.argument),
+                choiceArgument: mapJsonValue(command.choiceArgument),
             },
         };
     } else if (command instanceof CreateAndExerciseCommand) {
         return {
             CreateAndExerciseCommand: {
-                templateId: command.templateId,
-                createArguments: mapJsonValue(command.payload),
+                templateId: formatTemplateId(command.templateId),
+                createArguments: mapJsonValue(command.createArguments.fields),
                 choice: command.choice,
-                choiceArgument: mapJsonValue(command.argument),
+                choiceArgument: mapJsonValue(command.choiceArgument),
             },
         };
     }
@@ -92,6 +93,8 @@ function mapJsonCommand(command: LedgerCommand): unknown {
 function mapJsonValue(value: unknown): unknown {
     if (value instanceof DamlParty || value instanceof DamlNumeric) {
         return value.value;
+    } else if (value instanceof DamlRecord) {
+        return mapJsonValue(value.fields);
     } else if (Array.isArray(value)) {
         return value.map(mapJsonValue);
     } else if (value !== null && typeof value === "object") {
@@ -101,4 +104,14 @@ function mapJsonValue(value: unknown): unknown {
     }
 
     return value;
+}
+
+function formatTemplateId(templateId: {
+    packageId: string;
+    moduleName: string;
+    entityName: string;
+}): string {
+    return templateId.packageId.length === 0
+        ? `${templateId.moduleName}:${templateId.entityName}`
+        : `${templateId.packageId}:${templateId.moduleName}:${templateId.entityName}`;
 }

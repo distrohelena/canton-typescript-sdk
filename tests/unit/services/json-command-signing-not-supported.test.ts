@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     NotSupportedError,
     SubmitCommandRequest,
 } from "../../../src";
@@ -52,8 +53,8 @@ describe("JSON command signing", () => {
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     command: new CreateCommand({
-                        templateId: "Main:Iou",
-                        payload: { issuer: "Alice" },
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
                     }),
                 }),
             ),

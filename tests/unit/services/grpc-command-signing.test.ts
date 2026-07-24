@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     ExerciseCommand,
     NotSupportedError,
     SubmitCommandRequest,
@@ -17,10 +18,12 @@ describe("CommandServiceClient grpc signing", () => {
             preparedTransactionHash: new Uint8Array([9, 9, 9]),
             hashingSchemeVersion: 3,
         }));
+
         const executeSubmissionAndWaitAsync = vi.fn(async () => ({
             updateId: "tx-1",
             completionOffset: "10",
         }));
+
         const submitCommandAsync = vi.fn(async () => ({
             commandId: "cmd-1",
             transactionId: "tx-1",
@@ -71,8 +74,8 @@ describe("CommandServiceClient grpc signing", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: { issuer: "Alice" },
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({ issuer: "Alice" }),
                 }),
             }),
         );
@@ -121,8 +124,8 @@ describe("CommandServiceClient grpc signing", () => {
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     command: new CreateCommand({
-                        templateId: "Main:Iou",
-                        payload: { issuer: "Alice" },
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
                     }),
                 }),
             ),
@@ -181,10 +184,10 @@ describe("CommandServiceClient grpc signing", () => {
                     applicationId: "app-1",
                     actAs: ["Alice", "Bob"],
                     command: new ExerciseCommand({
-                        templateId: "Main:Iou",
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         contractId: "00abc",
                         choice: "Archive",
-                        argument: {},
+                        choiceArgument: {},
                     }),
                 }),
             ),

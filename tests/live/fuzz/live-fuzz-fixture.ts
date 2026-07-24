@@ -4,6 +4,7 @@ import {
     AllocatePartyRequest,
     CantonClient,
     CreateCommand,
+    DamlRecord,
     ExerciseCommand,
     GetActiveContractsPageRequest,
     GetPartiesRequest,
@@ -31,6 +32,8 @@ import { LiveFuzzConfig } from "./live-fuzz-config.js";
 import { LiveFuzzCommand } from "./live-fuzz-commands.js";
 
 export const LIVE_IOU_TEMPLATE_ID = "Main:Iou";
+
+const LIVE_IOU_COMMAND_TEMPLATE_ID = { packageId: "", moduleName: "Main", entityName: "Iou" };
 
 const MAX_NUMERIC_INTEGER_DIGITS = 5;
 
@@ -150,14 +153,14 @@ export function buildCreateRequest(init: {
         applicationId: "sdk-live-fuzz",
         actAs: [init.issuerParty],
         command: new CreateCommand({
-            templateId: LIVE_IOU_TEMPLATE_ID,
-            payload: {
+            templateId: LIVE_IOU_COMMAND_TEMPLATE_ID,
+            createArguments: new DamlRecord({
                 issuer: init.issuerParty,
                 owner: init.ownerParty,
             amount: Number(
                 createRunAmount(init.runId, init.amountSuffix, init.campaignNonce),
             ),
-            },
+            }),
         }),
     });
 }
@@ -170,10 +173,10 @@ export function buildArchiveRequest(init: {
         applicationId: "sdk-live-fuzz",
         actAs: [init.issuerParty],
         command: new ExerciseCommand({
-            templateId: LIVE_IOU_TEMPLATE_ID,
+            templateId: LIVE_IOU_COMMAND_TEMPLATE_ID,
             contractId: init.contractId,
             choice: "Archive",
-            argument: {},
+            choiceArgument: {},
         }),
     });
 }

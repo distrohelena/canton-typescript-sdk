@@ -91,10 +91,10 @@ describe("json transport entrypoint", () => {
                     actAs: ["Alice"],
                     readAs: ["Bob"],
                     command: new ExerciseCommand({
-                        templateId: "Main:Iou",
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         contractId: "00abc",
                         choice: "Archive",
-                        argument: {},
+                        choiceArgument: {},
                     }),
                 }),
             ),

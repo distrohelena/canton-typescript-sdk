@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlRecord,
     DamlContractId,
     DamlNumeric,
     DamlParty,
@@ -20,11 +21,11 @@ describe("grpc command mapper", () => {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
                         issuer: "Alice",
                         amount: 10,
-                    },
+                    }),
                 }),
             }),
         );
@@ -59,12 +60,12 @@ describe("grpc command mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
                         issuer: new DamlParty("Alice"),
                         amount: new DamlNumeric("10.50"),
                         referenced: new DamlContractId("00abc"),
-                    },
+                    }),
                 }),
             }),
         );
@@ -92,10 +93,10 @@ describe("grpc command mapper", () => {
                 userId: "wallet-user",
                 actAs: ["Alice"],
                 command: new ExerciseCommand({
-                    templateId: "Main:Vault",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractId: "00abc",
                     choice: "Deposit",
-                    argument: {
+                    choiceArgument: {
                         amount: "10.0",
                     },
                 }),
@@ -125,13 +126,13 @@ describe("grpc command mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new ExerciseByKeyCommand({
-                    templateId: "Main:Vault",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractKey: {
                         owner: "Alice",
                         id: "vault-1",
                     },
                     choice: "Redeem",
-                    argument: {
+                    choiceArgument: {
                         amount: "5.0",
                     },
                 }),
@@ -159,12 +160,12 @@ describe("grpc command mapper", () => {
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 command: new CreateAndExerciseCommand({
-                    templateId: "Main:VaultFactory",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "VaultFactory" },
+                    createArguments: new DamlRecord({
                         owner: "Alice",
-                    },
+                    }),
                     choice: "CreateVault",
-                    argument: {
+                    choiceArgument: {
                         currency: "USD",
                     },
                 }),

@@ -29,6 +29,7 @@ import {
     CantonClientOptions,
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlRecord,
     ExerciseByKeyCommand,
     ExerciseCommand,
     GetPackageContentsRequest,
@@ -49,6 +50,7 @@ import {
     ListVettedPackagesRequest,
     ParticipantListPackagesRequest,
     SubmitCommandRequest,
+    TemplateId,
     TransportKind,
     UploadDarFileRequest,
     UserRightKind,
@@ -1355,13 +1357,13 @@ Request fields:
 Supported command types:
 
 - `CreateCommand`
-  Fields: `templateId: string`, `payload: Record<string, unknown>`
+  Fields: `templateId: TemplateId`, `createArguments: DamlRecord`
 - `ExerciseCommand`
-  Fields: `templateId: string`, `contractId: string`, `choice: string`, `argument: unknown`
+  Fields: `templateId: TemplateId`, `contractId: string`, `choice: string`, `choiceArgument: unknown`
 - `ExerciseByKeyCommand`
-  Fields: `templateId: string`, `contractKey: unknown`, `choice: string`, `argument: unknown`
+  Fields: `templateId: TemplateId`, `contractKey: unknown`, `choice: string`, `choiceArgument: unknown`
 - `CreateAndExerciseCommand`
-  Fields: `templateId: string`, `payload: Record<string, unknown>`, `choice: string`, `argument: unknown`
+  Fields: `templateId: TemplateId`, `createArguments: DamlRecord`, `choice: string`, `choiceArgument: unknown`
 
 Return type:
 
@@ -1392,11 +1394,11 @@ const response = await client.commandService.submitAndWaitAsync(
         actAs: ["Alice"],
         readAs: ["Bob"],
         command: new CreateCommand({
-            templateId: "Main:Iou",
-            payload: {
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+            createArguments: new DamlRecord({
                 issuer: "Alice",
                 owner: "Bob",
-            },
+            }),
         }),
     }),
 );
@@ -1406,10 +1408,10 @@ await client.commandService.submitAndWaitAsync(
         applicationId: "app-1",
         actAs: ["Alice"],
         command: new ExerciseCommand({
-            templateId: "Main:Iou",
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
             contractId: "00abc",
             choice: "Archive",
-            argument: {},
+            choiceArgument: {},
         }),
     }),
 );

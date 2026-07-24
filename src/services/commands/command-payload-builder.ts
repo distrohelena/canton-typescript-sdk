@@ -23,7 +23,7 @@ function mapCanonicalCommand(command: LedgerCommand): unknown {
         return {
             kind: "create",
             templateId: command.templateId,
-            payload: command.payload,
+            createArguments: command.createArguments.fields,
         };
     } else if (command instanceof ExerciseCommand) {
         return {
@@ -31,7 +31,7 @@ function mapCanonicalCommand(command: LedgerCommand): unknown {
             templateId: command.templateId,
             contractId: command.contractId,
             choice: command.choice,
-            argument: command.argument,
+            choiceArgument: command.choiceArgument,
         };
     } else if (command instanceof ExerciseByKeyCommand) {
         return {
@@ -39,15 +39,15 @@ function mapCanonicalCommand(command: LedgerCommand): unknown {
             templateId: command.templateId,
             contractKey: command.contractKey,
             choice: command.choice,
-            argument: command.argument,
+            choiceArgument: command.choiceArgument,
         };
     } else if (command instanceof CreateAndExerciseCommand) {
         return {
             kind: "createAndExercise",
             templateId: command.templateId,
-            payload: command.payload,
+            createArguments: command.createArguments.fields,
             choice: command.choice,
-            argument: command.argument,
+            choiceArgument: command.choiceArgument,
         };
     }
 

@@ -293,11 +293,13 @@ describe("live fuzz configuration", () => {
         expect(first.actAs).toEqual(["issuer::abc"]);
         expect(first.readAs).toEqual([]);
         expect(first.command).toMatchObject({
-            templateId: LIVE_IOU_TEMPLATE_ID,
-            payload: {
-                issuer: "issuer::abc",
-                owner: "owner::def",
-                amount: Number(createRunAmount("replay-run", 42)),
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+            createArguments: {
+                fields: {
+                    issuer: "issuer::abc",
+                    owner: "owner::def",
+                    amount: Number(createRunAmount("replay-run", 42)),
+                },
             },
         });
         expect(buildCreateRequest({
@@ -312,7 +314,7 @@ describe("live fuzz configuration", () => {
             ownerParty: "owner::def",
             amountSuffix: 42,
             campaignNonce: 1n,
-        }).command.payload.amount).not.toBe(first.command.payload.amount);
+        }).command.createArguments.fields.amount).not.toBe(first.command.createArguments.fields.amount);
     });
 
     it("builds issuer-routed Archive requests and bounded amount values", () => {
@@ -323,10 +325,10 @@ describe("live fuzz configuration", () => {
 
         expect(request.actAs).toEqual(["issuer::abc"]);
         expect(request.command).toMatchObject({
-            templateId: LIVE_IOU_TEMPLATE_ID,
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
             contractId: "contract-1",
             choice: "Archive",
-            argument: {},
+            choiceArgument: {},
         });
 
         expect(fc.sample(createAmountArbitrary(), 1)[0]).toBeTypeOf("number");

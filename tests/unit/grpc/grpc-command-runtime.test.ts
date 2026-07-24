@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     ExerciseCommand,
     SignCommandResult,
     GetActiveContractsPageRequest,
@@ -78,10 +79,10 @@ describe("GrpcTransport live ledger shapes", () => {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new ExerciseCommand({
-                    templateId: "Main:Iou",
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     contractId: "00abc",
                     choice: "Archive",
-                    argument: {},
+                choiceArgument: {},
                 }),
             }),
         );
@@ -189,8 +190,8 @@ describe("GrpcTransport live ledger shapes", () => {
                 userId: "wallet-user",
                 actAs: ["Alice"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: { issuer: "Alice" },
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({ issuer: "Alice" }),
                 }),
             }),
             {
@@ -227,11 +228,18 @@ describe("GrpcTransport live ledger shapes", () => {
 
     it("exposes prepared transactions for detached multi-party signing", async () => {
         let execute: unknown;
+
         const transport = new GrpcTransport(createFakeGrpcOperations({
             prepareSubmissionAsync: async () => ({ preparedTransaction: {}, preparedTransactionHash: new Uint8Array([7, 8]), hashingSchemeVersion: 3 }),
-            executeSubmissionAndWaitAsync: async request => { execute = request; return { updateId: "tx-detached", completionOffset: "1" }; },
+            executeSubmissionAndWaitAsync: async request => {
+                execute = request;
+
+                return { updateId: "tx-detached", completionOffset: "1" };
+            },
         }));
-        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", command: new CreateCommand({ templateId: "Main:Iou", payload: {} }) }));
+
+        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }));
+
         expect(prepared.transactionHash).toEqual(new Uint8Array([7, 8]));
         await transport.executePreparedCommandAndWaitAsync(prepared, {
             Alice: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
@@ -244,6 +252,7 @@ describe("GrpcTransport live ledger shapes", () => {
         const transport = new GrpcTransport(createFakeGrpcOperations({
             submitCommandForTransactionAsync: async () => ({ transaction: { updateId: "tx-events", events: [{ created: { contractId: "cid" } }] } }),
         }));
-        await expect(transport.submitCommandForTransactionAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice"], command: new CreateCommand({ templateId: "Main:Iou", payload: {} }) }))).resolves.toMatchObject({ transactionId: "tx-events", events: [{ created: { contractId: "cid" } }] });
+
+        await expect(transport.submitCommandForTransactionAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice"], command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }))).resolves.toMatchObject({ transactionId: "tx-events", events: [{ created: { contractId: "cid" } }] });
     });
 });

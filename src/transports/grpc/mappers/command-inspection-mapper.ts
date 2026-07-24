@@ -5,6 +5,7 @@ import { CommandStatus } from "../../../core/types/command-status.js";
 import { CommandTiming } from "../../../core/types/command-timing.js";
 import { CommandUpdateSummary } from "../../../core/types/command-update-summary.js";
 import { SdkCommand } from "../../../core/types/sdk-command.js";
+import { DamlRecord } from "../../../core/types/daml-values.js";
 import { GetCommandStatusRequest } from "../../../core/types/requests/get-command-status-request.js";
 import { GetCommandStatusResponse } from "../../../core/types/responses/get-command-status-response.js";
 import {
@@ -211,18 +212,12 @@ function mapGrpcIdentifier(value?: {
     packageId: string;
     moduleName: string;
     entityName: string;
-}): string | undefined {
+}): import("../../../query/model-types.js").TemplateId | undefined {
     if (value === undefined) {
         return undefined;
     }
 
-    else if (value.packageId) {
-        return `${value.packageId}:${value.moduleName}:${value.entityName}`;
-    }
-
-    else {
-        return `${value.moduleName}:${value.entityName}`;
-    }
+    return value;
 }
 
 function mapGrpcRecord(value?: {
@@ -230,17 +225,17 @@ function mapGrpcRecord(value?: {
         label: string;
         value?: Value;
     }>;
-}): Record<string, unknown> | undefined {
+}): DamlRecord | undefined {
     if (value === undefined) {
         return undefined;
     }
 
-    return Object.fromEntries(
+    return new DamlRecord(Object.fromEntries(
         value.fields.map((field, index) => [
             field.label || index.toString(),
             mapGrpcValue(field.value),
         ]),
-    );
+    ));
 }
 
 function mapGrpcValue(value?: Value): unknown {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
@@ -20,10 +21,10 @@ describe("grpc interactive command mapper", () => {
                 actAs: ["Alice"],
                 readAs: ["Bob"],
                 command: new CreateCommand({
-                    templateId: "Main:Iou",
-                    payload: {
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
                         issuer: "Alice",
-                    },
+                    }),
                 }),
             }),
             "command-1",
@@ -50,10 +51,10 @@ describe("grpc interactive command mapper", () => {
             userId: "wallet-user",
             actAs: ["Alice"],
             command: new CreateCommand({
-                templateId: "Main:Iou",
-                payload: {
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({
                     issuer: "Alice",
-                },
+                }),
             }),
         });
 
@@ -62,11 +63,14 @@ describe("grpc interactive command mapper", () => {
             preparedTransaction: {},
             hashingSchemeVersion: HashingSchemeVersion.V3,
             submissionId: "submission-1",
-            signerResult: new SignCommandResult({
-                algorithm: "ed25519",
-                signature: new Uint8Array([1, 2, 3]),
-                signedBy: "fingerprint::1",
-            }),
+            signerResults: [{
+                party: "Alice",
+                result: new SignCommandResult({
+                    algorithm: "ed25519",
+                    signature: new Uint8Array([1, 2, 3]),
+                    signedBy: "fingerprint::1",
+                }),
+            }],
         });
 
         expect(payload).toMatchObject({

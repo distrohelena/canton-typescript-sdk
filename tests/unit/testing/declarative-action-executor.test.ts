@@ -42,8 +42,8 @@ describe("declarative action executor", () => {
         });
         expect(request.command).toBeInstanceOf(CreateCommand);
         expect(request.command).toMatchObject({
-            templateId: "pkg:Main:Iou",
-            payload: { amount: 42n },
+            templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
+            createArguments: { fields: { amount: 42n } },
         });
     });
 
@@ -78,10 +78,10 @@ describe("declarative action executor", () => {
 
         expect(request.command).toBeInstanceOf(ExerciseCommand);
         expect(request.command).toMatchObject({
-            templateId: "pkg:Main:Iou",
+            templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
             contractId: "#contract-1",
             choice: "ChangeAmount",
-            argument: 7n,
+            choiceArgument: 7n,
         });
     });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     SignCommandRequest,
     SignCommandResult,
     SubmitCommandRequest,
@@ -14,8 +15,8 @@ describe("interactive command signing contracts", () => {
             userId: "wallet-user",
             actAs: ["Alice"],
             command: new CreateCommand({
-                templateId: "Main:Iou",
-                payload: {},
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
             }),
         });
 

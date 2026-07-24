@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CreateCommand,
+    DamlRecord,
     ExerciseCommand,
     SignCommandResult,
     SubmitCommandRequest,
@@ -53,8 +54,8 @@ describe("grpc command submission contract", () => {
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     command: new CreateCommand({
-                        templateId: "Main:Iou",
-                        payload: { issuer: "Alice" },
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
                     }),
                 }),
             ),
@@ -109,8 +110,8 @@ describe("grpc command submission contract", () => {
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     command: new CreateCommand({
-                        templateId: "Main:Iou",
-                        payload: { issuer: "Alice" },
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
                     }),
                 }),
             ),
