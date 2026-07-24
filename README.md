@@ -338,6 +338,37 @@ try {
 Application-specific `google.protobuf.Any` values in `error.status.details`
 remain opaque (`typeUrl` and bytes) unless the application knows that type.
 
+### External party lifecycle
+
+For an externally controlled party, provide the public key and a callback that
+delegates signing to your HSM, KMS, wallet, or other key service. The SDK
+generates the Canton topology, requests signatures for each topology
+transaction and its multihash, then allocates the party. It never receives a
+private key.
+
+```ts
+const party = await client.partyManagementService.createExternalPartyAsync(
+    new CreateExternalPartyRequest({
+        synchronizer: "sync::sandbox",
+        partyHint: "alice",
+        publicKey: new ExternalPartySigningPublicKey({
+            format: ExternalPartyCryptoKeyFormat.raw,
+            keyData: ed25519PublicKeyBytes,
+            keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+        }),
+        sign: async ({ payload }) => ({
+            signature: await keyService.sign(payload),
+            format: ExternalPartySignatureFormat.raw,
+            signingAlgorithmSpec: ExternalPartySigningAlgorithmSpec.ed25519,
+        }),
+    }),
+);
+```
+
+Use the same flow for secp256k1 by supplying
+`ExternalPartySigningKeySpec.ecSecp256k1` and the signer’s compatible Canton
+signature format and algorithm.
+
 ## Service Map
 
 - Ledger endpoint:

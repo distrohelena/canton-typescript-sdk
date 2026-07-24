@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
     AllocateExternalPartyRequest,
     AllocateExternalPartyResponse,
+    CreateExternalPartyRequest,
     ExternalPartyOnboardingTransaction,
     ExternalPartySignature,
     ExternalPartySignatureFormat,
@@ -20,7 +21,6 @@ import {
     PartyDetails,
     RequestOptions,
 } from "../../../src";
-import { CreateExternalPartyRequest } from "../../../src/core/types/requests/create-external-party-request.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 
 describe("PartyManagementServiceClient", () => {
@@ -199,6 +199,7 @@ describe("PartyManagementServiceClient", () => {
 
     it("validates and preserves an external party lifecycle request", () => {
         const sign = vi.fn();
+
         const request = new CreateExternalPartyRequest({
             synchronizer: "sync::sandbox",
             partyHint: "alice",
@@ -228,10 +229,13 @@ describe("PartyManagementServiceClient", () => {
             ],
             multiHash: new Uint8Array([7, 8, 9]),
         });
+
         const generateExternalPartyTopologyAsync = vi.fn(async () => generated);
+
         const allocateExternalPartyAsync = vi.fn(
             async () => new AllocateExternalPartyResponse({ partyId: generated.partyId }),
         );
+
         const transport = {
             features: { supportsCommandSigning: false },
             getLedgerApiVersionAsync: async () => {
@@ -270,12 +274,15 @@ describe("PartyManagementServiceClient", () => {
                 throw new Error("not used");
             },
         };
+
         const client = new PartyManagementServiceClient(transport);
+
         const sign = vi.fn(async request => ({
             signature: new Uint8Array(request.payload),
             format: ExternalPartySignatureFormat.raw,
             signingAlgorithmSpec: ExternalPartySigningAlgorithmSpec.ed25519,
         }));
+
         const options = new RequestOptions({ timeoutMs: 5_000 });
 
         const result = await client.createExternalPartyAsync(

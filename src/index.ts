@@ -189,6 +189,15 @@ export { ExerciseCommand } from "./core/types/commands/exercise-command.js";
 export type { LedgerCommand } from "./core/types/commands/ledger-command.js";
 export { AddTopologyTransactionsRequest } from "./core/types/requests/add-topology-transactions-request.js";
 export { AllocateExternalPartyRequest } from "./core/types/requests/allocate-external-party-request.js";
+export {
+    CreateExternalPartyRequest,
+} from "./core/types/requests/create-external-party-request.js";
+export type {
+    ExternalPartySigner,
+    ExternalPartySigningRequest,
+    ExternalPartySigningResult,
+    ExternalPartySigningPayloadKind,
+} from "./core/types/requests/create-external-party-request.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
 export { AddPartyAsyncArguments } from "./core/types/requests/add-party-async-request.js";
 export { AddPartyAsyncRequest } from "./core/types/requests/add-party-async-request.js";

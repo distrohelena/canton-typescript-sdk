@@ -127,7 +127,9 @@ describe("PartyManagementServiceClient with JSON transport", () => {
             getAsync: async () => ({}),
             postAsync: async () => ({}),
         });
+
         const client = new PartyManagementServiceClient(transport);
+
         const sign = vi.fn();
 
         await expect(

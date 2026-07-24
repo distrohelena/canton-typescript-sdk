@@ -91,6 +91,7 @@ export class PartyManagementServiceClient {
             }),
             options,
         );
+
         const onboardingTransactions: ExternalPartyOnboardingTransaction[] = [];
 
         for (const transaction of generated.topologyTransactions) {
@@ -109,6 +110,7 @@ export class PartyManagementServiceClient {
                 }),
             );
         }
+
         const multiHashSignature = await this.signExternalPartyPayloadAsync(
             request,
             generated.multiHash,

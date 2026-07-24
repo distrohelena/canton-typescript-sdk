@@ -52,17 +52,11 @@ export class CreateExternalPartyRequest {
     }) {
         if (init.synchronizer === undefined || init.synchronizer.length === 0) {
             throw new ValidationError("external party creation requires a synchronizer");
-        }
-
-        if (init.partyHint === undefined || init.partyHint.length === 0) {
+        } else if (init.partyHint === undefined || init.partyHint.length === 0) {
             throw new ValidationError("external party creation requires a party hint");
-        }
-
-        if (init.publicKey === undefined || init.publicKey.keyData.length === 0) {
+        } else if (init.publicKey === undefined || init.publicKey.keyData.length === 0) {
             throw new ValidationError("external party creation requires public key material");
-        }
-
-        if (init.sign === undefined) {
+        } else if (init.sign === undefined) {
             throw new ValidationError("external party creation requires a signer");
         }
 
