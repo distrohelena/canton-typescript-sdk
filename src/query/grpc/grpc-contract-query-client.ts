@@ -68,7 +68,7 @@ export class GrpcContractQueryClient implements QueryClient {
             args.where?.contractId?.in !== undefined ||
             args.where?.contractId?.is !== undefined ||
             args.where?.contractId?.isNot !== undefined ||
-            args.where?.templateId !== undefined
+            (args.where?.templateId !== undefined && typeof (args.where.templateId as { equals?: unknown }).equals !== "string")
         ) {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
         }
@@ -86,6 +86,9 @@ export class GrpcContractQueryClient implements QueryClient {
                 ? true
                 : row.contractId === args.where.contractId.equals,
         );
+        if (args.where?.payload !== undefined) rows = rows.filter((row) => matchesPayload(row.payload, args.where!.payload!));
+        const legacyTemplate = args.where?.templateId as { equals?: string } | undefined;
+        if (legacyTemplate?.equals !== undefined) rows = rows.filter((row) => `${row.templateId.packageId}:${row.templateId.moduleName}:${row.templateId.entityName}` === legacyTemplate.equals);
 
         return rows;
     }
@@ -148,7 +151,7 @@ export class GrpcContractQueryClient implements QueryClient {
 
 function hasUnsupportedFilter(where: Record<string, unknown> | undefined): boolean {
     if (where === undefined) return false;
-    if ("and" in where || "or" in where || "not" in where || "payload" in where || "createdEventOffset" in where || "createdAt" in where || "archivedEventOffset" in where || "archivedAt" in where) return true;
+    if ("and" in where || "or" in where || "not" in where || "createdEventOffset" in where || "createdAt" in where || "archivedEventOffset" in where || "archivedAt" in where) return true;
     for (const field of ["contractId", "templateId"] as const) {
         const filter = where[field] as Record<string, unknown> | undefined;
         if (filter !== undefined && Object.keys(filter).some((key) => key !== "equals")) return true;
@@ -160,6 +163,7 @@ function mapGrpcContract(value: unknown): ContractRow {
     const row = value as {
         contractId?: string;
         templateId?: { packageId?: string; moduleName?: string; entityName?: string };
+        payload?: unknown;
     };
 
     const template = row.templateId;
@@ -168,7 +172,7 @@ function mapGrpcContract(value: unknown): ContractRow {
         contractId: row.contractId ?? "",
         templateId: { packageId: template?.packageId ?? "", moduleName: template?.moduleName ?? "", entityName: template?.entityName ?? "" },
         packageId: null,
-        payload: undefined,
+        payload: row.payload,
         witnesses: [],
         createdEventOffset: "",
         createdAt: null,
@@ -177,3 +181,16 @@ function mapGrpcContract(value: unknown): ContractRow {
         active: true,
     };
 }
+
+function matchesPayload(value: unknown, filter: Record<string, unknown>): boolean {
+    const match = filter.match as Record<string, unknown> | undefined;
+    if (match === undefined) return false;
+    const visit = (current: unknown, node: Record<string, unknown>): boolean => Object.entries(node).every(([key, child]) => {
+        const next = current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined;
+        const predicate = child as Record<string, unknown>;
+        if (Object.keys(predicate).some((name) => ["equals", "lt", "lte", "gt", "gte", "like", "ilike"].includes(name))) return compare(String(next ?? ""), predicate);
+        return visit(next, predicate);
+    });
+    return visit(value, match);
+}
+function compare(value: string, filter: Record<string, unknown>): boolean { if (filter.equals !== undefined) return value === filter.equals; if (filter.like !== undefined || filter.ilike !== undefined) { const pattern = String(filter.like ?? filter.ilike).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replaceAll("%", ".*").replaceAll("_", "."); return new RegExp(`^${pattern}$`, filter.ilike === undefined ? "" : "i").test(value); } if (filter.lt !== undefined) return value < String(filter.lt); if (filter.lte !== undefined) return value <= String(filter.lte); if (filter.gt !== undefined) return value > String(filter.gt); return value >= String(filter.gte); }

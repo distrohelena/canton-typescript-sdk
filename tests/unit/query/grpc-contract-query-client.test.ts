@@ -27,7 +27,7 @@ describe("gRPC contract query client", () => {
                 where: { templateId: { equals: "pkg:Module:Template" } },
             }),
         ).resolves.toEqual([
-            expect.objectContaining({ contractId: "cid", templateId: "pkg:Module:Template" }),
+            expect.objectContaining({ contractId: "cid", templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" } }),
         ]);
         await client.contracts.count();
 
