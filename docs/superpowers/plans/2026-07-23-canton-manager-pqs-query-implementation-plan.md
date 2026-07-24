@@ -34,6 +34,7 @@
 - Create: `src/query/cache/memory-query-cache.ts`
 - Create: `src/query/errors/query-capability-error.ts`
 - Create: `src/query/errors/pqs-query-error.ts`
+- Create: `src/query/errors/pqs-schema-profile-error.ts`
 - Test: `tests/unit/query/query-public-contracts.test.ts`
 
 - [ ] **Step 1: Write failing public-contract tests**
@@ -206,7 +207,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add package.json package-lock.json src/query/pqs tests/unit/query
+git add package.json package-lock.json src/query/errors/pqs-schema-profile-error.ts src/query/pqs tests/unit/query
 git commit -m "feat: add PQS pool and schema profile"
 ```
 
@@ -346,19 +347,17 @@ before calling its legacy endpoint. `CantonManager` below only accepts a gRPC
 
 Create `EventFormat` with that all-hosted-party wildcard or per-party filters
 when requested. Read all page tokens at one stable snapshot offset; map gRPC
-created events to the supported `ContractRow` fields; cache
+created events to the approved narrow `ContractRow` subset; cache
 the unprojected snapshot with source, endpoint identity, visibility scope, and
 snapshot options in its key. Evaluate only the documented compatible contract
 subset locally and reject unsupported PQS-only features explicitly.
 
-The gRPC contract delegate supports filtering and ordering only by
-`contractId`, package-qualified `templateId`, `packageId`, `createdEventOffset`
-(mapped from `CreatedEvent.offset`), and `createdAt`; it can select those
-fields plus `payload` (mapped from `createArguments`), `witnesses`,
-`signatories`, `observers`, and `contractKey`. `active: true` is implicit.
-Requests that select, filter, or order by `archivedEventOffset`, `archivedAt`,
-or `active: false` reject with `QueryCapabilityError`; those lifecycle values
-exist only in PQS.
+The gRPC contract delegate supports filtering, ordering, and selection only
+for `contractId` and package-qualified `templateId`; `active: true` is
+implicit. Any selection, filter, or order involving `packageId`, `payload`,
+parties, timestamps, offsets, archive fields, `active: false`, contract keys,
+signatories, or observers rejects with `QueryCapabilityError`. Those richer
+fields remain PQS-only in v1.
 
 - [ ] **Step 4: Run the focused tests**
 
