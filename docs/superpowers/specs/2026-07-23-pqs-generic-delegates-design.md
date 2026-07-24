@@ -26,6 +26,30 @@ the escape hatch for database-specific predicates.
 Every other relation delegate, plus unsupported contract operations, rejects
 with `QueryCapabilityError` rather than changing sources.
 
+`contracts` is the only logical row: it joins `__contracts` to
+`__contract_tpe` and creation/archive `__transactions`, exposing contract ID,
+package-qualified template ID, package ID, payload, witnesses, lifecycle
+offsets/timestamps, and derived active state. The remaining delegates expose
+their v1 physical rows with bigint values mapped to strings, JSON to `unknown`,
+arrays to readonly strings, bytea to `Uint8Array`, and timestamp values to
+`Date | null`.
+
+Generic `where` supports profile-declared equality, `in`, null, and array
+membership predicates. `select` narrows the returned row fields; `orderBy`
+accepts exactly one profile-declared sort field; `count` returns a number.
+`aggregate` supports `count` on every relation and `min`/`max`/`sum` only for
+profile-declared numeric fields. Empty numeric aggregates return `null`.
+
+Stable unique keys are: contracts `contractId`; contract types/events/exercise
+types `pk`; packages `pk` and `id`; transactions `ix` and `offset`; watermark
+`singleton`; exercises have no `findUnique` operation.
+
+On gRPC, only `contracts.findMany`, `contracts.findUnique`, and
+`contracts.count` are supported, with `contractId`, package-qualified
+`templateId`, and implicit `active: true`. All aggregate calls, all other
+relations, raw SQL, lifecycle fields, and unsupported filters/selections/orders
+throw `QueryCapabilityError` containing the selected source and operation.
+
 ## Verification
 
 Unit tests cover each relation's generated SQL, field validation, projection,
