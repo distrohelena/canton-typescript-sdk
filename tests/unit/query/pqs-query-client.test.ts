@@ -94,4 +94,13 @@ describe("PQS query client", () => {
         ).rejects.toThrow("unexpected is not a field of __packages");
         expect(query).not.toHaveBeenCalled();
     });
+
+    it("counts physical relation rows with a bound filter", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ count: "2" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.count({ where: { name: { equals: "app" } } })).resolves.toBe(2);
+        expect(query.mock.calls[0][0]).toContain("count(*)");
+        expect(query.mock.calls[0][1]).toEqual(["app"]);
+    });
 });

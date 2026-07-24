@@ -112,6 +112,35 @@ export class PqsQueryClient implements QueryClient {
                     });
                 }
             },
+            count: async (args: {
+                readonly where?: Readonly<Record<string, { readonly equals?: unknown }>>;
+            } = {}): Promise<number> => {
+                const values: unknown[] = [];
+                const conditions = Object.entries(args.where ?? {}).map(([field, filter]) => {
+                    if (!requiredPqsColumns[relation].includes(field)) {
+                        throw new Error(`${field} is not a field of ${relation}`);
+                    }
+
+                    values.push(filter.equals);
+                    return `"${field}" = $${values.length}`;
+                });
+                const where = conditions.length === 0 ? "" : ` where ${conditions.join(" and ")}`;
+
+                try {
+                    const result = await this.executor.query(
+                        `select count(*)::text as count from ${this.profile.relation(relation)}${where}`,
+                        values,
+                    );
+
+                    return Number(result.rows[0]?.count ?? 0);
+                } catch (cause) {
+                    throw new PqsQueryError({
+                        operation: `${relation}.count`,
+                        code: getPqsCode(cause),
+                        cause,
+                    });
+                }
+            },
         };
     }
 
