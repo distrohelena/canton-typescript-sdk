@@ -1,19 +1,22 @@
+import type { DamlRecord } from "./daml-values.js";
+import type { TemplateId } from "../../query/model-types.js";
+
 export class SdkCommand {
     public readonly type: string;
-    public readonly templateId?: string;
+    public readonly templateId?: TemplateId;
     public readonly contractId?: string;
     public readonly contractKey?: unknown;
     public readonly choice?: string;
-    public readonly createArguments?: Record<string, unknown>;
+    public readonly createArguments?: DamlRecord;
     public readonly choiceArgument?: unknown;
 
     public constructor(init: {
         type: string;
-        templateId?: string;
+        templateId?: TemplateId;
         contractId?: string;
         contractKey?: unknown;
         choice?: string;
-        createArguments?: Record<string, unknown>;
+        createArguments?: DamlRecord;
         choiceArgument?: unknown;
     }) {
         this.type = init.type;

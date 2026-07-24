@@ -1,18 +1,19 @@
 import { ValidationError } from "../../errors/validation-error.js";
+import type { TemplateId } from "../../../query/model-types.js";
 
 export class ExerciseByKeyCommand {
-    public readonly templateId: string;
+    public readonly templateId: TemplateId;
     public readonly contractKey: unknown;
     public readonly choice: string;
-    public readonly argument: unknown;
+    public readonly choiceArgument: unknown;
 
     public constructor(init: {
-        templateId: string;
+        templateId: TemplateId;
         contractKey: unknown;
         choice: string;
-        argument: unknown;
+        choiceArgument: unknown;
     }) {
-        if (!init.templateId) {
+        if (!init.templateId?.moduleName || !init.templateId.entityName) {
             throw new ValidationError(
                 "exercise-by-key commands require a templateId",
             );
@@ -29,6 +30,6 @@ export class ExerciseByKeyCommand {
         this.templateId = init.templateId;
         this.contractKey = init.contractKey;
         this.choice = init.choice;
-        this.argument = init.argument;
+        this.choiceArgument = init.choiceArgument;
     }
 }

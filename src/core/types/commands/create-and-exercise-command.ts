@@ -1,20 +1,26 @@
 import { ValidationError } from "../../errors/validation-error.js";
+import { DamlRecord } from "../daml-values.js";
+import type { TemplateId } from "../../../query/model-types.js";
 
 export class CreateAndExerciseCommand {
-    public readonly templateId: string;
-    public readonly payload: Record<string, unknown>;
+    public readonly templateId: TemplateId;
+    public readonly createArguments: DamlRecord;
     public readonly choice: string;
-    public readonly argument: unknown;
+    public readonly choiceArgument: unknown;
 
     public constructor(init: {
-        templateId: string;
-        payload: Record<string, unknown>;
+        templateId: TemplateId;
+        createArguments: DamlRecord;
         choice: string;
-        argument: unknown;
+        choiceArgument: unknown;
     }) {
-        if (!init.templateId) {
+        if (!init.templateId?.moduleName || !init.templateId.entityName) {
             throw new ValidationError(
                 "create-and-exercise commands require a templateId",
+            );
+        } else if (!(init.createArguments instanceof DamlRecord)) {
+            throw new ValidationError(
+                "create-and-exercise commands require DamlRecord createArguments",
             );
         } else if (!init.choice) {
             throw new ValidationError(
@@ -23,8 +29,8 @@ export class CreateAndExerciseCommand {
         }
 
         this.templateId = init.templateId;
-        this.payload = init.payload;
+        this.createArguments = init.createArguments;
         this.choice = init.choice;
-        this.argument = init.argument;
+        this.choiceArgument = init.choiceArgument;
     }
 }

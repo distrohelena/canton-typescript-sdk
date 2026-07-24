@@ -1,18 +1,19 @@
 import { ValidationError } from "../../errors/validation-error.js";
+import type { TemplateId } from "../../../query/model-types.js";
 
 export class ExerciseCommand {
-    public readonly templateId: string;
+    public readonly templateId: TemplateId;
     public readonly contractId: string;
     public readonly choice: string;
-    public readonly argument: unknown;
+    public readonly choiceArgument: unknown;
 
     public constructor(init: {
-        templateId: string;
+        templateId: TemplateId;
         contractId: string;
         choice: string;
-        argument: unknown;
+        choiceArgument: unknown;
     }) {
-        if (!init.templateId) {
+        if (!init.templateId?.moduleName || !init.templateId.entityName) {
             throw new ValidationError(
                 "exercise commands require a templateId",
             );
@@ -29,6 +30,6 @@ export class ExerciseCommand {
         this.templateId = init.templateId;
         this.contractId = init.contractId;
         this.choice = init.choice;
-        this.argument = init.argument;
+        this.choiceArgument = init.choiceArgument;
     }
 }

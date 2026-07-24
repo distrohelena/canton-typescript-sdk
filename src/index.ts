@@ -16,6 +16,7 @@ export type {
     ContractFindUniqueArgs,
     ContractCountArgs,
     ContractRow,
+    TemplateId,
     ContractTypeRow,
     EventRow,
     ExerciseRow,
