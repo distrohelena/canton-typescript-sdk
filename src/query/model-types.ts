@@ -7,15 +7,35 @@ export interface ScalarFilter<T> {
     readonly isNot?: null;
 }
 
+export interface OrderedFilter<T> extends ScalarFilter<T> {
+    readonly lt?: T;
+    readonly lte?: T;
+    readonly gt?: T;
+    readonly gte?: T;
+}
+
+export interface StringFilter extends OrderedFilter<string> {
+    readonly like?: string;
+    readonly ilike?: string;
+}
+
 export interface ArrayMembershipFilter {
     readonly has: string;
 }
 
-export type RowWhere<TRow> = Partial<{
+export type WhereExpression<TFields> = TFields & {
+    readonly and?: readonly WhereExpression<TFields>[];
+    readonly or?: readonly WhereExpression<TFields>[];
+    readonly not?: WhereExpression<TFields>;
+};
+
+export type RowWhere<TRow, TOrdered extends keyof TRow = never, TPattern extends keyof TRow = never> = WhereExpression<Partial<{
     readonly [TField in keyof TRow]: TRow[TField] extends readonly string[]
         ? ScalarFilter<TRow[TField]> | ArrayMembershipFilter
+        : TField extends TPattern ? StringFilter
+        : TField extends TOrdered ? OrderedFilter<TRow[TField]>
         : ScalarFilter<TRow[TField]>;
-}>;
+}>>;
 
 export type RowSelect<TRow> = Partial<Record<keyof TRow, boolean>>;
 
@@ -28,7 +48,7 @@ export interface QueryPageArgs {
 
 export interface ContractRow {
     readonly contractId: string;
-    readonly templateId: string;
+    readonly templateId: TemplateId;
     readonly packageId: string | null;
     readonly payload: unknown;
     readonly witnesses: readonly string[];
@@ -39,13 +59,37 @@ export interface ContractRow {
     readonly active: boolean;
 }
 
-export interface ContractWhere {
-    readonly contractId?: ScalarFilter<string>;
-    readonly templateId?: ScalarFilter<string>;
-    readonly packageId?: ScalarFilter<string>;
-    readonly active?: boolean;
-    readonly witnesses?: { readonly has: string };
+export interface TemplateId {
+    readonly packageId: string;
+    readonly moduleName: string;
+    readonly entityName: string;
 }
+
+type PayloadValueFilter =
+    | { readonly equals: string; readonly lt?: never; readonly lte?: never; readonly gt?: never; readonly gte?: never; readonly like?: never; readonly ilike?: never }
+    | { readonly lt: string; readonly equals?: never; readonly lte?: never; readonly gt?: never; readonly gte?: never; readonly like?: never; readonly ilike?: never }
+    | { readonly lte: string; readonly equals?: never; readonly lt?: never; readonly gt?: never; readonly gte?: never; readonly like?: never; readonly ilike?: never }
+    | { readonly gt: string; readonly equals?: never; readonly lt?: never; readonly lte?: never; readonly gte?: never; readonly like?: never; readonly ilike?: never }
+    | { readonly gte: string; readonly equals?: never; readonly lt?: never; readonly lte?: never; readonly gt?: never; readonly like?: never; readonly ilike?: never }
+    | { readonly like: string; readonly equals?: never; readonly lt?: never; readonly lte?: never; readonly gt?: never; readonly gte?: never; readonly ilike?: never }
+    | { readonly ilike: string; readonly equals?: never; readonly lt?: never; readonly lte?: never; readonly gt?: never; readonly gte?: never; readonly like?: never };
+
+export type ContractPayloadFilter = { readonly path: string } & PayloadValueFilter;
+
+type ContractWhereFields = {
+    readonly contractId?: StringFilter;
+    readonly templateId?: Partial<{ readonly packageId: StringFilter; readonly moduleName: StringFilter; readonly entityName: StringFilter }>;
+    readonly packageId?: StringFilter;
+    readonly createdEventOffset?: OrderedFilter<string>;
+    readonly createdAt?: OrderedFilter<Date | null>;
+    readonly archivedEventOffset?: OrderedFilter<string | null>;
+    readonly archivedAt?: OrderedFilter<Date | null>;
+    readonly active?: boolean | ScalarFilter<boolean>;
+    readonly witnesses?: { readonly has: string };
+    readonly payload?: ContractPayloadFilter;
+};
+
+export type ContractWhere = WhereExpression<ContractWhereFields>;
 
 export type ContractOrderField =
     | "contractId"
@@ -145,30 +189,30 @@ export interface WatermarkRow {
     readonly instanceId: string | null;
 }
 
-export type ContractTypeWhere = RowWhere<ContractTypeRow>;
+export type ContractTypeWhere = RowWhere<ContractTypeRow, "pk", "payloadType" | "packageName" | "moduleName" | "entityName" | "templateFqn">;
 export type ContractTypeSelect = RowSelect<ContractTypeRow>;
 export type ContractTypeOrderBy = RowOrderBy<ContractTypeRow>;
 export type ContractTypeUnique = { readonly pk: string };
-export type EventWhere = RowWhere<EventRow>;
+export type EventWhere = RowWhere<EventRow, "pk" | "txIx", "eventId" | "type">;
 export type EventSelect = RowSelect<EventRow>;
 export type EventOrderBy = RowOrderBy<EventRow>;
 export type EventUnique = { readonly pk: string };
-export type ExerciseWhere = RowWhere<ExerciseRow>;
+export type ExerciseWhere = RowWhere<ExerciseRow, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId", "contractId" | "redactionId">;
 export type ExerciseSelect = RowSelect<ExerciseRow>;
 export type ExerciseOrderBy = RowOrderBy<ExerciseRow>;
-export type ExerciseTypeWhere = RowWhere<ExerciseTypeRow>;
+export type ExerciseTypeWhere = RowWhere<ExerciseTypeRow, "pk", "choice" | "packageName" | "moduleName" | "entityName" | "templateFqn" | "choiceFqn">;
 export type ExerciseTypeSelect = RowSelect<ExerciseTypeRow>;
 export type ExerciseTypeOrderBy = RowOrderBy<ExerciseTypeRow>;
 export type ExerciseTypeUnique = { readonly pk: string };
-export type PackageWhere = RowWhere<PackageRow>;
+export type PackageWhere = RowWhere<PackageRow, "pk", "name" | "version" | "id">;
 export type PackageSelect = RowSelect<PackageRow>;
 export type PackageOrderBy = RowOrderBy<PackageRow>;
 export type PackageUnique = { readonly pk: string } | { readonly id: string };
-export type TransactionWhere = RowWhere<TransactionRow>;
+export type TransactionWhere = RowWhere<TransactionRow, "ix" | "offset" | "effectiveAt" | "paidTrafficCost", "transactionId" | "workflowId" | "domainId">;
 export type TransactionSelect = RowSelect<TransactionRow>;
 export type TransactionOrderBy = RowOrderBy<TransactionRow>;
 export type TransactionUnique = { readonly ix: string } | { readonly offset: string };
-export type WatermarkWhere = RowWhere<WatermarkRow>;
+export type WatermarkWhere = RowWhere<WatermarkRow, "ix" | "offset", "instanceId">;
 export type WatermarkSelect = RowSelect<WatermarkRow>;
 export type WatermarkOrderBy = RowOrderBy<WatermarkRow>;
 export type WatermarkUnique = { readonly singleton: boolean };

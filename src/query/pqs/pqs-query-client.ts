@@ -28,10 +28,19 @@ type RuntimeFilter = {
     readonly is?: null;
     readonly isNot?: null;
     readonly has?: string;
+    readonly lt?: unknown;
+    readonly lte?: unknown;
+    readonly gt?: unknown;
+    readonly gte?: unknown;
+    readonly like?: string;
+    readonly ilike?: string;
 };
 
+interface RuntimeWhere {
+    readonly [key: string]: RuntimeFilter | readonly RuntimeWhere[] | RuntimeWhere;
+}
 type RuntimeFindManyArgs = {
-    readonly where?: Readonly<Record<string, RuntimeFilter>>;
+    readonly where?: RuntimeWhere;
     readonly select?: Readonly<Record<string, boolean>>;
     readonly orderBy?: Readonly<Record<string, "asc" | "desc">>;
     readonly take?: number;
@@ -232,37 +241,50 @@ export class PqsQueryClient implements QueryClient {
             return `$${values.length}`;
         };
 
+        const compile = (expression: RuntimeFindManyArgs["where"]): string => {
         const conditions: string[] = [];
-
-        for (const [field, filter] of Object.entries(filters ?? {})) {
+        for (const [field, filter] of Object.entries(expression ?? {})) {
+            if (field === "and" || field === "or") { if (!Array.isArray(filter)) throw new Error(`${field} must be an array`); conditions.push(filter.length ? `(${filter.map((child) => compile(child)).join(` ${field} `)})` : field === "and" ? "true" : "false"); continue; }
+            if (field === "not") { if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error("not must be an expression"); conditions.push(`not (${compile(filter as RuntimeFindManyArgs["where"])})`); continue; }
             const column = this.field(relation, metadata, field);
+            if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error(`${field} must be a filter`);
+            const scalar = filter as RuntimeFilter;
 
-            if (filter.is === null) {
+            if (scalar.is === null) {
                 conditions.push(`"${column}" is null`);
             }
 
-            if (filter.isNot === null) {
+            if (scalar.isNot === null) {
                 conditions.push(`"${column}" is not null`);
             }
 
-            if (filter.equals !== undefined) {
-                conditions.push(`"${column}" = ${add(filter.equals)}`);
+            if (scalar.equals !== undefined) {
+                conditions.push(`"${column}" = ${add(scalar.equals)}`);
             }
 
-            if (filter.in !== undefined) {
-                conditions.push(filter.in.length === 0 ? "false" : `"${column}" = any(${add(filter.in)})`);
+            if (scalar.in !== undefined) {
+                conditions.push(scalar.in.length === 0 ? "false" : `"${column}" = any(${add(scalar.in)})`);
             }
 
-            if (filter.has !== undefined) {
+            if (scalar.has !== undefined) {
                 if (!metadata.arrayFields.includes(field)) {
                     throw new Error(`${field} is not an array field of ${relation}`);
                 }
 
-                conditions.push(`${add(filter.has)} = any("${column}")`);
+                conditions.push(`${add(scalar.has)} = any("${column}")`);
+            }
+            for (const [operator, value] of [["lt", scalar.lt], ["lte", scalar.lte], ["gt", scalar.gt], ["gte", scalar.gte], ["like", scalar.like], ["ilike", scalar.ilike]] as const) {
+                if (value === undefined) continue;
+                if ((operator === "like" || operator === "ilike") && !metadata.stringFields?.includes(field)) throw new Error(`${field} does not support ${operator}`);
+                if ((operator !== "like" && operator !== "ilike") && !metadata.numericFields.includes(field) && !metadata.dateFields.includes(field) && !metadata.stringFields?.includes(field)) throw new Error(`${field} does not support ${operator}`);
+                conditions.push(`"${column}" ${operator === "lte" ? "<=" : operator === "gte" ? ">=" : operator} ${add(value)}`);
             }
         }
+        return conditions.length ? conditions.join(" and ") : "true";
+        };
 
-        return { where: conditions.length === 0 ? "" : ` where ${conditions.join(" and ")}`, values };
+        const where = compile(filters);
+        return { where: where === "true" ? "" : ` where ${where}`, values };
     }
 
     private selectedFields(relation: PqsRelation, metadata: PqsRelationMetadata, select: RuntimeFindManyArgs["select"]): readonly (readonly [string, string])[] {
@@ -412,7 +434,7 @@ function mapPhysicalValue(value: unknown, metadata: PqsRelationMetadata, field: 
 }
 
 function mapContractRow(row: Record<string, unknown>): ContractRow {
-    return { contractId: String(row.contract_id), templateId: String(row.template_id), packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
+    return { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
 }
 
 function nullableString(value: unknown): string | null {

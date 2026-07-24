@@ -34,4 +34,19 @@ describe("PQS SQL compiler", () => {
         expect(compiled.text).toContain("contract_row.witnesses && $1::text[]");
         expect(compiled.values).toEqual([["Alice", "Bob"]]);
     });
+
+    it("compiles nested range, pattern, and payload-path filters with bound values", () => {
+        const compiled = compileContractFindMany({
+            where: { and: [
+                { createdEventOffset: { gte: "100" } },
+                { payload: { path: "owner.city", ilike: "new%" } },
+                { not: { active: { equals: false } } },
+            ] },
+        }, new PqsSchemaProfileV1());
+
+        expect(compiled.text).toContain("contract_row.created_at_ix >= $1");
+        expect(compiled.text).toContain("contract_row.payload #>> $2::text[] ilike $3");
+        expect(compiled.text).toContain("not (contract_row.archived_at_ix is not null)");
+        expect(compiled.values).toEqual(["100", ["owner", "city"], "new%"]);
+    });
 });

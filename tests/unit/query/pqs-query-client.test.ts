@@ -86,6 +86,14 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual(["package-id", 10, 5]);
     });
 
+    it("compiles physical logical, range, and pattern predicates", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+        await client.packages.findMany({ where: { or: [{ name: { ilike: "app%" } }, { pk: { gte: "10" } }], not: { id: { equals: "legacy" } } } });
+        expect(query.mock.calls[0][0]).toContain('(\"name\" ilike $1 or \"pk\" >= $2) and not (\"id\" = $3)');
+        expect(query.mock.calls[0][1]).toEqual(["app%", "10", "legacy"]);
+    });
+
     it("rejects physical fields outside the selected profile relation", async () => {
         const query = vi.fn();
 

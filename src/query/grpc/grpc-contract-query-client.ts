@@ -61,15 +61,14 @@ export class GrpcContractQueryClient implements QueryClient {
         args: ContractFindManyArgs | ContractCountArgs,
     ): Promise<readonly ContractRow[]> {
         if (
+            hasUnsupportedFilter(args.where as Record<string, unknown> | undefined) ||
             args.where?.active === false ||
             args.where?.packageId !== undefined ||
             args.where?.witnesses !== undefined ||
             args.where?.contractId?.in !== undefined ||
             args.where?.contractId?.is !== undefined ||
             args.where?.contractId?.isNot !== undefined ||
-            args.where?.templateId?.in !== undefined ||
-            args.where?.templateId?.is !== undefined ||
-            args.where?.templateId?.isNot !== undefined
+            args.where?.templateId !== undefined
         ) {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
         }
@@ -87,12 +86,6 @@ export class GrpcContractQueryClient implements QueryClient {
                 ? true
                 : row.contractId === args.where.contractId.equals,
         );
-
-        if (args.where?.templateId?.equals !== undefined) {
-            rows = rows.filter(
-                (row) => row.templateId === args.where?.templateId?.equals,
-            );
-        }
 
         return rows;
     }
@@ -153,6 +146,16 @@ export class GrpcContractQueryClient implements QueryClient {
     }
 }
 
+function hasUnsupportedFilter(where: Record<string, unknown> | undefined): boolean {
+    if (where === undefined) return false;
+    if ("and" in where || "or" in where || "not" in where || "payload" in where || "createdEventOffset" in where || "createdAt" in where || "archivedEventOffset" in where || "archivedAt" in where) return true;
+    for (const field of ["contractId", "templateId"] as const) {
+        const filter = where[field] as Record<string, unknown> | undefined;
+        if (filter !== undefined && Object.keys(filter).some((key) => key !== "equals")) return true;
+    }
+    return false;
+}
+
 function mapGrpcContract(value: unknown): ContractRow {
     const row = value as {
         contractId?: string;
@@ -163,7 +166,7 @@ function mapGrpcContract(value: unknown): ContractRow {
 
     return {
         contractId: row.contractId ?? "",
-        templateId: `${template?.packageId ?? ""}:${template?.moduleName ?? ""}:${template?.entityName ?? ""}`,
+        templateId: { packageId: template?.packageId ?? "", moduleName: template?.moduleName ?? "", entityName: template?.entityName ?? "" },
         packageId: null,
         payload: undefined,
         witnesses: [],
