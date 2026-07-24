@@ -104,6 +104,8 @@ function mapExternalSignatureFormatToRawFormat(
     switch (signatureFormat) {
         case TopologySignatureFormat.ed25519:
             return "concat";
+        case TopologySignatureFormat.ecDsaSha256:
+            return "der";
         default:
             return "unspecified";
     }
@@ -115,6 +117,8 @@ function mapExternalSignatureFormatToAlgorithmSpec(
     switch (signatureFormat) {
         case TopologySignatureFormat.ed25519:
             return "ed25519";
+        case TopologySignatureFormat.ecDsaSha256:
+            return "ecDsaSha256";
         default:
             return "unspecified";
     }

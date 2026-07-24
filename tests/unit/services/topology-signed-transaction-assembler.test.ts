@@ -45,6 +45,32 @@ describe("topology signed transaction assembler", () => {
         expect(result[0].proposal).toBe(false);
     });
 
+    it("assembles a DER ECDSA detached signature", () => {
+        const result = assembleSignedTopologyTransactions(
+            new AssembleSignedTopologyTransactionsRequest({
+                preparedTransactions: [
+                    new PreparedTopologyTransaction({
+                        serializedTransaction: new Uint8Array([1, 2]),
+                        transactionHash: new Uint8Array([3, 4]),
+                    }),
+                ],
+                signatures: [
+                    new ExternalTopologySignature({
+                        transactionHash: new Uint8Array([3, 4]),
+                        signature: new Uint8Array([9, 9]),
+                        signedByFingerprint: "fingerprint::1",
+                        signatureFormat: TopologySignatureFormat.ecDsaSha256,
+                    }),
+                ],
+            }),
+        );
+
+        expect(result[0].signatures[0]).toMatchObject({
+            format: "der",
+            signingAlgorithmSpec: "ecDsaSha256",
+        });
+    });
+
     it("throws when a detached signature does not match any prepared transaction", () => {
         expect(() =>
             assembleSignedTopologyTransactions(

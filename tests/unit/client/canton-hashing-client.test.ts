@@ -53,6 +53,17 @@ describe("CantonClient hashing utilities", () => {
             "122073c069682f595c7c21974e4e6381cb413b08a7e7851296abd38f688d3cb8f1c8",
         );
 
+        expect(CantonHashPurpose.decentralizedNamespace).toBe(37);
+
+        expect(
+            client.hashing.computeHashHex(
+                new Uint8Array([1, 2, 3]),
+                37,
+            ),
+        ).toBe(
+            "1220b7104977a6241b9d0a96caed440c4b35d74d8ae58a12a1d964051d99c62f15d5",
+        );
+
         expect(
             client.hashing.computePublicKeyFingerprint(
                 new Uint8Array([1, 2, 3]),
