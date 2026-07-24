@@ -188,6 +188,8 @@ export { ExerciseByKeyCommand } from "./core/types/commands/exercise-by-key-comm
 export { ExerciseCommand } from "./core/types/commands/exercise-command.js";
 export type { LedgerCommand } from "./core/types/commands/ledger-command.js";
 export { AddTopologyTransactionsRequest } from "./core/types/requests/add-topology-transactions-request.js";
+export { CreateDecentralizedPartyRequest } from "./core/types/requests/create-decentralized-party-request.js";
+export type { DecentralizedPartyKey } from "./core/types/requests/create-decentralized-party-request.js";
 export { AllocateExternalPartyRequest } from "./core/types/requests/allocate-external-party-request.js";
 export {
     CreateExternalPartyRequest,

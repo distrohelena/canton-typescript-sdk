@@ -3,6 +3,7 @@ import {
     AllocateExternalPartyRequest,
     AllocateExternalPartyResponse,
     CreateExternalPartyRequest,
+    CreateDecentralizedPartyRequest,
     ExternalPartyOnboardingTransaction,
     ExternalPartySignature,
     ExternalPartySignatureFormat,
@@ -229,6 +230,42 @@ describe("PartyManagementServiceClient", () => {
             }).publicKey.keySpec,
         ).toBe(ExternalPartySigningKeySpec.ecSecp256k1);
         expect(() => new CreateExternalPartyRequest({ sign })).toThrow();
+    });
+
+    it("validates a decentralized party lifecycle request", () => {
+        const owner = {
+            publicKey: new ExternalPartySigningPublicKey({
+                format: ExternalPartyCryptoKeyFormat.raw,
+                keyData: new Uint8Array([1, 2, 3]),
+                keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+            }),
+        };
+
+        const request = new CreateDecentralizedPartyRequest({
+            synchronizer: "sync::sandbox",
+            partyHint: "consortium",
+            owners: [owner, {
+                publicKey: new ExternalPartySigningPublicKey({
+                    format: ExternalPartyCryptoKeyFormat.raw,
+                    keyData: new Uint8Array([4, 5, 6]),
+                    keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                }),
+            }],
+            ownerThreshold: 2,
+            partySigningKeys: [owner],
+            partySigningThreshold: 1,
+        });
+
+        expect(request.ownerThreshold).toBe(2);
+        expect(request.partySigningThreshold).toBe(1);
+        expect(() => new CreateDecentralizedPartyRequest({
+            synchronizer: "sync::sandbox",
+            partyHint: "consortium",
+            owners: [owner],
+            ownerThreshold: 1,
+            partySigningKeys: [owner],
+            partySigningThreshold: 1,
+        })).toThrow(/two unique owner/i);
     });
 
     it("creates an external party with caller-provided signatures", async () => {
