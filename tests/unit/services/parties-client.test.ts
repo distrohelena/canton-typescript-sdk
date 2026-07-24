@@ -4,6 +4,7 @@ import {
     AllocateExternalPartyResponse,
     CreateExternalPartyRequest,
     CreateDecentralizedPartyRequest,
+    PreparedDecentralizedParty,
     ExternalPartyOnboardingTransaction,
     ExternalPartySignature,
     ExternalPartySignatureFormat,
@@ -269,6 +270,18 @@ describe("PartyManagementServiceClient", () => {
             partySigningKeys: [owner],
             partySigningThreshold: 1,
         })).toThrow(/two unique owner/i);
+    });
+
+    it("preserves immutable decentralized-party preparation metadata", () => {
+        const prepared = new PreparedDecentralizedParty({
+            partyId: "consortium::namespace",
+            decentralizedNamespace: "namespace",
+            ownerThreshold: 2,
+            partySigningThreshold: 1,
+        });
+
+        expect(prepared.partyId).toBe("consortium::namespace");
+        expect(prepared.decentralizedNamespace).toBe("namespace");
     });
 
     it("creates an external party with caller-provided signatures", async () => {

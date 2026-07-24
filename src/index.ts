@@ -190,6 +190,8 @@ export type { LedgerCommand } from "./core/types/commands/ledger-command.js";
 export { AddTopologyTransactionsRequest } from "./core/types/requests/add-topology-transactions-request.js";
 export { CreateDecentralizedPartyRequest } from "./core/types/requests/create-decentralized-party-request.js";
 export type { DecentralizedPartyKey, DecentralizedPartySigner, DecentralizedPartySigningRequest } from "./core/types/requests/create-decentralized-party-request.js";
+export { FinalizeDecentralizedPartyRequest, PreparedDecentralizedParty } from "./core/types/requests/finalize-decentralized-party-request.js";
+export type { DecentralizedPartyDetachedSignature, PreparedDecentralizedPartySigningRequest } from "./core/types/requests/finalize-decentralized-party-request.js";
 export { AllocateExternalPartyRequest } from "./core/types/requests/allocate-external-party-request.js";
 export {
     CreateExternalPartyRequest,
