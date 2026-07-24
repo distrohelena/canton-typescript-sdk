@@ -216,6 +216,18 @@ describe("PartyManagementServiceClient", () => {
         expect(request.partyHint).toBe("alice");
         expect(request.sign).toBe(sign);
         expect(request.waitForAllocation).toBe(true);
+        expect(
+            new CreateExternalPartyRequest({
+                synchronizer: "sync::sandbox",
+                partyHint: "secp-party",
+                publicKey: new ExternalPartySigningPublicKey({
+                    format: ExternalPartyCryptoKeyFormat.raw,
+                    keyData: new Uint8Array([4, 5, 6]),
+                    keySpec: ExternalPartySigningKeySpec.ecSecp256k1,
+                }),
+                sign,
+            }).publicKey.keySpec,
+        ).toBe(ExternalPartySigningKeySpec.ecSecp256k1);
         expect(() => new CreateExternalPartyRequest({ sign })).toThrow();
     });
 
