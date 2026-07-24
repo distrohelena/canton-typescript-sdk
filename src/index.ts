@@ -1,4 +1,22 @@
 export { CantonClient } from "./client/canton-client.js";
+export { CantonManager } from "./query/canton-manager.js";
+export { QuerySource } from "./query/query-source.js";
+export { MemoryQueryCache } from "./query/cache/memory-query-cache.js";
+export { QueryCapabilityError } from "./query/errors/query-capability-error.js";
+export { PqsQueryError } from "./query/errors/pqs-query-error.js";
+export { PqsSchemaProfileError } from "./query/errors/pqs-schema-profile-error.js";
+export type {
+    CantonManagerOptions,
+    PqsQueryOptions,
+    QueryCacheOptions,
+} from "./query/canton-manager-options.js";
+export type { QueryCacheStore } from "./query/cache/query-cache-store.js";
+export type {
+    ContractFindManyArgs,
+    ContractFindUniqueArgs,
+    ContractCountArgs,
+    ContractRow,
+} from "./query/model-types.js";
 export { CantonHashingClient } from "./client/canton-hashing-client.js";
 export { CantonClientOptions } from "./client/canton-client-options.js";
 export { ExternalPartyActivationClient } from "./client/external-party-activation-client.js";

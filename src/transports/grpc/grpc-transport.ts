@@ -1879,6 +1879,8 @@ export class GrpcTransport implements ITransport {
         const payload = await this.operations.queryContractsAsync(
             mapGrpcQueryContractsRequest({
                 party: request.party,
+                parties: request.parties,
+                allParties: request.allParties,
                 templateId: request.templateId,
                 interfaceId: request.interfaceId,
                 includeInterfaceView: request.includeInterfaceView,
