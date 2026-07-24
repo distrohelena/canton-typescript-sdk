@@ -67,7 +67,7 @@ key exists, `count`, and supported aggregates. `findMany` accepts `where`,
 ```ts
 const contracts = await manager.query.contracts.findMany({
     where: {
-        templateId: { equals: "Pkg:Module:Template" },
+        templateId: { equals: "packageId:Module:Template" },
         active: true,
     },
     orderBy: { createdEventOffset: "desc" },
@@ -159,6 +159,12 @@ and `archivedAt`; `payload` is selectable but not filterable or sortable.
 The gRPC contract delegate supports the intersecting active-contract subset:
 `contractId`, `templateId`, and active semantics, with no historical archive
 fields.
+
+`templateId` has one canonical, package-qualified string representation on
+both backends: `packageId:moduleName:entityName`. PQS derives it from its
+package/type metadata and gRPC maps its `Identifier` fields to the same format.
+Unqualified `moduleName:entityName` values are not accepted by typed filters;
+callers must choose an exact package identity.
 
 Each profile declares the filterable, sortable, selectable, aggregateable, and
 uniquely identifying fields for every other delegate. The first implementation
