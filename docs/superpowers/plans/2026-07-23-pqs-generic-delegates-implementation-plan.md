@@ -18,9 +18,9 @@
 - Modify: `src/query/pqs/pqs-schema-profile.ts`
 - Test: `tests/unit/query/query-delegate.test.ts`
 
-- [ ] Write failing type/runtime tests for `QueryDelegate`, unique keys, null filters, aggregate shapes, and gRPC capability errors.
+- [ ] Write failing type/runtime tests for `QueryDelegate`, declared unique keys, exercises' intentional lack of `findUnique`, null filters, aggregate shapes, and gRPC capability errors.
 - [ ] Run `rtk npm run test -- tests/unit/query/query-delegate.test.ts` and confirm failure.
-- [ ] Implement generic arguments/results and complete v1 metadata.
+- [ ] Implement generic arguments/results and complete v1 metadata, including logical contracts joins (`__contracts`, type, creation/archive transactions), lifecycle/derived active fields, and bigint→string, JSON→unknown, arrays→readonly strings, bytea→Uint8Array, timestamp→Date|null mappings.
 - [ ] Re-run focused test and commit `feat: define generic query delegates`.
 
 ### Task 2: Profile-driven PQS SQL delegate factory
@@ -31,7 +31,7 @@
 - Test: `tests/unit/query/pqs-query-client.test.ts`
 - Test: `tests/unit/query/pqs-sql-compiler.test.ts`
 
-- [ ] Write failing tests for every relation's `where`, projection, ordering, pagination, unique lookup, count, and aggregate SQL.
+- [ ] Write failing tests for every relation's `where`, projection, ordering, pagination, count, and aggregate SQL; test `findUnique` only where the profile declares a stable key. Include PQS contract-party witness filtering and contract-ID-only unique lookup.
 - [ ] Run focused tests and confirm failure.
 - [ ] Implement the parameterized delegate factory; preserve the logical contracts join and reject non-profile fields.
 - [ ] Re-run focused tests and commit `feat: add Prisma-style PQS delegates`.
@@ -43,7 +43,7 @@
 - Modify: `README.md`
 - Test: `tests/unit/query/grpc-contract-query-client.test.ts`
 
-- [ ] Write failing tests for accepted `active: true`, party-scoped ACS reads, and every unsupported delegate/aggregate/filter error.
+- [ ] Write failing tests for omitted-party all-hosted ACS, supplied-party narrowing, accepted `active: true` and contractId/templateId equality, plus rejection of `in`, null/array predicates, select/order/pagination, package/lifecycle fields, aggregates, raw SQL, and all non-contract delegates.
 - [ ] Run focused test and confirm failure.
 - [ ] Implement the exact capability matrix and document the generic interface.
 - [ ] Run `rtk npm run test -- tests/unit/query tests/unit/grpc/grpc-contracts-mapper.test.ts`, `rtk npm run build`, and scoped ESLint; commit `docs: complete PQS delegate API`.
