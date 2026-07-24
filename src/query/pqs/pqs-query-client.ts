@@ -66,11 +66,28 @@ export class PqsQueryClient implements QueryClient {
 
     private createPhysicalDelegate(relation: PqsRelation) {
         return {
-            findMany: async (): Promise<readonly Record<string, unknown>[]> => {
+            findMany: async (args: {
+                readonly where?: Readonly<Record<string, { readonly equals?: unknown }>>;
+                readonly select?: Readonly<Record<string, boolean>>;
+                readonly take?: number;
+                readonly skip?: number;
+            } = {}): Promise<readonly Record<string, unknown>[]> => {
                 try {
+                    const values: unknown[] = [];
+                    const add = (value: unknown) => {
+                        values.push(value);
+                        return `$${values.length}`;
+                    };
+                    const selection = args.select === undefined
+                        ? "*"
+                        : Object.entries(args.select).filter(([, selected]) => selected).map(([field]) => `"${field}"`).join(", ");
+                    const conditions = Object.entries(args.where ?? {}).map(([field, filter]) => `"${field}" = ${add(filter.equals)}`);
+                    const where = conditions.length === 0 ? "" : ` where ${conditions.join(" and ")}`;
+                    const limit = args.take === undefined ? "" : ` limit ${add(args.take)}`;
+                    const offset = args.skip === undefined ? "" : ` offset ${add(args.skip)}`;
                     const result = await this.executor.query(
-                        `select * from ${this.profile.relation(relation)}`,
-                        [],
+                        `select ${selection} from ${this.profile.relation(relation)}${where}${limit}${offset}`,
+                        values,
                     );
 
                     return result.rows;

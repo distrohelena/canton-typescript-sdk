@@ -69,4 +69,19 @@ describe("PQS query client", () => {
         ]);
         expect(query.mock.calls[0][0]).toContain('from "public"."__packages"');
     });
+
+    it("binds physical relation filters and pagination", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.packages.findMany({
+            where: { id: { equals: "package-id" } },
+            select: { id: true, name: true },
+            take: 10,
+            skip: 5,
+        });
+
+        expect(query.mock.calls[0][0]).toContain("where \"id\" = $1");
+        expect(query.mock.calls[0][1]).toEqual(["package-id", 10, 5]);
+    });
 });
