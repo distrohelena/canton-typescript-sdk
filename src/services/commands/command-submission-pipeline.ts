@@ -1,5 +1,5 @@
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
-import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
+import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -9,7 +9,7 @@ export class CommandSubmissionPipeline {
     public constructor(
         private readonly dependencies: {
             transport: ITransport;
-            signer?: ICommandSigner;
+            signer?: ICommandSigner | CommandSigners;
         },
     ) {}
 

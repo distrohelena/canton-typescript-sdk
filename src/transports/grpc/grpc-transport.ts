@@ -86,7 +86,7 @@ import { TopologyListPartiesRequest } from "../../core/types/requests/topology-l
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
-import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
+import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
@@ -2079,7 +2079,7 @@ export class GrpcTransport implements ITransport {
 
     public async submitCommandAsync(
         request: SubmitCommandRequest,
-        signer?: ICommandSigner,
+        signer?: ICommandSigner | CommandSigners,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
         this.throwIfDisposed();
@@ -2093,7 +2093,7 @@ export class GrpcTransport implements ITransport {
             return mapGrpcSubmitCommand(
                 payload as { commandId?: string; transactionId?: string },
             );
-        } else if (request.actAs.length !== 1) {
+        } else if (request.actAs.length !== 1 && !("signAsync" in signer)) {
             throw new ValidationError(
                 "interactive gRPC command signing currently requires exactly one actAs party",
             );
@@ -2132,13 +2132,11 @@ export class GrpcTransport implements ITransport {
             );
         }
 
-        const signerResult = await signer.signAsync(
-            new SignCommandRequest({
-                payload: prepared.preparedTransactionHash,
-                party: request.actAs[0],
-                algorithmHint: "ed25519",
-            }),
-        );
+        const signerResults = await Promise.all(request.actAs.map(async (party) => {
+            const partySigner: ICommandSigner | undefined = "signAsync" in signer ? signer as ICommandSigner : (signer as CommandSigners)[party];
+            if (partySigner === undefined) throw new ValidationError(`interactive command signing requires a signer for ${party}`);
+            return { party, result: await partySigner.signAsync(new SignCommandRequest({ payload: prepared.preparedTransactionHash, party, algorithmHint: "ed25519" })) };
+        }));
 
         const executed = await this.operations.executeSubmissionAndWaitAsync(
             mapGrpcExecuteSubmissionAndWaitRequest({
@@ -2146,7 +2144,7 @@ export class GrpcTransport implements ITransport {
                 preparedTransaction: prepared.preparedTransaction,
                 hashingSchemeVersion: prepared.hashingSchemeVersion,
                 submissionId,
-                signerResult,
+                signerResults,
             }),
             options,
         );

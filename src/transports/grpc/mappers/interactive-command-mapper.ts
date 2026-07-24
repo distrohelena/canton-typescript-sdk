@@ -26,8 +26,8 @@ export function mapGrpcPrepareSubmissionRequest(
         commands: [mapGrpcLedgerCommand(request.command)],
         actAs: [...request.actAs],
         readAs: [...request.readAs],
-        disclosedContracts: [],
-        synchronizerId: "",
+        disclosedContracts: request.disclosedContracts.map(value => ({ createdEventBlob: value.createdEventBlob, contractId: value.contractId ?? "", synchronizerId: value.synchronizerId ?? "", templateId: value.templateId === undefined ? undefined : { packageId: value.templateId.packageId, moduleName: value.templateId.moduleName, entityName: value.templateId.entityName } })),
+        synchronizerId: request.synchronizerId ?? "",
         packageIdSelectionPreference: [],
         prefetchContractKeys: [],
         verboseHashing: false,
@@ -39,17 +39,12 @@ export function mapGrpcExecuteSubmissionAndWaitRequest(init: {
     preparedTransaction: PreparedTransaction;
     hashingSchemeVersion: HashingSchemeVersion;
     submissionId: string;
-    signerResult: SignCommandResult;
+    signerResults: readonly { readonly party: string; readonly result: SignCommandResult }[];
 }): ExecuteSubmissionAndWaitRequest {
     return {
         preparedTransaction: init.preparedTransaction,
         partySignatures: {
-            signatures: [
-                {
-                    party: init.request.actAs[0] ?? "",
-                    signatures: [mapGrpcSignature(init.signerResult)],
-                },
-            ],
+            signatures: init.signerResults.map(({ party, result }) => ({ party, signatures: [mapGrpcSignature(result)] })),
         },
         deduplicationPeriod: {
             oneofKind: undefined,

@@ -1,4 +1,4 @@
-import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
+import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -8,7 +8,7 @@ import { CommandSubmissionPipeline } from "../commands/command-submission-pipeli
 export class CommandServiceClient {
     private readonly pipeline: CommandSubmissionPipeline;
 
-    public constructor(transport: ITransport, signer?: ICommandSigner) {
+    public constructor(transport: ITransport, signer?: ICommandSigner | CommandSigners) {
         this.pipeline = new CommandSubmissionPipeline({
             transport,
             signer,

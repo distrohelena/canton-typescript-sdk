@@ -35,12 +35,16 @@ export function mapGrpcSubmitCommandRequest(
             actAs: [...request.actAs],
             readAs: [...request.readAs],
             submissionId: "",
-            disclosedContracts: [],
-            synchronizerId: "",
+            disclosedContracts: request.disclosedContracts.map(mapGrpcDisclosedContract),
+            synchronizerId: request.synchronizerId ?? "",
             packageIdSelectionPreference: [],
             prefetchContractKeys: [],
         } satisfies Commands,
     };
+}
+
+function mapGrpcDisclosedContract(value: import("../../../core/types/disclosed-contract.js").DisclosedContract) {
+    return { createdEventBlob: value.createdEventBlob, contractId: value.contractId ?? "", synchronizerId: value.synchronizerId ?? "", templateId: value.templateId === undefined ? undefined : { packageId: value.templateId.packageId, moduleName: value.templateId.moduleName, entityName: value.templateId.entityName } };
 }
 
 export function mapGrpcSubmitCommand(payload: {

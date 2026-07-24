@@ -232,6 +232,7 @@ export type {
     ExternalPartySigningPayloadKind,
 } from "./core/types/requests/create-external-party-request.js";
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
+export { DisclosedContract } from "./core/types/disclosed-contract.js";
 export { AddPartyAsyncArguments } from "./core/types/requests/add-party-async-request.js";
 export { AddPartyAsyncRequest } from "./core/types/requests/add-party-async-request.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
