@@ -122,15 +122,35 @@ strings, `jsonb` to `unknown`, PostgreSQL arrays to `readonly string[]`,
 
 `contracts` is the logical view defined in the spec and reads `__contracts`
 with `__contract_tpe` and `__transactions`; its physical source fields are
-`tpe_pk`, event/index lifecycle fields, `contract_id`, `payload`,
-`contract_key`, `metadata`, `redaction_id`, `package_pk`, signatory/observer/
-witness arrays, `divulged_only`, `creation_package_id`, and
-`contract_key_hash`. Add optional `parties?: readonly string[]` to all contract
+`tpe_pk`, `create_event_pk`, `created_at_ix`, `archive_event_pk`,
+`archived_at_ix`, `life_ix`, `contract_id`, `payload`, `contract_key`,
+`metadata`, `redaction_id`, `package_pk`, `signatories`, `observers`,
+`witnesses`, `divulged_only`, `creation_package_id`, and `contract_key_hash`.
+Add optional `parties?: readonly string[]` to all contract
 read arguments. Omitted parties means the gRPC all-hosted-parties wildcard;
 provided parties become a `filtersByParty` map. Provide generic `findMany`,
 `findUnique`, `count`, and aggregate argument/result types; restrict filters,
 sorts, and aggregates to per-delegate profile metadata. Preserve selection
 inference so `select` narrows the result type.
+
+Define the following exact delegate metadata in the same source file as the
+v1 profile; every listed field is selectable, and no unlisted field is:
+
+| Delegate | Unique lookup | Filterable and sortable fields | Aggregates |
+| --- | --- | --- | --- |
+| `contracts` | `contractId` | `contractId`, `templateId`, `packageId`, `active`, `createdEventOffset`, `createdAt`, `archivedEventOffset`, `archivedAt`; `witnesses` supports membership only | `count` only |
+| `contractTypes` | `pk` | `pk`, `packageName`, `moduleName`, `entityName`, `templateFqn` | `count` only |
+| `events` | `pk` | `pk`, `txIx`, `eventId`, `type` | `count` only |
+| `exercises` | none | `tpePk`, `contractTpePk`, `exerciseEventPk`, `exercisedAtIx`, `contractId`, `redactionId`, `packagePk`, `lastDescendantNodeId`; `controllers`/`witnesses` support membership only | `count` only |
+| `exerciseTypes` | `pk` | `pk`, `choice`, `consuming`, `packageName`, `moduleName`, `entityName`, `templateFqn`, `choiceFqn` | `count` only |
+| `packages` | `pk` and `id` | `pk`, `name`, `version`, `id` | `count` only |
+| `transactions` | `ix` and `offset` | `ix`, `offset`, `transactionId`, `effectiveAt`, `workflowId`, `domainId`, `paidTrafficCost` | `count` only |
+| `watermark` | `singleton` | `singleton`, `ix`, `offset`, `instanceId` | `count` only |
+
+`payloadType`, aliases, JSON, ranges, byte arrays, `contractKey`, metadata,
+trace context, and other unlisted values are projection-only. This is the
+intentional v1 boundary; callers use `$queryRaw` for database-specific JSON,
+range, or aggregate predicates.
 
 - [ ] **Step 4: Run the focused test**
 
@@ -278,6 +298,8 @@ git commit -m "feat: add read-only PQS raw queries"
 **Files:**
 - Modify: `src/core/types/requests/get-active-contracts-page-request.ts`
 - Modify: `src/transports/grpc/mappers/contracts-mapper.ts`
+- Modify: `src/transports/grpc/grpc-transport.ts`
+- Modify: `src/transports/json/json-transport.ts`
 - Create: `src/query/grpc/grpc-active-contract-reader.ts`
 - Create: `src/query/grpc/grpc-contract-query-client.ts`
 - Create: `tests/unit/grpc/grpc-contracts-mapper.test.ts`
@@ -286,10 +308,12 @@ git commit -m "feat: add read-only PQS raw queries"
 
 - [ ] **Step 1: Write failing gRPC query tests**
 
-First add mapper tests for the existing request type: legacy `{ party }` input
-still emits `filtersByParty`; new `{ allParties: true }` emits
-`filtersForAnyParty` with the wildcard filter; and an invalid request that
-sets both modes is rejected. Then mock
+First add mapper and transport tests for the extended request type: legacy
+`{ party }` input still emits one `filtersByParty` entry; new
+`{ parties: ["Alice", "Bob"] }` emits both entries in one `filtersByParty`
+map; `{ allParties: true }` emits `filtersForAnyParty` with the wildcard
+filter; and an invalid request that sets more than one visibility mode is
+rejected. JSON rejects the multi/all-party modes as unsupported. Then mock
 `StateServiceClient.getActiveContractsPageAsync` for a paginated ACS. Assert
 the adapter uses all-party mode by default, uses `filtersByParty` when
 `ContractFindManyArgs.parties` is supplied, and holds `activeAtOffset` stable
@@ -312,11 +336,13 @@ Expected: FAIL because the gRPC adapter does not exist.
 
 Extend `GetActiveContractsPageRequest` as a backwards-compatible tagged union:
 the existing `{ party: string }` form remains valid and the new
-`{ allParties: true }` form is mutually exclusive. Update
-`mapGrpcQueryContractsRequest` to populate `EventFormat.filtersForAnyParty`
-for the latter and preserve `filtersByParty` for the former. Keep JSON's
-existing party-only validation unchanged; `CantonManager` below only accepts a
-gRPC `CantonClient`.
+`{ parties: readonly string[] }` and `{ allParties: true }` forms are mutually
+exclusive. Update `mapGrpcQueryContractsRequest` to populate one
+`filtersByParty` entry per party or `EventFormat.filtersForAnyParty` for the
+wildcard. Update `GrpcTransport` to forward the selected visibility variant
+unchanged; update `JsonTransport` to reject the new multi/all-party variants
+before calling its legacy endpoint. `CantonManager` below only accepts a gRPC
+`CantonClient`.
 
 Create `EventFormat` with that all-hosted-party wildcard or per-party filters
 when requested. Read all page tokens at one stable snapshot offset; map gRPC
@@ -324,6 +350,15 @@ created events to the supported `ContractRow` fields; cache
 the unprojected snapshot with source, endpoint identity, visibility scope, and
 snapshot options in its key. Evaluate only the documented compatible contract
 subset locally and reject unsupported PQS-only features explicitly.
+
+The gRPC contract delegate supports filtering and ordering only by
+`contractId`, package-qualified `templateId`, `packageId`, `createdEventOffset`
+(mapped from `CreatedEvent.offset`), and `createdAt`; it can select those
+fields plus `payload` (mapped from `createArguments`), `witnesses`,
+`signatories`, `observers`, and `contractKey`. `active: true` is implicit.
+Requests that select, filter, or order by `archivedEventOffset`, `archivedAt`,
+or `active: false` reject with `QueryCapabilityError`; those lifecycle values
+exist only in PQS.
 
 - [ ] **Step 4: Run the focused tests**
 
@@ -334,7 +369,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/query/grpc tests/unit/query/grpc-*.test.ts
+git add src/core/types/requests/get-active-contracts-page-request.ts src/transports/grpc/mappers/contracts-mapper.ts src/transports/grpc/grpc-transport.ts src/transports/json/json-transport.ts src/query/grpc tests/unit/grpc/grpc-contracts-mapper.test.ts tests/unit/query/grpc-*.test.ts
 git commit -m "feat: add gRPC contract query adapter"
 ```
 
