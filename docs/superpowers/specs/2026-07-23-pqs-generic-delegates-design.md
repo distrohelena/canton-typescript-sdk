@@ -8,7 +8,7 @@ fields and parameterized SQL.
 
 ## API
 
-Expose `QueryDelegate<TRow, TWhere, TSelect, TOrderBy>` with `findMany`,
+Expose `QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique>` with `findMany`,
 `findUnique`, `count`, and `aggregate`. Each PQS relation has a concrete
 specialization derived from the v1 schema profile. `findMany` accepts typed
 `where`, `select`, `orderBy`, `skip`, and `take`; `findUnique` exists only for
@@ -35,10 +35,15 @@ arrays to readonly strings, bytea to `Uint8Array`, and timestamp values to
 `Date | null`.
 
 Generic `where` supports profile-declared equality, `in`, null, and array
-membership predicates. `select` narrows the returned row fields; `orderBy`
+membership predicates; null is `{ is: null }` or `{ isNot: null }`.
+`findUnique` takes `{ where: TUnique, select?: TSelect }`, preserving each
+relation's distinct key shape. `select` narrows the returned row fields; `orderBy`
 accepts exactly one profile-declared sort field; `count` returns a number.
-`aggregate` supports `count` on every relation and `min`/`max`/`sum` only for
-profile-declared numeric fields. Empty numeric aggregates return `null`.
+`aggregate` takes `{ where?, count?, min?, max?, sum? }`, with numeric field
+arrays for `min`/`max`/`sum`, and returns an optional count plus per-field
+`string | null` numeric results. It supports `count` on every relation and
+`min`/`max`/`sum` only for profile-declared numeric fields. Empty numeric
+aggregates return `null`.
 
 Stable unique keys are: contracts `contractId`; contract types/events/exercise
 types `pk`; packages `pk` and `id`; transactions `ix` and `offset`; watermark
@@ -46,7 +51,7 @@ types `pk`; packages `pk` and `id`; transactions `ix` and `offset`; watermark
 
 On gRPC, only `contracts.findMany`, `contracts.findUnique`, and
 `contracts.count` are supported, with `contractId`, package-qualified
-`templateId`, and implicit `active: true`. All aggregate calls, all other
+`templateId`, and active semantics; explicit `active: true` is accepted. All aggregate calls, all other
 relations, raw SQL, lifecycle fields, and unsupported filters/selections/orders
 throw `QueryCapabilityError` containing the selected source and operation.
 
