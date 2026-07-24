@@ -55,6 +55,11 @@ On gRPC, only `contracts.findMany`, `contracts.findUnique`, and
 relations, raw SQL, lifecycle fields, and unsupported filters/selections/orders
 throw `QueryCapabilityError` containing the selected source and operation.
 
+Contract `findMany` and `count` accept optional `parties`. On gRPC, omitted
+parties select the all-hosted-party ACS wildcard and supplied parties narrow
+the Ledger API visibility filter. On PQS, `parties` applies a witness-membership
+filter; `findUnique` remains keyed only by the stable contract ID.
+
 ## Verification
 
 Unit tests cover each relation's generated SQL, field validation, projection,
