@@ -23,7 +23,7 @@ Create-bearing commands use the protobuf field name and type:
 ```ts
 new CreateCommand({
     templateId,
-    createArguments: new DamlRecord({ fields }),
+    createArguments: new DamlRecord(fields),
 });
 ```
 
