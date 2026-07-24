@@ -2,8 +2,11 @@ import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
+import { CreateExternalPartyRequest } from "../../core/types/requests/create-external-party-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
+import { ExternalPartyOnboardingTransaction } from "../../core/types/external-party/external-party-onboarding-transaction.js";
+import { ExternalPartySignature } from "../../core/types/external-party/external-party-signature.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
@@ -67,5 +70,85 @@ export class PartyManagementServiceClient {
         options?: RequestOptions,
     ): Promise<AllocateExternalPartyResponse> {
         return this.transport.allocateExternalPartyAsync(request, options);
+    }
+
+    /** Creates an externally controlled party using caller-provided signing. Supported on gRPC. */
+    public async createExternalPartyAsync(
+        request: CreateExternalPartyRequest,
+        options?: RequestOptions,
+    ): Promise<AllocateExternalPartyResponse> {
+        const generated = await this.generateExternalPartyTopologyAsync(
+            new GenerateExternalPartyTopologyRequest({
+                synchronizer: request.synchronizer,
+                partyHint: request.partyHint,
+                publicKey: request.publicKey,
+                localParticipantObservationOnly:
+                    request.localParticipantObservationOnly,
+                otherConfirmingParticipantUids:
+                    [...request.otherConfirmingParticipantUids],
+                confirmationThreshold: request.confirmationThreshold,
+                observingParticipantUids: [...request.observingParticipantUids],
+            }),
+            options,
+        );
+        const onboardingTransactions: ExternalPartyOnboardingTransaction[] = [];
+
+        for (const transaction of generated.topologyTransactions) {
+            onboardingTransactions.push(
+                new ExternalPartyOnboardingTransaction({
+                    transaction,
+                    signatures: [
+                        await this.signExternalPartyPayloadAsync(
+                            request,
+                            transaction,
+                            "topology-transaction",
+                            generated.partyId,
+                            generated.publicKeyFingerprint,
+                        ),
+                    ],
+                }),
+            );
+        }
+        const multiHashSignature = await this.signExternalPartyPayloadAsync(
+            request,
+            generated.multiHash,
+            "multi-hash",
+            generated.partyId,
+            generated.publicKeyFingerprint,
+        );
+
+        return this.allocateExternalPartyAsync(
+            new AllocateExternalPartyRequest({
+                synchronizer: request.synchronizer,
+                onboardingTransactions,
+                multiHashSignatures: [multiHashSignature],
+                identityProviderId: request.identityProviderId,
+                waitForAllocation: request.waitForAllocation,
+                userId: request.userId,
+            }),
+            options,
+        );
+    }
+
+    private async signExternalPartyPayloadAsync(
+        request: CreateExternalPartyRequest,
+        payload: Uint8Array,
+        kind: "topology-transaction" | "multi-hash",
+        partyId: string,
+        publicKeyFingerprint: string,
+    ): Promise<ExternalPartySignature> {
+        const result = await request.sign({
+            payload: new Uint8Array(payload),
+            kind,
+            partyId,
+            publicKeyFingerprint,
+        });
+
+        return new ExternalPartySignature({
+            format: result.format,
+            signature: result.signature,
+            signedByFingerprint: publicKeyFingerprint,
+            signingAlgorithmSpec: result.signingAlgorithmSpec,
+        });
     }
 }

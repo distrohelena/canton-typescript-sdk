@@ -217,4 +217,120 @@ describe("PartyManagementServiceClient", () => {
         expect(request.waitForAllocation).toBe(true);
         expect(() => new CreateExternalPartyRequest({ sign })).toThrow();
     });
+
+    it("creates an external party with caller-provided signatures", async () => {
+        const generated = new GenerateExternalPartyTopologyResponse({
+            partyId: "alice::fingerprint",
+            publicKeyFingerprint: "fingerprint",
+            topologyTransactions: [
+                new Uint8Array([1, 2, 3]),
+                new Uint8Array([4, 5, 6]),
+            ],
+            multiHash: new Uint8Array([7, 8, 9]),
+        });
+        const generateExternalPartyTopologyAsync = vi.fn(async () => generated);
+        const allocateExternalPartyAsync = vi.fn(
+            async () => new AllocateExternalPartyResponse({ partyId: generated.partyId }),
+        );
+        const transport = {
+            features: { supportsCommandSigning: false },
+            getLedgerApiVersionAsync: async () => {
+                throw new Error("not used");
+            },
+            getParticipantIdAsync: async () => {
+                throw new Error("not used");
+            },
+            getPartiesAsync: async () => {
+                throw new Error("not used");
+            },
+            allocatePartyAsync: async () => {
+                throw new Error("not used");
+            },
+            generateExternalPartyTopologyAsync,
+            allocateExternalPartyAsync,
+            listKnownPartiesAsync: async () => {
+                throw new Error("not used");
+            },
+            grantUserRightsAsync: async () => {
+                throw new Error("not used");
+            },
+            uploadDarFileAsync: async () => {
+                throw new Error("not used");
+            },
+            getActiveContractsPageAsync: async () => {
+                throw new Error("not used");
+            },
+            getActiveContractsAsync: async () => {
+                throw new Error("not used");
+            },
+            getUpdatesAsync: async () => {
+                throw new Error("not used");
+            },
+            submitCommandAsync: async () => {
+                throw new Error("not used");
+            },
+        };
+        const client = new PartyManagementServiceClient(transport);
+        const sign = vi.fn(async request => ({
+            signature: new Uint8Array(request.payload),
+            format: ExternalPartySignatureFormat.raw,
+            signingAlgorithmSpec: ExternalPartySigningAlgorithmSpec.ed25519,
+        }));
+        const options = new RequestOptions({ timeoutMs: 5_000 });
+
+        const result = await client.createExternalPartyAsync(
+            new CreateExternalPartyRequest({
+                synchronizer: "sync::sandbox",
+                partyHint: "alice",
+                publicKey: new ExternalPartySigningPublicKey({
+                    format: ExternalPartyCryptoKeyFormat.raw,
+                    keyData: new Uint8Array([10, 11, 12]),
+                    keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                }),
+                sign,
+                waitForAllocation: true,
+            }),
+            options,
+        );
+
+        expect(generateExternalPartyTopologyAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                synchronizer: "sync::sandbox",
+                partyHint: "alice",
+            }),
+            options,
+        );
+        expect(sign).toHaveBeenNthCalledWith(1, expect.objectContaining({
+            payload: new Uint8Array([1, 2, 3]),
+            kind: "topology-transaction",
+            partyId: generated.partyId,
+            publicKeyFingerprint: "fingerprint",
+        }));
+        expect(sign).toHaveBeenNthCalledWith(3, expect.objectContaining({
+            payload: new Uint8Array([7, 8, 9]),
+            kind: "multi-hash",
+        }));
+        expect(allocateExternalPartyAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                synchronizer: "sync::sandbox",
+                waitForAllocation: true,
+                multiHashSignatures: [expect.objectContaining({
+                    signedByFingerprint: "fingerprint",
+                })],
+                onboardingTransactions: [
+                    expect.objectContaining({
+                        transaction: new Uint8Array([1, 2, 3]),
+                        signatures: [expect.objectContaining({
+                            signedByFingerprint: "fingerprint",
+                        })],
+                    }),
+                    expect.objectContaining({
+                        transaction: new Uint8Array([4, 5, 6]),
+                    }),
+                ],
+            }),
+            options,
+        );
+        expect(result.partyId).toBe(generated.partyId);
+    });
 });

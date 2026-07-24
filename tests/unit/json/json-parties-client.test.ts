@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
     AllocateExternalPartyRequest,
     AllocatePartyRequest,
@@ -9,6 +9,7 @@ import {
     ListKnownPartiesRequest,
 } from "../../../src";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
+import { CreateExternalPartyRequest } from "../../../src/core/types/requests/create-external-party-request.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
 describe("PartyManagementServiceClient with JSON transport", () => {
@@ -119,5 +120,32 @@ describe("PartyManagementServiceClient with JSON transport", () => {
         ).rejects.toThrow(
             "PartyManagementService.AllocateExternalParty is not supported by json transport",
         );
+    });
+
+    it("rejects lifecycle creation before invoking its signer on json transport", async () => {
+        const transport = new JsonTransport({
+            getAsync: async () => ({}),
+            postAsync: async () => ({}),
+        });
+        const client = new PartyManagementServiceClient(transport);
+        const sign = vi.fn();
+
+        await expect(
+            client.createExternalPartyAsync(
+                new CreateExternalPartyRequest({
+                    synchronizer: "sync::sandbox",
+                    partyHint: "alice",
+                    publicKey: new ExternalPartySigningPublicKey({
+                        format: ExternalPartyCryptoKeyFormat.raw,
+                        keyData: new Uint8Array([1, 2, 3]),
+                        keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                    }),
+                    sign,
+                }),
+            ),
+        ).rejects.toThrow(
+            "PartyManagementService.GenerateExternalPartyTopology is not supported by json transport",
+        );
+        expect(sign).not.toHaveBeenCalled();
     });
 });
