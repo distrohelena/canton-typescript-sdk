@@ -234,6 +234,8 @@ export type {
 export { AllocatePartyRequest } from "./core/types/requests/allocate-party-request.js";
 export { DisclosedContract } from "./core/types/disclosed-contract.js";
 export { PreparedCommandSubmission } from "./core/types/prepared-command-submission.js";
+export { DamlContractId } from "./core/types/daml-contract-id.js";
+export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant, DamlEnum, DamlRecord } from "./core/types/daml-values.js";
 export { AddPartyAsyncArguments } from "./core/types/requests/add-party-async-request.js";
 export { AddPartyAsyncRequest } from "./core/types/requests/add-party-async-request.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";

@@ -4,6 +4,8 @@ import { CreateAndExerciseCommand } from "../../../core/types/commands/create-an
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
 import { DamlNumeric } from "../../../core/types/daml-numeric.js";
 import { DamlParty } from "../../../core/types/daml-party.js";
+import { DamlContractId } from "../../../core/types/daml-contract-id.js";
+import { DamlDate, DamlEnum, DamlGenMap, DamlRecord, DamlTextMap, DamlTimestamp, DamlUnit, DamlVariant } from "../../../core/types/daml-values.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
@@ -129,6 +131,15 @@ export function mapRecord(payload: Record<string, unknown>): GrpcRecord {
 }
 
 export function mapValue(value: unknown): Value {
+    const identifier = (value: { packageId: string; moduleName: string; entityName: string }) => ({ packageId: value.packageId, moduleName: value.moduleName, entityName: value.entityName });
+    if (value instanceof DamlUnit) return { sum: { oneofKind: "unit", unit: {} } };
+    if (value instanceof DamlDate) return { sum: { oneofKind: "date", date: value.daysSinceEpoch } };
+    if (value instanceof DamlTimestamp) return { sum: { oneofKind: "timestamp", timestamp: value.microsecondsSinceEpoch } };
+    if (value instanceof DamlTextMap) return { sum: { oneofKind: "textMap", textMap: { entries: value.entries.map(([key, item]) => ({ key, value: mapValue(item) })) } } };
+    if (value instanceof DamlGenMap) return { sum: { oneofKind: "genMap", genMap: { entries: value.entries.map(([key, item]) => ({ key: mapValue(key), value: mapValue(item) })) } } };
+    if (value instanceof DamlVariant) return { sum: { oneofKind: "variant", variant: { variantId: value.variantId && identifier(value.variantId), constructor: value.constructorName, value: mapValue(value.value) } } };
+    if (value instanceof DamlEnum) return { sum: { oneofKind: "enum", enum: { enumId: value.enumId && identifier(value.enumId), constructor: value.constructorName } } };
+    if (value instanceof DamlRecord) return { sum: { oneofKind: "record", record: { recordId: value.recordId && identifier(value.recordId), fields: mapRecord(value.fields).fields } } };
     if (value === null || value === undefined) {
         return {
             sum: {
@@ -145,6 +156,10 @@ export function mapValue(value: unknown): Value {
                 party: value.value,
             },
         };
+    }
+
+    else if (value instanceof DamlContractId) {
+        return { sum: { oneofKind: "contractId", contractId: value.value } };
     }
 
     else if (value instanceof DamlNumeric) {

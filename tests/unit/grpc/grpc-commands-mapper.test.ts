@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     CreateAndExerciseCommand,
     CreateCommand,
+    DamlContractId,
     DamlNumeric,
     DamlParty,
     ExerciseByKeyCommand,
@@ -52,7 +53,7 @@ describe("grpc command mapper", () => {
         });
     });
 
-    it("preserves explicit DAML party and numeric value kinds", () => {
+    it("preserves explicit DAML party, numeric, and contract-id value kinds", () => {
         const payload = mapGrpcSubmitCommandRequest(
             new SubmitCommandRequest({
                 applicationId: "app-1",
@@ -62,6 +63,7 @@ describe("grpc command mapper", () => {
                     payload: {
                         issuer: new DamlParty("Alice"),
                         amount: new DamlNumeric("10.50"),
+                        referenced: new DamlContractId("00abc"),
                     },
                 }),
             }),
@@ -75,6 +77,7 @@ describe("grpc command mapper", () => {
                         fields: [
                             { label: "issuer", value: { sum: { oneofKind: "party", party: "Alice" } } },
                             { label: "amount", value: { sum: { oneofKind: "numeric", numeric: "10.50" } } },
+                            { label: "referenced", value: { sum: { oneofKind: "contractId", contractId: "00abc" } } },
                         ],
                     },
                 },
