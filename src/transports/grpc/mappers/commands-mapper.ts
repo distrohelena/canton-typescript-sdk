@@ -11,10 +11,13 @@ import { ExerciseCommand } from "../../../core/types/commands/exercise-command.j
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
 import { SubmitCommandRequest } from "../../../core/types/requests/submit-command-request.js";
 import { SubmitCommandResponse } from "../../../core/types/responses/submit-command-response.js";
+import { SubmitCommandTransactionResponse } from "../../../core/types/responses/submit-command-transaction-response.js";
 import { Command, Commands } from "../generated/canton/com/daml/ledger/api/v2/commands.js";
 import {
     SubmitAndWaitRequest,
     SubmitAndWaitResponse,
+    SubmitAndWaitForTransactionRequest,
+    SubmitAndWaitForTransactionResponse,
 } from "../generated/canton/com/daml/ledger/api/v2/command_service.js";
 import {
     Identifier,
@@ -44,6 +47,9 @@ export function mapGrpcSubmitCommandRequest(
         } satisfies Commands,
     };
 }
+
+export function mapGrpcSubmitCommandForTransactionRequest(request: SubmitCommandRequest): SubmitAndWaitForTransactionRequest { return { commands: mapGrpcSubmitCommandRequest(request).commands }; }
+export function mapGrpcSubmitCommandTransaction(payload: SubmitAndWaitForTransactionResponse): SubmitCommandTransactionResponse { const transaction = payload.transaction; return new SubmitCommandTransactionResponse(transaction?.updateId ?? "", transaction?.events ?? [], transaction); }
 
 function mapGrpcDisclosedContract(value: import("../../../core/types/disclosed-contract.js").DisclosedContract) {
     return { createdEventBlob: value.createdEventBlob, contractId: value.contractId ?? "", synchronizerId: value.synchronizerId ?? "", templateId: value.templateId === undefined ? undefined : { packageId: value.templateId.packageId, moduleName: value.templateId.moduleName, entityName: value.templateId.entityName } };

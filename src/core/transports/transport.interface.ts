@@ -188,6 +188,7 @@ import { TransactionObserver } from "../../services/events/transaction-observer.
 import { CommandSigners, ICommandSigner } from "../signing/command-signer.interface.js";
 import { SignCommandResult } from "../signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../types/prepared-command-submission.js";
+import { SubmitCommandTransactionResponse } from "../types/responses/submit-command-transaction-response.js";
 import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
 
@@ -763,6 +764,7 @@ export interface ITransport {
         signer?: ICommandSigner | CommandSigners,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse>;
+    submitCommandForTransactionAsync?(request: SubmitCommandRequest, options?: RequestOptions): Promise<SubmitCommandTransactionResponse>;
     prepareCommandAsync?(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission>;
     executePreparedCommandAndWaitAsync?(prepared: PreparedCommandSubmission, signatures: Readonly<Record<string, SignCommandResult>>, options?: RequestOptions): Promise<SubmitCommandResponse>;
 }

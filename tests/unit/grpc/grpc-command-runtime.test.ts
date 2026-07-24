@@ -239,4 +239,11 @@ describe("GrpcTransport live ledger shapes", () => {
         });
         expect(execute).toMatchObject({ partySignatures: { signatures: [{ party: "Alice" }, { party: "Bob" }] } });
     });
+
+    it("returns transaction events from the transaction-returning submission endpoint", async () => {
+        const transport = new GrpcTransport(createFakeGrpcOperations({
+            submitCommandForTransactionAsync: async () => ({ transaction: { updateId: "tx-events", events: [{ created: { contractId: "cid" } }] } }),
+        }));
+        await expect(transport.submitCommandForTransactionAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice"], command: new CreateCommand({ templateId: "Main:Iou", payload: {} }) }))).resolves.toMatchObject({ transactionId: "tx-events", events: [{ created: { contractId: "cid" } }] });
+    });
 });

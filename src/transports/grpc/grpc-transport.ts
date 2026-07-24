@@ -184,6 +184,8 @@ import {
 } from "./grpc-channel-factory.js";
 import {
     mapGrpcSubmitCommand,
+    mapGrpcSubmitCommandForTransactionRequest,
+    mapGrpcSubmitCommandTransaction,
     mapGrpcSubmitCommandRequest,
 } from "./mappers/commands-mapper.js";
 import {
@@ -2154,6 +2156,12 @@ export class GrpcTransport implements ITransport {
         return mapGrpcInteractiveSubmitCommand(
             executed as { updateId: string; completionOffset: string },
         );
+    }
+
+    public async submitCommandForTransactionAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<import("../../core/types/responses/submit-command-transaction-response.js").SubmitCommandTransactionResponse> {
+        this.throwIfDisposed();
+        if (!this.operations.submitCommandForTransactionAsync) throw new NotSupportedError("transaction-returning command submission is not available on this transport");
+        return mapGrpcSubmitCommandTransaction(await this.operations.submitCommandForTransactionAsync(mapGrpcSubmitCommandForTransactionRequest(request), options) as never);
     }
 
     public async prepareCommandAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission> {

@@ -149,6 +149,8 @@ import { ListVettedPackagesRequest as GrpcListVettedPackagesRequest } from "./ge
 import { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import {
     SubmitAndWaitRequest,
+    SubmitAndWaitForTransactionRequest,
+    SubmitAndWaitForTransactionResponse,
     SubmitAndWaitResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/command_service.js";
 import {
@@ -394,6 +396,7 @@ export interface GrpcOperations {
     prepareSubmissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     executeSubmissionAndWaitAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    submitCommandForTransactionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
 }
 
 interface UnaryCallLike<TResponse> {
@@ -545,7 +548,7 @@ export interface GrpcOperationDependencies {
         IInteractiveSubmissionServiceClient,
         "prepareSubmission" | "executeSubmissionAndWait"
     >;
-    commandServiceClient?: Pick<ICommandServiceClient, "submitAndWait">;
+    commandServiceClient?: Pick<ICommandServiceClient, "submitAndWait" | "submitAndWaitForTransaction">;
 }
 
 export function createGrpcOperations(
@@ -2237,6 +2240,10 @@ export function createGrpcOperations(
                     callOptions,
                 ),
             );
+        },
+        async submitCommandForTransactionAsync(request: unknown, requestOptions?: RequestOptions): Promise<SubmitAndWaitForTransactionResponse> {
+            const callOptions = await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions);
+            return await unwrapUnaryResponse(commandServiceClient.submitAndWaitForTransaction(request as SubmitAndWaitForTransactionRequest, callOptions));
         },
         async prepareSubmissionAsync(
             request: unknown,

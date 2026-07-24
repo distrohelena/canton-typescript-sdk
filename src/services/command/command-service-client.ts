@@ -3,6 +3,7 @@ import { RequestOptions } from "../../core/types/request-options.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
+import { SubmitCommandTransactionResponse } from "../../core/types/responses/submit-command-transaction-response.js";
 import { CommandSubmissionPipeline } from "../commands/command-submission-pipeline.js";
 import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -16,6 +17,7 @@ export class CommandServiceClient {
             signer,
         });
     }
+    public submitAndWaitForTransactionAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<SubmitCommandTransactionResponse> { return this.pipeline.submitForTransactionAsync(request, options); }
 
     /** Submits a command and waits for the result. Supported on JSON and gRPC. */
     public submitAndWaitAsync(
