@@ -2230,12 +2230,17 @@ export function createServiceRegistry(
         ].filter((item): item is ITransport => item !== undefined),
     );
 
+    const topologyManagerWriteService = new TopologyManagerWriteServiceClient(
+        topologyManagerWriteTransport,
+    );
+
     return {
         transport,
         versionService: new VersionServiceClient(versionTransport),
         healthService: new HealthServiceClient(healthTransport),
         partyManagementService: new PartyManagementServiceClient(
             partyManagementTransport,
+            topologyManagerWriteService,
         ),
         userManagementService: new UserManagementServiceClient(
             userManagementTransport,
@@ -2282,9 +2287,7 @@ export function createServiceRegistry(
         topologyManagerReadService: new TopologyManagerReadServiceClient(
             topologyManagerReadTransport,
         ),
-        topologyManagerWriteService: new TopologyManagerWriteServiceClient(
-            topologyManagerWriteTransport,
-        ),
+        topologyManagerWriteService,
         trafficControlService: new TrafficControlServiceClient(
             trafficControlTransport,
         ),

@@ -5,6 +5,8 @@ import {
     CreateExternalPartyRequest,
     CreateDecentralizedPartyRequest,
     PreparedDecentralizedParty,
+    GenerateTopologyTransactionsResponse,
+    GeneratedTopologyTransaction,
     ExternalPartyOnboardingTransaction,
     ExternalPartySignature,
     ExternalPartySignatureFormat,
@@ -282,6 +284,41 @@ describe("PartyManagementServiceClient", () => {
 
         expect(prepared.partyId).toBe("consortium::namespace");
         expect(prepared.decentralizedNamespace).toBe("namespace");
+    });
+
+    it("prepares decentralized topology through the injected topology writer", async () => {
+        const generateTransactionsAsync = vi.fn(async () =>
+            new GenerateTopologyTransactionsResponse({
+                generatedTransactions: [
+                    new GeneratedTopologyTransaction({
+                        serializedTransaction: new Uint8Array([1]),
+                        transactionHash: new Uint8Array([2]),
+                    }),
+                ],
+            }),
+        );
+        const client = new PartyManagementServiceClient({
+            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+                participantId: "participant::sandbox",
+            }),
+        } as never, { generateTransactionsAsync } as never);
+
+        await expect(client.prepareDecentralizedPartyAsync(
+            new CreateDecentralizedPartyRequest({
+                synchronizer: "sync::sandbox",
+                partyHint: "consortium",
+                owners: [
+                    { publicKey: new ExternalPartySigningPublicKey({ format: ExternalPartyCryptoKeyFormat.raw, keyData: new Uint8Array([1]), keySpec: ExternalPartySigningKeySpec.ecCurve25519 }) },
+                    { publicKey: new ExternalPartySigningPublicKey({ format: ExternalPartyCryptoKeyFormat.raw, keyData: new Uint8Array([2]), keySpec: ExternalPartySigningKeySpec.ecCurve25519 }) },
+                ],
+                ownerThreshold: 2,
+                partySigningKeys: [{ publicKey: new ExternalPartySigningPublicKey({ format: ExternalPartyCryptoKeyFormat.raw, keyData: new Uint8Array([3]), keySpec: ExternalPartySigningKeySpec.ecCurve25519 }) }],
+                partySigningThreshold: 1,
+                confirmationThreshold: 1,
+            }),
+        )).rejects.toThrow(/generated transaction count/i);
+
+        expect(generateTransactionsAsync).toHaveBeenCalledTimes(1);
     });
 
     it("creates an external party with caller-provided signatures", async () => {

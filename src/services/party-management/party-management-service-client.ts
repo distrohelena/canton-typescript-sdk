@@ -3,6 +3,7 @@ import { RequestOptions } from "../../core/types/request-options.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreateExternalPartyRequest } from "../../core/types/requests/create-external-party-request.js";
+import { CreateDecentralizedPartyRequest } from "../../core/types/requests/create-decentralized-party-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { ExternalPartyOnboardingTransaction } from "../../core/types/external-party/external-party-onboarding-transaction.js";
@@ -15,10 +16,37 @@ import { GenerateExternalPartyTopologyResponse } from "../../core/types/response
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
+import { PreparedDecentralizedParty } from "../../core/types/requests/finalize-decentralized-party-request.js";
+import { TopologyManagerWriteServiceClient } from "../topology-manager-write/topology-manager-write-service-client.js";
+import { prepareDecentralizedPartyAsync } from "./decentralized-party-lifecycle.js";
+import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 
 export class PartyManagementServiceClient {
-    public constructor(private readonly transport: ITransport) {
+    public constructor(
+        private readonly transport: ITransport,
+        private readonly topologyWriter?: TopologyManagerWriteServiceClient,
+    ) {
         void this.transport;
+    }
+
+    /** Prepares canonical decentralized-party topology for caller-owned signing. Supported on gRPC with participant-admin configuration. */
+    public async prepareDecentralizedPartyAsync(
+        request: CreateDecentralizedPartyRequest,
+        options?: RequestOptions,
+    ): Promise<PreparedDecentralizedParty> {
+        if (this.topologyWriter === undefined) {
+            throw new NotSupportedError("decentralized party preparation requires a topology manager write service");
+        }
+        const participant = await this.getParticipantIdAsync(
+            new GetParticipantIdRequest(),
+            options,
+        );
+        return prepareDecentralizedPartyAsync(
+            request,
+            participant,
+            this.topologyWriter,
+            options,
+        );
     }
 
     /** Lists known parties. Supported on JSON and gRPC. */
