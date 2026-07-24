@@ -75,7 +75,7 @@ const contracts = await manager.query.contracts.findMany({
     select: {
         contractId: true,
         templateId: true,
-        contractInstance: true,
+        payload: true,
     },
 });
 ```
@@ -134,12 +134,37 @@ beyond the configured TTL and explicit invalidation.
 
 The typed layer defines a versioned `PqsSchemaProfile.v1`, rather than treating
 the database as an arbitrary PostgreSQL schema. The profile owns the eight
-allowlisted relations and maps their physical snake_case columns to stable,
-camelCase TypeScript row fields. It also declares which fields are filterable,
-sortable, selectable, aggregateable, and uniquely identifying for each
-delegate. The first implementation derives this metadata from the PQS layout
-used by Canton Explorer and verifies required relations and columns through
-`information_schema` when the client is initialized.
+allowlisted relations. The delegates other than `contracts` expose physical
+rows, mapping their snake_case columns to stable camelCase TypeScript fields.
+
+`contracts` is intentionally a logical PQS view, not a direct `select *` from
+`__contracts`, so it has useful parity with the gRPC active-contract model. In
+profile v1 it joins `__contracts.tpe_pk` to `__contract_tpe.pk`, and its
+creation/archive indexes to `__transactions.ix`. Its fields are:
+
+- `contractId` from `__contracts.contract_id` (unique)
+- `templateId` from the joined contract-type identifier
+- `packageId` from `__contracts.creation_package_id`
+- `payload` from `__contracts.payload`
+- `witnesses` from `__contracts.witnesses`
+- `createdEventOffset` and `createdAt` from the creation transaction
+- `archivedEventOffset` and `archivedAt` from the archive transaction when one
+  exists
+- `active`, derived as `archived_at_ix is null`
+
+The supported contract filters are equality/set matching for `contractId`,
+`templateId`, `packageId`, and `active`, plus witness membership. Ordering is
+limited to `contractId`, `createdEventOffset`, `createdAt`, `archivedEventOffset`,
+and `archivedAt`; `payload` is selectable but not filterable or sortable.
+The gRPC contract delegate supports the intersecting active-contract subset:
+`contractId`, `templateId`, and active semantics, with no historical archive
+fields.
+
+Each profile declares the filterable, sortable, selectable, aggregateable, and
+uniquely identifying fields for every other delegate. The first implementation
+derives this metadata from the PQS layout used by Canton Explorer and verifies
+required relations and columns through `information_schema` when the client is
+initialized.
 
 An unknown or incompatible layout fails initialization with a descriptive
 schema-profile error. New PQS columns and future PQS versions require a new
