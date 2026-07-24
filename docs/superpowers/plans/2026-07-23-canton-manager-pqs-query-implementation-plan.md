@@ -21,6 +21,7 @@
 - `src/query/pqs/*` — pool owner, schema validation/profile, SQL compiler, raw SQL policy, and PQS query client.
 - `src/query/grpc/*` — wildcard ACS reader, local evaluator, and gRPC query client.
 - `tests/unit/query/*` — isolated tests for each behavior above.
+- `src/core/types/requests/get-active-contracts-page-request.ts` and `src/transports/grpc/mappers/contracts-mapper.ts` — existing ACS request/mapping extended with the Ledger API all-party wildcard.
 - `src/index.ts`, `package.json`, `package-lock.json`, `README.md` — public API, dependency, and usage documentation.
 
 ### Task 1: Establish public source, errors, and cache contracts
@@ -86,6 +87,7 @@ Cover the public contract delegate API:
 
 ```ts
 const args: ContractFindManyArgs = {
+    parties: ["Alice", "Bob"], // optional; omit for all hosted parties
     where: { templateId: { equals: "pkg:Module:Template" }, active: true },
     orderBy: { createdEventOffset: "desc" },
     take: 25,
@@ -103,14 +105,32 @@ Expected: FAIL because model/query types and validators do not exist.
 
 - [ ] **Step 3: Implement profile-v1 model types**
 
-Define physical-row types for `contractTypes`, `events`, `exercises`,
-`exerciseTypes`, `packages`, `transactions`, and `watermark`. Define the
-logical `ContractRow` with `contractId`, package-qualified `templateId`,
-`packageId`, `payload`, `witnesses`, creation/archive offsets/timestamps, and
-derived `active`. Provide generic `findMany`, `findUnique`, `count`, and
-aggregate argument/result types; restrict contract filters/sorts to the fields
-approved in the design. Preserve selection inference so `select` narrows the
-result type.
+Define the v1 profile completely from the observed Canton Explorer PQS
+database layout below. Convert PostgreSQL `bigint`/`int8range` values to
+strings, `jsonb` to `unknown`, PostgreSQL arrays to `readonly string[]`,
+`bytea` to `Uint8Array`, and user-defined enum values to strings:
+
+| Delegate / relation | v1 physical fields |
+| --- | --- |
+| `contractTypes` / `__contract_tpe` | `pk`, `payloadType`, `aliases`, `packageName`, `moduleName`, `entityName`, `templateFqn` |
+| `events` / `__events` | `pk`, `txIx`, `eventId`, `type` |
+| `exercises` / `__exercises` | `tpePk`, `contractTpePk`, `exerciseEventPk`, `exercisedAtIx`, `contractId`, `argument`, `result`, `redactionId`, `packagePk`, `controllers`, `lastDescendantNodeId`, `witnesses` |
+| `exerciseTypes` / `__exercise_tpe` | `pk`, `choice`, `consuming`, `aliases`, `packageName`, `moduleName`, `entityName`, `templateFqn`, `choiceFqn` |
+| `packages` / `__packages` | `pk`, `name`, `version`, `id` |
+| `transactions` / `__transactions` | `ix`, `offset`, `transactionId`, `effectiveAt`, `workflowId`, `domainId`, `traceContext`, `externalTransactionHash`, `paidTrafficCost` |
+| `watermark` / `__watermark` | `singleton`, `ix`, `offset`, `instanceId` |
+
+`contracts` is the logical view defined in the spec and reads `__contracts`
+with `__contract_tpe` and `__transactions`; its physical source fields are
+`tpe_pk`, event/index lifecycle fields, `contract_id`, `payload`,
+`contract_key`, `metadata`, `redaction_id`, `package_pk`, signatory/observer/
+witness arrays, `divulged_only`, `creation_package_id`, and
+`contract_key_hash`. Add optional `parties?: readonly string[]` to all contract
+read arguments. Omitted parties means the gRPC all-hosted-parties wildcard;
+provided parties become a `filtersByParty` map. Provide generic `findMany`,
+`findUnique`, `count`, and aggregate argument/result types; restrict filters,
+sorts, and aggregates to per-delegate profile metadata. Preserve selection
+inference so `select` narrows the result type.
 
 - [ ] **Step 4: Run the focused test**
 
@@ -138,8 +158,8 @@ git commit -m "feat: define typed query models"
 - [ ] **Step 1: Write failing pool/profile tests**
 
 Mock the `pg` pool and verify: schema defaults to `public`; unsafe identifiers
-are rejected; all eight required relations and required v1 columns are checked
-through a parameterized `information_schema` query; missing fields produce
+are rejected; all eight required relations and every exact v1 column listed in
+Task 2 are checked through a parameterized `information_schema` query; missing fields produce
 `PqsSchemaProfileError`; and `disposeAsync()` calls `pool.end()` exactly once.
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -256,16 +276,24 @@ git commit -m "feat: add read-only PQS raw queries"
 ### Task 6: Add gRPC wildcard ACS querying and snapshot cache
 
 **Files:**
+- Modify: `src/core/types/requests/get-active-contracts-page-request.ts`
+- Modify: `src/transports/grpc/mappers/contracts-mapper.ts`
 - Create: `src/query/grpc/grpc-active-contract-reader.ts`
 - Create: `src/query/grpc/grpc-contract-query-client.ts`
+- Create: `tests/unit/grpc/grpc-contracts-mapper.test.ts`
 - Test: `tests/unit/query/grpc-contract-query-client.test.ts`
 - Test: `tests/unit/query/grpc-active-contract-reader.test.ts`
 
 - [ ] **Step 1: Write failing gRPC query tests**
 
-Mock `StateServiceClient.getActiveContractsPageAsync` for a paginated ACS.
-Assert the request uses `filtersForAnyParty` by default, uses `filtersByParty`
-when parties are supplied, and holds `activeAtOffset` stable across pages.
+First add mapper tests for the existing request type: legacy `{ party }` input
+still emits `filtersByParty`; new `{ allParties: true }` emits
+`filtersForAnyParty` with the wildcard filter; and an invalid request that
+sets both modes is rejected. Then mock
+`StateServiceClient.getActiveContractsPageAsync` for a paginated ACS. Assert
+the adapter uses all-party mode by default, uses `filtersByParty` when
+`ContractFindManyArgs.parties` is supplied, and holds `activeAtOffset` stable
+across pages.
 Test local contract filtering, package-qualified template IDs, ordering,
 projection, pagination, count, unsupported historical fields, and a clear
 `QueryCapabilityError` for each PQS-only delegate/raw SQL operation.
@@ -276,22 +304,30 @@ invalidation removes the snapshot.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `rtk npm run test -- tests/unit/query/grpc-active-contract-reader.test.ts tests/unit/query/grpc-contract-query-client.test.ts`
+Run: `rtk npm run test -- tests/unit/grpc/grpc-contracts-mapper.test.ts tests/unit/query/grpc-active-contract-reader.test.ts tests/unit/query/grpc-contract-query-client.test.ts`
 
 Expected: FAIL because the gRPC adapter does not exist.
 
 - [ ] **Step 3: Implement the gRPC adapter**
 
-Create `EventFormat` with a wildcard filter for all hosted parties or
-per-party filters when requested. Read all page tokens at one stable snapshot
-offset; map gRPC created events to the supported `ContractRow` fields; cache
+Extend `GetActiveContractsPageRequest` as a backwards-compatible tagged union:
+the existing `{ party: string }` form remains valid and the new
+`{ allParties: true }` form is mutually exclusive. Update
+`mapGrpcQueryContractsRequest` to populate `EventFormat.filtersForAnyParty`
+for the latter and preserve `filtersByParty` for the former. Keep JSON's
+existing party-only validation unchanged; `CantonManager` below only accepts a
+gRPC `CantonClient`.
+
+Create `EventFormat` with that all-hosted-party wildcard or per-party filters
+when requested. Read all page tokens at one stable snapshot offset; map gRPC
+created events to the supported `ContractRow` fields; cache
 the unprojected snapshot with source, endpoint identity, visibility scope, and
 snapshot options in its key. Evaluate only the documented compatible contract
 subset locally and reject unsupported PQS-only features explicitly.
 
 - [ ] **Step 4: Run the focused tests**
 
-Run: `rtk npm run test -- tests/unit/query/grpc-active-contract-reader.test.ts tests/unit/query/grpc-contract-query-client.test.ts`
+Run: `rtk npm run test -- tests/unit/grpc/grpc-contracts-mapper.test.ts tests/unit/query/grpc-active-contract-reader.test.ts tests/unit/query/grpc-contract-query-client.test.ts`
 
 Expected: PASS.
 
@@ -313,7 +349,9 @@ git commit -m "feat: add gRPC contract query adapter"
 - [ ] **Step 1: Write failing manager/export tests**
 
 Verify a manager always constructs/exposes `grpc`, chooses exactly one query
-backend, rejects missing PQS settings for `QuerySource.pqs`, delegates writes
+backend, rejects missing PQS settings for `QuerySource.pqs`, rejects PQS
+options when `QuerySource.grpc` is selected, and rejects a non-gRPC
+`grpc.transportKind` before constructing adapters. Verify it delegates writes
 to `manager.grpc`, exposes cache invalidation, and disposes the PQS pool and
 gRPC client idempotently. Verify all manager/options/query/error/cache exports
 are available from the package root.
