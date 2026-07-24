@@ -19,10 +19,11 @@
 - Modify: `src/core/types/commands/exercise-by-key-command.ts`
 - Modify: `src/core/types/commands/create-and-exercise-command.ts`
 - Modify: `src/core/types/sdk-command.ts`
+- Modify: `src/index.ts`
 
 - [ ] **Step 1: Write failing constructor tests for the new API**
 
-  Cover a structured `{ packageId, moduleName, entityName }` template ID and `new DamlRecord({ owner: "Alice" })` create arguments. Assert malformed identifiers (empty module/entity), non-`DamlRecord` create arguments, missing exercise-by-key key, and missing choice/contract ID throw `ValidationError`.
+  Import `TemplateId` from the package root and type a structured `{ packageId, moduleName, entityName }` template ID with it. Use that ID and `new DamlRecord({ owner: "Alice" })` in commands. Assert malformed identifiers (empty module/entity), non-`DamlRecord` create arguments, missing exercise-by-key key, and missing choice/contract ID throw `ValidationError`.
 
 - [ ] **Step 2: Run the focused test to verify it fails**
 
@@ -32,7 +33,7 @@
 
 - [ ] **Step 3: Implement the normalized command DTOs**
 
-  Import `TemplateId` and `DamlRecord`. Replace all public command `templateId: string` fields with `TemplateId`; replace `payload` with `createArguments: DamlRecord`; rename exercise `argument` to `choiceArgument`. Keep `contractId`, `contractKey`, and choice arguments as the protobuf-compatible string/`unknown` forms. Validate `moduleName` and `entityName`, allow empty `packageId`, require `DamlRecord` create arguments, and preserve existing required-field validation. Apply the same property types to `SdkCommand`.
+  Export `TemplateId` from `src/index.ts`, then import it with `DamlRecord` in the DTOs. Replace all public command `templateId: string` fields with `TemplateId`; replace `payload` with `createArguments: DamlRecord`; rename exercise `argument` to `choiceArgument`. Keep `contractId`, `contractKey`, and choice arguments as the protobuf-compatible string/`unknown` forms. Validate `moduleName` and `entityName`, allow empty `packageId`, require `DamlRecord` create arguments, and preserve existing required-field validation. Apply the same property types to `SdkCommand`.
 
 - [ ] **Step 4: Run the focused test to verify it passes**
 
@@ -43,7 +44,7 @@
 - [ ] **Step 5: Commit the DTO change**
 
   ```bash
-  rtk git add src/core/types/commands src/core/types/sdk-command.ts tests/unit/types/ledger-command-types.test.ts
+  rtk git add src/core/types/commands src/core/types/sdk-command.ts src/index.ts tests/unit/types/ledger-command-types.test.ts
   rtk git commit -m "feat: align command dtos with grpc"
   ```
 
