@@ -75,7 +75,7 @@ type PayloadValueFilter =
     | { readonly ilike: string; readonly equals?: never; readonly lt?: never; readonly lte?: never; readonly gt?: never; readonly gte?: never; readonly like?: never };
 
 export type PayloadMatch = { readonly [field: string]: PayloadMatch | PayloadValueFilter };
-export type ContractPayloadFilter = ({ readonly path: string } & PayloadValueFilter) | { readonly match: PayloadMatch };
+export type ContractPayloadFilter = { readonly match: PayloadMatch };
 
 type ContractWhereFields = {
     readonly contractId?: StringFilter;

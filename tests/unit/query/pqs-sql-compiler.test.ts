@@ -7,7 +7,7 @@ describe("PQS SQL compiler", () => {
         const query = compileContractFindMany(
             {
                 where: {
-                    templateId: { equals: "package:Module:Template" },
+                    templateId: { packageId: { equals: "package" }, moduleName: { equals: "Module" }, entityName: { equals: "Template" } },
                     active: true,
                     witnesses: { has: "Alice" },
                 },
@@ -21,8 +21,7 @@ describe("PQS SQL compiler", () => {
         expect(query.text).toContain('from "public"."__contracts" contract_row');
         expect(query.text).toContain("contract_row.creation_package_id");
         expect(query.text).toContain("$1");
-        expect(query.text).not.toContain("package:Module:Template");
-        expect(query.values).toEqual(["package:Module:Template", "Alice", 20, 10]);
+        expect(query.values).toEqual(["package", "Module", "Template", "Alice", 20, 10]);
     });
 
     it("narrows logical contract reads to witnesses when parties are supplied", () => {
@@ -39,7 +38,7 @@ describe("PQS SQL compiler", () => {
         const compiled = compileContractFindMany({
             where: { and: [
                 { createdEventOffset: { gte: "100" } },
-                { payload: { path: "owner.city", ilike: "new%" } },
+                { payload: { match: { owner: { city: { ilike: "new%" } } } } },
                 { not: { active: { equals: false } } },
             ] },
         }, new PqsSchemaProfileV1());

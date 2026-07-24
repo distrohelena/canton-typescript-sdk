@@ -68,7 +68,7 @@ export class GrpcContractQueryClient implements QueryClient {
             args.where?.contractId?.in !== undefined ||
             args.where?.contractId?.is !== undefined ||
             args.where?.contractId?.isNot !== undefined ||
-            (args.where?.templateId !== undefined && typeof (args.where.templateId as { equals?: unknown }).equals !== "string")
+            args.where?.templateId !== undefined
         ) {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
         }
@@ -87,8 +87,6 @@ export class GrpcContractQueryClient implements QueryClient {
                 : row.contractId === args.where.contractId.equals,
         );
         if (args.where?.payload !== undefined) rows = rows.filter((row) => matchesPayload(row.payload, args.where!.payload!));
-        const legacyTemplate = args.where?.templateId as { equals?: string } | undefined;
-        if (legacyTemplate?.equals !== undefined) rows = rows.filter((row) => `${row.templateId.packageId}:${row.templateId.moduleName}:${row.templateId.entityName}` === legacyTemplate.equals);
 
         return rows;
     }
