@@ -10,6 +10,7 @@ export interface PreparedDecentralizedPartySigningRequest {
 }
 
 export class PreparedDecentralizedParty {
+    public readonly synchronizer: string;
     public readonly partyId: string;
     public readonly decentralizedNamespace: string;
     public readonly ownerThreshold: number;
@@ -18,6 +19,7 @@ export class PreparedDecentralizedParty {
     public readonly signingRequests: readonly PreparedDecentralizedPartySigningRequest[];
 
     public constructor(init: {
+        synchronizer: string;
         partyId: string;
         decentralizedNamespace: string;
         ownerThreshold: number;
@@ -25,6 +27,7 @@ export class PreparedDecentralizedParty {
         transactions?: readonly PreparedTopologyTransaction[];
         signingRequests?: readonly PreparedDecentralizedPartySigningRequest[];
     }) {
+        this.synchronizer = init.synchronizer;
         this.partyId = init.partyId;
         this.decentralizedNamespace = init.decentralizedNamespace;
         this.ownerThreshold = init.ownerThreshold;

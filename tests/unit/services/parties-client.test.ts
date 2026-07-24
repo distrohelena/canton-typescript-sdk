@@ -276,6 +276,7 @@ describe("PartyManagementServiceClient", () => {
 
     it("preserves immutable decentralized-party preparation metadata", () => {
         const prepared = new PreparedDecentralizedParty({
+            synchronizer: "sync::sandbox",
             partyId: "consortium::namespace",
             decentralizedNamespace: "namespace",
             ownerThreshold: 2,
@@ -319,6 +320,21 @@ describe("PartyManagementServiceClient", () => {
         )).rejects.toThrow(/generated transaction count/i);
 
         expect(generateTransactionsAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects decentralized finalization with missing signatures", async () => {
+        const client = new PartyManagementServiceClient({} as never);
+
+        await expect(client.finalizeDecentralizedPartyAsync(
+            new PreparedDecentralizedParty({
+                synchronizer: "sync::sandbox",
+                partyId: "consortium::namespace",
+                decentralizedNamespace: "namespace",
+                ownerThreshold: 2,
+                partySigningThreshold: 1,
+            }),
+            [],
+        )).rejects.toThrow(/missing/i);
     });
 
     it("creates an external party with caller-provided signatures", async () => {

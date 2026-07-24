@@ -3,6 +3,7 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { CantonHashPurpose } from "../../core/types/canton-hash-purpose.js";
 import { CreateDecentralizedPartyRequest, DecentralizedPartyKey } from "../../core/types/requests/create-decentralized-party-request.js";
 import { PreparedDecentralizedParty } from "../../core/types/requests/finalize-decentralized-party-request.js";
+import { PreparedTopologyTransaction } from "../../core/types/topology/prepared-topology-transaction.js";
 import { GenerateTopologyTransactionsRequest } from "../../core/types/requests/generate-topology-transactions-request.js";
 import { DecentralizedNamespaceDefinition } from "../../core/types/topology/decentralized-namespace-definition.js";
 import { NamespaceDelegation } from "../../core/types/topology/namespace-delegation.js";
@@ -52,7 +53,31 @@ export async function prepareDecentralizedPartyAsync(
     if (generated.generatedTransactions.length !== owners.length + 2) {
         throw new ValidationError("decentralized party generated transaction count does not match proposals");
     }
-    return new PreparedDecentralizedParty({ partyId, decentralizedNamespace, ownerThreshold: request.ownerThreshold, partySigningThreshold: request.partySigningThreshold });
+    const transactions = generated.generatedTransactions.map((transaction) =>
+        new PreparedTopologyTransaction({
+            serializedTransaction: transaction.serializedTransaction,
+            transactionHash: transaction.transactionHash,
+        }),
+    );
+    const signingRequests = transactions.flatMap((transaction, index) => {
+        const ownerRequests = ownerFingerprints.map((publicKeyFingerprint) => ({
+            id: `${index}:owner:${publicKeyFingerprint}`,
+            transactionHash: transaction.transactionHash,
+            payload: transaction.transactionHash,
+            publicKeyFingerprint,
+            role: "owner" as const,
+        }));
+        return index === transactions.length - 1
+            ? [...ownerRequests, ...request.partySigningKeys.map((key) => ({
+                id: `${index}:partySigningKey:${fingerprintFor(key)}`,
+                transactionHash: transaction.transactionHash,
+                payload: transaction.transactionHash,
+                publicKeyFingerprint: fingerprintFor(key),
+                role: "partySigningKey" as const,
+            }))]
+            : ownerRequests;
+    });
+    return new PreparedDecentralizedParty({ synchronizer: request.synchronizer, partyId, decentralizedNamespace, ownerThreshold: request.ownerThreshold, partySigningThreshold: request.partySigningThreshold, transactions, signingRequests });
 }
 
 function fingerprintFor(value: DecentralizedPartyKey): string {
