@@ -52,7 +52,7 @@ The JSON mapper consumes the exact same DTOs. It receives the structured identif
 
 ## Validation and Errors
 
-Command constructors validate non-empty `moduleName` and `entityName`, required `contractId`/`choice`, and that create arguments are a `DamlRecord`. `packageId` may be empty, matching protobuf `Identifier` semantics. Invalid inputs continue to throw `ValidationError` at construction time.
+Command constructors validate non-empty `moduleName` and `entityName`, required `contractId`/`choice`, the required exercise-by-key `contractKey`, and that create arguments are a `DamlRecord`. `packageId` may be empty, matching protobuf `Identifier` semantics. Invalid inputs continue to throw `ValidationError` at construction time.
 
 ## Scope
 
