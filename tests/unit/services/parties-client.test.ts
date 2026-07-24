@@ -233,12 +233,14 @@ describe("PartyManagementServiceClient", () => {
     });
 
     it("validates a decentralized party lifecycle request", () => {
+        const sign = vi.fn();
         const owner = {
             publicKey: new ExternalPartySigningPublicKey({
                 format: ExternalPartyCryptoKeyFormat.raw,
                 keyData: new Uint8Array([1, 2, 3]),
                 keySpec: ExternalPartySigningKeySpec.ecCurve25519,
             }),
+            sign,
         };
 
         const request = new CreateDecentralizedPartyRequest({
@@ -258,6 +260,7 @@ describe("PartyManagementServiceClient", () => {
 
         expect(request.ownerThreshold).toBe(2);
         expect(request.partySigningThreshold).toBe(1);
+        expect(request.owners[0].sign).toBe(sign);
         expect(() => new CreateDecentralizedPartyRequest({
             synchronizer: "sync::sandbox",
             partyHint: "consortium",

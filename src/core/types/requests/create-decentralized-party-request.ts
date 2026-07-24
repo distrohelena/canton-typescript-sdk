@@ -1,10 +1,24 @@
 import { ValidationError } from "../../errors/validation-error.js";
 import { computeCantonPublicKeyFingerprint } from "../../hashing/canton-hash.js";
 import { ExternalPartySigningPublicKey } from "../external-party/external-party-signing-public-key.js";
+import {
+    ExternalPartySigningRequest,
+    ExternalPartySigningResult,
+} from "./create-external-party-request.js";
 
 export interface DecentralizedPartyKey {
     readonly publicKey: ExternalPartySigningPublicKey;
+    readonly sign?: DecentralizedPartySigner;
 }
+
+export interface DecentralizedPartySigningRequest extends ExternalPartySigningRequest {
+    readonly role: "owner" | "partySigningKey";
+    readonly transactionHash: Uint8Array;
+}
+
+export type DecentralizedPartySigner = (
+    request: DecentralizedPartySigningRequest,
+) => Promise<ExternalPartySigningResult>;
 
 export class CreateDecentralizedPartyRequest {
     public readonly synchronizer: string;
@@ -83,6 +97,7 @@ function cloneKey(value: DecentralizedPartyKey): DecentralizedPartyKey {
             keyData: value.publicKey.keyData,
             keySpec: value.publicKey.keySpec,
         }),
+        sign: value.sign,
     };
 }
 
