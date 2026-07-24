@@ -86,11 +86,13 @@
         "@protobuf-ts/runtime": "^2.11.1",
         "@protobuf-ts/runtime-rpc": "^2.11.1",
         "fast-check": "^4.9.0",
-        "fflate": "^0.8.3"
+        "fflate": "^0.8.3",
+        "pg": "^8.22.0"
     },
     "devDependencies": {
         "@distrohelena/linter": "^0.5.0",
         "@protobuf-ts/plugin": "^2.11.1",
+        "@types/pg": "^8.20.0",
         "@typescript-eslint/parser": "^8.62.1",
         "@typescript-eslint/utils": "^8.62.1",
         "eslint": "^10.6.0",
