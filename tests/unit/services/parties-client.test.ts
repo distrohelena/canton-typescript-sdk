@@ -237,6 +237,7 @@ describe("PartyManagementServiceClient", () => {
 
     it("validates a decentralized party lifecycle request", () => {
         const sign = vi.fn();
+
         const owner = {
             publicKey: new ExternalPartySigningPublicKey({
                 format: ExternalPartyCryptoKeyFormat.raw,
@@ -298,6 +299,7 @@ describe("PartyManagementServiceClient", () => {
                 ],
             }),
         );
+
         const client = new PartyManagementServiceClient({
             getParticipantIdAsync: async () => new GetParticipantIdResponse({
                 participantId: "participant::sandbox",

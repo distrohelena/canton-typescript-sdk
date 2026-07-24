@@ -22,10 +22,15 @@ export async function prepareDecentralizedPartyAsync(
     options?: RequestOptions,
 ): Promise<PreparedDecentralizedParty> {
     const ownerFingerprints = request.owners.map(fingerprintFor);
+
     const decentralizedNamespace = deriveNamespace(ownerFingerprints);
+
     const partyId = `${request.partyHint}::${decentralizedNamespace}`;
+
     const owners = request.owners.map(toTopologyKey);
+
     const partyKeys = request.partySigningKeys.map(toTopologyKey);
+
     const participants = [
         new PartyToParticipantParticipant({
             participantUid: localParticipant.participantId,
@@ -40,6 +45,7 @@ export async function prepareDecentralizedPartyAsync(
             new PartyToParticipantParticipant({ participantUid, permission: ParticipantPermission.observation }),
         ),
     ];
+
     const generated = await topologyWriter.generateTransactionsAsync(
         new GenerateTopologyTransactionsRequest({
             proposals: [
@@ -50,15 +56,18 @@ export async function prepareDecentralizedPartyAsync(
         }),
         options,
     );
+
     if (generated.generatedTransactions.length !== owners.length + 2) {
         throw new ValidationError("decentralized party generated transaction count does not match proposals");
     }
+
     const transactions = generated.generatedTransactions.map((transaction) =>
         new PreparedTopologyTransaction({
             serializedTransaction: transaction.serializedTransaction,
             transactionHash: transaction.transactionHash,
         }),
     );
+
     const signingRequests = transactions.flatMap((transaction, index) => {
         const ownerRequests = ownerFingerprints.map((publicKeyFingerprint) => ({
             id: `${index}:owner:${publicKeyFingerprint}`,
@@ -67,6 +76,7 @@ export async function prepareDecentralizedPartyAsync(
             publicKeyFingerprint,
             role: "owner" as const,
         }));
+
         return index === transactions.length - 1
             ? [...ownerRequests, ...request.partySigningKeys.map((key) => ({
                 id: `${index}:partySigningKey:${fingerprintFor(key)}`,
@@ -77,21 +87,33 @@ export async function prepareDecentralizedPartyAsync(
             }))]
             : ownerRequests;
     });
+
     return new PreparedDecentralizedParty({ synchronizer: request.synchronizer, partyId, decentralizedNamespace, ownerThreshold: request.ownerThreshold, partySigningThreshold: request.partySigningThreshold, transactions, signingRequests });
 }
 
 function fingerprintFor(value: DecentralizedPartyKey): string {
     const fingerprint = computeCantonPublicKeyFingerprint(value.publicKey.keyData, value.publicKey.format);
-    if (fingerprint === undefined) throw new ValidationError("decentralized party key requires public key material");
+
+    if (fingerprint === undefined) {
+        throw new ValidationError("decentralized party key requires public key material");
+    }
+
     return fingerprint;
 }
 
 function deriveNamespace(ownerFingerprints: readonly string[]): string {
     const encoder = new TextEncoder();
+
     const chunks = [...ownerFingerprints].sort().flatMap((fingerprint) => {
-        const bytes = encoder.encode(fingerprint); const length = new Uint8Array(4); new DataView(length.buffer).setUint32(0, bytes.length);
+        const bytes = encoder.encode(fingerprint);
+
+        const length = new Uint8Array(4);
+
+        new DataView(length.buffer).setUint32(0, bytes.length);
+
         return [...length, ...bytes];
     });
+
     return computeCantonHashHex(new Uint8Array(chunks), CantonHashPurpose.decentralizedNamespace);
 }
 

@@ -40,10 +40,12 @@ export class PartyManagementServiceClient {
         if (this.topologyWriter === undefined) {
             throw new NotSupportedError("decentralized party preparation requires a topology manager write service");
         }
+
         const participant = await this.getParticipantIdAsync(
             new GetParticipantIdRequest(),
             options,
         );
+
         return prepareDecentralizedPartyAsync(
             request,
             participant,
@@ -61,20 +63,28 @@ export class PartyManagementServiceClient {
         if (prepared.signingRequests.length === 0) {
             throw new ValidationError("decentralized party finalization is missing prepared signing requests");
         }
+
         const expected = new Map(prepared.signingRequests.map((request) => [request.id, request]));
+
         const seen = new Set<string>();
+
         const signaturesByHash = new Map<string, ExternalPartySignature[]>();
+
         for (const detached of signatures) {
             const signingRequest = expected.get(detached.signingRequestId);
+
             if (signingRequest === undefined || seen.has(detached.signingRequestId)) {
                 throw new ValidationError("decentralized party finalization has unexpected or duplicate signatures");
-            }
-            if (detached.result.signature.length === 0) {
+            } else if (detached.result.signature.length === 0) {
                 throw new ValidationError("decentralized party finalization has malformed signatures");
             }
+
             seen.add(detached.signingRequestId);
+
             const key = toHex(signingRequest.transactionHash);
+
             const transactionSignatures = signaturesByHash.get(key) ?? [];
+
             transactionSignatures.push(new ExternalPartySignature({
                 format: detached.result.format,
                 signature: detached.result.signature,
@@ -83,22 +93,29 @@ export class PartyManagementServiceClient {
             }));
             signaturesByHash.set(key, transactionSignatures);
         }
+
         for (const [index, transaction] of prepared.transactions.entries()) {
             const requests = prepared.signingRequests.filter(
                 (request) => toHex(request.transactionHash) === toHex(transaction.transactionHash),
             );
+
             const ownerRequired = index === 0
                 ? requests.filter((request) => request.role === "owner").length
                 : prepared.ownerThreshold;
+
             const ownerProvided = requests.filter(
                 (request) => request.role === "owner" && seen.has(request.id),
             ).length;
+
             const partyRequests = requests.filter((request) => request.role === "partySigningKey");
+
             const partyProvided = partyRequests.filter((request) => seen.has(request.id)).length;
+
             if (ownerProvided < ownerRequired || partyProvided < partyRequests.length) {
                 throw new ValidationError("decentralized party finalization has missing signatures");
             }
         }
+
         return this.allocateExternalPartyAsync(new AllocateExternalPartyRequest({
             synchronizer: prepared.synchronizer,
             onboardingTransactions: prepared.transactions.map((transaction) =>
@@ -117,15 +134,20 @@ export class PartyManagementServiceClient {
         options?: RequestOptions,
     ): Promise<AllocateExternalPartyResponse> {
         const prepared = await this.prepareDecentralizedPartyAsync(request, options);
+
         const keys = [...request.owners, ...request.partySigningKeys];
+
         const signatures: DecentralizedPartyDetachedSignature[] = [];
+
         for (const signingRequest of prepared.signingRequests) {
             const key = keys.find((candidate) =>
                 computeFingerprint(candidate) === signingRequest.publicKeyFingerprint,
             );
+
             if (key?.sign === undefined) {
                 throw new ValidationError("decentralized party creation requires a signer for every key");
             }
+
             signatures.push({
                 signingRequestId: signingRequest.id,
                 result: await key.sign({
@@ -138,6 +160,7 @@ export class PartyManagementServiceClient {
                 }),
             });
         }
+
         return this.finalizeDecentralizedPartyAsync(prepared, signatures, options);
     }
 
