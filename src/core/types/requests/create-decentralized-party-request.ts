@@ -51,6 +51,7 @@ export class CreateDecentralizedPartyRequest {
         userId?: string;
     }) {
         const owners = [...(init.owners ?? [])];
+
         const partySigningKeys = [...(init.partySigningKeys ?? [])];
 
         if (init.synchronizer === undefined || init.synchronizer.length === 0) {
