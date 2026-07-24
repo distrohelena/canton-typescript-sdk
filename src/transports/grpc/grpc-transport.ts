@@ -88,6 +88,8 @@ import { TrafficControlStateRequest } from "../../core/types/requests/traffic-co
 import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
+import { SignCommandResult } from "../../core/signing/sign-command-result.js";
+import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
@@ -2152,6 +2154,20 @@ export class GrpcTransport implements ITransport {
         return mapGrpcInteractiveSubmitCommand(
             executed as { updateId: string; completionOffset: string },
         );
+    }
+
+    public async prepareCommandAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission> {
+        if (!this.operations.prepareSubmissionAsync) throw new NotSupportedError("interactive gRPC command signing is not available on this transport");
+        const prepared = await this.operations.prepareSubmissionAsync(mapGrpcPrepareSubmissionRequest(request, randomUUID()), options) as { preparedTransaction?: unknown; preparedTransactionHash: Uint8Array; hashingSchemeVersion: number };
+        if (!prepared.preparedTransaction || prepared.preparedTransactionHash.length === 0) throw new ValidationError("interactive prepare submission returned an incomplete result");
+        return new PreparedCommandSubmission(request, prepared.preparedTransaction, prepared.preparedTransactionHash, prepared.hashingSchemeVersion);
+    }
+
+    public async executePreparedCommandAndWaitAsync(prepared: PreparedCommandSubmission, signatures: Readonly<Record<string, SignCommandResult>>, options?: RequestOptions): Promise<SubmitCommandResponse> {
+        if (!this.operations.executeSubmissionAndWaitAsync) throw new NotSupportedError("interactive gRPC command signing is not available on this transport");
+        const signerResults = prepared.request.actAs.map((party) => { const result = signatures[party]; if (!result) throw new ValidationError(`interactive command signing requires a signature for ${party}`); return { party, result }; });
+        const result = await this.operations.executeSubmissionAndWaitAsync(mapGrpcExecuteSubmissionAndWaitRequest({ request: prepared.request, preparedTransaction: prepared.transaction as never, hashingSchemeVersion: prepared.hashingSchemeVersion as never, submissionId: randomUUID(), signerResults }), options);
+        return mapGrpcInteractiveSubmitCommand(result as { updateId: string; completionOffset: string });
     }
 
     private throwIfDisposed(): void {

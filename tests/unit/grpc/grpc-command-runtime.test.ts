@@ -224,4 +224,19 @@ describe("GrpcTransport live ledger shapes", () => {
         });
         expect(result.transactionId).toBe("tx-2");
     });
+
+    it("exposes prepared transactions for detached multi-party signing", async () => {
+        let execute: unknown;
+        const transport = new GrpcTransport(createFakeGrpcOperations({
+            prepareSubmissionAsync: async () => ({ preparedTransaction: {}, preparedTransactionHash: new Uint8Array([7, 8]), hashingSchemeVersion: 3 }),
+            executeSubmissionAndWaitAsync: async request => { execute = request; return { updateId: "tx-detached", completionOffset: "1" }; },
+        }));
+        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", command: new CreateCommand({ templateId: "Main:Iou", payload: {} }) }));
+        expect(prepared.transactionHash).toEqual(new Uint8Array([7, 8]));
+        await transport.executePreparedCommandAndWaitAsync(prepared, {
+            Alice: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
+            Bob: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([2]), signedBy: "bob-key" }),
+        });
+        expect(execute).toMatchObject({ partySignatures: { signatures: [{ party: "Alice" }, { party: "Bob" }] } });
+    });
 });

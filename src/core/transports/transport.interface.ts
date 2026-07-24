@@ -186,6 +186,8 @@ import { CommitmentChunkObserver } from "../../services/participant-inspection/c
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
 import { CommandSigners, ICommandSigner } from "../signing/command-signer.interface.js";
+import { SignCommandResult } from "../signing/sign-command-result.js";
+import { PreparedCommandSubmission } from "../types/prepared-command-submission.js";
 import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
 
@@ -761,4 +763,6 @@ export interface ITransport {
         signer?: ICommandSigner | CommandSigners,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse>;
+    prepareCommandAsync?(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission>;
+    executePreparedCommandAndWaitAsync?(prepared: PreparedCommandSubmission, signatures: Readonly<Record<string, SignCommandResult>>, options?: RequestOptions): Promise<SubmitCommandResponse>;
 }

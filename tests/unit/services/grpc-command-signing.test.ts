@@ -129,7 +129,7 @@ describe("CommandServiceClient grpc signing", () => {
         ).rejects.toThrow(NotSupportedError);
     });
 
-    it("rejects multi-party grpc command signing for now", async () => {
+    it("allows multi-party grpc command signing to reach preparation", async () => {
         const client = new CommandServiceClient(
             new GrpcTransport({
                 getLedgerApiVersionAsync: async () => {
@@ -188,6 +188,6 @@ describe("CommandServiceClient grpc signing", () => {
                     }),
                 }),
             ),
-        ).rejects.toThrow(ValidationError);
+        ).rejects.toThrow("not used");
     });
 });
