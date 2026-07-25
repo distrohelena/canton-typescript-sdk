@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-    GetIntervalsBehindForCounterParticipantsRequest,
     ParticipantInspectionServiceClient,
     RequestOptions,
     SynchronizerConnectivityServiceClient,
-    TopologyDuration,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
@@ -12,6 +10,8 @@ import {
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
     GetConfigForSlowCounterParticipantsResponse,
+    GetIntervalsBehindForCounterParticipantsRequest,
+    GetIntervalsBehindForCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
@@ -53,6 +53,15 @@ describe("GrpcTransport batch 4 read services", () => {
                 participantUidsMetrics: ["participant-1"],
             }],
         });
+        const intervalsBehindResponse = GetIntervalsBehindForCounterParticipantsResponse.create({
+            intervalsBehind: [{
+                counterParticipantUid: "participant-1",
+                synchronizerId: "sync-1",
+                intervalsBehind: "6",
+                behindSince: { seconds: "30", nanos: 0 },
+                asOfSequencingTimestamp: { seconds: "1735689600", nanos: 0 },
+            }],
+        });
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -66,23 +75,7 @@ describe("GrpcTransport batch 4 read services", () => {
             lookupOffsetByTimeAsync: async () => offsetResponse,
             countInFlightAsync: async () => inFlightResponse,
             getConfigForSlowCounterParticipantsAsync: async () => slowConfigResponse,
-            getIntervalsBehindForCounterParticipantsAsync: async () => ({
-                intervalsBehind: [
-                    {
-                        counterParticipantUid: "participant-1",
-                        synchronizerId: "sync-1",
-                        intervalsBehind: "6",
-                        behindSince: {
-                            seconds: "30",
-                            nanos: 0,
-                        },
-                        asOfSequencingTimestamp: {
-                            seconds: "1735689600",
-                            nanos: 0,
-                        },
-                    },
-                ],
-            }),
+            getIntervalsBehindForCounterParticipantsAsync: async () => intervalsBehindResponse,
             listConnectedSynchronizersAsync: async () => connectedSynchronizersResponse,
             getSynchronizerIdAsync: async () => synchronizerIdResponse,
         } as any);
@@ -122,7 +115,7 @@ describe("GrpcTransport batch 4 read services", () => {
 
         const intervalsBehind =
             await participantInspection.getIntervalsBehindForCounterParticipantsAsync(
-                new GetIntervalsBehindForCounterParticipantsRequest({
+                GetIntervalsBehindForCounterParticipantsRequest.create({
                     counterParticipantIds: ["participant-1"],
                     synchronizerIds: ["sync-1"],
                     threshold: "6",
@@ -147,12 +140,7 @@ describe("GrpcTransport batch 4 read services", () => {
         expect(offset).toBe(offsetResponse);
         expect(inFlight).toBe(inFlightResponse);
         expect(slowConfig).toBe(slowConfigResponse);
-        expect(intervalsBehind.intervalsBehind[0]?.behindSince).toEqual(
-            new TopologyDuration({
-                seconds: "30",
-                nanos: 0,
-            }),
-        );
+        expect(intervalsBehind).toBe(intervalsBehindResponse);
         expect(connectedSynchronizers).toBe(connectedSynchronizersResponse);
         expect(synchronizerId).toBe(synchronizerIdResponse);
     });

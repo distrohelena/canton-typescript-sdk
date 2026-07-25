@@ -24,7 +24,6 @@ import { GetActiveContractsRequest } from "../types/requests/get-active-contract
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetIntervalsBehindForCounterParticipantsRequest } from "../types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
@@ -83,7 +82,6 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetIntervalsBehindForCounterParticipantsResponse } from "../types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";
 import { GetPackageReferencesResponse } from "../types/responses/get-package-references-response.js";
@@ -142,6 +140,8 @@ import type {
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
     GetConfigForSlowCounterParticipantsResponse,
+    GetIntervalsBehindForCounterParticipantsRequest,
+    GetIntervalsBehindForCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

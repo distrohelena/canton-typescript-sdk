@@ -30,7 +30,6 @@ import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-ap
 import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
-import { GetIntervalsBehindForCounterParticipantsRequest } from "../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
@@ -108,7 +107,6 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetIntervalsBehindForCounterParticipantsResponse } from "../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
@@ -164,6 +162,8 @@ import type {
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
     GetConfigForSlowCounterParticipantsResponse,
+    GetIntervalsBehindForCounterParticipantsRequest,
+    GetIntervalsBehindForCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

@@ -247,7 +247,6 @@ export { ListDecentralizedNamespaceDefinitionRequest } from "./core/types/reques
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
 export { GetHighestOffsetByTimestampRequest } from "./core/types/requests/get-highest-offset-by-timestamp-request.js";
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
-export { GetIntervalsBehindForCounterParticipantsRequest } from "./core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 export { ImportTopologySnapshotRequest } from "./core/types/requests/import-topology-snapshot-request.js";
 export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-topology-snapshot-v2-request.js";
 export { InspectCommitmentContractsRequest } from "./core/types/requests/inspect-commitment-contracts-request.js";
@@ -311,7 +310,6 @@ export { HealthCheckResponse } from "./core/types/responses/health-check-respons
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { GetHighestOffsetByTimestampResponse } from "./core/types/responses/get-highest-offset-by-timestamp-response.js";
 export { GetIdentityProviderConfigResponse } from "./core/types/responses/get-identity-provider-config-response.js";
-export { GetIntervalsBehindForCounterParticipantsResponse } from "./core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 export { InspectCommitmentContractsResponse } from "./core/types/responses/inspect-commitment-contracts-response.js";
 export { GetNoWaitCommitmentsFromResponse } from "./core/types/responses/get-no-wait-commitments-from-response.js";
 export { GetLatestPrunedOffsetsResponse } from "./core/types/responses/get-latest-pruned-offsets-response.js";

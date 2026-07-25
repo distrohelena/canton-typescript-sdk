@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CommitmentChunkObserver,
-    GetIntervalsBehindForCounterParticipantsRequest,
-    GetIntervalsBehindForCounterParticipantsResponse,
     ParticipantInspectionServiceClient,
     RequestOptions,
 } from "../../../src";
@@ -11,6 +9,8 @@ import {
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
     GetConfigForSlowCounterParticipantsResponse,
+    GetIntervalsBehindForCounterParticipantsRequest,
+    GetIntervalsBehindForCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
@@ -41,7 +41,7 @@ describe("ParticipantInspectionServiceClient", () => {
 
         const getIntervalsBehindForCounterParticipantsAsync = vi.fn(
             async () =>
-                new GetIntervalsBehindForCounterParticipantsResponse({
+                GetIntervalsBehindForCounterParticipantsResponse.create({
                     intervalsBehind: [],
                 }),
         );
@@ -123,7 +123,7 @@ describe("ParticipantInspectionServiceClient", () => {
         );
 
         await client.getIntervalsBehindForCounterParticipantsAsync(
-            new GetIntervalsBehindForCounterParticipantsRequest({
+            GetIntervalsBehindForCounterParticipantsRequest.create({
                 counterParticipantIds: ["participant-1"],
                 synchronizerIds: ["sync-1"],
                 threshold: "3",
@@ -188,7 +188,7 @@ describe("ParticipantInspectionServiceClient", () => {
         expect(
             getIntervalsBehindForCounterParticipantsAsync,
         ).toHaveBeenLastCalledWith(
-            expect.any(GetIntervalsBehindForCounterParticipantsRequest),
+            expect.objectContaining({ counterParticipantIds: ["participant-1"] }),
             options,
         );
         expect(lookupSentAcsCommitmentsAsync).toHaveBeenLastCalledWith(

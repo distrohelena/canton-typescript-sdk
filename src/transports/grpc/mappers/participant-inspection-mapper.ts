@@ -9,12 +9,10 @@ import { SentAcsCommitmentPerSynchronizer } from "../../../core/types/sent-acs-c
 import { SentAcsCommitmentState } from "../../../core/types/sent-acs-commitment-state.js";
 import { SlowCounterParticipantSynchronizerConfig } from "../../../core/types/slow-counter-participant-synchronizer-config.js";
 import { SynchronizerTimeRange } from "../../../core/types/synchronizer-time-range.js";
-import { GetIntervalsBehindForCounterParticipantsRequest } from "../../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../../core/types/requests/inspect-commitment-contracts-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { OpenCommitmentRequest } from "../../../core/types/requests/open-commitment-request.js";
-import { GetIntervalsBehindForCounterParticipantsResponse } from "../../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../../core/types/responses/inspect-commitment-contracts-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../../core/types/responses/lookup-sent-acs-commitments-response.js";
@@ -22,8 +20,6 @@ import { OpenCommitmentResponse } from "../../../core/types/responses/open-commi
 import {
     Interval as GrpcInterval,
     CounterParticipantInfo as GrpcCounterParticipantInfo,
-    GetIntervalsBehindForCounterParticipantsRequest as GrpcGetIntervalsBehindForCounterParticipantsRequest,
-    GetIntervalsBehindForCounterParticipantsResponse as GrpcGetIntervalsBehindForCounterParticipantsResponse,
     InspectCommitmentContractsRequest as GrpcInspectCommitmentContractsRequest,
     InspectCommitmentContractsResponse as GrpcInspectCommitmentContractsResponse,
     LookupReceivedAcsCommitmentsRequest as GrpcLookupReceivedAcsCommitmentsRequest,
@@ -80,26 +76,6 @@ export function mapGrpcInspectCommitmentContracts(
 ): InspectCommitmentContractsResponse {
     return new InspectCommitmentContractsResponse({
         chunk: payload?.chunk,
-    });
-}
-
-export function mapGrpcGetIntervalsBehindForCounterParticipantsRequest(
-    request: GetIntervalsBehindForCounterParticipantsRequest,
-): GrpcGetIntervalsBehindForCounterParticipantsRequest {
-    return {
-        counterParticipantIds: [...request.counterParticipantIds],
-        synchronizerIds: [...request.synchronizerIds],
-        threshold: request.threshold,
-    };
-}
-
-export function mapGrpcGetIntervalsBehindForCounterParticipants(
-    payload?: Partial<GrpcGetIntervalsBehindForCounterParticipantsResponse>,
-): GetIntervalsBehindForCounterParticipantsResponse {
-    return new GetIntervalsBehindForCounterParticipantsResponse({
-        intervalsBehind: (payload?.intervalsBehind ?? []).map(
-            (item) => mapGrpcCounterParticipantInfo(item),
-        ),
     });
 }
 
