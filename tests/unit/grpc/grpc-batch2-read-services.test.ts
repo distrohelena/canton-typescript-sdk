@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
     CommandInspectionServiceClient,
-    CurrentTimeRequest,
-    GetIdRequest,
     GetIdentityProviderConfigRequest,
     GetResourceLimitsRequest,
     IdentityInitializationServiceClient,
@@ -15,10 +13,24 @@ import {
     CommandState,
     GetCommandStatusRequest,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
+import {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport batch 2 read services", () => {
     it("maps ledger-admin and participant-admin read methods", async () => {
+        const getIdResponse = GetIdResponse.create({
+            initialized: true,
+            uniqueIdentifier: "participant::sandbox",
+        });
+        const currentTimeResponse = CurrentTimeResponse.create({
+            currentTime: "1710000000000",
+        });
+
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -92,13 +104,8 @@ describe("GrpcTransport batch 2 read services", () => {
                     maxSubmissionBurstFactor: 2.5,
                 },
             }),
-            getIdAsync: async () => ({
-                initialized: true,
-                uniqueIdentifier: "participant::sandbox",
-            }),
-            currentTimeAsync: async () => ({
-                currentTime: "1710000000000",
-            }),
+            getIdAsync: async () => getIdResponse,
+            currentTimeAsync: async () => currentTimeResponse,
         } as any);
 
         const options = new RequestOptions({
@@ -148,12 +155,12 @@ describe("GrpcTransport batch 2 read services", () => {
         );
 
         const identity = await identityInitialization.getIdAsync(
-            new GetIdRequest(),
+            GetIdRequest.create(),
             options,
         );
 
         const currentTime = await identityInitialization.currentTimeAsync(
-            new CurrentTimeRequest(),
+            CurrentTimeRequest.create(),
             options,
         );
 
@@ -181,7 +188,7 @@ describe("GrpcTransport batch 2 read services", () => {
         expect(
             resourceLimits.currentLimits?.maxSubmissionBurstFactor,
         ).toBe(2.5);
-        expect(identity.uniqueIdentifier).toBe("participant::sandbox");
-        expect(currentTime.currentTime).toBe("1710000000000");
+        expect(identity).toBe(getIdResponse);
+        expect(currentTime).toBe(currentTimeResponse);
     });
 });

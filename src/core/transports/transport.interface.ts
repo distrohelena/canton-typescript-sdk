@@ -22,12 +22,10 @@ import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-o
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { CountInFlightRequest } from "../types/requests/count-in-flight-request.js";
-import { CurrentTimeRequest } from "../types/requests/current-time-request.js";
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../types/requests/get-config-for-slow-counter-participants-request.js";
-import { GetIdRequest } from "../types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
@@ -77,7 +75,6 @@ import { ParticipantListPackagesRequest } from "../types/requests/participant-li
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
 import { CountInFlightResponse } from "../types/responses/count-in-flight-response.js";
-import { CurrentTimeResponse } from "../types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../types/responses/get-dar-response.js";
 import type {
@@ -90,7 +87,12 @@ import type {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdResponse } from "../types/responses/get-id-response.js";
+import type {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";

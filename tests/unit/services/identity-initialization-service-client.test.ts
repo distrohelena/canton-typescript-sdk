@@ -1,18 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    IdentityInitializationServiceClient,
+    RequestOptions,
+} from "../../../src";
+import {
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,
     GetIdResponse,
-    IdentityInitializationServiceClient,
-    RequestOptions,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 
 describe("IdentityInitializationServiceClient", () => {
     it("forwards identity initialization read requests through the selected transport", async () => {
         const getIdAsync = vi.fn(
             async () =>
-                new GetIdResponse({
+                GetIdResponse.create({
                     initialized: true,
                     uniqueIdentifier: "participant::sandbox",
                 }),
@@ -20,7 +22,7 @@ describe("IdentityInitializationServiceClient", () => {
 
         const currentTimeAsync = vi.fn(
             async () =>
-                new CurrentTimeResponse({
+                CurrentTimeResponse.create({
                     currentTime: "1710000000000",
                 }),
         );
@@ -36,9 +38,9 @@ describe("IdentityInitializationServiceClient", () => {
             transport as never,
         );
 
-        const getIdRequest = new GetIdRequest();
+        const getIdRequest = GetIdRequest.create();
 
-        const currentTimeRequest = new CurrentTimeRequest();
+        const currentTimeRequest = CurrentTimeRequest.create();
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -49,14 +51,19 @@ describe("IdentityInitializationServiceClient", () => {
                 getIdRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetIdResponse);
+        ).resolves.toEqual(GetIdResponse.create({
+            initialized: true,
+            uniqueIdentifier: "participant::sandbox",
+        }));
 
         await expect(
             client.currentTimeAsync(
                 currentTimeRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(CurrentTimeResponse);
+        ).resolves.toEqual(CurrentTimeResponse.create({
+            currentTime: "1710000000000",
+        }));
 
         expect(getIdAsync).toHaveBeenCalledWith(
             getIdRequest,

@@ -245,7 +245,6 @@ export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/auth
 export { CountInFlightRequest } from "./core/types/requests/count-in-flight-request.js";
 export { CreateTemporaryTopologyStoreRequest } from "./core/types/requests/create-temporary-topology-store-request.js";
 export { ClearPartyOnboardingFlagRequest } from "./core/types/requests/clear-party-onboarding-flag-request.js";
-export { CurrentTimeRequest } from "./core/types/requests/current-time-request.js";
 export { DropTemporaryTopologyStoreRequest } from "./core/types/requests/drop-temporary-topology-store-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
@@ -267,7 +266,6 @@ export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api
 export { GetConfigForSlowCounterParticipantsRequest } from "./core/types/requests/get-config-for-slow-counter-participants-request.js";
 export { GetHighestOffsetByTimestampRequest } from "./core/types/requests/get-highest-offset-by-timestamp-request.js";
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
-export { GetIdRequest } from "./core/types/requests/get-id-request.js";
 export { GetIntervalsBehindForCounterParticipantsRequest } from "./core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 export { ImportTopologySnapshotRequest } from "./core/types/requests/import-topology-snapshot-request.js";
 export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-topology-snapshot-v2-request.js";
@@ -328,7 +326,6 @@ export { AllocateExternalPartyResponse } from "./core/types/responses/allocate-e
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
 export { AddPartyAsyncResponse } from "./core/types/responses/add-party-async-response.js";
 export { CountInFlightResponse } from "./core/types/responses/count-in-flight-response.js";
-export { CurrentTimeResponse } from "./core/types/responses/current-time-response.js";
 export { GetDarContentsResponse } from "./core/types/responses/get-dar-contents-response.js";
 export { GetDarResponse } from "./core/types/responses/get-dar-response.js";
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
@@ -339,7 +336,6 @@ export { GetConfigForSlowCounterParticipantsResponse } from "./core/types/respon
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { GetHighestOffsetByTimestampResponse } from "./core/types/responses/get-highest-offset-by-timestamp-response.js";
 export { GetIdentityProviderConfigResponse } from "./core/types/responses/get-identity-provider-config-response.js";
-export { GetIdResponse } from "./core/types/responses/get-id-response.js";
 export { GetIntervalsBehindForCounterParticipantsResponse } from "./core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 export { InspectCommitmentContractsResponse } from "./core/types/responses/inspect-commitment-contracts-response.js";
 export { GetNoWaitCommitmentsFromResponse } from "./core/types/responses/get-no-wait-commitments-from-response.js";

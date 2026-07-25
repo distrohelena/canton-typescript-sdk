@@ -1,9 +1,11 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
-import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
-import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
-import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
+import type {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 
 export class IdentityInitializationServiceClient {
     public constructor(private readonly transport: ITransport) {

@@ -2,14 +2,12 @@ import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
-import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
@@ -43,7 +41,6 @@ import { AllocatePartyResponse } from "../../core/types/responses/allocate-party
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
-import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
@@ -58,7 +55,12 @@ import type {
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
+import type {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";

@@ -20,7 +20,6 @@ import { AllocatePartyRequest } from "../core/types/requests/allocate-party-requ
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
-import { CurrentTimeRequest } from "../core/types/requests/current-time-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
@@ -33,7 +32,6 @@ import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-ap
 import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
-import { GetIdRequest } from "../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
@@ -99,7 +97,6 @@ import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import { GetPackageContentsResponse } from "../core/types/responses/get-package-contents-response.js";
-import { CurrentTimeResponse } from "../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../core/types/responses/get-dar-response.js";
 import type {
@@ -115,7 +112,12 @@ import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get
 import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
-import { GetIdResponse } from "../core/types/responses/get-id-response.js";
+import type {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";

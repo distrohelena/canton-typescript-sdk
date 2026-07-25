@@ -5,14 +5,12 @@ import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
-import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
@@ -66,12 +64,10 @@ import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-asyn
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
-import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
@@ -146,12 +142,6 @@ import {
     mapGrpcGenerateExternalPartyTopologyRequest,
     mapGrpcGenerateExternalPartyTopologyResponse,
 } from "./mappers/external-party-management-mapper.js";
-import {
-    mapGrpcCurrentTime,
-    mapGrpcCurrentTimeRequest,
-    mapGrpcGetId,
-    mapGrpcGetIdRequest,
-} from "./mappers/identity-initialization-mapper.js";
 import {
 } from "./mappers/identity-provider-config-mapper.js";
 import {
@@ -368,9 +358,11 @@ import {
     GetUpdatesPageRequest,
     GetUpdatesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/update_service.js";
-import {
-    CurrentTimeResponse as ProtobufCurrentTimeResponse,
-    GetIdResponse as ProtobufGetIdResponse,
+import type {
+    CurrentTimeRequest,
+    CurrentTimeResponse,
+    GetIdRequest,
+    GetIdResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import {
     GetDarContentsResponse as ProtobufGetParticipantDarContentsResponse,
@@ -1201,14 +1193,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetIdResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getIdAsync!(
-            mapGrpcGetIdRequest(request),
-            options,
-        );
-
-        return mapGrpcGetId(
-            payload as Partial<ProtobufGetIdResponse>,
-        );
+        return await this.operations.getIdAsync!(request, options);
     }
 
     public async currentTimeAsync(
@@ -1217,14 +1202,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<CurrentTimeResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.currentTimeAsync!(
-            mapGrpcCurrentTimeRequest(request),
-            options,
-        );
-
-        return mapGrpcCurrentTime(
-            payload as Partial<ProtobufCurrentTimeResponse>,
-        );
+        return await this.operations.currentTimeAsync!(request, options);
     }
 
     public async getContractAsync(
