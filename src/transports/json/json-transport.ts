@@ -31,15 +31,12 @@ import {
     GrantUserRightsRequest,
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
-import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListConnectedSynchronizersRequest } from "../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
-import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
-import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offset-by-time-request.js";
@@ -82,7 +79,6 @@ import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruni
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
-import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
@@ -91,8 +87,6 @@ import { ListConnectedSynchronizersResponse } from "../../core/types/responses/l
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
-import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
-import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
@@ -130,6 +124,14 @@ import type {
     UploadDarFileRequest,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { UploadDarFileResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import type {
+    GetUserRequest,
+    GetUserResponse,
+    ListUserRightsRequest,
+    ListUserRightsResponse,
+    ListUsersRequest,
+    ListUsersResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import {
     GetPackageRequest,
     GetPackageResponse,

@@ -44,7 +44,6 @@ import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedul
 import { GetResourceLimitsRequest } from "../types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../types/requests/get-synchronizer-id-request.js";
-import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
@@ -72,8 +71,6 @@ import { ListSynchronizerParametersStateRequest } from "../types/requests/list-s
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
-import { ListUserRightsRequest } from "../types/requests/list-user-rights-request.js";
-import { ListUsersRequest } from "../types/requests/list-users-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../types/requests/lookup-sent-acs-commitments-request.js";
 import { LookupOffsetByTimeRequest } from "../types/requests/lookup-offset-by-time-request.js";
@@ -115,7 +112,6 @@ import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-prunin
 import { GetSynchronizerIdResponse } from "../types/responses/get-synchronizer-id-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
-import { GetUserResponse } from "../types/responses/get-user-response.js";
 import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
@@ -149,8 +145,6 @@ import { ListSequencerSynchronizerStateResponse } from "../types/responses/list-
 import { ListSequencingParametersStateResponse } from "../types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
-import { ListUserRightsResponse } from "../types/responses/list-user-rights-response.js";
-import { ListUsersResponse } from "../types/responses/list-users-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../types/responses/lookup-offset-by-time-response.js";
@@ -175,7 +169,16 @@ import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "..
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
-import type { GrantUserRightsRequest, GrantUserRightsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import type {
+    GetUserRequest,
+    GetUserResponse,
+    GrantUserRightsRequest,
+    GrantUserRightsResponse,
+    ListUserRightsRequest,
+    ListUserRightsResponse,
+    ListUsersRequest,
+    ListUsersResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import type {
     ListKnownPackagesRequest,
     ListKnownPackagesResponse,

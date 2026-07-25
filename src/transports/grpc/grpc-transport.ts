@@ -29,7 +29,6 @@ import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
@@ -47,8 +46,6 @@ import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/r
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
-import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
-import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offset-by-time-request.js";
@@ -93,7 +90,6 @@ import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruni
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
-import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -117,8 +113,6 @@ import { ListSequencerSynchronizerStateResponse } from "../../core/types/respons
 import { ListSequencingParametersStateResponse } from "../../core/types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
-import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
-import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
@@ -318,14 +312,6 @@ import {
     mapGrpcSignTopologyTransactionsRequest,
     mapGrpcSignTopologyTransactionsResponse,
 } from "./mappers/topology-manager-write-mapper.js";
-import {
-    mapGrpcGetUser,
-    mapGrpcGetUserRequest,
-    mapGrpcListUserRights,
-    mapGrpcListUserRightsRequest,
-    mapGrpcListUsers,
-    mapGrpcListUsersRequest,
-} from "./mappers/users-mapper.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
@@ -360,10 +346,13 @@ import {
     ListKnownPartiesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GrantUserRightsResponse as ProtobufGrantUserRightsResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
-import {
-    GetUserResponse as ProtobufGetUserResponse,
-    ListUserRightsResponse as ProtobufListUserRightsResponse,
-    ListUsersResponse as ProtobufListUsersResponse,
+import type {
+    GetUserRequest,
+    GetUserResponse,
+    ListUserRightsRequest,
+    ListUserRightsResponse,
+    ListUsersRequest,
+    ListUsersResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type {
@@ -640,14 +629,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetUserResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getUserAsync!(
-            mapGrpcGetUserRequest(request),
+        return (await this.operations.getUserAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetUser(
-            payload as Partial<ProtobufGetUserResponse>,
-        );
+        )) as GetUserResponse;
     }
 
     public async listUsersAsync(
@@ -656,14 +641,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListUsersResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listUsersAsync!(
-            mapGrpcListUsersRequest(request),
+        return (await this.operations.listUsersAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcListUsers(
-            payload as Partial<ProtobufListUsersResponse>,
-        );
+        )) as ListUsersResponse;
     }
 
     public async listUserRightsAsync(
@@ -672,14 +653,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListUserRightsResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listUserRightsAsync!(
-            mapGrpcListUserRightsRequest(request),
+        return (await this.operations.listUserRightsAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcListUserRights(
-            payload as Partial<ProtobufListUserRightsResponse>,
-        );
+        )) as ListUserRightsResponse;
     }
 
     public async uploadDarFileAsync(

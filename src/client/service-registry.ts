@@ -50,7 +50,6 @@ import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-sc
 import { GetResourceLimitsRequest } from "../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../core/types/requests/get-synchronizer-id-request.js";
-import { GetUserRequest } from "../core/types/requests/get-user-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
@@ -82,8 +81,6 @@ import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parti
 import { ListDarsRequest } from "../core/types/requests/list-dars-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
-import { ListUserRightsRequest } from "../core/types/requests/list-user-rights-request.js";
-import { ListUsersRequest } from "../core/types/requests/list-users-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { LookupOffsetByTimeRequest } from "../core/types/requests/lookup-offset-by-time-request.js";
@@ -140,7 +137,6 @@ import { GetPruningScheduleResponse } from "../core/types/responses/get-pruning-
 import { GetResourceLimitsResponse } from "../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../core/types/responses/get-synchronizer-id-response.js";
-import { GetUserResponse } from "../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
 import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
@@ -169,8 +165,6 @@ import { ListSequencerSynchronizerStateResponse } from "../core/types/responses/
 import { ListSequencingParametersStateResponse } from "../core/types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../core/types/responses/list-synchronizer-trust-certificate-response.js";
-import { ListUserRightsResponse } from "../core/types/responses/list-user-rights-response.js";
-import { ListUsersResponse } from "../core/types/responses/list-users-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../core/types/responses/lookup-offset-by-time-response.js";
@@ -197,6 +191,14 @@ import type {
     ListVettedPackagesRequest,
     ListVettedPackagesResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import type {
+    GetUserRequest,
+    GetUserResponse,
+    ListUserRightsRequest,
+    ListUserRightsResponse,
+    ListUsersRequest,
+    ListUsersResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { ObjectDisposedError } from "../core/errors/object-disposed-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";

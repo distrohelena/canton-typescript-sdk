@@ -19,7 +19,6 @@ import {
     StateServiceClient,
     UpdateServiceClient,
     UserManagementServiceClient,
-    UserRightKind,
 } from "../../../src";
 import {
     GetCompletionsRequest,
@@ -39,8 +38,37 @@ import {
     GetEventsByContractIdRequest as ProtobufGetEventsByContractIdRequest,
     GetEventsByContractIdResponse as ProtobufGetEventsByContractIdResponse,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
+import {
+    GetUserRequest as ProtobufGetUserRequest,
+    ListUserRightsRequest as ProtobufListUserRightsRequest,
+    ListUsersRequest as ProtobufListUsersRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 
 describe("GrpcTransport batch 1 read services", () => {
+    it("returns raw generated user-management responses", async () => {
+        const getUserResponse = { user: { id: "user-1" } };
+        const listUsersResponse = { users: [], nextPageToken: "next" };
+        const listUserRightsResponse = { rights: [] };
+        const transport = new GrpcTransport({
+            getUserAsync: async () => getUserResponse,
+            listUsersAsync: async () => listUsersResponse,
+            listUserRightsAsync: async () => listUserRightsResponse,
+        } as any);
+        const client = new UserManagementServiceClient(transport);
+
+        await expect(
+            client.getUserAsync(ProtobufGetUserRequest.create({ userId: "user-1" })),
+        ).resolves.toBe(getUserResponse);
+        await expect(
+            client.listUsersAsync(ProtobufListUsersRequest.create()),
+        ).resolves.toBe(listUsersResponse);
+        await expect(
+            client.listUserRightsAsync(
+                ProtobufListUserRightsRequest.create({ userId: "user-1" }),
+            ),
+        ).resolves.toBe(listUserRightsResponse);
+    });
+
     it("maps ledger admin read methods", async () => {
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
@@ -187,8 +215,13 @@ describe("GrpcTransport batch 1 read services", () => {
         });
         expect(users.nextPageToken).toBe("next");
         expect(rights.rights).toEqual([
-            { type: UserRightKind.participantAdmin },
-            { type: UserRightKind.canExecuteAs, party: "Alice" },
+            { kind: { oneofKind: "participantAdmin", participantAdmin: {} } },
+            {
+                kind: {
+                    oneofKind: "canExecuteAs",
+                    canExecuteAs: { party: "Alice" },
+                },
+            },
         ]);
         expect(packages.packageDetails[0]).toMatchObject({
             packageId: "pkg-1",
