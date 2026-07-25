@@ -15,7 +15,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GetIdentityProviderConfigRequest } from "../../core/types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
@@ -107,7 +106,6 @@ import { GetParticipantStatusResponse } from "../../core/types/responses/get-par
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
-import { GetLedgerApiVersionResponse as SdkGetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
@@ -525,19 +523,13 @@ export class GrpcTransport implements ITransport {
     public async getLedgerApiVersionAsync(
         _request?: GetLedgerApiVersionRequest,
         options?: RequestOptions,
-    ): Promise<SdkGetLedgerApiVersionResponse> {
+    ): Promise<GetLedgerApiVersionResponse> {
         this.throwIfDisposed();
 
         const payload =
             await this.operations.getHealthAsync(options) as GetLedgerApiVersionResponse;
 
-        return new SdkGetLedgerApiVersionResponse({
-            version: payload.version ?? "",
-            features:
-                "features" in payload
-                    ? payload.features
-                    : undefined,
-        });
+        return payload;
     }
 
     public async checkHealthAsync(

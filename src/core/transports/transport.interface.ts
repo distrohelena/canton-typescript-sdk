@@ -39,7 +39,6 @@ import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-c
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetLatestPrunedOffsetsRequest } from "../types/requests/get-latest-pruned-offsets-request.js";
 import { GetLedgerEndRequest } from "../types/requests/get-ledger-end-request.js";
-import { GetLedgerApiVersionRequest } from "../types/requests/get-ledger-api-version-request.js";
 import { GetPackageContentsRequest } from "../types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../types/requests/get-package-references-request.js";
 import { GetPackageRequest } from "../types/requests/get-package-request.js";
@@ -134,7 +133,6 @@ import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-prunin
 import { GetSynchronizerIdResponse } from "../types/responses/get-synchronizer-id-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
-import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
 import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
@@ -197,6 +195,7 @@ import { SubmitCommandTransactionResponse } from "../types/responses/submit-comm
 import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
+import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;

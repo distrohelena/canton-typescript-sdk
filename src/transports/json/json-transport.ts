@@ -12,7 +12,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
 import { GetIdentityProviderConfigRequest } from "../../core/types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
@@ -90,7 +89,6 @@ import { GetParticipantPruningScheduleResponse } from "../../core/types/response
 import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
-import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
@@ -122,6 +120,8 @@ import { TrafficControlStateResponse } from "../../core/types/responses/traffic-
 import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/canton/google/grpc/health/v1/health.js";
+import { GetLedgerApiVersionResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
+import type { GetLedgerApiVersionRequest } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import type {
@@ -179,7 +179,7 @@ export class JsonTransport implements ITransport {
 
         const payload = await this.httpClient.getAsync("/v2/version", options);
 
-        return new GetLedgerApiVersionResponse({
+        return GetLedgerApiVersionResponse.create({
             version:
                 (payload as { version?: string }).version
                 ?? "unknown",

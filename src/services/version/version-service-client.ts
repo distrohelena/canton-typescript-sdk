@@ -1,7 +1,6 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
-import { GetLedgerApiVersionResponse } from "../../core/types/responses/get-ledger-api-version-response.js";
+import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 
 export class VersionServiceClient {
     public constructor(private readonly transport: ITransport) {
