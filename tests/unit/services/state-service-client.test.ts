@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetConnectedSynchronizersRequest,
-    GetConnectedSynchronizersResponse,
     RequestOptions,
     StateServiceClient,
 } from "../../../src";
 import {
+    GetConnectedSynchronizersRequest,
+    GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
     GetLedgerEndResponse,
     GetLatestPrunedOffsetsRequest,
@@ -14,11 +14,10 @@ import {
 
 describe("StateServiceClient read methods", () => {
     it("forwards state read requests through the selected transport", async () => {
+        const connectedSynchronizersResponse =
+            GetConnectedSynchronizersResponse.create();
         const getConnectedSynchronizersAsync = vi.fn(
-            async () =>
-                new GetConnectedSynchronizersResponse({
-                    connectedSynchronizers: [],
-                }),
+            async () => connectedSynchronizersResponse,
         );
 
         const ledgerEndResponse = GetLedgerEndResponse.create({ offset: 7n });
@@ -46,10 +45,10 @@ describe("StateServiceClient read methods", () => {
 
         await expect(
             client.getConnectedSynchronizersAsync(
-                new GetConnectedSynchronizersRequest(),
+                GetConnectedSynchronizersRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetConnectedSynchronizersResponse);
+        ).resolves.toBe(connectedSynchronizersResponse);
 
         await expect(
             client.getLedgerEndAsync(
@@ -66,7 +65,7 @@ describe("StateServiceClient read methods", () => {
         ).resolves.toBe(prunedOffsetsResponse);
 
         expect(getConnectedSynchronizersAsync).toHaveBeenCalledWith(
-            expect.any(GetConnectedSynchronizersRequest),
+            GetConnectedSynchronizersRequest.create(),
             options,
         );
         expect(getLedgerEndAsync).toHaveBeenCalledWith(

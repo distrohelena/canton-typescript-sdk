@@ -22,7 +22,6 @@ import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-o
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
-import { GetConnectedSynchronizersRequest } from "../types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../types/requests/current-time-request.js";
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
@@ -78,7 +77,6 @@ import { TrafficControlStateRequest } from "../types/requests/traffic-control-st
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
-import { GetConnectedSynchronizersResponse } from "../types/responses/get-connected-synchronizers-response.js";
 import { CountInFlightResponse } from "../types/responses/count-in-flight-response.js";
 import { CurrentTimeResponse } from "../types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
@@ -178,6 +176,8 @@ import type {
     GetCommandStatusResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import type {
+    GetConnectedSynchronizersRequest,
+    GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
     GetLedgerEndResponse,
     GetLatestPrunedOffsetsRequest,

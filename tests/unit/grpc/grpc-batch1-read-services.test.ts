@@ -14,7 +14,6 @@ import {
     ListUsersRequest,
     PackageManagementServiceClient,
     PartyManagementServiceClient,
-    ParticipantPermission,
     RequestOptions,
     StateServiceClient,
     UpdateServiceClient,
@@ -499,9 +498,7 @@ describe("GrpcTransport batch 1 read services", () => {
         });
         expect(events.created?.synchronizerId).toBe("sync-1");
         expect(events.archived?.synchronizerId).toBe("sync-2");
-        expect(connectedSynchronizers.connectedSynchronizers[0].permission).toBe(
-            ParticipantPermission.submission,
-        );
+        expect(connectedSynchronizers.connectedSynchronizers[0].permission).toBe(1);
         expect(ledgerEnd.offset).toBe("17");
         expect(prunedOffsets.allDivulgedContractsPrunedUpToInclusive).toBe("2");
         expect(byOffset.update).toMatchObject({ oneofKind: "transaction", transaction: { updateId: "tx-1" } });

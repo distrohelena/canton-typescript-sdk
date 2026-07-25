@@ -19,7 +19,6 @@ import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-ex
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
-import { GetConnectedSynchronizersRequest } from "../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../core/types/requests/current-time-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
@@ -101,7 +100,6 @@ import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import { GetPackageContentsResponse } from "../core/types/responses/get-package-contents-response.js";
-import { GetConnectedSynchronizersResponse } from "../core/types/responses/get-connected-synchronizers-response.js";
 import { CurrentTimeResponse } from "../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../core/types/responses/get-dar-response.js";
@@ -198,6 +196,8 @@ import type {
     GetCommandStatusResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import type {
+    GetConnectedSynchronizersRequest,
+    GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
     GetLedgerEndResponse,
     GetLatestPrunedOffsetsRequest,

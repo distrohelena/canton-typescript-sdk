@@ -4,7 +4,6 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
@@ -67,7 +66,6 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
-import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
@@ -239,8 +237,6 @@ import {
     mapGrpcGetResourceLimitsRequest,
 } from "./mappers/resource-management-mapper.js";
 import {
-    mapGrpcGetConnectedSynchronizers,
-    mapGrpcGetConnectedSynchronizersRequest,
 } from "./mappers/state-read-mapper.js";
 import {
     mapGrpcListAllRequest,
@@ -354,10 +350,9 @@ import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import {
-    GetConnectedSynchronizersResponse as ProtobufGetConnectedSynchronizersResponse,
-} from "./generated/canton/com/daml/ledger/api/v2/state_service.js";
 import type {
+    GetConnectedSynchronizersRequest,
+    GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
     GetLedgerEndResponse,
     GetLatestPrunedOffsetsRequest,
@@ -1747,14 +1742,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetConnectedSynchronizersResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getConnectedSynchronizersAsync!(
-            mapGrpcGetConnectedSynchronizersRequest(request),
+        return (await this.operations.getConnectedSynchronizersAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetConnectedSynchronizers(
-            payload as Partial<ProtobufGetConnectedSynchronizersResponse>,
-        );
+        )) as GetConnectedSynchronizersResponse;
     }
 
     public async getLedgerEndAsync(
