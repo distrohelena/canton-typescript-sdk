@@ -51,7 +51,6 @@ import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-t
 import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../core/types/requests/list-available-stores-request.js";
-import { ListRegisteredSynchronizersRequest } from "../core/types/requests/list-registered-synchronizers-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../core/types/requests/list-lsu-announcement-request.js";
@@ -140,7 +139,10 @@ import type {
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { ListRegisteredSynchronizersResponse } from "../core/types/responses/list-registered-synchronizers-response.js";
+import type {
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../core/types/responses/list-key-owners-response.js";
 import { ListLsuAnnouncementResponse } from "../core/types/responses/list-lsu-announcement-response.js";

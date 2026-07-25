@@ -35,7 +35,6 @@ import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-own
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
-import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offset-by-time-request.js";
@@ -93,7 +92,6 @@ import { ListSequencingParametersStateResponse } from "../../core/types/response
 import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
-import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
@@ -192,10 +190,6 @@ import {
     mapGrpcGetSafePruningOffset,
     mapGrpcGetSafePruningOffsetRequest,
 } from "./mappers/pruning-mapper.js";
-import {
-    mapGrpcListRegisteredSynchronizers,
-    mapGrpcListRegisteredSynchronizersRequest,
-} from "./mappers/synchronizer-connectivity-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
@@ -374,14 +368,13 @@ import {
 import {
     ListPendingOperationsResponse as ProtobufListPendingOperationsResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
-import {
-    ListRegisteredSynchronizersResponse as ProtobufListRegisteredSynchronizersResponse,
-} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import type {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { GetSafePruningOffsetResponse as ProtobufGetSafePruningOffsetResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
@@ -1114,14 +1107,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListRegisteredSynchronizersResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listRegisteredSynchronizersAsync!(
-            mapGrpcListRegisteredSynchronizersRequest(request),
-            options,
-        );
-
-        return mapGrpcListRegisteredSynchronizers(
-            payload as Partial<ProtobufListRegisteredSynchronizersResponse>,
-        );
+        return await this.operations.listRegisteredSynchronizersAsync!(request, options);
     }
 
     public async listPendingOperationsAsync(

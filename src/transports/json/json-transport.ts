@@ -25,7 +25,6 @@ import {
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
-import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
@@ -81,7 +80,10 @@ import type {
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
+import type {
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";

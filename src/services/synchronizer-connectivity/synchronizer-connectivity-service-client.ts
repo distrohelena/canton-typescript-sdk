@@ -1,13 +1,13 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import type {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
 
 export class SynchronizerConnectivityServiceClient {
     public constructor(private readonly transport: ITransport) {
