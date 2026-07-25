@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     CommandInspectionServiceClient,
     GetIdentityProviderConfigRequest,
-    GetResourceLimitsRequest,
     IdentityInitializationServiceClient,
     IdentityProviderConfigServiceClient,
     ListIdentityProviderConfigsRequest,
@@ -19,6 +18,10 @@ import {
     GetIdRequest,
     GetIdResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
+import {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport batch 2 read services", () => {
@@ -29,6 +32,13 @@ describe("GrpcTransport batch 2 read services", () => {
         });
         const currentTimeResponse = CurrentTimeResponse.create({
             currentTime: "1710000000000",
+        });
+        const resourceLimitsResponse = GetResourceLimitsResponse.create({
+            currentLimits: {
+                maxInflightValidationRequests: 50,
+                maxSubmissionRate: 100,
+                maxSubmissionBurstFactor: 2.5,
+            },
         });
 
         const transport = new GrpcTransport({
@@ -97,13 +107,7 @@ describe("GrpcTransport batch 2 read services", () => {
                     },
                 ],
             }),
-            getResourceLimitsAsync: async () => ({
-                currentLimits: {
-                    maxInflightValidationRequests: 50,
-                    maxSubmissionRate: 100,
-                    maxSubmissionBurstFactor: 2.5,
-                },
-            }),
+            getResourceLimitsAsync: async () => resourceLimitsResponse,
             getIdAsync: async () => getIdResponse,
             currentTimeAsync: async () => currentTimeResponse,
         } as any);
@@ -150,7 +154,7 @@ describe("GrpcTransport batch 2 read services", () => {
             );
 
         const resourceLimits = await resourceManagement.getResourceLimitsAsync(
-            new GetResourceLimitsRequest(),
+            GetResourceLimitsRequest.create(),
             options,
         );
 
@@ -185,9 +189,7 @@ describe("GrpcTransport batch 2 read services", () => {
             identityProvider.identityProviderConfig?.identityProviderId,
         ).toBe("idp-1");
         expect(identityProviders.identityProviderConfigs).toHaveLength(1);
-        expect(
-            resourceLimits.currentLimits?.maxSubmissionBurstFactor,
-        ).toBe(2.5);
+        expect(resourceLimits).toBe(resourceLimitsResponse);
         expect(identity).toBe(getIdResponse);
         expect(currentTime).toBe(currentTimeResponse);
     });

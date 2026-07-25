@@ -1,7 +1,9 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
-import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 
 export class ResourceManagementServiceClient {
     public constructor(private readonly transport: ITransport) {

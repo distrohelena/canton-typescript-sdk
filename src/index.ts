@@ -128,7 +128,6 @@ export { PackageReference } from "./core/types/package-reference.js";
 export { ParticipantDarDescription } from "./core/types/participant-dar-description.js";
 export { ParticipantModuleDescription } from "./core/types/participant-module-description.js";
 export { ParticipantPackageDescription } from "./core/types/participant-package-description.js";
-export { ResourceLimits } from "./core/types/resource-limits.js";
 export { SafeToPruneCommitmentState } from "./core/types/safe-to-prune-commitment-state.js";
 export { SdkCommand } from "./core/types/sdk-command.js";
 export { RegisteredSynchronizer } from "./core/types/registered-synchronizer.js";
@@ -279,7 +278,6 @@ export { GetPackageRequest } from "./core/types/requests/get-package-request.js"
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
 export { GetPackageStatusRequest } from "./core/types/requests/get-package-status-request.js";
 export { GetParticipantIdRequest } from "./core/types/requests/get-participant-id-request.js";
-export { GetResourceLimitsRequest } from "./core/types/requests/get-resource-limits-request.js";
 export { GetSafePruningOffsetRequest } from "./core/types/requests/get-safe-pruning-offset-request.js";
 export { GetConnectedSynchronizersRequest } from "./core/types/requests/get-connected-synchronizers-request.js";
 export { GetLatestPrunedOffsetsRequest } from "./core/types/requests/get-latest-pruned-offsets-request.js";
@@ -350,7 +348,6 @@ export { GetPackageReferencesResponse } from "./core/types/responses/get-package
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
 export { GetPruningScheduleResponse } from "./core/types/responses/get-pruning-schedule-response.js";
-export { GetResourceLimitsResponse } from "./core/types/responses/get-resource-limits-response.js";
 export { GetSafePruningOffsetResponse } from "./core/types/responses/get-safe-pruning-offset-response.js";
 export { GetSynchronizerIdResponse } from "./core/types/responses/get-synchronizer-id-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";

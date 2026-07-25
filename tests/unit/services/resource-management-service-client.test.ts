@@ -1,22 +1,23 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetResourceLimitsRequest,
-    GetResourceLimitsResponse,
     RequestOptions,
-    ResourceLimits,
     ResourceManagementServiceClient,
 } from "../../../src";
+import {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 
 describe("ResourceManagementServiceClient", () => {
     it("forwards resource limit reads through the selected transport", async () => {
         const getResourceLimitsAsync = vi.fn(
             async () =>
-                new GetResourceLimitsResponse({
-                    currentLimits: new ResourceLimits({
+                GetResourceLimitsResponse.create({
+                    currentLimits: {
                         maxInflightValidationRequests: 50,
                         maxSubmissionRate: 100,
                         maxSubmissionBurstFactor: 2.5,
-                    }),
+                    },
                 }),
         );
 
@@ -28,7 +29,7 @@ describe("ResourceManagementServiceClient", () => {
 
         const client = new ResourceManagementServiceClient(transport as never);
 
-        const request = new GetResourceLimitsRequest();
+        const request = GetResourceLimitsRequest.create();
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -39,7 +40,13 @@ describe("ResourceManagementServiceClient", () => {
                 request,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetResourceLimitsResponse);
+        ).resolves.toEqual(GetResourceLimitsResponse.create({
+            currentLimits: {
+                maxInflightValidationRequests: 50,
+                maxSubmissionRate: 100,
+                maxSubmissionBurstFactor: 2.5,
+            },
+        }));
 
         expect(getResourceLimitsAsync).toHaveBeenCalledWith(
             request,

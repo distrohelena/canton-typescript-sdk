@@ -40,7 +40,6 @@ import { GetParticipantPruningScheduleRequest } from "../core/types/requests/get
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-schedule-request.js";
-import { GetResourceLimitsRequest } from "../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../core/types/requests/get-synchronizer-id-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
@@ -126,7 +125,10 @@ import { GetParticipantIdResponse } from "../core/types/responses/get-participan
 import { GetParticipantPruningScheduleResponse } from "../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPartiesResponse } from "../core/types/responses/get-parties-response.js";
 import { GetPruningScheduleResponse } from "../core/types/responses/get-pruning-schedule-response.js";
-import { GetResourceLimitsResponse } from "../core/types/responses/get-resource-limits-response.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { GetSafePruningOffsetResponse } from "../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../core/types/responses/get-synchronizer-id-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";

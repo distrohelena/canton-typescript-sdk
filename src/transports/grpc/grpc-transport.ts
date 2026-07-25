@@ -18,7 +18,6 @@ import { GetPackageContentsRequest } from "../../core/types/requests/get-package
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
-import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
@@ -73,7 +72,6 @@ import { InspectCommitmentContractsResponse } from "../../core/types/responses/i
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
-import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
@@ -221,10 +219,6 @@ import {
     mapGrpcTopologyListPartiesResponse,
 } from "./mappers/topology-aggregation-mapper.js";
 import {
-    mapGrpcGetResourceLimits,
-    mapGrpcGetResourceLimitsRequest,
-} from "./mappers/resource-management-mapper.js";
-import {
 } from "./mappers/state-read-mapper.js";
 import {
     mapGrpcListAllRequest,
@@ -364,6 +358,10 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import {
     GetDarContentsResponse as ProtobufGetParticipantDarContentsResponse,
     GetDarResponse as ProtobufGetParticipantDarResponse,
@@ -403,7 +401,6 @@ import {
 } from "./generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { TrafficControlStateResponse as ProtobufTrafficControlStateResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { ParticipantStatusRequest, ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
-import { GetResourceLimitsResponse as ProtobufGetResourceLimitsResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import {
     ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
@@ -1177,14 +1174,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetResourceLimitsResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getResourceLimitsAsync!(
-            mapGrpcGetResourceLimitsRequest(request),
-            options,
-        );
-
-        return mapGrpcGetResourceLimits(
-            payload as Partial<ProtobufGetResourceLimitsResponse>,
-        );
+        return await this.operations.getResourceLimitsAsync!(request, options);
     }
 
     public async getIdAsync(

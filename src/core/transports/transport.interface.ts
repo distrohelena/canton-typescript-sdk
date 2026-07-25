@@ -34,7 +34,6 @@ import { GetPackageContentsRequest } from "../types/requests/get-package-content
 import { GetPackageReferencesRequest } from "../types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
-import { GetResourceLimitsRequest } from "../types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../types/requests/get-synchronizer-id-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
@@ -100,7 +99,10 @@ import { GetPackageReferencesResponse } from "../types/responses/get-package-ref
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
-import { GetResourceLimitsResponse } from "../types/responses/get-resource-limits-response.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../types/responses/get-synchronizer-id-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";

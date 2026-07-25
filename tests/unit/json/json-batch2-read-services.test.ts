@@ -3,15 +3,17 @@ import {
     CantonClient,
     CantonClientOptions,
     CommandState,
-    CurrentTimeRequest,
     GetCommandStatusRequest,
-    GetIdRequest,
     GetIdentityProviderConfigRequest,
-    GetResourceLimitsRequest,
     ListIdentityProviderConfigsRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import { GetResourceLimitsRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
+import {
+    CurrentTimeRequest,
+    GetIdRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 
 describe("Batch 2 read services with JSON transport", () => {
     it("rejects unsupported ledger-admin and participant-admin read methods", async () => {
@@ -56,21 +58,21 @@ describe("Batch 2 read services with JSON transport", () => {
                 "ResourceManagementService.GetResourceLimits",
                 () =>
                     client.resourceManagementService.getResourceLimitsAsync(
-                        new GetResourceLimitsRequest(),
+                        GetResourceLimitsRequest.create(),
                     ),
             ],
             [
                 "IdentityInitializationService.GetId",
                 () =>
                     client.identityInitializationService.getIdAsync(
-                        new GetIdRequest(),
+                        GetIdRequest.create(),
                     ),
             ],
             [
                 "IdentityInitializationService.CurrentTime",
                 () =>
                     client.identityInitializationService.currentTimeAsync(
-                        new CurrentTimeRequest(),
+                        CurrentTimeRequest.create(),
                     ),
             ],
         ] as const;
