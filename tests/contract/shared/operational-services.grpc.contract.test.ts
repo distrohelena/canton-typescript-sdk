@@ -1,26 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
-    ConnectedSynchronizerHealth,
     GetParticipantStatusRequest,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
-    GetPackageRequest,
-    GetPackageStatusRequest,
-    GetLedgerApiVersionResponse,
-    GrantUserRightsRequest,
-    HashFunction,
-    HealthCheckRequest,
-    HealthCheckStatus,
-    ListPackagesRequest,
-    ListVettedPackagesRequest,
-    PackageStatus,
     ParticipantListPackagesRequest,
     PackageManagementServiceClient,
     ParticipantStatusServiceClient,
-    UploadDarFileRequest,
-    UserRightKind,
 } from "../../../src";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
+import {
+    GetPackageRequest,
+    GetPackageStatusRequest,
+    ListPackagesRequest,
+    ListVettedPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { GrantUserRightsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { HealthServiceClient } from "../../../src/services/health/health-service-client.js";
 import { PackageServiceClient } from "../../../src/services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../../../src/services/participant-package/participant-package-service-client.js";
@@ -39,9 +35,11 @@ describe("gRPC operational services contract", () => {
             }),
             createPartyAsync: async () => ({ identifier: "Alice" }),
             grantUserRightsAsync: async () => ({
-                rights: [{ type: "participantAdmin" }],
+                newlyGrantedRights: [
+                    { kind: { oneofKind: "participantAdmin", participantAdmin: {} } },
+                ],
             }),
-            uploadPackageAsync: async () => ({ packageId: "pkg-1" }),
+            uploadPackageAsync: async () => ({}),
             listPackagesAsync: async () => ({
                 packageIds: ["pkg-1"],
             }),
@@ -155,18 +153,16 @@ describe("gRPC operational services contract", () => {
 
         await expect(
             healthService.checkAsync(
-                new HealthCheckRequest({
+                HealthCheckRequest.create({
                     service: "grpc.health.v1.Health",
                 }),
             ),
         ).resolves.toMatchObject({
-            status: HealthCheckStatus.serving,
+            status: 1,
         });
         await expect(
             versionService.getLedgerApiVersionAsync(),
-        ).resolves.toBeInstanceOf(
-            GetLedgerApiVersionResponse,
-        );
+        ).resolves.toMatchObject({ version: "1.0.0" });
         await expect(
             partyManagementService.allocatePartyAsync(new AllocatePartyRequest()),
         ).resolves.toMatchObject({
@@ -174,43 +170,52 @@ describe("gRPC operational services contract", () => {
         });
         await expect(
             userManagementService.grantUserRightsAsync(
-                new GrantUserRightsRequest({
+                GrantUserRightsRequest.create({
                     userId: "carol",
-                    rights: [{ type: UserRightKind.participantAdmin }],
+                    rights: [
+                        {
+                            kind: {
+                                oneofKind: "participantAdmin",
+                                participantAdmin: {},
+                            },
+                        },
+                    ],
                 }),
             ),
         ).resolves.toMatchObject({
-            rights: [{ type: UserRightKind.participantAdmin }],
+            newlyGrantedRights: [
+                { kind: { oneofKind: "participantAdmin" } },
+            ],
         });
         await expect(
             packageService.listPackagesAsync(
-                new ListPackagesRequest(),
+                ListPackagesRequest.create(),
             ),
         ).resolves.toMatchObject({
             packageIds: ["pkg-1"],
         });
         await expect(
             packageService.getPackageAsync(
-                new GetPackageRequest({
+                GetPackageRequest.create({
                     packageId: "pkg-1",
                 }),
             ),
         ).resolves.toMatchObject({
-            hashFunction: HashFunction.sha256,
+            hashFunction: 0,
             hash: "pkg-1",
         });
         await expect(
             packageService.getPackageStatusAsync(
-                new GetPackageStatusRequest({
+                GetPackageStatusRequest.create({
                     packageId: "pkg-1",
                 }),
             ),
         ).resolves.toMatchObject({
-            packageStatus: PackageStatus.registered,
+            packageStatus: 1,
         });
         await expect(
             packageService.listVettedPackagesAsync(
-                new ListVettedPackagesRequest(),
+                ListVettedPackagesRequest.create(),
             ),
         ).resolves.toMatchObject({
             vettedPackages: [
@@ -222,13 +227,11 @@ describe("gRPC operational services contract", () => {
         });
         await expect(
             packageManagementService.uploadDarFileAsync(
-                new UploadDarFileRequest({
-                    bytes: new Uint8Array([1, 2, 3]),
+                UploadDarFileRequest.create({
+                    darFile: new Uint8Array([1, 2, 3]),
                 }),
             ),
-        ).resolves.toMatchObject({
-            packageId: "pkg-1",
-        });
+        ).resolves.toEqual({});
         await expect(
             participantPackageService.listPackagesAsync(
                 new ParticipantListPackagesRequest(),
@@ -267,14 +270,17 @@ describe("gRPC operational services contract", () => {
                 new GetParticipantStatusRequest(),
             ),
         ).resolves.toMatchObject({
-            status: {
-                uid: "participant::sandbox",
-                connectedSynchronizers: [
-                    {
-                        physicalSynchronizerId: "sync::sandbox",
-                        health: ConnectedSynchronizerHealth.healthy,
-                    },
-                ],
+            kind: {
+                oneofKind: "status",
+                status: {
+                    commonStatus: { uid: "participant::sandbox" },
+                    connectedSynchronizers: [
+                        {
+                            physicalSynchronizerId: "sync::sandbox",
+                            health: 1,
+                        },
+                    ],
+                },
             },
         });
     });

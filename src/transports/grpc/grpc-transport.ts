@@ -23,8 +23,6 @@ import { GetLatestPrunedOffsetsRequest } from "../../core/types/requests/get-lat
 import { GetLedgerEndRequest } from "../../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
-import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
-import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
@@ -40,11 +38,8 @@ import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/re
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
 import { ListLsuSequencerConnectionSuccessorRequest } from "../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
-import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
 import { ListMediatorSynchronizerStateRequest } from "../../core/types/requests/list-mediator-synchronizer-state-request.js";
-import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListKnownPackagesRequest } from "../../core/types/requests/list-known-packages-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
@@ -69,7 +64,6 @@ import { SubmitCommandRequest } from "../../core/types/requests/submit-command-r
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
-import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -91,8 +85,6 @@ import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
-import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
-import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
@@ -110,9 +102,7 @@ import { ListAvailableStoresResponse } from "../../core/types/responses/list-ava
 import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
-import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
-import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListLsuAnnouncementResponse } from "../../core/types/responses/list-lsu-announcement-response.js";
 import { ListLsuSequencerConnectionSuccessorResponse } from "../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
@@ -131,7 +121,6 @@ import { ListUserRightsResponse } from "../../core/types/responses/list-user-rig
 import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
-import { ListVettedPackagesResponse } from "../../core/types/responses/list-vetted-packages-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
@@ -141,11 +130,9 @@ import { SubmitCommandResponse } from "../../core/types/responses/submit-command
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
 import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
-import { UploadDarFileResponse as SdkUploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
-import { PackageFormat } from "../../core/types/package-format.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { GrpcChannelSecurity } from "../../core/types/grpc-channel-security.js";
 import {
@@ -188,12 +175,6 @@ import {
 import {
 } from "./mappers/identity-provider-config-mapper.js";
 import {
-    mapGrpcListKnownPackages,
-    mapGrpcListKnownPackagesRequest,
-    mapGrpcGetPackage,
-    mapGrpcGetPackageRequest,
-    mapGrpcGetPackageStatus,
-    mapGrpcGetPackageStatusRequest,
     mapGrpcGetParticipantPackageContents,
     mapGrpcGetParticipantPackageContentsRequest,
     mapGrpcGetParticipantDar,
@@ -204,14 +185,8 @@ import {
     mapGrpcGetParticipantPackageReferencesRequest,
     mapGrpcListParticipantDars,
     mapGrpcListParticipantDarsRequest,
-    mapGrpcListPackages,
-    mapGrpcListPackagesRequest,
-    mapGrpcListVettedPackages,
-    mapGrpcListVettedPackagesRequest,
     mapGrpcParticipantListPackages,
     mapGrpcParticipantListPackagesRequest,
-    mapGrpcUploadPackage,
-    mapGrpcUploadPackageRequest,
 } from "./mappers/packages-mapper.js";
 import {
 } from "./mappers/participant-status-mapper.js";
@@ -362,15 +337,21 @@ import {
     GetIdentityProviderConfigResponse as ProtobufGetIdentityProviderConfigResponse,
     ListIdentityProviderConfigsResponse as ProtobufListIdentityProviderConfigsResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
-import {
-    ListKnownPackagesResponse as ProtobufListKnownPackagesResponse,
+import type {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
+    UploadDarFileRequest,
     UploadDarFileResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import {
-    GetPackageResponse as ProtobufGetPackageResponse,
-    GetPackageStatusResponse as ProtobufGetPackageStatusResponse,
-    ListPackagesResponse as ProtobufListPackagesResponse,
-    ListVettedPackagesResponse as ProtobufListVettedPackagesResponse,
+    GetPackageRequest,
+    GetPackageResponse,
+    GetPackageStatusRequest,
+    GetPackageStatusResponse,
+    ListPackagesRequest,
+    ListPackagesResponse,
+    ListVettedPackagesRequest,
+    ListVettedPackagesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/package_service.js";
 import {
     AllocateExternalPartyResponse as ProtobufAllocateExternalPartyResponse,
@@ -704,26 +685,13 @@ export class GrpcTransport implements ITransport {
     public async uploadDarFileAsync(
         request: UploadDarFileRequest,
         options?: RequestOptions,
-    ): Promise<SdkUploadDarFileResponse> {
+    ): Promise<UploadDarFileResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.uploadPackageAsync(
-            mapGrpcUploadPackageRequest(
-                {
-                    bytes: request.bytes,
-                    format: PackageFormat.dar,
-                },
-            ),
+        return (await this.operations.uploadPackageAsync(
+            request,
             options,
-        );
-
-        const response = mapGrpcUploadPackage(
-            payload as { packageId?: string } | UploadDarFileResponse,
-        );
-
-        return new SdkUploadDarFileResponse({
-            packageId: response.packageId,
-        });
+        )) as UploadDarFileResponse;
     }
 
     public async listPackagesAsync(
@@ -732,14 +700,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListPackagesResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listPackagesAsync!(
-            mapGrpcListPackagesRequest(request),
+        return (await this.operations.listPackagesAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcListPackages(
-            payload as Partial<ProtobufListPackagesResponse>,
-        );
+        )) as ListPackagesResponse;
     }
 
     public async listKnownPackagesAsync(
@@ -748,14 +712,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListKnownPackagesResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listKnownPackagesAsync!(
-            mapGrpcListKnownPackagesRequest(request),
+        return (await this.operations.listKnownPackagesAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcListKnownPackages(
-            payload as Partial<ProtobufListKnownPackagesResponse>,
-        );
+        )) as ListKnownPackagesResponse;
     }
 
     public async getIdentityProviderConfigAsync(
@@ -793,14 +753,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetPackageResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getPackageAsync!(
-            mapGrpcGetPackageRequest(request),
+        return (await this.operations.getPackageAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetPackage(
-            payload as Partial<ProtobufGetPackageResponse>,
-        );
+        )) as GetPackageResponse;
     }
 
     public async getPackageStatusAsync(
@@ -809,14 +765,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetPackageStatusResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getPackageStatusAsync!(
-            mapGrpcGetPackageStatusRequest(request),
+        return (await this.operations.getPackageStatusAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetPackageStatus(
-            payload as Partial<ProtobufGetPackageStatusResponse>,
-        );
+        )) as GetPackageStatusResponse;
     }
 
     public async listVettedPackagesAsync(
@@ -825,14 +777,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListVettedPackagesResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listVettedPackagesAsync!(
-            mapGrpcListVettedPackagesRequest(request),
+        return (await this.operations.listVettedPackagesAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcListVettedPackages(
-            payload as Partial<ProtobufListVettedPackagesResponse>,
-        );
+        )) as ListVettedPackagesResponse;
     }
 
     public async listParticipantPackagesAsync(

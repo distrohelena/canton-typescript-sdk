@@ -1,28 +1,22 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    ListKnownPackagesRequest,
-    ListKnownPackagesResponse,
     PackageManagementServiceClient,
     RequestOptions,
+} from "../../../src";
+import {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
     UploadDarFileRequest,
     UploadDarFileResponse,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 
 describe("PackageManagementServiceClient", () => {
     it("forwards package management requests through the selected transport", async () => {
-        const listKnownPackagesAsync = vi.fn(
-            async () =>
-                new ListKnownPackagesResponse({
-                    packageDetails: [],
-                }),
-        );
+        const listKnownPackagesResponse = ListKnownPackagesResponse.create();
+        const listKnownPackagesAsync = vi.fn(async () => listKnownPackagesResponse);
 
-        const uploadDarFileAsync = vi.fn(
-            async () =>
-                new UploadDarFileResponse({
-                    packageId: "pkg-1",
-                }),
-        );
+        const uploadDarFileResponse = UploadDarFileResponse.create();
+        const uploadDarFileAsync = vi.fn(async () => uploadDarFileResponse);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -84,8 +78,8 @@ describe("PackageManagementServiceClient", () => {
 
         const client = new PackageManagementServiceClient(transport as never);
 
-        const request = new UploadDarFileRequest({
-            bytes: new Uint8Array([1, 2, 3]),
+        const request = UploadDarFileRequest.create({
+            darFile: new Uint8Array([1, 2, 3]),
         });
 
         const options = new RequestOptions({
@@ -94,17 +88,17 @@ describe("PackageManagementServiceClient", () => {
 
         await expect(
             client.uploadDarFileAsync(request, options),
-        ).resolves.toBeInstanceOf(UploadDarFileResponse);
+        ).resolves.toBe(uploadDarFileResponse);
         await expect(
             client.listKnownPackagesAsync(
-                new ListKnownPackagesRequest(),
+                ListKnownPackagesRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(ListKnownPackagesResponse);
+        ).resolves.toBe(listKnownPackagesResponse);
 
         expect(uploadDarFileAsync).toHaveBeenCalledWith(request, options);
         expect(listKnownPackagesAsync).toHaveBeenCalledWith(
-            expect.any(ListKnownPackagesRequest),
+            ListKnownPackagesRequest.create(),
             options,
         );
     });

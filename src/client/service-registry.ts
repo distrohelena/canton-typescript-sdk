@@ -37,8 +37,6 @@ import { GetLatestPrunedOffsetsRequest } from "../core/types/requests/get-latest
 import { GetLedgerEndRequest } from "../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
-import { GetPackageRequest } from "../core/types/requests/get-package-request.js";
-import { GetPackageStatusRequest } from "../core/types/requests/get-package-status-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
@@ -76,14 +74,11 @@ import { ListParticipantSynchronizerPermissionRequest } from "../core/types/requ
 import { ListPartyHostingLimitsRequest } from "../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../core/types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
-import { ListPackagesRequest } from "../core/types/requests/list-packages-request.js";
 import { ListSequencerSynchronizerStateRequest } from "../core/types/requests/list-sequencer-synchronizer-state-request.js";
 import { ListSequencingParametersStateRequest } from "../core/types/requests/list-sequencing-parameters-state-request.js";
 import { ListSynchronizerParametersStateRequest } from "../core/types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../core/types/requests/list-synchronizer-trust-certificate-request.js";
-import { ListVettedPackagesRequest } from "../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
-import { ListKnownPackagesRequest } from "../core/types/requests/list-known-packages-request.js";
 import { ListDarsRequest } from "../core/types/requests/list-dars-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
@@ -99,7 +94,6 @@ import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-top
 import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
 import { TrafficControlStateRequest } from "../core/types/requests/traffic-control-state-request.js";
-import { UploadDarFileRequest } from "../core/types/requests/upload-dar-file-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
@@ -129,8 +123,6 @@ import type {
 import { GetConfigForSlowCounterParticipantsResponse } from "../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
-import { GetPackageResponse } from "../core/types/responses/get-package-response.js";
-import { GetPackageStatusResponse } from "../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
@@ -165,10 +157,8 @@ import { ListLsuSequencerConnectionSuccessorResponse } from "../core/types/respo
 import { ListMediatorSynchronizerStateResponse } from "../core/types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../core/types/responses/list-owner-to-key-mapping-response.js";
-import { ListPackagesResponse } from "../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
 import { ListDarsResponse } from "../core/types/responses/list-dars-response.js";
-import { ListKnownPackagesResponse } from "../core/types/responses/list-known-packages-response.js";
 import { ListIdentityProviderConfigsResponse } from "../core/types/responses/list-identity-provider-configs-response.js";
 import { ListPendingOperationsResponse } from "../core/types/responses/list-pending-operations-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../core/types/responses/list-participant-synchronizer-permission-response.js";
@@ -186,13 +176,27 @@ import { LookupSentAcsCommitmentsResponse } from "../core/types/responses/lookup
 import { LookupOffsetByTimeResponse } from "../core/types/responses/lookup-offset-by-time-response.js";
 import { OpenCommitmentResponse } from "../core/types/responses/open-commitment-response.js";
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
-import { ListVettedPackagesResponse } from "../core/types/responses/list-vetted-packages-response.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";
 import { TrafficControlStateResponse } from "../core/types/responses/traffic-control-state-response.js";
 import { ParticipantListPackagesResponse } from "../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
-import { UploadDarFileResponse } from "../core/types/responses/upload-dar-file-response.js";
+import type {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
+    UploadDarFileRequest,
+    UploadDarFileResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import type {
+    GetPackageRequest,
+    GetPackageResponse,
+    GetPackageStatusRequest,
+    GetPackageStatusResponse,
+    ListPackagesRequest,
+    ListPackagesResponse,
+    ListVettedPackagesRequest,
+    ListVettedPackagesResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { ObjectDisposedError } from "../core/errors/object-disposed-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";

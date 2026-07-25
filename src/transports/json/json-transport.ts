@@ -20,8 +20,6 @@ import { GetLatestPrunedOffsetsRequest } from "../../core/types/requests/get-lat
 import { GetLedgerEndRequest } from "../../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
-import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
-import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
@@ -35,10 +33,7 @@ import {
 } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
-import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListKnownPackagesRequest } from "../../core/types/requests/list-known-packages-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListConnectedSynchronizersRequest } from "../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
@@ -52,7 +47,6 @@ import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
-import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
@@ -78,8 +72,6 @@ import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
-import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
-import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
@@ -94,16 +86,13 @@ import { GetUserResponse } from "../../core/types/responses/get-user-response.js
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
-import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
 import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
-import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";
 import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
 import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
-import { ListVettedPackagesResponse } from "../../core/types/responses/list-vetted-packages-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
@@ -111,7 +100,6 @@ import { OpenCommitmentResponse } from "../../core/types/responses/open-commitme
 import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
-import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/canton/google/grpc/health/v1/health.js";
 import { GetLedgerApiVersionResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
@@ -136,7 +124,22 @@ import {
     mapJsonSubmitCommand,
     mapJsonSubmitCommandRequest,
 } from "./mappers/commands-mapper.js";
-import { mapJsonUploadPackage } from "./mappers/packages-mapper.js";
+import type {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
+    UploadDarFileRequest,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { UploadDarFileResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import {
+    GetPackageRequest,
+    GetPackageResponse,
+    GetPackageStatusRequest,
+    GetPackageStatusResponse,
+    ListPackagesRequest,
+    ListPackagesResponse,
+    ListVettedPackagesRequest,
+    ListVettedPackagesResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import {
     mapJsonAllocatePartyRequest,
     mapJsonCreateParty,
@@ -391,22 +394,18 @@ export class JsonTransport implements ITransport {
     ): Promise<UploadDarFileResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.httpClient.postAsync(
+        await this.httpClient.postAsync(
             "/v1/packages",
             {
-                format: "dar",
-                bytes: Array.from(request.bytes),
+                darFile: Array.from(request.darFile),
+                submissionId: request.submissionId,
+                vettingChange: request.vettingChange,
+                synchronizerId: request.synchronizerId,
             },
             options,
         );
 
-        const response = mapJsonUploadPackage(
-            payload as { result?: { packageId?: string }; packageId?: string },
-        );
-
-        return new UploadDarFileResponse({
-            packageId: response.packageId,
-        });
+        return UploadDarFileResponse.create();
     }
 
     public async listPackagesAsync(

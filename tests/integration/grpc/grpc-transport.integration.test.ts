@@ -3,12 +3,11 @@ import {
     ExerciseCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
-    HealthCheckRequest,
-    HealthCheckStatus,
     NotSupportedError,
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 
 describe("grpc transport entrypoint", () => {
@@ -52,12 +51,12 @@ describe("grpc transport entrypoint", () => {
         expect(client).not.toHaveProperty("events");
         await expect(
             client.healthService.checkAsync(
-                new HealthCheckRequest({
+                HealthCheckRequest.create({
                     service: "grpc.health.v1.Health",
                 }),
             ),
         ).resolves.toMatchObject({
-            status: HealthCheckStatus.serving,
+            status: 1,
         });
         await expect(
             client.stateService.getActiveContractsPageAsync(

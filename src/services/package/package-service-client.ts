@@ -1,13 +1,15 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
-import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
-import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
-import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
-import { GetPackageResponse } from "../../core/types/responses/get-package-response.js";
-import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
-import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
-import { ListVettedPackagesResponse } from "../../core/types/responses/list-vetted-packages-response.js";
+import type {
+    GetPackageRequest,
+    GetPackageResponse,
+    GetPackageStatusRequest,
+    GetPackageStatusResponse,
+    ListPackagesRequest,
+    ListPackagesResponse,
+    ListVettedPackagesRequest,
+    ListVettedPackagesResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 
 export class PackageServiceClient {
     public constructor(private readonly transport: ITransport) {

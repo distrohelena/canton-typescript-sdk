@@ -1,37 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     GetPackageContentsRequest,
-    GetPackageRequest,
     GetPackageReferencesRequest,
-    GetPackageStatusRequest,
-    HashFunction,
-    ListPackagesRequest,
-    ListVettedPackagesRequest,
-    PackageMetadataFilter,
-    PackageStatus,
     ParticipantListPackagesRequest,
     RequestOptions,
-    TopologyStateFilter,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    GetPackageRequest,
+    GetPackageStatusRequest,
+    ListPackagesRequest,
+    ListVettedPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 
 describe("GrpcTransport package services", () => {
     it("maps ledger package service requests and responses", async () => {
-        const listPackagesAsync = vi.fn(async () => ({
+        const listPackagesPayload = {
             packageIds: ["pkg-1", "pkg-2"],
-        }));
+        };
+        const listPackagesAsync = vi.fn(async () => listPackagesPayload);
 
-        const getPackageAsync = vi.fn(async () => ({
+        const getPackagePayload = {
             hashFunction: 0,
             archivePayload: new Uint8Array([1, 2, 3]),
             hash: "hash-1",
-        }));
+        };
+        const getPackageAsync = vi.fn(async () => getPackagePayload);
 
-        const getPackageStatusAsync = vi.fn(async () => ({
+        const getPackageStatusPayload = {
             packageStatus: 1,
-        }));
+        };
+        const getPackageStatusAsync = vi.fn(async () => getPackageStatusPayload);
 
-        const listVettedPackagesAsync = vi.fn(async () => ({
+        const listVettedPackagesPayload = {
             vettedPackages: [
                 {
                     packages: [
@@ -55,7 +56,10 @@ describe("GrpcTransport package services", () => {
                 },
             ],
             nextPageToken: "page-2",
-        }));
+        };
+        const listVettedPackagesAsync = vi.fn(
+            async () => listVettedPackagesPayload,
+        );
 
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({
@@ -87,19 +91,19 @@ describe("GrpcTransport package services", () => {
         });
 
         const listPackagesResponse = await transport.listPackagesAsync(
-            new ListPackagesRequest(),
+            ListPackagesRequest.create(),
             options,
         );
 
         const getPackageResponse = await transport.getPackageAsync(
-            new GetPackageRequest({
+            GetPackageRequest.create({
                 packageId: "pkg-1",
             }),
             options,
         );
 
         const getPackageStatusResponse = await transport.getPackageStatusAsync(
-            new GetPackageStatusRequest({
+            GetPackageStatusRequest.create({
                 packageId: "pkg-1",
             }),
             options,
@@ -107,15 +111,15 @@ describe("GrpcTransport package services", () => {
 
         const listVettedPackagesResponse =
             await transport.listVettedPackagesAsync(
-                new ListVettedPackagesRequest({
-                    packageMetadataFilter: new PackageMetadataFilter({
+                ListVettedPackagesRequest.create({
+                    packageMetadataFilter: {
                         packageIds: ["pkg-1"],
                         packageNamePrefixes: ["Main"],
-                    }),
-                    topologyStateFilter: new TopologyStateFilter({
+                    },
+                    topologyStateFilter: {
                         participantIds: ["participant-1"],
                         synchronizerIds: ["sync-1"],
-                    }),
+                    },
                     pageToken: "page-1",
                     pageSize: 5,
                 }),
@@ -141,29 +145,10 @@ describe("GrpcTransport package services", () => {
             pageToken: "page-1",
             pageSize: 5,
         }, options);
-        expect(listPackagesResponse.packageIds).toEqual(["pkg-1", "pkg-2"]);
-        expect(getPackageResponse.hashFunction).toBe(HashFunction.sha256);
-        expect(getPackageResponse.archivePayload).toEqual(new Uint8Array([1, 2, 3]));
-        expect(getPackageResponse.hash).toBe("hash-1");
-        expect(getPackageStatusResponse.packageStatus).toBe(PackageStatus.registered);
-        expect(listVettedPackagesResponse.nextPageToken).toBe("page-2");
-        expect(listVettedPackagesResponse.vettedPackages).toHaveLength(1);
-        expect(listVettedPackagesResponse.vettedPackages[0]).toMatchObject({
-            participantId: "participant-1",
-            synchronizerId: "sync-1",
-            topologySerial: 7,
-        });
-        expect(listVettedPackagesResponse.vettedPackages[0].packages[0]).toMatchObject({
-            packageId: "pkg-1",
-            packageName: "Main",
-            packageVersion: "1.0.0",
-        });
-        expect(
-            listVettedPackagesResponse.vettedPackages[0].packages[0].validFromInclusive,
-        ).toEqual(new Date("2024-03-09T16:00:00.000Z"));
-        expect(
-            listVettedPackagesResponse.vettedPackages[0].packages[0].validUntilExclusive,
-        ).toEqual(new Date("2024-03-09T17:00:00.000Z"));
+        expect(listPackagesResponse).toBe(listPackagesPayload);
+        expect(getPackageResponse).toBe(getPackagePayload);
+        expect(getPackageStatusResponse).toBe(getPackageStatusPayload);
+        expect(listVettedPackagesResponse).toBe(listVettedPackagesPayload);
     });
 
     it("maps participant package service requests and responses", async () => {

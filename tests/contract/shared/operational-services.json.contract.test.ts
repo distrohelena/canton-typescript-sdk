@@ -4,20 +4,20 @@ import {
     GetParticipantStatusRequest,
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
-    GetPackageRequest,
-    GetPackageStatusRequest,
-    GetLedgerApiVersionResponse,
-    GrantUserRightsRequest,
-    HealthCheckRequest,
-    ListPackagesRequest,
-    ListVettedPackagesRequest,
     NotSupportedError,
     ParticipantListPackagesRequest,
     PackageManagementServiceClient,
     ParticipantStatusServiceClient,
-    UploadDarFileRequest,
-    UserRightKind,
 } from "../../../src";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
+import {
+    GetPackageRequest,
+    GetPackageStatusRequest,
+    ListPackagesRequest,
+    ListVettedPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { GrantUserRightsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { HealthServiceClient } from "../../../src/services/health/health-service-client.js";
 import { PackageServiceClient } from "../../../src/services/package/package-service-client.js";
 import { ParticipantPackageServiceClient } from "../../../src/services/participant-package/participant-package-service-client.js";
@@ -75,16 +75,14 @@ describe("JSON operational services contract", () => {
 
         await expect(
             healthService.checkAsync(
-                new HealthCheckRequest({
+                HealthCheckRequest.create({
                     service: "grpc.health.v1.Health",
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             versionService.getLedgerApiVersionAsync(),
-        ).resolves.toBeInstanceOf(
-            GetLedgerApiVersionResponse,
-        );
+        ).resolves.toMatchObject({ version: "1.0.0" });
         await expect(
             partyManagementService.allocatePartyAsync(new AllocatePartyRequest()),
         ).resolves.toMatchObject({
@@ -92,47 +90,54 @@ describe("JSON operational services contract", () => {
         });
         await expect(
             userManagementService.grantUserRightsAsync(
-                new GrantUserRightsRequest({
+                GrantUserRightsRequest.create({
                     userId: "carol",
-                    rights: [{ type: UserRightKind.participantAdmin }],
+                    rights: [
+                        {
+                            kind: {
+                                oneofKind: "participantAdmin",
+                                participantAdmin: {},
+                            },
+                        },
+                    ],
                 }),
             ),
         ).resolves.toMatchObject({
-            rights: [{ type: UserRightKind.participantAdmin }],
+            newlyGrantedRights: [
+                { kind: { oneofKind: "participantAdmin" } },
+            ],
         });
         await expect(
             packageService.listPackagesAsync(
-                new ListPackagesRequest(),
+                ListPackagesRequest.create(),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             packageService.getPackageAsync(
-                new GetPackageRequest({
+                GetPackageRequest.create({
                     packageId: "pkg-1",
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             packageService.getPackageStatusAsync(
-                new GetPackageStatusRequest({
+                GetPackageStatusRequest.create({
                     packageId: "pkg-1",
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             packageService.listVettedPackagesAsync(
-                new ListVettedPackagesRequest(),
+                ListVettedPackagesRequest.create(),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             packageManagementService.uploadDarFileAsync(
-                new UploadDarFileRequest({
-                    bytes: new Uint8Array([1, 2, 3]),
+                UploadDarFileRequest.create({
+                    darFile: new Uint8Array([1, 2, 3]),
                 }),
             ),
-        ).resolves.toMatchObject({
-            packageId: "pkg-1",
-        });
+        ).resolves.toEqual({});
         await expect(
             participantPackageService.listPackagesAsync(
                 new ParticipantListPackagesRequest(),

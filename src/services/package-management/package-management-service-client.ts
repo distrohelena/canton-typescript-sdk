@@ -1,9 +1,11 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { ListKnownPackagesRequest } from "../../core/types/requests/list-known-packages-request.js";
-import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
-import { UploadDarFileRequest } from "../../core/types/requests/upload-dar-file-request.js";
-import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
+import type {
+    ListKnownPackagesRequest,
+    ListKnownPackagesResponse,
+    UploadDarFileRequest,
+    UploadDarFileResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 
 export class PackageManagementServiceClient {
     public constructor(private readonly transport: ITransport) {

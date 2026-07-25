@@ -1,37 +1,43 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetPackageRequest,
-    GetPackageStatusRequest,
-    ListPackagesRequest,
-    ListPackagesResponse,
-    ListVettedPackagesRequest,
     PackageServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    GetPackageRequest,
+    GetPackageResponse,
+    GetPackageStatusRequest,
+    GetPackageStatusResponse,
+    ListPackagesRequest,
+    ListPackagesResponse,
+    ListVettedPackagesRequest,
+    ListVettedPackagesResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 
 describe("PackageServiceClient", () => {
     it("forwards ledger package read requests through the selected transport", async () => {
-        const listPackagesAsync = vi.fn(
-            async () =>
-                new ListPackagesResponse({
-                    packageIds: ["pkg-1"],
-                }),
-        );
+        const listPackagesResponse = ListPackagesResponse.create({
+            packageIds: ["pkg-1"],
+        });
+        const listPackagesAsync = vi.fn(async () => listPackagesResponse);
 
-        const getPackageAsync = vi.fn(async () => ({
-            hashFunction: "sha256",
+        const getPackageResponse = GetPackageResponse.create({
+            hashFunction: 1,
             archivePayload: new Uint8Array([1, 2, 3]),
             hash: "pkg-1",
-        }));
+        });
+        const getPackageAsync = vi.fn(async () => getPackageResponse);
 
-        const getPackageStatusAsync = vi.fn(async () => ({
-            packageStatus: "registered",
-        }));
+        const getPackageStatusResponse = GetPackageStatusResponse.create({
+            packageStatus: 1,
+        });
+        const getPackageStatusAsync = vi.fn(async () => getPackageStatusResponse);
 
-        const listVettedPackagesAsync = vi.fn(async () => ({
+        const listVettedPackagesResponse = ListVettedPackagesResponse.create({
             vettedPackages: [],
             nextPageToken: "next-1",
-        }));
+        });
+        const listVettedPackagesAsync = vi.fn(async () => listVettedPackagesResponse);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -88,41 +94,39 @@ describe("PackageServiceClient", () => {
         });
 
         await expect(
-            client.listPackagesAsync(new ListPackagesRequest(), options),
-        ).resolves.toMatchObject({
-            packageIds: ["pkg-1"],
-        });
-        await client.getPackageAsync(
-            new GetPackageRequest({
+            client.listPackagesAsync(ListPackagesRequest.create(), options),
+        ).resolves.toBe(listPackagesResponse);
+        await expect(client.getPackageAsync(
+            GetPackageRequest.create({
                 packageId: "pkg-1",
             }),
             options,
-        );
-        await client.getPackageStatusAsync(
-            new GetPackageStatusRequest({
+        )).resolves.toBe(getPackageResponse);
+        await expect(client.getPackageStatusAsync(
+            GetPackageStatusRequest.create({
                 packageId: "pkg-1",
             }),
             options,
-        );
-        await client.listVettedPackagesAsync(
-            new ListVettedPackagesRequest(),
+        )).resolves.toBe(getPackageStatusResponse);
+        await expect(client.listVettedPackagesAsync(
+            ListVettedPackagesRequest.create(),
             options,
-        );
+        )).resolves.toBe(listVettedPackagesResponse);
 
         expect(listPackagesAsync).toHaveBeenLastCalledWith(
-            expect.any(ListPackagesRequest),
+            ListPackagesRequest.create(),
             options,
         );
         expect(getPackageAsync).toHaveBeenLastCalledWith(
-            expect.any(GetPackageRequest),
+            GetPackageRequest.create({ packageId: "pkg-1" }),
             options,
         );
         expect(getPackageStatusAsync).toHaveBeenLastCalledWith(
-            expect.any(GetPackageStatusRequest),
+            GetPackageStatusRequest.create({ packageId: "pkg-1" }),
             options,
         );
         expect(listVettedPackagesAsync).toHaveBeenLastCalledWith(
-            expect.any(ListVettedPackagesRequest),
+            ListVettedPackagesRequest.create(),
             options,
         );
     });
