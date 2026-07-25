@@ -7,6 +7,8 @@ import {
 import { TransportError } from "../../../src/core/errors/transport-error.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
+    ListAllV2Request,
+    ListAllV2Response,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -55,6 +57,38 @@ describe("GrpcTransport topology services", () => {
             request,
             expect.any(RequestOptions),
         );
+        expect(result).toBe(rawResponse);
+    });
+
+    it("forwards generated topology list-all-v2 messages without mapping", async () => {
+        const rawResponse = ListAllV2Response.create({
+            result: {
+                items: [{ transaction: new Uint8Array([1, 2, 3]) }],
+            },
+        });
+
+        const listAllV2Async = vi.fn(async () => rawResponse);
+        const transport = new GrpcTransport({
+            getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
+            checkHealthAsync: async () => ({ status: 1 }),
+            createPartyAsync: async () => ({ identifier: "unused" }),
+            listPartiesAsync: async () => ({ partyDetails: [], nextPageToken: "" }),
+            grantUserRightsAsync: async () => ({ rights: [] }),
+            uploadPackageAsync: async () => ({ packageId: "unused" }),
+            listAllV2Async,
+            queryContractsAsync: async () => ({ activeContracts: [] }),
+            getUpdatesAsync: async () => [],
+            submitCommandAsync: async () => ({
+                updateId: "unused",
+                completionOffset: "0",
+            }),
+        } as any);
+
+        const request = ListAllV2Request.create();
+
+        const result = await transport.listAllV2Async(request);
+
+        expect(listAllV2Async).toHaveBeenCalledWith(request, undefined);
         expect(result).toBe(rawResponse);
     });
 

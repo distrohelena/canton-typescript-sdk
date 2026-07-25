@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    ListAllV2Response,
     ListPartyToParticipantRequest,
     ListPartyToParticipantResponse,
     PartyToParticipant,
@@ -11,7 +10,6 @@ import {
     TopologyMappingCode,
     TopologyMappingOperation,
     TopologyMappingResult,
-    TopologyTransactions,
 } from "../../../src";
 
 describe("topology dto core", () => {
@@ -54,12 +52,6 @@ describe("topology dto core", () => {
             results: [],
         });
 
-        const rawResponse = new ListAllV2Response({
-            result: new TopologyTransactions({
-                items: [],
-            }),
-        });
-
         const topologyListVettedPackagesRequest =
             new TopologyListVettedPackagesRequest({
                 filterParticipant: "participant::sandbox",
@@ -73,7 +65,6 @@ describe("topology dto core", () => {
         expect(request.filterParty).toBe("Alice");
         expect(request.baseQuery?.headState).toBe(true);
         expect(response.results).toEqual([]);
-        expect(rawResponse.result?.items).toEqual([]);
         expect(topologyListVettedPackagesRequest.filterParticipant).toBe(
             "participant::sandbox",
         );

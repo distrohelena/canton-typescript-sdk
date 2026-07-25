@@ -31,6 +31,8 @@ import type {
     GetIdResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import type {
+    ListAllV2Request,
+    ListAllV2Response,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -875,9 +877,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
-        _request: any,
+        _request: ListAllV2Request,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListAllV2Response> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

@@ -7,7 +7,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
-import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
@@ -37,7 +36,6 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
-import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
@@ -111,8 +109,6 @@ import {
 import {
     mapGrpcListAllRequest,
     mapGrpcListAllResponse,
-    mapGrpcListAllV2Request,
-    mapGrpcListAllV2Response,
     mapGrpcListDecentralizedNamespaceDefinitionRequest,
     mapGrpcListDecentralizedNamespaceDefinitionResponse,
     mapGrpcListLsuAnnouncementRequest,
@@ -323,6 +319,7 @@ import {
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import {
     ListAllResponse as ProtobufTopologyListAllResponse,
+    ListAllV2Request as ProtobufTopologyListAllV2Request,
     ListAllV2Response as ProtobufTopologyListAllV2Response,
     ListAvailableStoresRequest as ProtobufListAvailableStoresRequest,
     ListAvailableStoresResponse as ProtobufListAvailableStoresResponse,
@@ -1463,19 +1460,14 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listAllV2Async(
-        request: ListAllV2Request,
+        request: ProtobufTopologyListAllV2Request,
         options?: RequestOptions,
-    ): Promise<ListAllV2Response> {
+    ): Promise<ProtobufTopologyListAllV2Response> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listAllV2Async!(
-            mapGrpcListAllV2Request(request),
-            options,
-        );
+        const payload = await this.operations.listAllV2Async!(request, options);
 
-        return mapGrpcListAllV2Response(
-            payload as Partial<ProtobufTopologyListAllV2Response>,
-        );
+        return payload as ProtobufTopologyListAllV2Response;
     }
 
     public async topologyListPartiesAsync(

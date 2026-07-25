@@ -238,7 +238,6 @@ export { GetCommandStatusRequest } from "./core/types/requests/get-command-statu
 export { HealthCheckRequest } from "./core/types/requests/health-check-request.js";
 export { ListPackagesRequest } from "./core/types/requests/list-packages-request.js";
 export { ListAllRequest } from "./core/types/requests/list-all-request.js";
-export { ListAllV2Request } from "./core/types/requests/list-all-v2-request.js";
 export { ListDecentralizedNamespaceDefinitionRequest } from "./core/types/requests/list-decentralized-namespace-definition-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
@@ -310,7 +309,6 @@ export { GenerateTopologyTransactionsResponse } from "./core/types/responses/gen
 export { ImportTopologySnapshotResponse } from "./core/types/responses/import-topology-snapshot-response.js";
 export { ImportTopologySnapshotV2Response } from "./core/types/responses/import-topology-snapshot-v2-response.js";
 export { ListAllResponse } from "./core/types/responses/list-all-response.js";
-export { ListAllV2Response } from "./core/types/responses/list-all-v2-response.js";
 export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/responses/list-decentralized-namespace-definition-response.js";
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";
 export { ListLsuSequencerConnectionSuccessorResponse } from "./core/types/responses/list-lsu-sequencer-connection-successor-response.js";

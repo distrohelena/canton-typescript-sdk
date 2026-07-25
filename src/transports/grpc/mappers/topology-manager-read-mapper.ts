@@ -1,5 +1,4 @@
 import { ListAllRequest } from "../../../core/types/requests/list-all-request.js";
-import { ListAllV2Request } from "../../../core/types/requests/list-all-v2-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListLsuAnnouncementRequest } from "../../../core/types/requests/list-lsu-announcement-request.js";
 import { ListLsuSequencerConnectionSuccessorRequest } from "../../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
@@ -16,7 +15,6 @@ import { ListSynchronizerParametersStateRequest } from "../../../core/types/requ
 import { ListSynchronizerTrustCertificateRequest } from "../../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { TopologyListVettedPackagesRequest } from "../../../core/types/requests/topology-list-vetted-packages-request.js";
 import { ListAllResponse } from "../../../core/types/responses/list-all-response.js";
-import { ListAllV2Response } from "../../../core/types/responses/list-all-v2-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListLsuAnnouncementResponse } from "../../../core/types/responses/list-lsu-announcement-response.js";
 import { ListLsuSequencerConnectionSuccessorResponse } from "../../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
@@ -32,7 +30,7 @@ import { ListSequencingParametersStateResponse } from "../../../core/types/respo
 import { ListSynchronizerParametersStateResponse } from "../../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { TopologyListVettedPackagesResponse } from "../../../core/types/responses/topology-list-vetted-packages-response.js";
-import { ListAllRequest as GrpcListAllRequest, ListAllResponse as GrpcListAllResponse, ListAllV2Request as GrpcListAllV2Request, ListAllV2Response as GrpcListAllV2Response, ListDecentralizedNamespaceDefinitionRequest as GrpcListDecentralizedNamespaceDefinitionRequest, ListDecentralizedNamespaceDefinitionResponse as GrpcListDecentralizedNamespaceDefinitionResponse, ListLsuAnnouncementRequest as GrpcListLsuAnnouncementRequest, ListLsuAnnouncementResponse as GrpcListLsuAnnouncementResponse, ListLsuSequencerConnectionSuccessorRequest as GrpcListLsuSequencerConnectionSuccessorRequest, ListLsuSequencerConnectionSuccessorResponse as GrpcListLsuSequencerConnectionSuccessorResponse, ListMediatorSynchronizerStateRequest as GrpcListMediatorSynchronizerStateRequest, ListMediatorSynchronizerStateResponse as GrpcListMediatorSynchronizerStateResponse, ListNamespaceDelegationRequest as GrpcListNamespaceDelegationRequest, ListNamespaceDelegationResponse as GrpcListNamespaceDelegationResponse, ListOwnerToKeyMappingRequest as GrpcListOwnerToKeyMappingRequest, ListOwnerToKeyMappingResponse as GrpcListOwnerToKeyMappingResponse, ListParticipantSynchronizerPermissionRequest as GrpcListParticipantSynchronizerPermissionRequest, ListParticipantSynchronizerPermissionResponse as GrpcListParticipantSynchronizerPermissionResponse, ListPartyHostingLimitsRequest as GrpcListPartyHostingLimitsRequest, ListPartyHostingLimitsResponse as GrpcListPartyHostingLimitsResponse, ListPartyToKeyMappingRequest as GrpcListPartyToKeyMappingRequest, ListPartyToKeyMappingResponse as GrpcListPartyToKeyMappingResponse, ListPartyToParticipantRequest as GrpcListPartyToParticipantRequest, ListPartyToParticipantResponse as GrpcListPartyToParticipantResponse, ListSequencerSynchronizerStateRequest as GrpcListSequencerSynchronizerStateRequest, ListSequencerSynchronizerStateResponse as GrpcListSequencerSynchronizerStateResponse, ListSequencingParametersStateRequest as GrpcListSequencingParametersStateRequest, ListSequencingParametersStateResponse as GrpcListSequencingParametersStateResponse, ListSynchronizerParametersStateRequest as GrpcListSynchronizerParametersStateRequest, ListSynchronizerParametersStateResponse as GrpcListSynchronizerParametersStateResponse, ListSynchronizerTrustCertificateRequest as GrpcListSynchronizerTrustCertificateRequest, ListSynchronizerTrustCertificateResponse as GrpcListSynchronizerTrustCertificateResponse, ListVettedPackagesRequest as GrpcTopologyListVettedPackagesRequest, ListVettedPackagesResponse as GrpcTopologyListVettedPackagesResponse } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import { ListAllRequest as GrpcListAllRequest, ListAllResponse as GrpcListAllResponse, ListDecentralizedNamespaceDefinitionRequest as GrpcListDecentralizedNamespaceDefinitionRequest, ListDecentralizedNamespaceDefinitionResponse as GrpcListDecentralizedNamespaceDefinitionResponse, ListLsuAnnouncementRequest as GrpcListLsuAnnouncementRequest, ListLsuAnnouncementResponse as GrpcListLsuAnnouncementResponse, ListLsuSequencerConnectionSuccessorRequest as GrpcListLsuSequencerConnectionSuccessorRequest, ListLsuSequencerConnectionSuccessorResponse as GrpcListLsuSequencerConnectionSuccessorResponse, ListMediatorSynchronizerStateRequest as GrpcListMediatorSynchronizerStateRequest, ListMediatorSynchronizerStateResponse as GrpcListMediatorSynchronizerStateResponse, ListNamespaceDelegationRequest as GrpcListNamespaceDelegationRequest, ListNamespaceDelegationResponse as GrpcListNamespaceDelegationResponse, ListOwnerToKeyMappingRequest as GrpcListOwnerToKeyMappingRequest, ListOwnerToKeyMappingResponse as GrpcListOwnerToKeyMappingResponse, ListParticipantSynchronizerPermissionRequest as GrpcListParticipantSynchronizerPermissionRequest, ListParticipantSynchronizerPermissionResponse as GrpcListParticipantSynchronizerPermissionResponse, ListPartyHostingLimitsRequest as GrpcListPartyHostingLimitsRequest, ListPartyHostingLimitsResponse as GrpcListPartyHostingLimitsResponse, ListPartyToKeyMappingRequest as GrpcListPartyToKeyMappingRequest, ListPartyToKeyMappingResponse as GrpcListPartyToKeyMappingResponse, ListPartyToParticipantRequest as GrpcListPartyToParticipantRequest, ListPartyToParticipantResponse as GrpcListPartyToParticipantResponse, ListSequencerSynchronizerStateRequest as GrpcListSequencerSynchronizerStateRequest, ListSequencerSynchronizerStateResponse as GrpcListSequencerSynchronizerStateResponse, ListSequencingParametersStateRequest as GrpcListSequencingParametersStateRequest, ListSequencingParametersStateResponse as GrpcListSequencingParametersStateResponse, ListSynchronizerParametersStateRequest as GrpcListSynchronizerParametersStateRequest, ListSynchronizerParametersStateResponse as GrpcListSynchronizerParametersStateResponse, ListSynchronizerTrustCertificateRequest as GrpcListSynchronizerTrustCertificateRequest, ListSynchronizerTrustCertificateResponse as GrpcListSynchronizerTrustCertificateResponse, ListVettedPackagesRequest as GrpcTopologyListVettedPackagesRequest, ListVettedPackagesResponse as GrpcTopologyListVettedPackagesResponse } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { TopologyMappingResult } from "../../../core/types/topology/topology-mapping-result.js";
 import { mapGrpcListAllV2Response as mapListAllV2ResponseValue, mapGrpcListPartyToParticipantResponse as mapListPartyToParticipantResponseValue, mapGrpcTopologyBaseQuery as mapBaseQueryValue, mapGrpcTopologyBaseResult as mapBaseResultValue, mapGrpcTopologyMappingCode, mapSdkDecentralizedNamespaceDefinition, mapSdkDynamicSequencingParameters, mapSdkDynamicSynchronizerParameters, mapSdkLsuAnnouncement, mapSdkLsuSequencerConnectionSuccessor, mapSdkMediatorSynchronizerState, mapSdkNamespaceDelegation, mapSdkOwnerToKeyMapping, mapSdkParticipantSynchronizerPermission, mapSdkPartyHostingLimits, mapSdkPartyToKeyMapping, mapSdkSequencerSynchronizerState, mapSdkSynchronizerTrustCertificate, mapSdkTopologyVettedPackages } from "./topology-common-mapper.js";
 
@@ -401,23 +399,5 @@ export function mapGrpcListAllResponse(
         mapListAllV2ResponseValue({
             result: payload.result,
         }),
-    );
-}
-
-export function mapGrpcListAllV2Request(
-    request: ListAllV2Request,
-): GrpcListAllV2Request {
-    return {
-        baseQuery: mapBaseQueryValue(request.baseQuery),
-        includeMappings: [...request.includeMappings],
-        filterNamespace: request.filterNamespace ?? "",
-    };
-}
-
-export function mapGrpcListAllV2Response(
-    payload: Partial<GrpcListAllV2Response>,
-): ListAllV2Response {
-    return new ListAllV2Response(
-        mapListAllV2ResponseValue(payload),
     );
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    ListAllV2Request,
     ListPartyToParticipantRequest,
     PartyToParticipant,
     ParticipantPermission,
@@ -8,10 +7,8 @@ import {
     TopologyMappingOperation,
     TopologyStoreId,
     TopologyStoreKind,
-    TopologyTransactions,
 } from "../../../src";
 import {
-    mapGrpcListAllV2Response,
     mapGrpcListPartyToParticipantRequest,
     mapGrpcListPartyToParticipantResponse,
     mapGrpcTopologyBaseQuery,
@@ -93,25 +90,4 @@ describe("gRPC topology manager read mappers", () => {
         );
     });
 
-    it("maps list-all-v2 responses", () => {
-        const transactions = mapGrpcListAllV2Response({
-            result: {
-                items: [
-                    {
-                        transaction: new Uint8Array([1, 2, 3]),
-                    },
-                ],
-            },
-        });
-
-        expect(transactions.result).toBeInstanceOf(TopologyTransactions);
-        expect(transactions.result?.items[0].transaction).toEqual(
-            new Uint8Array([1, 2, 3]),
-        );
-        expect(
-            new ListAllV2Request({
-                includeMappings: [],
-            }),
-        ).toBeInstanceOf(ListAllV2Request);
-    });
 });

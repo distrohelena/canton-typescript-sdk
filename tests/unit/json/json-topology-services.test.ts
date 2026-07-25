@@ -11,7 +11,6 @@ import {
     ImportTopologySnapshotRequest,
     ImportTopologySnapshotV2Request,
     ListAllRequest,
-    ListAllV2Request,
     ListDecentralizedNamespaceDefinitionRequest,
     ListKeyOwnersRequest,
     ListLsuAnnouncementRequest,
@@ -33,7 +32,10 @@ import {
     TopologyListVettedPackagesRequest,
     TransportKind,
 } from "../../../src";
-import { ListAvailableStoresRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import {
+    ListAllV2Request,
+    ListAvailableStoresRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 
 describe("Topology services with JSON transport", () => {
     it("rejects topology manager read methods on JSON", async () => {
@@ -169,7 +171,7 @@ describe("Topology services with JSON transport", () => {
                 "TopologyManagerReadService.ListAllV2",
                 () =>
                     client.topologyManagerReadService.listAllV2Async(
-                        new ListAllV2Request(),
+                        ListAllV2Request.create(),
                     ),
             ],
         ] as const;
