@@ -28,7 +28,6 @@ import { ImportTopologySnapshotV2Request } from "../types/requests/import-topolo
 import { ListAllRequest } from "../types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
-import { ListLsuSequencerConnectionSuccessorRequest } from "../types/requests/list-lsu-sequencer-connection-successor-request.js";
 import { ListMediatorSynchronizerStateRequest } from "../types/requests/list-mediator-synchronizer-state-request.js";
 import { ListNamespaceDelegationRequest } from "../types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../types/requests/list-owner-to-key-mapping-request.js";
@@ -87,6 +86,8 @@ import type {
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,
     ListLsuAnnouncementResponse,
+    ListLsuSequencerConnectionSuccessorRequest,
+    ListLsuSequencerConnectionSuccessorResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type {
     AddPartyAsyncRequest,
@@ -104,7 +105,6 @@ import type {
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../types/responses/list-key-owners-response.js";
-import { ListLsuSequencerConnectionSuccessorResponse } from "../types/responses/list-lsu-sequencer-connection-successor-response.js";
 import { ListMediatorSynchronizerStateResponse } from "../types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";

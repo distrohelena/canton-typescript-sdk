@@ -36,7 +36,6 @@ import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-t
 import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
-import { ListLsuSequencerConnectionSuccessorRequest } from "../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
 import { ListMediatorSynchronizerStateRequest } from "../core/types/requests/list-mediator-synchronizer-state-request.js";
 import { ListNamespaceDelegationRequest } from "../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../core/types/requests/list-owner-to-key-mapping-request.js";
@@ -110,6 +109,8 @@ import type {
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,
     ListLsuAnnouncementResponse,
+    ListLsuSequencerConnectionSuccessorRequest,
+    ListLsuSequencerConnectionSuccessorResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type {
     GetSafePruningOffsetRequest,
@@ -125,7 +126,6 @@ import type {
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../core/types/responses/list-key-owners-response.js";
-import { ListLsuSequencerConnectionSuccessorResponse } from "../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
 import { ListMediatorSynchronizerStateResponse } from "../core/types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../core/types/responses/list-owner-to-key-mapping-response.js";

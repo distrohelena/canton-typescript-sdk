@@ -9,7 +9,6 @@ import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
-import { ListLsuSequencerConnectionSuccessorRequest } from "../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
 import { ListMediatorSynchronizerStateRequest } from "../../core/types/requests/list-mediator-synchronizer-state-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
@@ -38,7 +37,6 @@ import { ListAllResponse } from "../../core/types/responses/list-all-response.js
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { ListLsuSequencerConnectionSuccessorResponse } from "../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
 import { ListMediatorSynchronizerStateResponse } from "../../core/types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
@@ -109,8 +107,6 @@ import {
     mapGrpcListAllResponse,
     mapGrpcListDecentralizedNamespaceDefinitionRequest,
     mapGrpcListDecentralizedNamespaceDefinitionResponse,
-    mapGrpcListLsuSequencerConnectionSuccessorRequest,
-    mapGrpcListLsuSequencerConnectionSuccessorResponse,
     mapGrpcListMediatorSynchronizerStateRequest,
     mapGrpcListMediatorSynchronizerStateResponse,
     mapGrpcListNamespaceDelegationRequest,
@@ -322,6 +318,7 @@ import {
     ListDecentralizedNamespaceDefinitionResponse as ProtobufListDecentralizedNamespaceDefinitionResponse,
     ListLsuAnnouncementRequest as ProtobufListLsuAnnouncementRequest,
     ListLsuAnnouncementResponse as ProtobufListLsuAnnouncementResponse,
+    ListLsuSequencerConnectionSuccessorRequest as ProtobufListLsuSequencerConnectionSuccessorRequest,
     ListLsuSequencerConnectionSuccessorResponse as ProtobufListLsuSequencerConnectionSuccessorResponse,
     ListMediatorSynchronizerStateResponse as ProtobufListMediatorSynchronizerStateResponse,
     ListNamespaceDelegationResponse as ProtobufListNamespaceDelegationResponse,
@@ -1408,20 +1405,18 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listLsuSequencerConnectionSuccessorAsync(
-        request: ListLsuSequencerConnectionSuccessorRequest,
+        request: ProtobufListLsuSequencerConnectionSuccessorRequest,
         options?: RequestOptions,
-    ): Promise<ListLsuSequencerConnectionSuccessorResponse> {
+    ): Promise<ProtobufListLsuSequencerConnectionSuccessorResponse> {
         this.throwIfDisposed();
 
         const payload =
             await this.operations.listLsuSequencerConnectionSuccessorAsync!(
-                mapGrpcListLsuSequencerConnectionSuccessorRequest(request),
+                request,
                 options,
             );
 
-        return mapGrpcListLsuSequencerConnectionSuccessorResponse(
-            payload as Partial<ProtobufListLsuSequencerConnectionSuccessorResponse>,
-        );
+        return payload as ProtobufListLsuSequencerConnectionSuccessorResponse;
     }
 
     public async listAvailableStoresAsync(

@@ -37,6 +37,8 @@ import type {
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,
     ListLsuAnnouncementResponse,
+    ListLsuSequencerConnectionSuccessorRequest,
+    ListLsuSequencerConnectionSuccessorResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
@@ -1110,9 +1112,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listLsuSequencerConnectionSuccessorAsync(
-        _request: any,
+        _request: ListLsuSequencerConnectionSuccessorRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListLsuSequencerConnectionSuccessorResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
