@@ -1,10 +1,10 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
-import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import type {
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampRequest,
     GetHighestOffsetByTimestampResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";

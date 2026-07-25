@@ -19,7 +19,6 @@ import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-ex
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
-import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
@@ -65,12 +64,13 @@ import { AllocatePartyResponse } from "../core/types/responses/allocate-party-re
 import { AddPartyAsyncResponse } from "../core/types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
-import { ClearPartyOnboardingFlagResponse } from "../core/types/responses/clear-party-onboarding-flag-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import type {
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
     GetContractRequest,
     GetContractResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";

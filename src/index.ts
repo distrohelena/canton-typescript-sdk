@@ -228,7 +228,6 @@ export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { CreateTemporaryTopologyStoreRequest } from "./core/types/requests/create-temporary-topology-store-request.js";
-export { ClearPartyOnboardingFlagRequest } from "./core/types/requests/clear-party-onboarding-flag-request.js";
 export { DropTemporaryTopologyStoreRequest } from "./core/types/requests/drop-temporary-topology-store-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
@@ -308,7 +307,6 @@ export { GetPartiesResponse } from "./core/types/responses/get-parties-response.
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";
-export { ClearPartyOnboardingFlagResponse } from "./core/types/responses/clear-party-onboarding-flag-response.js";
 export { CreateTemporaryTopologyStoreResponse } from "./core/types/responses/create-temporary-topology-store-response.js";
 export { DropTemporaryTopologyStoreResponse } from "./core/types/responses/drop-temporary-topology-store-response.js";
 export { GenerateExternalPartyTopologyResponse } from "./core/types/responses/generate-external-party-topology-response.js";

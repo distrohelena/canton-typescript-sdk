@@ -18,7 +18,6 @@ import { AllocatePartyRequest } from "../types/requests/allocate-party-request.j
 import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
-import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
@@ -80,7 +79,6 @@ import { AddPartyAsyncResponse } from "../types/responses/add-party-async-respon
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
-import { ClearPartyOnboardingFlagResponse } from "../types/responses/clear-party-onboarding-flag-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
@@ -90,6 +88,8 @@ import { ListAllResponse } from "../types/responses/list-all-response.js";
 import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
 import type {
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
     GetSafePruningOffsetRequest,
     GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,

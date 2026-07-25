@@ -4,7 +4,6 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
@@ -40,7 +39,6 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
-import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
@@ -103,8 +101,6 @@ import {
 import {
     mapGrpcAddPartyAsyncRequest,
     mapGrpcAddPartyAsyncResponse,
-    mapGrpcClearPartyOnboardingFlagRequest,
-    mapGrpcClearPartyOnboardingFlagResponse,
 } from "./mappers/participant-party-management-mapper.js";
 import {
 } from "./mappers/pruning-mapper.js";
@@ -294,6 +290,7 @@ import {
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
     AddPartyAsyncResponse as ProtobufAddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest as ProtobufClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse as ProtobufClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampRequest as ProtobufGetHighestOffsetByTimestampRequest,
     GetHighestOffsetByTimestampResponse as ProtobufGetHighestOffsetByTimestampResponse,
@@ -894,19 +891,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async clearPartyOnboardingFlagAsync(
-        request: ClearPartyOnboardingFlagRequest,
+        request: ProtobufClearPartyOnboardingFlagRequest,
         options?: RequestOptions,
-    ): Promise<ClearPartyOnboardingFlagResponse> {
+    ): Promise<ProtobufClearPartyOnboardingFlagResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.clearPartyOnboardingFlagAsync!(
-            mapGrpcClearPartyOnboardingFlagRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcClearPartyOnboardingFlagResponse(
-            payload as Partial<ProtobufClearPartyOnboardingFlagResponse>,
-        );
+        return payload as ProtobufClearPartyOnboardingFlagResponse;
     }
 
     public async getHighestOffsetByTimestampAsync(
