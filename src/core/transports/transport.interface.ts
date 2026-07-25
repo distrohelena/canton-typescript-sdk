@@ -21,7 +21,6 @@ import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authoriz
 import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
-import { CountInFlightRequest } from "../types/requests/count-in-flight-request.js";
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
@@ -68,7 +67,6 @@ import { TopologyListVettedPackagesRequest } from "../types/requests/topology-li
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
-import { CountInFlightResponse } from "../types/responses/count-in-flight-response.js";
 import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../types/responses/get-dar-response.js";
 import type {
@@ -142,6 +140,8 @@ import { ListSynchronizerTrustCertificateResponse } from "../types/responses/lis
 import { LookupReceivedAcsCommitmentsResponse } from "../types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../types/responses/lookup-sent-acs-commitments-response.js";
 import type {
+    CountInFlightRequest,
+    CountInFlightResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

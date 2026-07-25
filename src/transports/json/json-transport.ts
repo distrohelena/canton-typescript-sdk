@@ -1,7 +1,6 @@
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
@@ -34,7 +33,6 @@ import { SubmitCommandRequest } from "../../core/types/requests/submit-command-r
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
-import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
@@ -86,6 +84,8 @@ import type {
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import type {
+    CountInFlightRequest,
+    CountInFlightResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

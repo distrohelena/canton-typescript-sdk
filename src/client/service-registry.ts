@@ -19,7 +19,6 @@ import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-ex
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
-import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
@@ -85,7 +84,6 @@ import { AddPartyAsyncResponse } from "../core/types/responses/add-party-async-r
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../core/types/responses/clear-party-onboarding-flag-response.js";
-import { CountInFlightResponse } from "../core/types/responses/count-in-flight-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
@@ -164,6 +162,8 @@ import { ListSynchronizerTrustCertificateResponse } from "../core/types/response
 import { LookupReceivedAcsCommitmentsResponse } from "../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../core/types/responses/lookup-sent-acs-commitments-response.js";
 import type {
+    CountInFlightRequest,
+    CountInFlightResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

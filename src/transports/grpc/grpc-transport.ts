@@ -4,7 +4,6 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
@@ -57,7 +56,6 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
-import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
@@ -149,8 +147,6 @@ import {
 import {
 } from "./mappers/participant-status-mapper.js";
 import {
-    mapGrpcCountInFlight,
-    mapGrpcCountInFlightRequest,
     mapGrpcGetConfigForSlowCounterParticipants,
     mapGrpcGetConfigForSlowCounterParticipantsRequest,
     mapGrpcGetIntervalsBehindForCounterParticipants,
@@ -347,6 +343,7 @@ import {
     ListPackagesResponse as ProtobufParticipantListPackagesResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import {
+    CountInFlightRequest as ProtobufCountInFlightRequest,
     CountInFlightResponse as ProtobufCountInFlightResponse,
     GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
@@ -875,19 +872,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async countInFlightAsync(
-        request: CountInFlightRequest,
+        request: ProtobufCountInFlightRequest,
         options?: RequestOptions,
-    ): Promise<CountInFlightResponse> {
+    ): Promise<ProtobufCountInFlightResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.countInFlightAsync!(
-            mapGrpcCountInFlightRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcCountInFlight(
-            payload as Partial<ProtobufCountInFlightResponse>,
-        );
+        return payload as ProtobufCountInFlightResponse;
     }
 
     public async getConfigForSlowCounterParticipantsAsync(

@@ -227,7 +227,6 @@ export { AddPartyAsyncRequest } from "./core/types/requests/add-party-async-requ
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
-export { CountInFlightRequest } from "./core/types/requests/count-in-flight-request.js";
 export { CreateTemporaryTopologyStoreRequest } from "./core/types/requests/create-temporary-topology-store-request.js";
 export { ClearPartyOnboardingFlagRequest } from "./core/types/requests/clear-party-onboarding-flag-request.js";
 export { DropTemporaryTopologyStoreRequest } from "./core/types/requests/drop-temporary-topology-store-request.js";
@@ -304,7 +303,6 @@ export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-requ
 export { AllocateExternalPartyResponse } from "./core/types/responses/allocate-external-party-response.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
 export { AddPartyAsyncResponse } from "./core/types/responses/add-party-async-response.js";
-export { CountInFlightResponse } from "./core/types/responses/count-in-flight-response.js";
 export { GetDarContentsResponse } from "./core/types/responses/get-dar-contents-response.js";
 export { GetDarResponse } from "./core/types/responses/get-dar-response.js";
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";

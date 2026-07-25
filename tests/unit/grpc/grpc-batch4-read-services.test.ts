@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    CountInFlightRequest,
     GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
     ParticipantInspectionServiceClient,
@@ -10,6 +9,8 @@ import {
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
+    CountInFlightRequest,
+    CountInFlightResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
@@ -38,6 +39,10 @@ describe("GrpcTransport batch 4 read services", () => {
         const offsetResponse = LookupOffsetByTimeResponse.create({
             offset: "42",
         });
+        const inFlightResponse = CountInFlightResponse.create({
+            pendingSubmissions: 2,
+            pendingTransactions: 3,
+        });
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -49,10 +54,7 @@ describe("GrpcTransport batch 4 read services", () => {
             getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({ updateId: "unused" }),
             lookupOffsetByTimeAsync: async () => offsetResponse,
-            countInFlightAsync: async () => ({
-                pendingSubmissions: 2,
-                pendingTransactions: 3,
-            }),
+            countInFlightAsync: async () => inFlightResponse,
             getConfigForSlowCounterParticipantsAsync: async () => ({
                 configs: [
                     {
@@ -104,7 +106,7 @@ describe("GrpcTransport batch 4 read services", () => {
         );
 
         const inFlight = await participantInspection.countInFlightAsync(
-            new CountInFlightRequest({
+            CountInFlightRequest.create({
                 synchronizerId: "sync-1",
             }),
             options,
@@ -143,7 +145,7 @@ describe("GrpcTransport batch 4 read services", () => {
             );
 
         expect(offset).toBe(offsetResponse);
-        expect(inFlight.pendingSubmissions).toBe(2);
+        expect(inFlight).toBe(inFlightResponse);
         expect(slowConfig.configs[0]?.thresholdDefault).toBe("5");
         expect(intervalsBehind.intervalsBehind[0]?.behindSince).toEqual(
             new TopologyDuration({
