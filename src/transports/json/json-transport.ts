@@ -57,6 +57,8 @@ import type {
     ListSynchronizerTrustCertificateResponse,
     ListPartyToKeyMappingRequest,
     ListPartyToKeyMappingResponse,
+    ListOwnerToKeyMappingRequest,
+    ListOwnerToKeyMappingResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -912,9 +914,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listOwnerToKeyMappingAsync(
-        _request: any,
+        _request: ListOwnerToKeyMappingRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListOwnerToKeyMappingResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

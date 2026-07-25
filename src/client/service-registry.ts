@@ -37,7 +37,6 @@ import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
 import { ListNamespaceDelegationRequest } from "../core/types/requests/list-namespace-delegation-request.js";
-import { ListOwnerToKeyMappingRequest } from "../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
@@ -119,6 +118,8 @@ import type {
     ListSynchronizerTrustCertificateResponse,
     ListPartyToKeyMappingRequest,
     ListPartyToKeyMappingResponse,
+    ListOwnerToKeyMappingRequest,
+    ListOwnerToKeyMappingResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -137,7 +138,6 @@ import type {
 import { ListDecentralizedNamespaceDefinitionResponse } from "../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../core/types/responses/list-key-owners-response.js";
 import { ListNamespaceDelegationResponse } from "../core/types/responses/list-namespace-delegation-response.js";
-import { ListOwnerToKeyMappingResponse } from "../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
 import { ListIdentityProviderConfigsResponse } from "../core/types/responses/list-identity-provider-configs-response.js";
 import type {
