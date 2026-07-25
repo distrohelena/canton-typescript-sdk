@@ -33,7 +33,6 @@ import { ListOwnerToKeyMappingRequest } from "../types/requests/list-owner-to-ke
 import { ListParticipantSynchronizerPermissionRequest } from "../types/requests/list-participant-synchronizer-permission-request.js";
 import { ListPartyHostingLimitsRequest } from "../types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../types/requests/list-party-to-key-mapping-request.js";
-import { ListPartyToParticipantRequest } from "../types/requests/list-party-to-participant-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
@@ -90,6 +89,8 @@ import type {
     ListSequencingParametersStateResponse,
     ListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse,
+    ListPartyToParticipantRequest,
+    ListPartyToParticipantResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -115,7 +116,6 @@ import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-
 import { ListParticipantSynchronizerPermissionResponse } from "../types/responses/list-participant-synchronizer-permission-response.js";
 import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
-import { ListPartyToParticipantResponse } from "../types/responses/list-party-to-participant-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
 import type {
     ListPendingOperationsRequest,

@@ -16,7 +16,6 @@ import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/r
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
-import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
@@ -38,7 +37,6 @@ import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-o
 import { ListParticipantSynchronizerPermissionResponse } from "../../core/types/responses/list-participant-synchronizer-permission-response.js";
 import { ListPartyHostingLimitsResponse } from "../../core/types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
-import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
@@ -109,8 +107,6 @@ import {
     mapGrpcListPartyHostingLimitsResponse,
     mapGrpcListPartyToKeyMappingRequest,
     mapGrpcListPartyToKeyMappingResponse,
-    mapGrpcListPartyToParticipantRequest,
-    mapGrpcListPartyToParticipantResponse,
     mapGrpcListSynchronizerTrustCertificateRequest,
     mapGrpcListSynchronizerTrustCertificateResponse,
     mapGrpcTopologyListVettedPackagesRequest,
@@ -311,6 +307,7 @@ import {
     ListParticipantSynchronizerPermissionResponse as ProtobufListParticipantSynchronizerPermissionResponse,
     ListPartyHostingLimitsResponse as ProtobufListPartyHostingLimitsResponse,
     ListPartyToKeyMappingResponse as ProtobufListPartyToKeyMappingResponse,
+    ListPartyToParticipantRequest as ProtobufListPartyToParticipantRequest,
     ListPartyToParticipantResponse as ProtobufListPartyToParticipantResponse,
     ListSequencerSynchronizerStateRequest as ProtobufListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse as ProtobufListSequencerSynchronizerStateResponse,
@@ -1293,16 +1290,16 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listPartyToParticipantAsync(
-        request: ListPartyToParticipantRequest,
+        request: ProtobufListPartyToParticipantRequest,
         options?: RequestOptions,
-    ): Promise<ListPartyToParticipantResponse> {
+    ): Promise<ProtobufListPartyToParticipantResponse> {
         this.throwIfDisposed();
 
         let payload: unknown;
 
         try {
             payload = await this.operations.listPartyToParticipantAsync!(
-                mapGrpcListPartyToParticipantRequest(request),
+            request,
                 options,
             );
         } catch (error) {
@@ -1312,9 +1309,7 @@ export class GrpcTransport implements ITransport {
             );
         }
 
-        return mapGrpcListPartyToParticipantResponse(
-            payload as Partial<ProtobufListPartyToParticipantResponse>,
-        );
+        return payload as ProtobufListPartyToParticipantResponse;
     }
 
     public async listSynchronizerParametersStateAsync(
