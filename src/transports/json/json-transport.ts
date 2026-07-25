@@ -145,6 +145,7 @@ import {
 import { mapJsonQueryContracts } from "./mappers/contracts-mapper.js";
 import { mapJsonTransactionEvents } from "./mappers/events-mapper.js";
 import { mapJsonGrantRights } from "./mappers/users-mapper.js";
+import type { GrantUserRightsRequest, GrantUserRightsResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { IJsonHttpClient } from "./json-http-client.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
@@ -318,10 +319,19 @@ export class JsonTransport implements ITransport {
             "/v1/user/rights/grant",
             {
                 userId: request.userId,
-                rights: request.rights.map((right: UserRightAssignment) => ({
-                    type: right.type,
-                    party: right.party,
-                })),
+                rights: request.rights.map((right) => {
+                    switch (right.kind.oneofKind) {
+                        case "participantAdmin": return { type: "participantAdmin" };
+                        case "canActAs": return { type: "canActAs", party: right.kind.canActAs.party };
+                        case "canReadAs": return { type: "canReadAs", party: right.kind.canReadAs.party };
+                        case "identityProviderAdmin": return { type: "identityProviderAdmin" };
+                        case "canActAsAnyParty": return { type: "canActAsAnyParty" };
+                        case "canReadAsAnyParty": return { type: "canReadAsAnyParty" };
+                        case "canExecuteAs": return { type: "canExecuteAs", party: right.kind.canExecuteAs.party };
+                        case "canExecuteAsAnyParty": return { type: "canExecuteAsAnyParty" };
+                        default: throw new Error("unsupported protobuf user right");
+                    }
+                }),
             },
             options,
         );

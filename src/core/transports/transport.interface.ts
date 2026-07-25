@@ -19,7 +19,6 @@ import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
-import { GrantUserRightsRequest } from "../types/requests/grant-user-rights-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
@@ -133,7 +132,6 @@ import { ClearPartyOnboardingFlagResponse } from "../types/responses/clear-party
 import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
 import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
-import { GrantUserRightsResponse } from "../types/responses/grant-user-rights-response.js";
 import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
 import { ListAllResponse } from "../types/responses/list-all-response.js";
@@ -189,6 +187,7 @@ import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "..
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import type { GrantUserRightsRequest, GrantUserRightsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;

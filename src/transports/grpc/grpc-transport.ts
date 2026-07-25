@@ -30,7 +30,6 @@ import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
-import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
@@ -103,7 +102,6 @@ import { GetResourceLimitsResponse } from "../../core/types/responses/get-resour
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
-import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -348,8 +346,6 @@ import {
 import {
     mapGrpcGetUser,
     mapGrpcGetUserRequest,
-    mapGrpcGrantUserRights,
-    mapGrpcGrantUserRightsRequest,
     mapGrpcListUserRights,
     mapGrpcListUserRightsRequest,
     mapGrpcListUsers,
@@ -628,21 +624,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async grantUserRightsAsync(
-        request: GrantUserRightsRequest,
+        request: import("./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js").GrantUserRightsRequest,
         options?: RequestOptions,
-    ): Promise<GrantUserRightsResponse> {
+    ): Promise<ProtobufGrantUserRightsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.grantUserRightsAsync(
-            mapGrpcGrantUserRightsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGrantUserRights(
-            payload as
-                | { rights?: Array<{ type: string; party?: string }> }
-                | ProtobufGrantUserRightsResponse,
-        );
+        return payload as ProtobufGrantUserRightsResponse;
     }
 
     public async getCommandStatusAsync(
