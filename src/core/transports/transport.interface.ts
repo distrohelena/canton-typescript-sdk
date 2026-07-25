@@ -25,7 +25,6 @@ import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
-import { ListAllRequest } from "../types/requests/list-all-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
@@ -65,10 +64,11 @@ import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temp
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
 import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
-import { ListAllResponse } from "../types/responses/list-all-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
+    ListAllRequest,
+    ListAllResponse,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,

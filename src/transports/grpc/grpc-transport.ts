@@ -6,7 +6,6 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
@@ -20,7 +19,6 @@ import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/ty
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
-import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
@@ -77,8 +75,6 @@ import {
 import {
 } from "./mappers/state-read-mapper.js";
 import {
-    mapGrpcListAllRequest,
-    mapGrpcListAllResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
     mapGrpcAddTopologyTransactionsRequest,
@@ -258,6 +254,7 @@ import {
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import {
+    ListAllRequest as ProtobufTopologyListAllRequest,
     ListAllResponse as ProtobufTopologyListAllResponse,
     ListAllV2Request as ProtobufTopologyListAllV2Request,
     ListAllV2Response as ProtobufTopologyListAllV2Response,
@@ -1366,19 +1363,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listAllAsync(
-        request: ListAllRequest,
+        request: ProtobufTopologyListAllRequest,
         options?: RequestOptions,
-    ): Promise<ListAllResponse> {
+    ): Promise<ProtobufTopologyListAllResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listAllAsync!(
-            mapGrpcListAllRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListAllResponse(
-            payload as Partial<ProtobufTopologyListAllResponse>,
-        );
+        return payload as ProtobufTopologyListAllResponse;
     }
 
     public async listAllV2Async(

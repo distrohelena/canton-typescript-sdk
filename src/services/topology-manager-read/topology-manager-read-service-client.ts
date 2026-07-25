@@ -1,10 +1,10 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
-import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
+    ListAllRequest,
+    ListAllResponse,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,

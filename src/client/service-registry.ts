@@ -33,7 +33,6 @@ import { GenerateTopologyTransactionsRequest } from "../core/types/requests/gene
 import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-topology-snapshot-v2-request.js";
-import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
@@ -88,10 +87,11 @@ import { GrantUserRightsResponse } from "../core/types/responses/grant-user-righ
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
 import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../core/types/responses/import-topology-snapshot-v2-response.js";
-import { ListAllResponse } from "../core/types/responses/list-all-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
+    ListAllRequest,
+    ListAllResponse,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,

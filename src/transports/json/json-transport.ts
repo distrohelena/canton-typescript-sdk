@@ -33,6 +33,8 @@ import type {
 import type {
     ListAllV2Request,
     ListAllV2Response,
+    ListAllRequest,
+    ListAllResponse,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
     ListLsuAnnouncementRequest,
@@ -1160,9 +1162,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listAllAsync(
-        _request: any,
+        _request: ListAllRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListAllResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
