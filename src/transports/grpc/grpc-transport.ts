@@ -38,7 +38,6 @@ import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchron
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
-import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
@@ -117,7 +116,6 @@ import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchr
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
-import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
@@ -375,7 +373,7 @@ import {
     mapGrpcListUsers,
     mapGrpcListUsersRequest,
 } from "./mappers/users-mapper.js";
-import { mapGrpcHealthCheckResponse } from "./mappers/health-mapper.js";
+import type { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
@@ -548,13 +546,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<HealthCheckResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.checkHealthAsync({
-            service: request.service ?? "",
-        }, options);
-
-        return mapGrpcHealthCheckResponse(
-            payload as { status: number },
-        );
+        return await this.operations.checkHealthAsync(
+            request,
+            options,
+        ) as HealthCheckResponse;
     }
 
     public async allocatePartyAsync(

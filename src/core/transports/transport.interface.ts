@@ -56,7 +56,6 @@ import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
-import { HealthCheckRequest } from "../types/requests/health-check-request.js";
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../types/requests/list-all-request.js";
@@ -146,7 +145,6 @@ import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-
 import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
 import { GrantUserRightsResponse } from "../types/responses/grant-user-rights-response.js";
-import { HealthCheckResponse } from "../types/responses/health-check-response.js";
 import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
 import { ListAllResponse } from "../types/responses/list-all-response.js";
@@ -198,6 +196,7 @@ import { PreparedCommandSubmission } from "../types/prepared-command-submission.
 import { SubmitCommandTransactionResponse } from "../types/responses/submit-command-transaction-response.js";
 import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
+import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;

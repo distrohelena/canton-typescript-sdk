@@ -1,7 +1,6 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
-import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
+import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 
 export class HealthServiceClient {
     public constructor(private readonly transport: ITransport) {

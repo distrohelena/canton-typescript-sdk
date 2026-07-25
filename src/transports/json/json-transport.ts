@@ -38,7 +38,6 @@ import {
 } from "../../core/types/requests/grant-user-rights-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListPackagesRequest } from "../../core/types/requests/list-packages-request.js";
 import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted-packages-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
@@ -101,7 +100,6 @@ import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchr
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
-import { HealthCheckResponse } from "../../core/types/responses/health-check-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
@@ -123,6 +121,7 @@ import { SubmitCommandResponse } from "../../core/types/responses/submit-command
 import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
 import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-file-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
+import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/canton/google/grpc/health/v1/health.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import type {
