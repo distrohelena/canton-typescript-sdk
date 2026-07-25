@@ -9,7 +9,6 @@ import { CurrentTimeRequest } from "../../core/types/requests/current-time-reque
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
-import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
@@ -77,7 +76,6 @@ import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/typ
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
@@ -351,6 +349,8 @@ import type {
     GetEventsByContractIdResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import type {
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
     GetConnectedSynchronizersRequest,
     GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
@@ -1704,36 +1704,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetActiveContractsPageResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.queryContractsAsync(
-            mapGrpcQueryContractsRequest({
-                party: request.party,
-                parties: request.parties,
-                allParties: request.allParties,
-                templateId: request.templateId,
-                interfaceId: request.interfaceId,
-                includeInterfaceView: request.includeInterfaceView,
-                includeCreatedEventBlob: request.includeCreatedEventBlob,
-                activeAtOffset: request.activeAtOffset,
-                maxPageSize: request.maxPageSize,
-                pageToken: request.pageToken,
-            }),
+        return (await this.operations.getActiveContractsPageAsync!(
+            request,
             options,
-        );
-
-        const response = mapGrpcQueryContracts(
-            payload as { contracts?: unknown[] },
-        );
-
-        const pagePayload = payload as {
-            activeAtOffset?: string;
-            nextPageToken?: Uint8Array;
-        };
-
-        return new GetActiveContractsPageResponse({
-            contracts: response.contracts,
-            activeAtOffset: pagePayload.activeAtOffset,
-            nextPageToken: pagePayload.nextPageToken,
-        });
+        )) as GetActiveContractsPageResponse;
     }
 
     public async getConnectedSynchronizersAsync(

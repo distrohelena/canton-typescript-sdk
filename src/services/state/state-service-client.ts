@@ -1,9 +1,9 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import type {
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
     GetConnectedSynchronizersRequest,
     GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,

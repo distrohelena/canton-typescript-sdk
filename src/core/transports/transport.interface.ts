@@ -20,7 +20,6 @@ import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-t
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
-import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { CountInFlightRequest } from "../types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../types/requests/current-time-request.js";
@@ -103,7 +102,6 @@ import { GetResourceLimitsResponse } from "../types/responses/get-resource-limit
 import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../types/responses/get-synchronizer-id-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
-import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
 import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
@@ -176,6 +174,8 @@ import type {
     GetCommandStatusResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import type {
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
     GetConnectedSynchronizersRequest,
     GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,

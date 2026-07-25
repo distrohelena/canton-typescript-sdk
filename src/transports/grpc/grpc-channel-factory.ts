@@ -384,6 +384,7 @@ export interface GrpcOperations {
     getContractAsync?(request: GrpcGetContractRequest, options?: RequestOptions): Promise<GrpcGetContractResponse>;
     getEventsByContractIdAsync?(request: GrpcGetEventsByContractIdRequest, options?: RequestOptions): Promise<GrpcGetEventsByContractIdResponse>;
     queryContractsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getActiveContractsPageAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getConnectedSynchronizersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLedgerEndAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLatestPrunedOffsetsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -2064,6 +2065,21 @@ export function createGrpcOperations(
                     requestOptions,
                 );
 
+            return await unwrapUnaryResponse(
+                stateServiceClient.getActiveContractsPage(
+                    request as GetActiveContractsPageRequest,
+                    callOptions,
+                ),
+            );
+        },
+        async getActiveContractsPageAsync(
+            request: unknown,
+            requestOptions?: RequestOptions,
+        ): Promise<GetActiveContractsPageResponse> {
+            const callOptions = await buildCallOptionsForLedgerSurfaceAsync(
+                options,
+                requestOptions,
+            );
             return await unwrapUnaryResponse(
                 stateServiceClient.getActiveContractsPage(
                     request as GetActiveContractsPageRequest,

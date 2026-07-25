@@ -24,7 +24,6 @@ import { CurrentTimeRequest } from "../core/types/requests/current-time-request.
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
-import { GetActiveContractsPageRequest } from "../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-highest-offset-by-timestamp-request.js";
@@ -115,7 +114,6 @@ import { GetConfigForSlowCounterParticipantsResponse } from "../core/types/respo
 import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
-import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
 import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
 import { GetIdResponse } from "../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
@@ -196,6 +194,8 @@ import type {
     GetCommandStatusResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import type {
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
     GetConnectedSynchronizersRequest,
     GetConnectedSynchronizersResponse,
     GetLedgerEndRequest,
