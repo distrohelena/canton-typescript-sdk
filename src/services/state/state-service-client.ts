@@ -3,12 +3,14 @@ import { RequestOptions } from "../../core/types/request-options.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
-import { GetLedgerEndRequest } from "../../core/types/requests/get-ledger-end-request.js";
-import { GetLatestPrunedOffsetsRequest } from "../../core/types/requests/get-latest-pruned-offsets-request.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetConnectedSynchronizersResponse } from "../../core/types/responses/get-connected-synchronizers-response.js";
-import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
-import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
+import type {
+    GetLedgerEndRequest,
+    GetLedgerEndResponse,
+    GetLatestPrunedOffsetsRequest,
+    GetLatestPrunedOffsetsResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { ContractObserver } from "../contracts/contract-observer.interface.js";
 
 export class StateServiceClient {

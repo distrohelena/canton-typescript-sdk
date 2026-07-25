@@ -15,8 +15,6 @@ import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetLatestPrunedOffsetsRequest } from "../../core/types/requests/get-latest-pruned-offsets-request.js";
-import { GetLedgerEndRequest } from "../../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
@@ -67,10 +65,8 @@ import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
-import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
-import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
@@ -134,6 +130,12 @@ import type {
     GetCommandStatusRequest,
     GetCommandStatusResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
+import type {
+    GetLedgerEndRequest,
+    GetLedgerEndResponse,
+    GetLatestPrunedOffsetsRequest,
+    GetLatestPrunedOffsetsResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import {
     GetPackageRequest,
     GetPackageResponse,

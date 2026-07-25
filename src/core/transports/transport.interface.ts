@@ -34,8 +34,6 @@ import { GetIntervalsBehindForCounterParticipantsRequest } from "../types/reques
 import { InspectCommitmentContractsRequest } from "../types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
-import { GetLatestPrunedOffsetsRequest } from "../types/requests/get-latest-pruned-offsets-request.js";
-import { GetLedgerEndRequest } from "../types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
@@ -99,8 +97,6 @@ import { GetIdResponse } from "../types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";
-import { GetLatestPrunedOffsetsResponse } from "../types/responses/get-latest-pruned-offsets-response.js";
-import { GetLedgerEndResponse } from "../types/responses/get-ledger-end-response.js";
 import { GetPackageReferencesResponse } from "../types/responses/get-package-references-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
@@ -181,6 +177,12 @@ import type {
     GetCommandStatusRequest,
     GetCommandStatusResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
+import type {
+    GetLedgerEndRequest,
+    GetLedgerEndResponse,
+    GetLatestPrunedOffsetsRequest,
+    GetLatestPrunedOffsetsResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import type {
     ListKnownPackagesRequest,
     ListKnownPackagesResponse,

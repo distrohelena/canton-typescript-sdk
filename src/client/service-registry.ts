@@ -32,8 +32,6 @@ import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-h
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
-import { GetLatestPrunedOffsetsRequest } from "../core/types/requests/get-latest-pruned-offsets-request.js";
-import { GetLedgerEndRequest } from "../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
@@ -118,7 +116,6 @@ import type {
 import { GetConfigForSlowCounterParticipantsResponse } from "../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
-import { GetLatestPrunedOffsetsResponse } from "../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../core/types/responses/get-active-contracts-page-response.js";
 import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
@@ -126,7 +123,6 @@ import { GetIdResponse } from "../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";
-import { GetLedgerEndResponse } from "../core/types/responses/get-ledger-end-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
 import { GetParticipantPruningScheduleResponse } from "../core/types/responses/get-participant-pruning-schedule-response.js";
@@ -201,6 +197,12 @@ import type {
     GetCommandStatusRequest,
     GetCommandStatusResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
+import type {
+    GetLedgerEndRequest,
+    GetLedgerEndResponse,
+    GetLatestPrunedOffsetsRequest,
+    GetLatestPrunedOffsetsResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { ObjectDisposedError } from "../core/errors/object-disposed-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";

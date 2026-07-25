@@ -2,13 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
     GetConnectedSynchronizersRequest,
     GetConnectedSynchronizersResponse,
+    RequestOptions,
+    StateServiceClient,
+} from "../../../src";
+import {
     GetLedgerEndRequest,
     GetLedgerEndResponse,
     GetLatestPrunedOffsetsRequest,
     GetLatestPrunedOffsetsResponse,
-    RequestOptions,
-    StateServiceClient,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 
 describe("StateServiceClient read methods", () => {
     it("forwards state read requests through the selected transport", async () => {
@@ -19,18 +21,14 @@ describe("StateServiceClient read methods", () => {
                 }),
         );
 
-        const getLedgerEndAsync = vi.fn(
-            async () =>
-                new GetLedgerEndResponse({
-                    offset: "7",
-                }),
-        );
+        const ledgerEndResponse = GetLedgerEndResponse.create({ offset: 7n });
+        const getLedgerEndAsync = vi.fn(async () => ledgerEndResponse);
 
+        const prunedOffsetsResponse = GetLatestPrunedOffsetsResponse.create({
+            participantPrunedUpToInclusive: 3n,
+        });
         const getLatestPrunedOffsetsAsync = vi.fn(
-            async () =>
-                new GetLatestPrunedOffsetsResponse({
-                    participantPrunedUpToInclusive: "3",
-                }),
+            async () => prunedOffsetsResponse,
         );
 
         const transport = {
@@ -55,28 +53,28 @@ describe("StateServiceClient read methods", () => {
 
         await expect(
             client.getLedgerEndAsync(
-                new GetLedgerEndRequest(),
+                GetLedgerEndRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetLedgerEndResponse);
+        ).resolves.toBe(ledgerEndResponse);
 
         await expect(
             client.getLatestPrunedOffsetsAsync(
-                new GetLatestPrunedOffsetsRequest(),
+                GetLatestPrunedOffsetsRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetLatestPrunedOffsetsResponse);
+        ).resolves.toBe(prunedOffsetsResponse);
 
         expect(getConnectedSynchronizersAsync).toHaveBeenCalledWith(
             expect.any(GetConnectedSynchronizersRequest),
             options,
         );
         expect(getLedgerEndAsync).toHaveBeenCalledWith(
-            expect.any(GetLedgerEndRequest),
+            GetLedgerEndRequest.create(),
             options,
         );
         expect(getLatestPrunedOffsetsAsync).toHaveBeenCalledWith(
-            expect.any(GetLatestPrunedOffsetsRequest),
+            GetLatestPrunedOffsetsRequest.create(),
             options,
         );
     });

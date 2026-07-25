@@ -18,8 +18,6 @@ import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetLatestPrunedOffsetsRequest } from "../../core/types/requests/get-latest-pruned-offsets-request.js";
-import { GetLedgerEndRequest } from "../../core/types/requests/get-ledger-end-request.js";
 import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
@@ -80,10 +78,8 @@ import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
-import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
-import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
@@ -245,10 +241,6 @@ import {
 import {
     mapGrpcGetConnectedSynchronizers,
     mapGrpcGetConnectedSynchronizersRequest,
-    mapGrpcGetLatestPrunedOffsets,
-    mapGrpcGetLatestPrunedOffsetsRequest,
-    mapGrpcGetLedgerEnd,
-    mapGrpcGetLedgerEndRequest,
 } from "./mappers/state-read-mapper.js";
 import {
     mapGrpcListAllRequest,
@@ -364,8 +356,12 @@ import type {
 } from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     GetConnectedSynchronizersResponse as ProtobufGetConnectedSynchronizersResponse,
-    GetLatestPrunedOffsetsResponse as ProtobufGetLatestPrunedOffsetsResponse,
-    GetLedgerEndResponse as ProtobufGetLedgerEndResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/state_service.js";
+import type {
+    GetLedgerEndRequest,
+    GetLedgerEndResponse,
+    GetLatestPrunedOffsetsRequest,
+    GetLatestPrunedOffsetsResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/state_service.js";
 import {
     GetUpdateResponse as ProtobufGetUpdateResponse,
@@ -1767,14 +1763,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetLedgerEndResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getLedgerEndAsync!(
-            mapGrpcGetLedgerEndRequest(request),
+        return (await this.operations.getLedgerEndAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetLedgerEnd(
-            payload as Partial<ProtobufGetLedgerEndResponse>,
-        );
+        )) as GetLedgerEndResponse;
     }
 
     public async getLatestPrunedOffsetsAsync(
@@ -1783,14 +1775,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetLatestPrunedOffsetsResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getLatestPrunedOffsetsAsync!(
-            mapGrpcGetLatestPrunedOffsetsRequest(request),
+        return (await this.operations.getLatestPrunedOffsetsAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetLatestPrunedOffsets(
-            payload as Partial<ProtobufGetLatestPrunedOffsetsResponse>,
-        );
+        )) as GetLatestPrunedOffsetsResponse;
     }
 
     public async getActiveContractsAsync(

@@ -43,6 +43,10 @@ import {
     ListUserRightsRequest as ProtobufListUserRightsRequest,
     ListUsersRequest as ProtobufListUsersRequest,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import {
+    GetLedgerEndRequest as ProtobufGetLedgerEndRequest,
+    GetLatestPrunedOffsetsRequest as ProtobufGetLatestPrunedOffsetsRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 
 describe("GrpcTransport batch 1 read services", () => {
     it("returns raw generated user-management responses", async () => {
@@ -67,6 +71,28 @@ describe("GrpcTransport batch 1 read services", () => {
                 ProtobufListUserRightsRequest.create({ userId: "user-1" }),
             ),
         ).resolves.toBe(listUserRightsResponse);
+    });
+
+    it("returns raw generated state read responses", async () => {
+        const ledgerEndResponse = { offset: 17n };
+        const prunedOffsetsResponse = {
+            participantPrunedUpToInclusive: 3n,
+            allDivulgedContractsPrunedUpToInclusive: 2n,
+        };
+        const transport = new GrpcTransport({
+            getLedgerEndAsync: async () => ledgerEndResponse,
+            getLatestPrunedOffsetsAsync: async () => prunedOffsetsResponse,
+        } as any);
+        const client = new StateServiceClient(transport);
+
+        await expect(
+            client.getLedgerEndAsync(ProtobufGetLedgerEndRequest.create()),
+        ).resolves.toBe(ledgerEndResponse);
+        await expect(
+            client.getLatestPrunedOffsetsAsync(
+                ProtobufGetLatestPrunedOffsetsRequest.create(),
+            ),
+        ).resolves.toBe(prunedOffsetsResponse);
     });
 
     it("maps ledger admin read methods", async () => {
