@@ -58,7 +58,6 @@ import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
-import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
 import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
@@ -149,7 +148,10 @@ import type {
 import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
 import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
-import { ParticipantListPackagesResponse } from "../types/responses/participant-list-packages-response.js";
+import type {
+    ListPackagesRequest as ParticipantListPackagesRequest,
+    ListPackagesResponse as ParticipantListPackagesResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { SubmitCommandResponse } from "../types/responses/submit-command-response.js";
 import type {
     TrafficControlStateRequest,

@@ -30,7 +30,6 @@ import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js"
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
-import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
@@ -84,7 +83,6 @@ import { ListSynchronizerParametersStateResponse } from "../../core/types/respon
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
-import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
@@ -133,8 +131,6 @@ import {
     mapGrpcGetParticipantPackageReferencesRequest,
     mapGrpcListParticipantDars,
     mapGrpcListParticipantDarsRequest,
-    mapGrpcParticipantListPackages,
-    mapGrpcParticipantListPackagesRequest,
 } from "./mappers/packages-mapper.js";
 import {
 } from "./mappers/participant-status-mapper.js";
@@ -318,6 +314,7 @@ import {
     GetPackageContentsResponse as ProtobufGetParticipantPackageContentsResponse,
     GetPackageReferencesResponse as ProtobufGetParticipantPackageReferencesResponse,
     ListDarsResponse as ProtobufParticipantListDarsResponse,
+    ListPackagesRequest as ProtobufParticipantListPackagesRequest,
     ListPackagesResponse as ProtobufParticipantListPackagesResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import {
@@ -696,19 +693,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listParticipantPackagesAsync(
-        request: ParticipantListPackagesRequest,
+        request: ProtobufParticipantListPackagesRequest,
         options?: RequestOptions,
-    ): Promise<ParticipantListPackagesResponse> {
+    ): Promise<ProtobufParticipantListPackagesResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listParticipantPackagesAsync!(
-            mapGrpcParticipantListPackagesRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcParticipantListPackages(
-            payload as Partial<ProtobufParticipantListPackagesResponse>,
-        );
+        return payload as ProtobufParticipantListPackagesResponse;
     }
 
     public async getParticipantPackageContentsAsync(

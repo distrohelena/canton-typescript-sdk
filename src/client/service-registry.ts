@@ -66,7 +66,6 @@ import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parti
 import { ListDarsRequest } from "../core/types/requests/list-dars-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
-import { ParticipantListPackagesRequest } from "../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
@@ -175,7 +174,10 @@ import type {
     TrafficControlStateRequest,
     TrafficControlStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
-import { ParticipantListPackagesResponse } from "../core/types/responses/participant-list-packages-response.js";
+import type {
+    ListPackagesRequest as ParticipantListPackagesRequest,
+    ListPackagesResponse as ParticipantListPackagesResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
 import type {
     ListKnownPackagesRequest,

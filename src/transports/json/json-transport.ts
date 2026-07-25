@@ -22,7 +22,6 @@ import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
-import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
@@ -90,7 +89,10 @@ import type {
     OpenCommitmentRequest,
     OpenCommitmentResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
-import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
+import type {
+    ListPackagesRequest as ParticipantListPackagesRequest,
+    ListPackagesResponse as ParticipantListPackagesResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import type {
     TrafficControlStateRequest,

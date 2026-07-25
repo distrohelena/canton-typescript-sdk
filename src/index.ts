@@ -279,7 +279,6 @@ export { ListSequencingParametersStateRequest } from "./core/types/requests/list
 export { ListSynchronizerParametersStateRequest } from "./core/types/requests/list-synchronizer-parameters-state-request.js";
 export { ListSynchronizerTrustCertificateRequest } from "./core/types/requests/list-synchronizer-trust-certificate-request.js";
 export { TopologyListVettedPackagesRequest } from "./core/types/requests/topology-list-vetted-packages-request.js";
-export { ParticipantListPackagesRequest } from "./core/types/requests/participant-list-packages-request.js";
 export { ListKnownPartiesRequest } from "./core/types/requests/list-known-parties-request.js";
 export { ListKnownPackagesRequest } from "./core/types/requests/list-known-packages-request.js";
 export { ListDarsRequest } from "./core/types/requests/list-dars-request.js";
@@ -359,7 +358,6 @@ export { ListVettedPackagesResponse } from "./core/types/responses/list-vetted-p
 export { SignTopologyTransactionsResponse } from "./core/types/responses/sign-topology-transactions-response.js";
 export { TopologyListVettedPackagesResponse } from "./core/types/responses/topology-list-vetted-packages-response.js";
 export { TopologyListPartiesResponse } from "./core/types/responses/topology-list-parties-response.js";
-export { ParticipantListPackagesResponse } from "./core/types/responses/participant-list-packages-response.js";
 export { SubmitCommandResponse } from "./core/types/responses/submit-command-response.js";
 export { GrantUserRightsResponse } from "./core/types/responses/grant-user-rights-response.js";
 export { UploadDarFileResponse } from "./core/types/responses/upload-dar-file-response.js";
