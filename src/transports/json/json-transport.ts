@@ -51,6 +51,8 @@ import type {
     ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListPartyHostingLimitsRequest,
     ListPartyHostingLimitsResponse,
+    ListParticipantSynchronizerPermissionRequest,
+    ListParticipantSynchronizerPermissionResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -939,9 +941,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listParticipantSynchronizerPermissionAsync(
-        _request: any,
+        _request: ListParticipantSynchronizerPermissionRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListParticipantSynchronizerPermissionResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
