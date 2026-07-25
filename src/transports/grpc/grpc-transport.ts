@@ -9,7 +9,6 @@ import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
@@ -24,7 +23,6 @@ import { GenerateExternalPartyTopologyResponse } from "../../core/types/response
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
@@ -81,8 +79,6 @@ import {
 import {
     mapGrpcListAllRequest,
     mapGrpcListAllResponse,
-    mapGrpcListNamespaceDelegationRequest,
-    mapGrpcListNamespaceDelegationResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
     mapGrpcAddTopologyTransactionsRequest,
@@ -275,6 +271,7 @@ import {
     ListLsuSequencerConnectionSuccessorResponse as ProtobufListLsuSequencerConnectionSuccessorResponse,
     ListMediatorSynchronizerStateRequest as ProtobufListMediatorSynchronizerStateRequest,
     ListMediatorSynchronizerStateResponse as ProtobufListMediatorSynchronizerStateResponse,
+    ListNamespaceDelegationRequest as ProtobufListNamespaceDelegationRequest,
     ListNamespaceDelegationResponse as ProtobufListNamespaceDelegationResponse,
     ListOwnerToKeyMappingRequest as ProtobufListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse as ProtobufListOwnerToKeyMappingResponse,
@@ -1018,19 +1015,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listNamespaceDelegationAsync(
-        request: ListNamespaceDelegationRequest,
+        request: ProtobufListNamespaceDelegationRequest,
         options?: RequestOptions,
-    ): Promise<ListNamespaceDelegationResponse> {
+    ): Promise<ProtobufListNamespaceDelegationResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listNamespaceDelegationAsync!(
-            mapGrpcListNamespaceDelegationRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListNamespaceDelegationResponse(
-            payload as Partial<ProtobufListNamespaceDelegationResponse>,
-        );
+        return payload as ProtobufListNamespaceDelegationResponse;
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
