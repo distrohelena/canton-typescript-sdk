@@ -2,7 +2,6 @@ import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
-import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
 import { ListLsuSequencerConnectionSuccessorRequest } from "../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
@@ -20,7 +19,10 @@ import { ListSynchronizerTrustCertificateRequest } from "../../core/types/reques
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
-import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
+import type {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListLsuAnnouncementResponse } from "../../core/types/responses/list-lsu-announcement-response.js";
 import { ListLsuSequencerConnectionSuccessorResponse } from "../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";

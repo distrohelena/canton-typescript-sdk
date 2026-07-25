@@ -48,7 +48,6 @@ import {
     BaseQuery_TimeRange,
     BaseResult,
     ListAllV2Response,
-    ListAvailableStoresResponse,
     ListPartyToParticipantResponse,
     ListVettedPackagesResponse,
 } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -179,14 +178,6 @@ export function mapGrpcListPartyToParticipantResponse(
                     item: mapSdkPartyToParticipant(item.item),
                 }),
         ),
-    };
-}
-
-export function mapGrpcListAvailableStoresResponse(
-    payload: Partial<ListAvailableStoresResponse>,
-): { storeIds: TopologyStoreId[] } {
-    return {
-        storeIds: (payload.storeIds ?? []).map((item) => mapSdkTopologyStoreId(item)!),
     };
 }
 

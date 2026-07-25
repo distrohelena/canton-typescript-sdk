@@ -1,16 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    ListAvailableStoresRequest,
-    ListAvailableStoresResponse,
     RequestOptions,
     TopologyManagerReadServiceClient,
 } from "../../../src";
+import {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 
 describe("TopologyManagerReadServiceClient", () => {
     it("forwards topology manager read requests through the selected transport", async () => {
         const listAvailableStoresAsync = vi.fn(
             async () =>
-                new ListAvailableStoresResponse({
+                ListAvailableStoresResponse.create({
                     storeIds: [],
                 }),
         );
@@ -23,7 +25,7 @@ describe("TopologyManagerReadServiceClient", () => {
 
         const client = new TopologyManagerReadServiceClient(transport as never);
 
-        const request = new ListAvailableStoresRequest();
+        const request = ListAvailableStoresRequest.create();
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -31,7 +33,7 @@ describe("TopologyManagerReadServiceClient", () => {
 
         await expect(
             client.listAvailableStoresAsync(request, options),
-        ).resolves.toBeInstanceOf(ListAvailableStoresResponse);
+        ).resolves.toEqual(ListAvailableStoresResponse.create({ storeIds: [] }));
 
         expect(listAvailableStoresAsync).toHaveBeenCalledWith(
             request,

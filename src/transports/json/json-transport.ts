@@ -30,6 +30,10 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
+import type {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import type {
@@ -860,9 +864,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listNamespaceDelegationAsync(
-        _request: any,
+        _request: ListAvailableStoresRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListAvailableStoresResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

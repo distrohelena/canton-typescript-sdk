@@ -1,16 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    ListAvailableStoresRequest,
     ListKeyOwnersRequest,
     RequestOptions,
     TopologyListPartiesRequest,
 } from "../../../src";
 import { TransportError } from "../../../src/core/errors/transport-error.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 
 describe("GrpcTransport topology services", () => {
-    it("maps topology manager read service responses", async () => {
-        const listAvailableStoresAsync = vi.fn(async () => ({
+    it("forwards generated topology store messages without mapping", async () => {
+        const rawResponse = ListAvailableStoresResponse.create({
             storeIds: [
                 {
                     store: {
@@ -19,7 +22,9 @@ describe("GrpcTransport topology services", () => {
                     },
                 },
             ],
-        }));
+        });
+
+        const listAvailableStoresAsync = vi.fn(async () => rawResponse);
 
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
@@ -37,18 +42,20 @@ describe("GrpcTransport topology services", () => {
             }),
         } as any);
 
+        const request = ListAvailableStoresRequest.create();
+
         const result = await transport.listAvailableStoresAsync(
-            new ListAvailableStoresRequest(),
+            request,
             new RequestOptions({
                 timeoutMs: 2_500,
             }),
         );
 
         expect(listAvailableStoresAsync).toHaveBeenCalledWith(
-            {},
+            request,
             expect.any(RequestOptions),
         );
-        expect(result.storeIds[0].kind).toBe("authorized");
+        expect(result).toBe(rawResponse);
     });
 
     it("maps topology aggregation service responses", async () => {

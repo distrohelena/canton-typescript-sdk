@@ -222,7 +222,6 @@ export { PreparedCommandSubmission } from "./core/types/prepared-command-submiss
 export { DamlContractId } from "./core/types/daml-contract-id.js";
 export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant, DamlEnum, DamlRecord } from "./core/types/daml-values.js";
 export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-command-transaction-response.js";
-export { AddPartyAsyncArguments } from "./core/types/requests/add-party-async-request.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
@@ -240,7 +239,6 @@ export { HealthCheckRequest } from "./core/types/requests/health-check-request.j
 export { ListPackagesRequest } from "./core/types/requests/list-packages-request.js";
 export { ListAllRequest } from "./core/types/requests/list-all-request.js";
 export { ListAllV2Request } from "./core/types/requests/list-all-v2-request.js";
-export { ListAvailableStoresRequest } from "./core/types/requests/list-available-stores-request.js";
 export { ListDecentralizedNamespaceDefinitionRequest } from "./core/types/requests/list-decentralized-namespace-definition-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
@@ -313,7 +311,6 @@ export { ImportTopologySnapshotResponse } from "./core/types/responses/import-to
 export { ImportTopologySnapshotV2Response } from "./core/types/responses/import-topology-snapshot-v2-response.js";
 export { ListAllResponse } from "./core/types/responses/list-all-response.js";
 export { ListAllV2Response } from "./core/types/responses/list-all-v2-response.js";
-export { ListAvailableStoresResponse } from "./core/types/responses/list-available-stores-response.js";
 export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/responses/list-decentralized-namespace-definition-response.js";
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";
 export { ListLsuSequencerConnectionSuccessorResponse } from "./core/types/responses/list-lsu-sequencer-connection-successor-response.js";

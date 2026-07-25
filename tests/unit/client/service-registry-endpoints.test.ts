@@ -2,19 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     AllocateExternalPartyRequest,
     AllocateExternalPartyResponse,
-    AddPartyAsyncRequest,
-    AddPartyAsyncResponse,
     CantonClientOptions,
-    ClearPartyOnboardingFlagRequest,
-    ClearPartyOnboardingFlagResponse,
     EndpointNotConfiguredError,
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
-    ListAvailableStoresRequest,
-    ListAvailableStoresResponse,
     GenerateTopologyTransactionsRequest,
     GenerateTopologyTransactionsResponse,
     GenerateExternalPartyTopologyRequest,
@@ -30,6 +24,16 @@ import {
     TransportKind,
 } from "../../../src";
 import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
+import {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 import { createServiceRegistry } from "../../../src/client/service-registry.js";
 import { createJsonTransport } from "../../../src/transports/json/json-transport-factory.js";
 
@@ -157,7 +161,7 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             listAvailableStoresAsync: vi.fn(async () => {
-                return new ListAvailableStoresResponse({
+                return ListAvailableStoresResponse.create({
                     storeIds: [],
                 });
             }),
@@ -172,12 +176,12 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             addPartyAsync: vi.fn(async () => {
-                return new AddPartyAsyncResponse({
+                return AddPartyAsyncResponse.create({
                     addPartyRequestId: "request-1",
                 });
             }),
             clearPartyOnboardingFlagAsync: vi.fn(async () => {
-                return new ClearPartyOnboardingFlagResponse({
+                return ClearPartyOnboardingFlagResponse.create({
                     onboarded: true,
                 });
             }),
@@ -251,9 +255,9 @@ describe("service registry endpoint routing", () => {
         ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
         await expect(
             services.topologyManagerReadService.listAvailableStoresAsync(
-                new ListAvailableStoresRequest(),
+                ListAvailableStoresRequest.create(),
             ),
-        ).resolves.toBeInstanceOf(ListAvailableStoresResponse);
+        ).resolves.toEqual(ListAvailableStoresResponse.create({ storeIds: [] }));
         await expect(
             services.topologyAggregationService.listPartiesAsync(
                 new TopologyListPartiesRequest(),
@@ -266,7 +270,7 @@ describe("service registry endpoint routing", () => {
         ).resolves.toBeInstanceOf(GenerateTopologyTransactionsResponse);
         await expect(
             services.participantPartyManagementService.addPartyAsync(
-                new AddPartyAsyncRequest({
+                AddPartyAsyncRequest.create({
                     arguments: {
                         partyId: "Alice",
                         synchronizerId: "sync::sandbox",
@@ -277,16 +281,20 @@ describe("service registry endpoint routing", () => {
                     },
                 }),
             ),
-        ).resolves.toBeInstanceOf(AddPartyAsyncResponse);
+        ).resolves.toEqual(
+            AddPartyAsyncResponse.create({ addPartyRequestId: "request-1" }),
+        );
         await expect(
             services.participantPartyManagementService.clearPartyOnboardingFlagAsync(
-                new ClearPartyOnboardingFlagRequest({
+                ClearPartyOnboardingFlagRequest.create({
                     partyId: "Alice",
                     synchronizerId: "sync::sandbox",
                     beginOffsetExclusive: "42",
                 }),
             ),
-        ).resolves.toBeInstanceOf(ClearPartyOnboardingFlagResponse);
+        ).resolves.toEqual(
+            ClearPartyOnboardingFlagResponse.create({ onboarded: true }),
+        );
 
         expect(createJsonTransport).toHaveBeenCalledTimes(3);
         expect(ledgerTransport.getLedgerApiVersionAsync).toHaveBeenCalledTimes(1);
@@ -416,7 +424,7 @@ describe("service registry endpoint routing", () => {
         );
         await expect(
             services.topologyManagerReadService.listAvailableStoresAsync(
-                new ListAvailableStoresRequest(),
+                ListAvailableStoresRequest.create(),
             ),
         ).rejects.toThrow(
             "The participant admin endpoint is not configured for topologyManagerReadService.",

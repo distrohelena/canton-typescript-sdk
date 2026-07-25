@@ -27,7 +27,6 @@ import { ImportTopologySnapshotRequest } from "../types/requests/import-topology
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../types/requests/list-all-request.js";
 import { ListAllV2Request } from "../types/requests/list-all-v2-request.js";
-import { ListAvailableStoresRequest } from "../types/requests/list-available-stores-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../types/requests/list-lsu-announcement-request.js";
@@ -84,7 +83,10 @@ import { ImportTopologySnapshotResponse } from "../types/responses/import-topolo
 import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
 import { ListAllResponse } from "../types/responses/list-all-response.js";
 import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
-import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
+import type {
+    ListAvailableStoresRequest,
+    ListAvailableStoresResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type {
     AddPartyAsyncRequest,
     AddPartyAsyncResponse,

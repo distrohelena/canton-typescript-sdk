@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    ListAvailableStoresRequest,
     ListAllV2Request,
     ListPartyToParticipantRequest,
     PartyToParticipant,
@@ -13,7 +12,6 @@ import {
 } from "../../../src";
 import {
     mapGrpcListAllV2Response,
-    mapGrpcListAvailableStoresResponse,
     mapGrpcListPartyToParticipantRequest,
     mapGrpcListPartyToParticipantResponse,
     mapGrpcTopologyBaseQuery,
@@ -95,18 +93,7 @@ describe("gRPC topology manager read mappers", () => {
         );
     });
 
-    it("maps available stores and list-all-v2 responses", () => {
-        const stores = mapGrpcListAvailableStoresResponse({
-            storeIds: [
-                {
-                    store: {
-                        oneofKind: "authorized",
-                        authorized: {},
-                    },
-                },
-            ],
-        });
-
+    it("maps list-all-v2 responses", () => {
         const transactions = mapGrpcListAllV2Response({
             result: {
                 items: [
@@ -117,10 +104,6 @@ describe("gRPC topology manager read mappers", () => {
             },
         });
 
-        expect(new ListAvailableStoresRequest()).toBeInstanceOf(
-            ListAvailableStoresRequest,
-        );
-        expect(stores.storeIds[0].kind).toBe(TopologyStoreKind.authorized);
         expect(transactions.result).toBeInstanceOf(TopologyTransactions);
         expect(transactions.result?.items[0].transaction).toEqual(
             new Uint8Array([1, 2, 3]),

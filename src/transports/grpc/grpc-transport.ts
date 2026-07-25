@@ -8,7 +8,6 @@ import { InspectCommitmentContractsRequest } from "../../core/types/requests/ins
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
-import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
@@ -39,7 +38,6 @@ import { InspectCommitmentContractsResponse } from "../../core/types/responses/i
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
-import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
@@ -115,8 +113,6 @@ import {
     mapGrpcListAllResponse,
     mapGrpcListAllV2Request,
     mapGrpcListAllV2Response,
-    mapGrpcListAvailableStoresRequest,
-    mapGrpcListAvailableStoresResponse,
     mapGrpcListDecentralizedNamespaceDefinitionRequest,
     mapGrpcListDecentralizedNamespaceDefinitionResponse,
     mapGrpcListLsuAnnouncementRequest,
@@ -328,6 +324,7 @@ import {
 import {
     ListAllResponse as ProtobufTopologyListAllResponse,
     ListAllV2Response as ProtobufTopologyListAllV2Response,
+    ListAvailableStoresRequest as ProtobufListAvailableStoresRequest,
     ListAvailableStoresResponse as ProtobufListAvailableStoresResponse,
     ListDecentralizedNamespaceDefinitionResponse as ProtobufListDecentralizedNamespaceDefinitionResponse,
     ListLsuAnnouncementResponse as ProtobufListLsuAnnouncementResponse,
@@ -1439,19 +1436,14 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listAvailableStoresAsync(
-        request: ListAvailableStoresRequest,
+        request: ProtobufListAvailableStoresRequest,
         options?: RequestOptions,
-    ): Promise<ListAvailableStoresResponse> {
+    ): Promise<ProtobufListAvailableStoresResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listAvailableStoresAsync!(
-            mapGrpcListAvailableStoresRequest(request),
-            options,
-        );
+        const payload = await this.operations.listAvailableStoresAsync!(request, options);
 
-        return mapGrpcListAvailableStoresResponse(
-            payload as Partial<ProtobufListAvailableStoresResponse>,
-        );
+        return payload as ProtobufListAvailableStoresResponse;
     }
 
     public async listAllAsync(
