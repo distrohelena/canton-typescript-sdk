@@ -333,6 +333,7 @@ import {
     GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsRequest as ProtobufGetIntervalsBehindForCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
+    InspectCommitmentContractsRequest as ProtobufInspectCommitmentContractsRequest,
     InspectCommitmentContractsResponse as ProtobufInspectCommitmentContractsResponse,
     LookupOffsetByTimeRequest as ProtobufLookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse as ProtobufLookupOffsetByTimeResponse,
@@ -340,6 +341,7 @@ import {
     LookupSentAcsCommitmentsResponse as ProtobufLookupSentAcsCommitmentsResponse,
     LookupReceivedAcsCommitmentsResponse as ProtobufLookupReceivedAcsCommitmentsResponse,
     LookupSentAcsCommitmentsRequest as ProtobufLookupSentAcsCommitmentsRequest,
+    OpenCommitmentRequest as ProtobufOpenCommitmentRequest,
     OpenCommitmentResponse as ProtobufOpenCommitmentResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
@@ -824,38 +826,38 @@ export class GrpcTransport implements ITransport {
     }
 
     public async openCommitmentAsync(
-        request: OpenCommitmentRequest,
-        observer: CommitmentChunkObserver<OpenCommitmentResponse>,
+        request: ProtobufOpenCommitmentRequest,
+        observer: CommitmentChunkObserver<ProtobufOpenCommitmentResponse>,
         options?: RequestOptions,
     ): Promise<void> {
         this.throwIfDisposed();
 
         const payload = await this.operations.openCommitmentAsync!(
-            mapGrpcOpenCommitmentRequest(request),
+            request,
             options,
         );
 
-        for (const item of payload as Partial<ProtobufOpenCommitmentResponse>[]) {
-            await observer.nextAsync(mapGrpcOpenCommitment(item));
+        for (const item of payload as ProtobufOpenCommitmentResponse[]) {
+            await observer.nextAsync(item);
         }
     }
 
     public async inspectCommitmentContractsAsync(
-        request: InspectCommitmentContractsRequest,
-        observer: CommitmentChunkObserver<InspectCommitmentContractsResponse>,
+        request: ProtobufInspectCommitmentContractsRequest,
+        observer: CommitmentChunkObserver<ProtobufInspectCommitmentContractsResponse>,
         options?: RequestOptions,
     ): Promise<void> {
         this.throwIfDisposed();
 
         const payload = await this.operations.inspectCommitmentContractsAsync!(
-            mapGrpcInspectCommitmentContractsRequest(request),
+            request,
             options,
         );
 
         for (
-            const item of payload as Partial<ProtobufInspectCommitmentContractsResponse>[]
+            const item of payload as ProtobufInspectCommitmentContractsResponse[]
         ) {
-            await observer.nextAsync(mapGrpcInspectCommitmentContracts(item));
+            await observer.nextAsync(item);
         }
     }
 

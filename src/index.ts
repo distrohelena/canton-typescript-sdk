@@ -249,7 +249,6 @@ export { GetHighestOffsetByTimestampRequest } from "./core/types/requests/get-hi
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
 export { ImportTopologySnapshotRequest } from "./core/types/requests/import-topology-snapshot-request.js";
 export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-topology-snapshot-v2-request.js";
-export { InspectCommitmentContractsRequest } from "./core/types/requests/inspect-commitment-contracts-request.js";
 export { GetNoWaitCommitmentsFromRequest } from "./core/types/requests/get-no-wait-commitments-from-request.js";
 export { GetParticipantPruningScheduleRequest } from "./core/types/requests/get-participant-pruning-schedule-request.js";
 export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
@@ -289,7 +288,6 @@ export { ListKeyOwnersRequest } from "./core/types/requests/list-key-owners-requ
 export { ListPendingOperationsRequest } from "./core/types/requests/list-pending-operations-request.js";
 export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-request.js";
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
-export { OpenCommitmentRequest } from "./core/types/requests/open-commitment-request.js";
 export { SignTopologyTransactionsRequest } from "./core/types/requests/sign-topology-transactions-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
 export { TopologyListPartiesRequest } from "./core/types/requests/topology-list-parties-request.js";
@@ -308,7 +306,6 @@ export { HealthCheckResponse } from "./core/types/responses/health-check-respons
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { GetHighestOffsetByTimestampResponse } from "./core/types/responses/get-highest-offset-by-timestamp-response.js";
 export { GetIdentityProviderConfigResponse } from "./core/types/responses/get-identity-provider-config-response.js";
-export { InspectCommitmentContractsResponse } from "./core/types/responses/inspect-commitment-contracts-response.js";
 export { GetNoWaitCommitmentsFromResponse } from "./core/types/responses/get-no-wait-commitments-from-response.js";
 export { GetLatestPrunedOffsetsResponse } from "./core/types/responses/get-latest-pruned-offsets-response.js";
 export { GetLedgerEndResponse } from "./core/types/responses/get-ledger-end-response.js";
@@ -339,7 +336,6 @@ export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/respo
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";
 export { ListLsuSequencerConnectionSuccessorResponse } from "./core/types/responses/list-lsu-sequencer-connection-successor-response.js";
 export { ListMediatorSynchronizerStateResponse } from "./core/types/responses/list-mediator-synchronizer-state-response.js";
-export { OpenCommitmentResponse } from "./core/types/responses/open-commitment-response.js";
 export { ListNamespaceDelegationResponse } from "./core/types/responses/list-namespace-delegation-response.js";
 export { ListOwnerToKeyMappingResponse } from "./core/types/responses/list-owner-to-key-mapping-response.js";
 export { ListPackagesResponse } from "./core/types/responses/list-packages-response.js";

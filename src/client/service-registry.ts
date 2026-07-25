@@ -30,7 +30,6 @@ import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-ap
 import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
 import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
-import { InspectCommitmentContractsRequest } from "../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
 import { GetParticipantPruningScheduleRequest } from "../core/types/requests/get-participant-pruning-schedule-request.js";
@@ -67,7 +66,6 @@ import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parti
 import { ListDarsRequest } from "../core/types/requests/list-dars-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
-import { OpenCommitmentRequest } from "../core/types/requests/open-commitment-request.js";
 import { ParticipantListPackagesRequest } from "../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
@@ -105,7 +103,6 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { InspectCommitmentContractsResponse } from "../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
@@ -166,8 +163,11 @@ import type {
     LookupReceivedAcsCommitmentsResponse,
     LookupSentAcsCommitmentsRequest,
     LookupSentAcsCommitmentsResponse,
+    InspectCommitmentContractsRequest,
+    InspectCommitmentContractsResponse,
+    OpenCommitmentRequest,
+    OpenCommitmentResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
-import { OpenCommitmentResponse } from "../core/types/responses/open-commitment-response.js";
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";

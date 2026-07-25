@@ -24,7 +24,6 @@ import { GetActiveContractsRequest } from "../types/requests/get-active-contract
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
-import { InspectCommitmentContractsRequest } from "../types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetPackageContentsRequest } from "../types/requests/get-package-contents-request.js";
@@ -57,7 +56,6 @@ import { ListSynchronizerParametersStateRequest } from "../types/requests/list-s
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
-import { OpenCommitmentRequest } from "../types/requests/open-commitment-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
@@ -80,7 +78,6 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { InspectCommitmentContractsResponse } from "../types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";
 import { GetPackageReferencesResponse } from "../types/responses/get-package-references-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
@@ -144,8 +141,11 @@ import type {
     LookupReceivedAcsCommitmentsResponse,
     LookupSentAcsCommitmentsRequest,
     LookupSentAcsCommitmentsResponse,
+    InspectCommitmentContractsRequest,
+    InspectCommitmentContractsResponse,
+    OpenCommitmentRequest,
+    OpenCommitmentResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
-import { OpenCommitmentResponse } from "../types/responses/open-commitment-response.js";
 import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
 import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
