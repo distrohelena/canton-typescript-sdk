@@ -34,7 +34,6 @@ import { ListParticipantSynchronizerPermissionRequest } from "../types/requests/
 import { ListPartyHostingLimitsRequest } from "../types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../types/requests/list-party-to-participant-request.js";
-import { ListSynchronizerParametersStateRequest } from "../types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
@@ -89,6 +88,8 @@ import type {
     ListMediatorSynchronizerStateResponse,
     ListSequencingParametersStateRequest,
     ListSequencingParametersStateResponse,
+    ListSynchronizerParametersStateRequest,
+    ListSynchronizerParametersStateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -115,7 +116,6 @@ import { ListParticipantSynchronizerPermissionResponse } from "../types/response
 import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../types/responses/list-party-to-participant-response.js";
-import { ListSynchronizerParametersStateResponse } from "../types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
 import type {
     ListPendingOperationsRequest,

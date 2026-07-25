@@ -8,7 +8,6 @@ import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/r
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
-import { ListSynchronizerParametersStateRequest } from "../../core/types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -25,6 +24,8 @@ import type {
     ListMediatorSynchronizerStateResponse,
     ListSequencingParametersStateRequest,
     ListSequencingParametersStateResponse,
+    ListSynchronizerParametersStateRequest,
+    ListSynchronizerParametersStateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -35,7 +36,6 @@ import { ListParticipantSynchronizerPermissionResponse } from "../../core/types/
 import { ListPartyHostingLimitsResponse } from "../../core/types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
-import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
 

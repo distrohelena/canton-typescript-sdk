@@ -43,6 +43,8 @@ import type {
     ListMediatorSynchronizerStateResponse,
     ListSequencingParametersStateRequest,
     ListSequencingParametersStateResponse,
+    ListSynchronizerParametersStateRequest,
+    ListSynchronizerParametersStateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -1063,9 +1065,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listSynchronizerParametersStateAsync(
-        _request: any,
+        _request: ListSynchronizerParametersStateRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListSynchronizerParametersStateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
