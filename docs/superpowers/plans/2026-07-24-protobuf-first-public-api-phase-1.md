@@ -90,6 +90,7 @@
 - Modify: `src/services/update/update-service-client.ts`
 - Modify: `src/core/transports/transport.interface.ts`
 - Modify: `src/transports/grpc/grpc-channel-factory.ts`
+- Modify: `src/transports/grpc/grpc-operations.ts` or the file defining `wrapGrpcOperations`
 - Modify: `src/transports/grpc/grpc-transport.ts`
 - Modify: `src/client/service-registry.ts`
 - Modify: `src/debugger/replay/replay-update-loader.ts`
@@ -111,7 +112,7 @@
 
 - [ ] **Step 1: Write failing direct-response tests**
 
-  Import generated Update service messages through the new protobuf namespace. Assert `getUpdateByIdAsync`, offset, and hash accept generated request messages and return the exact generated `GetUpdateResponse` reference, including `update.oneofKind`. Assert page lookup returns generated `GetUpdatesPageResponse`. Add a failing direct stream test that checks `for await` receives each original `GetUpdatesResponse` object in channel order (same object references), can stop early via iterator return/disposal, and receives channel errors unchanged. Update fake `GrpcOperations` to provide an async iterable rather than a collected response array.
+  Import generated Update service messages through the new protobuf namespace. Assert `getUpdateByIdAsync`, offset, and hash accept generated request messages and return the exact generated `GetUpdateResponse` reference, including `update.oneofKind`. Assert page lookup returns generated `GetUpdatesPageResponse`. Add a failing direct stream test that checks `for await` receives each original `GetUpdatesResponse` object in channel order (same object references), can stop early via iterator return/disposal, and receives stream-time errors wrapped as `GrpcTransportError` with `onGrpcError` semantics preserved. Assert early iterator return calls through to the generated response iterator. Update fake `GrpcOperations` to provide an async iterable rather than a collected response array.
 
 - [ ] **Step 2: Run the focused tests to verify they fail**
 
@@ -121,7 +122,7 @@
 
 - [ ] **Step 3: Remove Update DTO/mapping layer and type operations**
 
-  Change Update service and transport signatures to the generated `GetUpdateByIdRequest`, `GetUpdateByOffsetRequest`, `GetUpdateByHashRequest`, `GetUpdatesPageRequest`, `GetUpdateResponse`, `GetUpdatesPageResponse`, `GetUpdatesRequest`, and `GetUpdatesResponse` types. Return unary/channel payload references unchanged. Replace collected `Promise<GetUpdatesResponse[]>` stream operations with a typed `AsyncIterable<GetUpdatesResponse>` operation (rename it to match `getUpdatesAsync`); return the channel response iterable directly, preserving cancellation/disposal and errors. Remove the observer DTO adapter and obsolete `mapGrpcStreamTransactionsRequest` only after every dependent caller has moved. Delete obsolete Update request/response classes, root exports, and mapper functions that only project fields. Update all listed production/test call sites in this same task until the build is green.
+  Change Update service and transport signatures to the generated `GetUpdateByIdRequest`, `GetUpdateByOffsetRequest`, `GetUpdateByHashRequest`, `GetUpdatesPageRequest`, `GetUpdateResponse`, `GetUpdatesPageResponse`, `GetUpdatesRequest`, and `GetUpdatesResponse` types. Return unary/channel payload references unchanged. Replace collected `Promise<GetUpdatesResponse[]>` stream operations with a typed lazy `AsyncIterable<GetUpdatesResponse>` operation (rename it to match `getUpdatesAsync`): implement it as an async generator, await `buildCallOptionsForLedgerSurfaceAsync()` inside that generator, call the generated streaming RPC, and `yield*` its `responses` so early iterator return propagates. Refactor `wrapGrpcOperations` to preserve iterable returns (rather than its current `async` wrapper), and wrap both call-setup and iteration-time errors with the existing `GrpcTransportError`/`onGrpcError` policy. Remove the observer DTO adapter and obsolete `mapGrpcStreamTransactionsRequest` only after every dependent caller has moved. Delete obsolete Update request/response classes, root exports, and mapper functions that only project fields. Update all listed production/test call sites in this same task until the build is green.
 
 - [ ] **Step 4: Run focused tests and build to verify they pass**
 
@@ -190,7 +191,7 @@
 
 - [ ] **Step 3: Run the direct-Update legacy audit**
 
-  Run: `rtk test ! -e src/core/types/requests/get-update-by-id-request.ts && rtk test ! -e src/core/types/requests/get-update-by-offset-request.ts && rtk test ! -e src/core/types/requests/get-update-by-hash-request.ts && rtk test ! -e src/core/types/requests/get-updates-page-request.ts && rtk test ! -e src/core/types/requests/get-updates-request.ts && rtk rg -n 'core/types/(requests|responses)/get-update|mapGrpcGetUpdate|mapGrpcStreamTransactionsRequest' src tests --glob '*.ts' -g '!src/transports/grpc/generated/**'`
+  Run: `rtk test ! -e src/core/types/requests/get-update-by-id-request.ts && rtk test ! -e src/core/types/requests/get-update-by-offset-request.ts && rtk test ! -e src/core/types/requests/get-update-by-hash-request.ts && rtk test ! -e src/core/types/requests/get-updates-page-request.ts && rtk test ! -e src/core/types/requests/get-updates-request.ts && rtk test ! -e src/core/types/responses/get-update-by-id-response.ts && rtk test ! -e src/core/types/responses/get-update-by-offset-response.ts && rtk test ! -e src/core/types/responses/get-update-by-hash-response.ts && rtk test ! -e src/core/types/responses/get-updates-page-response.ts && rtk rg -n 'core/types/(requests|responses)/get-update|mapGrpcGetUpdate|mapGrpcStreamTransactionsRequest' src tests --glob '*.ts' -g '!src/transports/grpc/generated/**'`
 
   Expected: all deleted paths are absent and ripgrep finds no SDK Update DTO imports or lossy/legacy mapper symbol outside explicitly documented migration history.
 
