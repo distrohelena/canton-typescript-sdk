@@ -15,7 +15,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetIdentityProviderConfigRequest } from "../../core/types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
@@ -50,7 +49,6 @@ import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListKnownPackagesRequest } from "../../core/types/requests/list-known-packages-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
-import { ListIdentityProviderConfigsRequest } from "../../core/types/requests/list-identity-provider-configs-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
@@ -92,7 +90,6 @@ import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetCommandStatusResponse } from "../../core/types/responses/get-command-status-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdentityProviderConfigResponse } from "../../core/types/responses/get-identity-provider-config-response.js";
 import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
@@ -118,7 +115,6 @@ import { ListAllV2Response } from "../../core/types/responses/list-all-v2-respon
 import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
 import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
-import { ListIdentityProviderConfigsResponse } from "../../core/types/responses/list-identity-provider-configs-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
@@ -196,10 +192,6 @@ import {
     mapGrpcGetIdRequest,
 } from "./mappers/identity-initialization-mapper.js";
 import {
-    mapGrpcGetIdentityProviderConfig,
-    mapGrpcGetIdentityProviderConfigRequest,
-    mapGrpcListIdentityProviderConfigs,
-    mapGrpcListIdentityProviderConfigsRequest,
 } from "./mappers/identity-provider-config-mapper.js";
 import {
     mapGrpcListKnownPackages,
@@ -783,36 +775,32 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getIdentityProviderConfigAsync(
-        request: GetIdentityProviderConfigRequest,
+        request: import("./generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js").GetIdentityProviderConfigRequest,
         options?: RequestOptions,
-    ): Promise<GetIdentityProviderConfigResponse> {
+    ): Promise<ProtobufGetIdentityProviderConfigResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getIdentityProviderConfigAsync!(
-            mapGrpcGetIdentityProviderConfigRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetIdentityProviderConfig(
-            payload as Partial<ProtobufGetIdentityProviderConfigResponse>,
-        );
+        return payload as ProtobufGetIdentityProviderConfigResponse;
     }
 
     public async listIdentityProviderConfigsAsync(
-        request: ListIdentityProviderConfigsRequest,
+        request: import("./generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js").ListIdentityProviderConfigsRequest,
         options?: RequestOptions,
-    ): Promise<ListIdentityProviderConfigsResponse> {
+    ): Promise<ProtobufListIdentityProviderConfigsResponse> {
         this.throwIfDisposed();
 
         const payload =
             await this.operations.listIdentityProviderConfigsAsync!(
-                mapGrpcListIdentityProviderConfigsRequest(request),
+                request,
                 options,
             );
 
-        return mapGrpcListIdentityProviderConfigs(
-            payload as Partial<ProtobufListIdentityProviderConfigsResponse>,
-        );
+        return payload as ProtobufListIdentityProviderConfigsResponse;
     }
 
     public async getPackageAsync(

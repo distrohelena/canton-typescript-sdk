@@ -12,7 +12,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
-import { GetIdentityProviderConfigRequest } from "../../core/types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
@@ -41,7 +40,6 @@ import { ListVettedPackagesRequest } from "../../core/types/requests/list-vetted
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListKnownPackagesRequest } from "../../core/types/requests/list-known-packages-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
-import { ListIdentityProviderConfigsRequest } from "../../core/types/requests/list-identity-provider-configs-request.js";
 import { ListConnectedSynchronizersRequest } from "../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
@@ -76,7 +74,6 @@ import type {
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdentityProviderConfigResponse } from "../../core/types/responses/get-identity-provider-config-response.js";
 import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
@@ -100,7 +97,6 @@ import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/cle
 import { ListKnownPackagesResponse } from "../../core/types/responses/list-known-packages-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
 import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
-import { ListIdentityProviderConfigsResponse } from "../../core/types/responses/list-identity-provider-configs-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListPackagesResponse } from "../../core/types/responses/list-packages-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
@@ -121,6 +117,7 @@ import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/
 import { GetLedgerApiVersionResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { GetLedgerApiVersionRequest } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import type {

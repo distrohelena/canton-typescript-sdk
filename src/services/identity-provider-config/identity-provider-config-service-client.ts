@@ -1,9 +1,6 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetIdentityProviderConfigRequest } from "../../core/types/requests/get-identity-provider-config-request.js";
-import { ListIdentityProviderConfigsRequest } from "../../core/types/requests/list-identity-provider-configs-request.js";
-import { GetIdentityProviderConfigResponse } from "../../core/types/responses/get-identity-provider-config-response.js";
-import { ListIdentityProviderConfigsResponse } from "../../core/types/responses/list-identity-provider-configs-response.js";
+import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 
 export class IdentityProviderConfigServiceClient {
     public constructor(private readonly transport: ITransport) {

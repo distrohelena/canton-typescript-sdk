@@ -31,7 +31,6 @@ import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetCommandStatusRequest } from "../types/requests/get-command-status-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../types/requests/get-config-for-slow-counter-participants-request.js";
-import { GetIdentityProviderConfigRequest } from "../types/requests/get-identity-provider-config-request.js";
 import { GetIdRequest } from "../types/requests/get-id-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../types/requests/inspect-commitment-contracts-request.js";
@@ -78,7 +77,6 @@ import { ListSequencingParametersStateRequest } from "../types/requests/list-seq
 import { ListSynchronizerParametersStateRequest } from "../types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListKnownPackagesRequest } from "../types/requests/list-known-packages-request.js";
-import { ListIdentityProviderConfigsRequest } from "../types/requests/list-identity-provider-configs-request.js";
 import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
 import { ListUserRightsRequest } from "../types/requests/list-user-rights-request.js";
@@ -111,7 +109,6 @@ import type {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetIdentityProviderConfigResponse } from "../types/responses/get-identity-provider-config-response.js";
 import { GetIdResponse } from "../types/responses/get-id-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../types/responses/inspect-commitment-contracts-response.js";
@@ -159,7 +156,6 @@ import { ListPackagesResponse } from "../types/responses/list-packages-response.
 import { ListKnownPackagesResponse } from "../types/responses/list-known-packages-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
 import { ListDarsResponse } from "../types/responses/list-dars-response.js";
-import { ListIdentityProviderConfigsResponse } from "../types/responses/list-identity-provider-configs-response.js";
 import { ListPendingOperationsResponse } from "../types/responses/list-pending-operations-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../types/responses/list-participant-synchronizer-permission-response.js";
 import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
@@ -195,6 +191,7 @@ import { SubmitCommandRequest } from "../types/requests/submit-command-request.j
 import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;
