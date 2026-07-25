@@ -1,8 +1,8 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
     ClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampRequest,

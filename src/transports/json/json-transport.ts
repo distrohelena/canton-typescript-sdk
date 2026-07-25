@@ -1,6 +1,5 @@
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
-import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
@@ -13,8 +12,9 @@ import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-pa
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
-import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
     GetContractRequest,
     GetContractResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";

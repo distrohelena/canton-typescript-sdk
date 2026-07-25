@@ -3,7 +3,6 @@ import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
-import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
@@ -36,7 +35,6 @@ import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
-import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -99,8 +97,6 @@ import {
 import {
 } from "./mappers/participant-status-mapper.js";
 import {
-    mapGrpcAddPartyAsyncRequest,
-    mapGrpcAddPartyAsyncResponse,
 } from "./mappers/participant-party-management-mapper.js";
 import {
 } from "./mappers/pruning-mapper.js";
@@ -289,6 +285,7 @@ import {
     OpenCommitmentResponse as ProtobufOpenCommitmentResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
+    AddPartyAsyncRequest as ProtobufAddPartyAsyncRequest,
     AddPartyAsyncResponse as ProtobufAddPartyAsyncResponse,
     ClearPartyOnboardingFlagRequest as ProtobufClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse as ProtobufClearPartyOnboardingFlagResponse,
@@ -875,19 +872,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async addPartyAsync(
-        request: AddPartyAsyncRequest,
+        request: ProtobufAddPartyAsyncRequest,
         options?: RequestOptions,
-    ): Promise<AddPartyAsyncResponse> {
+    ): Promise<ProtobufAddPartyAsyncResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.addPartyAsync!(
-            mapGrpcAddPartyAsyncRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcAddPartyAsyncResponse(
-            payload as Partial<ProtobufAddPartyAsyncResponse>,
-        );
+        return payload as ProtobufAddPartyAsyncResponse;
     }
 
     public async clearPartyOnboardingFlagAsync(

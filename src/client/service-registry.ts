@@ -17,7 +17,6 @@ import type {
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
-import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
@@ -61,7 +60,6 @@ import { TopologyListVettedPackagesRequest } from "../core/types/requests/topolo
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
-import { AddPartyAsyncResponse } from "../core/types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
@@ -69,6 +67,8 @@ import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
     ClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse,
     GetContractRequest,

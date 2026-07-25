@@ -15,7 +15,6 @@ import type {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
-import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
@@ -75,7 +74,6 @@ import type {
     GetResourceLimitsResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
-import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
@@ -88,6 +86,8 @@ import { ListAllResponse } from "../types/responses/list-all-response.js";
 import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
 import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
     ClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse,
     GetSafePruningOffsetRequest,

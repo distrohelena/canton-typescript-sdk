@@ -223,7 +223,6 @@ export { DamlContractId } from "./core/types/daml-contract-id.js";
 export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant, DamlEnum, DamlRecord } from "./core/types/daml-values.js";
 export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-command-transaction-response.js";
 export { AddPartyAsyncArguments } from "./core/types/requests/add-party-async-request.js";
-export { AddPartyAsyncRequest } from "./core/types/requests/add-party-async-request.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
@@ -287,7 +286,6 @@ export type { UserRightAssignment } from "./core/types/requests/grant-user-right
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
 export { AllocateExternalPartyResponse } from "./core/types/responses/allocate-external-party-response.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
-export { AddPartyAsyncResponse } from "./core/types/responses/add-party-async-response.js";
 export { GetDarContentsResponse } from "./core/types/responses/get-dar-contents-response.js";
 export { GetDarResponse } from "./core/types/responses/get-dar-response.js";
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
