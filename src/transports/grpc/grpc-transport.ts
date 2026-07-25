@@ -139,12 +139,6 @@ import {
 import {
 } from "./mappers/participant-status-mapper.js";
 import {
-    mapGrpcInspectCommitmentContracts,
-    mapGrpcInspectCommitmentContractsRequest,
-    mapGrpcOpenCommitment,
-    mapGrpcOpenCommitmentRequest,
-} from "./mappers/participant-inspection-mapper.js";
-import {
     mapGrpcAddPartyAsyncRequest,
     mapGrpcAddPartyAsyncResponse,
     mapGrpcClearPartyOnboardingFlagRequest,
