@@ -27,7 +27,6 @@ import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-ap
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
-import { GetParticipantPruningScheduleRequest } from "../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
@@ -93,9 +92,10 @@ import type {
 import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
-import { GetParticipantPruningScheduleResponse } from "../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPartiesResponse } from "../core/types/responses/get-parties-response.js";
 import type {
+    GetParticipantScheduleRequest as GetParticipantPruningScheduleRequest,
+    GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
     GetScheduleRequest as GetPruningScheduleRequest,
     GetScheduleResponse as GetPruningScheduleResponse,
     GetResourceLimitsRequest,

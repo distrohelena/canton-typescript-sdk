@@ -249,7 +249,6 @@ export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-iden
 export { ImportTopologySnapshotRequest } from "./core/types/requests/import-topology-snapshot-request.js";
 export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-topology-snapshot-v2-request.js";
 export { GetNoWaitCommitmentsFromRequest } from "./core/types/requests/get-no-wait-commitments-from-request.js";
-export { GetParticipantPruningScheduleRequest } from "./core/types/requests/get-participant-pruning-schedule-request.js";
 export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
 export { GetPackageRequest } from "./core/types/requests/get-package-request.js";
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
@@ -304,7 +303,6 @@ export { GetLatestPrunedOffsetsResponse } from "./core/types/responses/get-lates
 export { GetLedgerEndResponse } from "./core/types/responses/get-ledger-end-response.js";
 export { GetParticipantStatusResponse } from "./core/types/responses/get-participant-status-response.js";
 export { GetParticipantIdResponse } from "./core/types/responses/get-participant-id-response.js";
-export { GetParticipantPruningScheduleResponse } from "./core/types/responses/get-participant-pruning-schedule-response.js";
 export { GetPackageResponse } from "./core/types/responses/get-package-response.js";
 export { GetPackageReferencesResponse } from "./core/types/responses/get-package-references-response.js";
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
