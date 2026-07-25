@@ -26,7 +26,6 @@ import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
-import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import type {
     GetContractRequest,
@@ -139,7 +138,10 @@ import type {
     OpenCommitmentResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
-import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
+import type {
+    ListPartiesRequest as TopologyListPartiesRequest,
+    ListPartiesResponse as TopologyListPartiesResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import type {
     GetDarContentsRequest,
     GetDarContentsResponse,

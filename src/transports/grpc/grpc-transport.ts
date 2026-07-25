@@ -10,7 +10,6 @@ import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
-import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -23,7 +22,6 @@ import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owner
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
-import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
@@ -69,8 +67,6 @@ import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesReque
 import {
     mapGrpcListKeyOwnersRequest,
     mapGrpcListKeyOwnersResponse,
-    mapGrpcTopologyListPartiesRequest,
-    mapGrpcTopologyListPartiesResponse,
 } from "./mappers/topology-aggregation-mapper.js";
 import {
 } from "./mappers/state-read-mapper.js";
@@ -251,6 +247,7 @@ import type {
 import { ParticipantStatusRequest, ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import {
     ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
+    ListPartiesRequest as ProtobufTopologyListPartiesRequest,
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import {
@@ -1388,19 +1385,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async topologyListPartiesAsync(
-        request: TopologyListPartiesRequest,
+        request: ProtobufTopologyListPartiesRequest,
         options?: RequestOptions,
-    ): Promise<TopologyListPartiesResponse> {
+    ): Promise<ProtobufTopologyListPartiesResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.topologyListPartiesAsync!(
-            mapGrpcTopologyListPartiesRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcTopologyListPartiesResponse(
-            payload as Partial<ProtobufTopologyListPartiesResponse>,
-        );
+        return payload as ProtobufTopologyListPartiesResponse;
     }
 
     public async listKeyOwnersAsync(

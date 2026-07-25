@@ -38,7 +38,6 @@ import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parti
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
-import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
@@ -160,7 +159,10 @@ import type {
     OpenCommitmentRequest,
     OpenCommitmentResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
-import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
+import type {
+    ListPartiesRequest as TopologyListPartiesRequest,
+    ListPartiesResponse as TopologyListPartiesResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import type {
     TrafficControlStateRequest,

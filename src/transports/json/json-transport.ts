@@ -13,6 +13,10 @@ import { SubmitCommandRequest } from "../../core/types/requests/submit-command-r
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import type {
+    ListPartiesRequest as TopologyListPartiesRequest,
+    ListPartiesResponse as TopologyListPartiesResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
+import type {
     AddPartyAsyncRequest,
     AddPartyAsyncResponse,
     GetContractRequest,
@@ -1184,9 +1188,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async topologyListPartiesAsync(
-        _request: any,
+        _request: TopologyListPartiesRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<TopologyListPartiesResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
