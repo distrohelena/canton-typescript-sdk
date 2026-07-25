@@ -26,7 +26,6 @@ import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
 import { ListAllRequest } from "../types/requests/list-all-request.js";
-import { ListDecentralizedNamespaceDefinitionRequest } from "../types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
 import { ListNamespaceDelegationRequest } from "../types/requests/list-namespace-delegation-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
@@ -97,6 +96,8 @@ import type {
     ListPartyToKeyMappingResponse,
     ListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse,
+    ListDecentralizedNamespaceDefinitionRequest,
+    ListDecentralizedNamespaceDefinitionResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -114,7 +115,6 @@ import type {
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { ListDecentralizedNamespaceDefinitionResponse } from "../types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../types/responses/list-key-owners-response.js";
 import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";

@@ -59,6 +59,8 @@ import type {
     ListPartyToKeyMappingResponse,
     ListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse,
+    ListDecentralizedNamespaceDefinitionRequest,
+    ListDecentralizedNamespaceDefinitionResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -903,9 +905,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
-        _request: any,
+        _request: ListDecentralizedNamespaceDefinitionRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListDecentralizedNamespaceDefinitionResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

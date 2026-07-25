@@ -7,7 +7,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
-import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
@@ -23,7 +22,6 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
-import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
@@ -83,8 +81,6 @@ import {
 import {
     mapGrpcListAllRequest,
     mapGrpcListAllResponse,
-    mapGrpcListDecentralizedNamespaceDefinitionRequest,
-    mapGrpcListDecentralizedNamespaceDefinitionResponse,
     mapGrpcListNamespaceDelegationRequest,
     mapGrpcListNamespaceDelegationResponse,
 } from "./mappers/topology-manager-read-mapper.js";
@@ -271,6 +267,7 @@ import {
     ListAllV2Response as ProtobufTopologyListAllV2Response,
     ListAvailableStoresRequest as ProtobufListAvailableStoresRequest,
     ListAvailableStoresResponse as ProtobufListAvailableStoresResponse,
+    ListDecentralizedNamespaceDefinitionRequest as ProtobufListDecentralizedNamespaceDefinitionRequest,
     ListDecentralizedNamespaceDefinitionResponse as ProtobufListDecentralizedNamespaceDefinitionResponse,
     ListLsuAnnouncementRequest as ProtobufListLsuAnnouncementRequest,
     ListLsuAnnouncementResponse as ProtobufListLsuAnnouncementResponse,
@@ -1037,20 +1034,18 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
-        request: ListDecentralizedNamespaceDefinitionRequest,
+        request: ProtobufListDecentralizedNamespaceDefinitionRequest,
         options?: RequestOptions,
-    ): Promise<ListDecentralizedNamespaceDefinitionResponse> {
+    ): Promise<ProtobufListDecentralizedNamespaceDefinitionResponse> {
         this.throwIfDisposed();
 
         const payload =
             await this.operations.listDecentralizedNamespaceDefinitionAsync!(
-                mapGrpcListDecentralizedNamespaceDefinitionRequest(request),
+            request,
                 options,
             );
 
-        return mapGrpcListDecentralizedNamespaceDefinitionResponse(
-            payload as Partial<ProtobufListDecentralizedNamespaceDefinitionResponse>,
-        );
+        return payload as ProtobufListDecentralizedNamespaceDefinitionResponse;
     }
 
     public async listOwnerToKeyMappingAsync(
