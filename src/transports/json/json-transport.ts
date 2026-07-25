@@ -53,6 +53,8 @@ import type {
     ListPartyHostingLimitsResponse,
     ListParticipantSynchronizerPermissionRequest,
     ListParticipantSynchronizerPermissionResponse,
+    ListSynchronizerTrustCertificateRequest,
+    ListSynchronizerTrustCertificateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -930,9 +932,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listSynchronizerTrustCertificateAsync(
-        _request: any,
+        _request: ListSynchronizerTrustCertificateRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListSynchronizerTrustCertificateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

@@ -5,7 +5,6 @@ import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/re
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
-import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import type {
     ListAllV2Request,
@@ -30,6 +29,8 @@ import type {
     ListPartyHostingLimitsResponse,
     ListParticipantSynchronizerPermissionRequest,
     ListParticipantSynchronizerPermissionResponse,
+    ListSynchronizerTrustCertificateRequest,
+    ListSynchronizerTrustCertificateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -37,7 +38,6 @@ import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/r
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
-import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 
 export class TopologyManagerReadServiceClient {
     public constructor(private readonly transport: ITransport) {

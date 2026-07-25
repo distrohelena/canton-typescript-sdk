@@ -14,7 +14,6 @@ import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-n
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
-import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
@@ -32,7 +31,6 @@ import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../c
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
-import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
@@ -97,8 +95,6 @@ import {
     mapGrpcListOwnerToKeyMappingResponse,
     mapGrpcListPartyToKeyMappingRequest,
     mapGrpcListPartyToKeyMappingResponse,
-    mapGrpcListSynchronizerTrustCertificateRequest,
-    mapGrpcListSynchronizerTrustCertificateResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
     mapGrpcAddTopologyTransactionsRequest,
@@ -305,6 +301,7 @@ import {
     ListSequencingParametersStateResponse as ProtobufListSequencingParametersStateResponse,
     ListSynchronizerParametersStateRequest as ProtobufListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse as ProtobufListSynchronizerParametersStateResponse,
+    ListSynchronizerTrustCertificateRequest as ProtobufListSynchronizerTrustCertificateRequest,
     ListSynchronizerTrustCertificateResponse as ProtobufListSynchronizerTrustCertificateResponse,
     ListVettedPackagesRequest as ProtobufTopologyListVettedPackagesRequest,
     ListVettedPackagesResponse as ProtobufTopologyListVettedPackagesResponse,
@@ -1104,19 +1101,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listSynchronizerTrustCertificateAsync(
-        request: ListSynchronizerTrustCertificateRequest,
+        request: ProtobufListSynchronizerTrustCertificateRequest,
         options?: RequestOptions,
-    ): Promise<ListSynchronizerTrustCertificateResponse> {
+    ): Promise<ProtobufListSynchronizerTrustCertificateResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listSynchronizerTrustCertificateAsync!(
-            mapGrpcListSynchronizerTrustCertificateRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListSynchronizerTrustCertificateResponse(
-            payload as Partial<ProtobufListSynchronizerTrustCertificateResponse>,
-        );
+        return payload as ProtobufListSynchronizerTrustCertificateResponse;
     }
 
     public async listParticipantSynchronizerPermissionAsync(

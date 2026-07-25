@@ -31,7 +31,6 @@ import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.
 import { ListNamespaceDelegationRequest } from "../types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../types/requests/list-owner-to-key-mapping-request.js";
 import { ListPartyToKeyMappingRequest } from "../types/requests/list-party-to-key-mapping-request.js";
-import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import type {
@@ -94,6 +93,8 @@ import type {
     ListPartyHostingLimitsResponse,
     ListParticipantSynchronizerPermissionRequest,
     ListParticipantSynchronizerPermissionResponse,
+    ListSynchronizerTrustCertificateRequest,
+    ListSynchronizerTrustCertificateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -117,7 +118,6 @@ import { ListNamespaceDelegationResponse } from "../types/responses/list-namespa
 import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
 import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
-import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
 import type {
     ListPendingOperationsRequest,
     ListPendingOperationsResponse,
