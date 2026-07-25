@@ -5,14 +5,10 @@ import { WaitCommitmentsSetup } from "../../../core/types/wait-commitments-setup
 import { GetNoWaitCommitmentsFromRequest } from "../../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../../core/types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPruningScheduleResponse } from "../../../core/types/responses/get-pruning-schedule-response.js";
-import { GetSafePruningOffsetResponse } from "../../../core/types/responses/get-safe-pruning-offset-response.js";
 import {
-    GetSafePruningOffsetRequest as GrpcGetSafePruningOffsetRequest,
-    GetSafePruningOffsetResponse as GrpcGetSafePruningOffsetResponse,
     SafeToPruneCommitmentState as GrpcSafeToPruneCommitmentState,
 } from "../generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
@@ -27,32 +23,6 @@ import {
     WaitCommitmentsSetup as GrpcWaitCommitmentsSetup,
 } from "../generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { mapGrpcTimestamp, mapSdkDuration } from "./topology-common-mapper.js";
-
-export function mapGrpcGetSafePruningOffsetRequest(
-    request: GetSafePruningOffsetRequest,
-): GrpcGetSafePruningOffsetRequest {
-    return {
-        beforeOrAt: mapGrpcTimestamp(request.beforeOrAt),
-        ledgerEnd: request.ledgerEnd,
-        counterParticipantsCommitmentsState:
-            mapGrpcSafeToPruneCommitmentState(
-                request.counterParticipantsCommitmentsState,
-            ),
-    };
-}
-
-export function mapGrpcGetSafePruningOffset(
-    payload?: Partial<GrpcGetSafePruningOffsetResponse>,
-): GetSafePruningOffsetResponse {
-    return new GetSafePruningOffsetResponse({
-        hasSafePruningOffset:
-            payload?.response?.oneofKind === "safePruningOffset",
-        safePruningOffset:
-            payload?.response?.oneofKind === "safePruningOffset"
-                ? payload.response.safePruningOffset
-                : undefined,
-    });
-}
 
 export function mapGrpcGetPruningScheduleRequest(
     _request: GetPruningScheduleRequest,

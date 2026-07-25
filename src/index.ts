@@ -256,7 +256,6 @@ export { GetPackageRequest } from "./core/types/requests/get-package-request.js"
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
 export { GetPackageStatusRequest } from "./core/types/requests/get-package-status-request.js";
 export { GetParticipantIdRequest } from "./core/types/requests/get-participant-id-request.js";
-export { GetSafePruningOffsetRequest } from "./core/types/requests/get-safe-pruning-offset-request.js";
 export { GetConnectedSynchronizersRequest } from "./core/types/requests/get-connected-synchronizers-request.js";
 export { GetLatestPrunedOffsetsRequest } from "./core/types/requests/get-latest-pruned-offsets-request.js";
 export { GetLedgerEndRequest } from "./core/types/requests/get-ledger-end-request.js";
@@ -312,7 +311,6 @@ export { GetPackageReferencesResponse } from "./core/types/responses/get-package
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
 export { GetPruningScheduleResponse } from "./core/types/responses/get-pruning-schedule-response.js";
-export { GetSafePruningOffsetResponse } from "./core/types/responses/get-safe-pruning-offset-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";

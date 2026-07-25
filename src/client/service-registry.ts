@@ -31,7 +31,6 @@ import { GetParticipantPruningScheduleRequest } from "../core/types/requests/get
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../core/types/requests/get-safe-pruning-offset-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
@@ -102,7 +101,6 @@ import type {
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
-import { GetSafePruningOffsetResponse } from "../core/types/responses/get-safe-pruning-offset-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
 import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
@@ -111,6 +109,8 @@ import { ListAllResponse } from "../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../core/types/responses/list-available-stores-response.js";
 import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,

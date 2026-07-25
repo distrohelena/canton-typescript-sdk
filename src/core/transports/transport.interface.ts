@@ -25,7 +25,6 @@ import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-c
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
@@ -76,7 +75,6 @@ import type {
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
-import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-pruning-offset-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
@@ -92,6 +90,8 @@ import { ListAllResponse } from "../types/responses/list-all-response.js";
 import { ListAllV2Response } from "../types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../types/responses/list-available-stores-response.js";
 import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,

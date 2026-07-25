@@ -3,11 +3,13 @@ import { RequestOptions } from "../../core/types/request-options.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
-import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
+import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 
 export class PruningServiceClient {
     public constructor(private readonly transport: ITransport) {

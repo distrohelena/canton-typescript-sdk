@@ -6,20 +6,20 @@ import {
     GetParticipantPruningScheduleResponse,
     GetPruningScheduleRequest,
     GetPruningScheduleResponse,
-    GetSafePruningOffsetRequest,
-    GetSafePruningOffsetResponse,
     PruningServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 
 describe("PruningServiceClient", () => {
     it("forwards pruning read requests through the selected transport", async () => {
         const getSafePruningOffsetAsync = vi.fn(
-            async () =>
-                new GetSafePruningOffsetResponse({
-                    hasSafePruningOffset: true,
-                    safePruningOffset: "42",
-                }),
+            async () => GetSafePruningOffsetResponse.create({
+                response: { oneofKind: "safePruningOffset", safePruningOffset: "42" },
+            }),
         );
 
         const getPruningScheduleAsync = vi.fn(
@@ -56,8 +56,8 @@ describe("PruningServiceClient", () => {
         });
 
         await client.getSafePruningOffsetAsync(
-            new GetSafePruningOffsetRequest({
-                beforeOrAt: new Date("2026-01-01T00:00:00.000Z"),
+            GetSafePruningOffsetRequest.create({
+                beforeOrAt: { seconds: "1767225600", nanos: 0 },
                 ledgerEnd: "100",
             }),
             options,
@@ -82,7 +82,7 @@ describe("PruningServiceClient", () => {
         );
 
         expect(getSafePruningOffsetAsync).toHaveBeenLastCalledWith(
-            expect.any(GetSafePruningOffsetRequest),
+            expect.any(Object),
             options,
         );
         expect(getPruningScheduleAsync).toHaveBeenLastCalledWith(

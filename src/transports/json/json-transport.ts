@@ -8,7 +8,6 @@ import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
@@ -44,11 +43,12 @@ import type {
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
-import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,

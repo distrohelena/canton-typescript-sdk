@@ -10,7 +10,6 @@ import { InspectCommitmentContractsRequest } from "../../core/types/requests/ins
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
-import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
@@ -46,7 +45,6 @@ import { InspectCommitmentContractsResponse } from "../../core/types/responses/i
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
-import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -121,8 +119,6 @@ import {
     mapGrpcGetParticipantPruningScheduleRequest,
     mapGrpcGetPruningSchedule,
     mapGrpcGetPruningScheduleRequest,
-    mapGrpcGetSafePruningOffset,
-    mapGrpcGetSafePruningOffsetRequest,
 } from "./mappers/pruning-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
@@ -326,7 +322,10 @@ import type {
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { GetSafePruningOffsetResponse as ProtobufGetSafePruningOffsetResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
+import type {
+    GetSafePruningOffsetRequest as ProtobufGetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse as ProtobufGetSafePruningOffsetResponse,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
     GetNoWaitCommitmentsFromResponse as ProtobufGetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleResponse as ProtobufGetParticipantScheduleResponse,
@@ -934,19 +933,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getSafePruningOffsetAsync(
-        request: GetSafePruningOffsetRequest,
+        request: ProtobufGetSafePruningOffsetRequest,
         options?: RequestOptions,
-    ): Promise<GetSafePruningOffsetResponse> {
+    ): Promise<ProtobufGetSafePruningOffsetResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getSafePruningOffsetAsync!(
-            mapGrpcGetSafePruningOffsetRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetSafePruningOffset(
-            payload as Partial<ProtobufGetSafePruningOffsetResponse>,
-        );
+        return payload as ProtobufGetSafePruningOffsetResponse;
     }
 
     public async getPruningScheduleAsync(
