@@ -13,8 +13,6 @@ import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
-import { GetContractRequest } from "../../core/types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../../core/types/requests/get-events-by-contract-id-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
@@ -95,8 +93,6 @@ import { CurrentTimeResponse } from "../../core/types/responses/current-time-res
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetCommandStatusResponse } from "../../core/types/responses/get-command-status-response.js";
-import { GetContractResponse } from "../../core/types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../../core/types/responses/get-events-by-contract-id-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetIdentityProviderConfigResponse } from "../../core/types/responses/get-identity-provider-config-response.js";
@@ -184,8 +180,6 @@ import {
     mapGrpcPrepareSubmissionRequest,
 } from "./mappers/interactive-command-mapper.js";
 import {
-    mapGrpcGetContract,
-    mapGrpcGetContractRequest,
     mapGrpcQueryContracts,
     mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
@@ -194,8 +188,6 @@ import {
     mapGrpcGetCommandStatusRequest,
 } from "./mappers/command-inspection-mapper.js";
 import {
-    mapGrpcGetEventsByContractId,
-    mapGrpcGetEventsByContractIdRequest,
 } from "./mappers/event-query-mapper.js";
 import {
     mapGrpcAllocateExternalPartyRequest,
@@ -417,12 +409,18 @@ import {
     ListUsersResponse as ProtobufListUsersResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
-import { GetContractResponse as ProtobufGetContractResponse } from "./generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import type {
+    GetContractRequest,
+    GetContractResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import {
     CompletionStreamResponse as ProtobufCompletionStreamResponse,
     GetCompletionsRequest,
 } from "./generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
-import { GetEventsByContractIdResponse as ProtobufGetEventsByContractIdResponse } from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
+import type {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     GetConnectedSynchronizersResponse as ProtobufGetConnectedSynchronizersResponse,
     GetLatestPrunedOffsetsResponse as ProtobufGetLatestPrunedOffsetsResponse,
@@ -1375,14 +1373,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetContractResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getContractAsync!(
-            mapGrpcGetContractRequest(request),
-            options,
-        );
-
-        return mapGrpcGetContract(
-            payload as Partial<ProtobufGetContractResponse>,
-        );
+        return await this.operations.getContractAsync!(request, options);
     }
 
     public async getEventsByContractIdAsync(
@@ -1391,14 +1382,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetEventsByContractIdResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getEventsByContractIdAsync!(
-            mapGrpcGetEventsByContractIdRequest(request),
-            options,
-        );
-
-        return mapGrpcGetEventsByContractId(
-            payload as Partial<ProtobufGetEventsByContractIdResponse>,
-        );
+        return await this.operations.getEventsByContractIdAsync!(request, options);
     }
 
     public async listNamespaceDelegationAsync(

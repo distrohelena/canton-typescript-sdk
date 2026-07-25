@@ -1,20 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     EventQueryServiceClient,
-    GetEventsByContractIdRequest,
-    GetEventsByContractIdResponse,
     RequestOptions,
 } from "../../../src";
+import {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 
 describe("EventQueryServiceClient", () => {
     it("forwards event query requests through the selected transport", async () => {
-        const getEventsByContractIdAsync = vi.fn(
-            async () =>
-                new GetEventsByContractIdResponse({
-                    created: undefined,
-                    archived: undefined,
-                }),
-        );
+        const response = GetEventsByContractIdResponse.create({
+            created: undefined,
+            archived: undefined,
+        });
+        const getEventsByContractIdAsync = vi.fn(async () => response);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -29,15 +29,17 @@ describe("EventQueryServiceClient", () => {
 
         await expect(
             client.getEventsByContractIdAsync(
-                new GetEventsByContractIdRequest({
+                GetEventsByContractIdRequest.create({
                     contractId: "contract-1",
                 }),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetEventsByContractIdResponse);
+        ).resolves.toBe(response);
 
         expect(getEventsByContractIdAsync).toHaveBeenCalledWith(
-            expect.any(GetEventsByContractIdRequest),
+            expect.objectContaining({
+                contractId: "contract-1",
+            }),
             options,
         );
     });

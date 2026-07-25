@@ -3,8 +3,6 @@ import {
     CantonClient,
     CantonClientOptions,
     GetConnectedSynchronizersRequest,
-    GetContractRequest,
-    GetEventsByContractIdRequest,
     GetLatestPrunedOffsetsRequest,
     GetLedgerEndRequest,
     GetParticipantIdRequest,
@@ -17,6 +15,8 @@ import {
     TransportKind,
 } from "../../../src";
 import { GetCompletionsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
+import { GetContractRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import { GetEventsByContractIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -87,7 +87,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "ContractService.GetContract",
                 () =>
                     client.contractService.getContractAsync(
-                        new GetContractRequest({
+                        GetContractRequest.create({
                             contractId: "contract-1",
                         }),
                     ),
@@ -96,7 +96,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "EventQueryService.GetEventsByContractId",
                 () =>
                     client.eventQueryService.getEventsByContractIdAsync(
-                        new GetEventsByContractIdRequest({
+                        GetEventsByContractIdRequest.create({
                             contractId: "contract-1",
                         }),
                     ),

@@ -29,8 +29,6 @@ import { CurrentTimeRequest } from "../types/requests/current-time-request.js";
 import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetCommandStatusRequest } from "../types/requests/get-command-status-request.js";
-import { GetContractRequest } from "../types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../types/requests/get-events-by-contract-id-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetIdentityProviderConfigRequest } from "../types/requests/get-identity-provider-config-request.js";
@@ -106,8 +104,14 @@ import { CurrentTimeResponse } from "../types/responses/current-time-response.js
 import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../types/responses/get-dar-response.js";
 import { GetCommandStatusResponse } from "../types/responses/get-command-status-response.js";
-import { GetContractResponse } from "../types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../types/responses/get-events-by-contract-id-response.js";
+import type {
+    GetContractRequest,
+    GetContractResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import type {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetIdentityProviderConfigResponse } from "../types/responses/get-identity-provider-config-response.js";

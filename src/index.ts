@@ -284,8 +284,6 @@ export { GetParticipantIdRequest } from "./core/types/requests/get-participant-i
 export { GetResourceLimitsRequest } from "./core/types/requests/get-resource-limits-request.js";
 export { GetSafePruningOffsetRequest } from "./core/types/requests/get-safe-pruning-offset-request.js";
 export { GetConnectedSynchronizersRequest } from "./core/types/requests/get-connected-synchronizers-request.js";
-export { GetContractRequest } from "./core/types/requests/get-contract-request.js";
-export { GetEventsByContractIdRequest } from "./core/types/requests/get-events-by-contract-id-request.js";
 export { GetLatestPrunedOffsetsRequest } from "./core/types/requests/get-latest-pruned-offsets-request.js";
 export { GetLedgerEndRequest } from "./core/types/requests/get-ledger-end-request.js";
 export { GetPartiesRequest } from "./core/types/requests/get-parties-request.js";
@@ -336,8 +334,6 @@ export { GetDarResponse } from "./core/types/responses/get-dar-response.js";
 export { GetActiveContractsPageResponse } from "./core/types/responses/get-active-contracts-page-response.js";
 export { GetConnectedSynchronizersResponse } from "./core/types/responses/get-connected-synchronizers-response.js";
 export { GetCommandStatusResponse } from "./core/types/responses/get-command-status-response.js";
-export { GetContractResponse } from "./core/types/responses/get-contract-response.js";
-export { GetEventsByContractIdResponse } from "./core/types/responses/get-events-by-contract-id-response.js";
 export { HealthCheckResponse } from "./core/types/responses/health-check-response.js";
 export { GetConfigForSlowCounterParticipantsResponse } from "./core/types/responses/get-config-for-slow-counter-participants-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";

@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     ContractServiceClient,
-    GetContractRequest,
-    GetContractResponse,
     RequestOptions,
 } from "../../../src";
+import {
+    GetContractRequest,
+    GetContractResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 
 describe("ContractServiceClient", () => {
     it("forwards contract read requests through the selected transport", async () => {
-        const getContractAsync = vi.fn(
-            async () =>
-                new GetContractResponse({
-                    createdEvent: undefined,
-                }),
-        );
+        const response = GetContractResponse.create({
+            createdEvent: undefined,
+        });
+        const getContractAsync = vi.fn(async () => response);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -28,16 +28,19 @@ describe("ContractServiceClient", () => {
 
         await expect(
             client.getContractAsync(
-                new GetContractRequest({
+                GetContractRequest.create({
                     contractId: "contract-1",
                     queryingParties: ["Alice"],
                 }),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetContractResponse);
+        ).resolves.toBe(response);
 
         expect(getContractAsync).toHaveBeenCalledWith(
-            expect.any(GetContractRequest),
+            expect.objectContaining({
+                contractId: "contract-1",
+                queryingParties: ["Alice"],
+            }),
             options,
         );
     });

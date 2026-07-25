@@ -381,8 +381,8 @@ export interface GrpcOperations {
     listAllV2Async?(request: unknown, options?: RequestOptions): Promise<unknown>;
     topologyListPartiesAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     listKeyOwnersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getContractAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getEventsByContractIdAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getContractAsync?(request: GrpcGetContractRequest, options?: RequestOptions): Promise<GrpcGetContractResponse>;
+    getEventsByContractIdAsync?(request: GrpcGetEventsByContractIdRequest, options?: RequestOptions): Promise<GrpcGetEventsByContractIdResponse>;
     queryContractsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
     getConnectedSynchronizersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLedgerEndAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -682,7 +682,7 @@ export function createGrpcOperations(
             rpcTransport.close();
         },
         async checkHealthAsync(
-            request: unknown,
+            request: GrpcGetContractRequest,
             requestOptions?: RequestOptions,
         ): Promise<HealthCheckResponse> {
             const callOptions =
@@ -2032,13 +2032,13 @@ export function createGrpcOperations(
 
             return await unwrapUnaryResponse(
                 contractServiceClient.getContract(
-                    request as GrpcGetContractRequest,
+                    request,
                     callOptions,
                 ),
             );
         },
         async getEventsByContractIdAsync(
-            request: unknown,
+            request: GrpcGetEventsByContractIdRequest,
             requestOptions?: RequestOptions,
         ): Promise<GrpcGetEventsByContractIdResponse> {
             const callOptions =
@@ -2049,7 +2049,7 @@ export function createGrpcOperations(
 
             return await unwrapUnaryResponse(
                 eventQueryServiceClient.getEventsByContractId(
-                    request as GrpcGetEventsByContractIdRequest,
+                    request,
                     callOptions,
                 ),
             );

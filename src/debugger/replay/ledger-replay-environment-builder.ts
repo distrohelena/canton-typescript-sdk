@@ -1,7 +1,11 @@
-import { GetContractRequest } from "../../core/types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../../core/types/requests/get-events-by-contract-id-request.js";
-import { GetContractResponse } from "../../core/types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../../core/types/responses/get-events-by-contract-id-response.js";
+import {
+    GetContractRequest,
+    type GetContractResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import {
+    GetEventsByContractIdRequest,
+    type GetEventsByContractIdResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { ReplayStateHydrationException } from "../errors/replay-state-hydration.exception.js";
 import {
     attachReplayRecordId,
@@ -271,7 +275,7 @@ export class LedgerReplayEnvironmentBuilder {
         try {
             contractResponse =
                 await this.dependencies.contractService.getContractAsync(
-                    new GetContractRequest({
+                    GetContractRequest.create({
                         contractId,
                         queryingParties,
                     }),
@@ -283,7 +287,7 @@ export class LedgerReplayEnvironmentBuilder {
 
         const eventHistory =
             await this.dependencies.eventQueryService.getEventsByContractIdAsync(
-                new GetEventsByContractIdRequest({
+                GetEventsByContractIdRequest.create({
                     contractId,
                     eventFormat: createReplayEventFormat(queryingParties),
                 }),

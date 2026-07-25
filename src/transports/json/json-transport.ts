@@ -10,8 +10,6 @@ import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
-import { GetContractRequest } from "../../core/types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../../core/types/requests/get-events-by-contract-id-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetLedgerApiVersionRequest } from "../../core/types/requests/get-ledger-api-version-request.js";
@@ -71,8 +69,14 @@ import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetCommandStatusResponse } from "../../core/types/responses/get-command-status-response.js";
-import { GetContractResponse } from "../../core/types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../../core/types/responses/get-events-by-contract-id-response.js";
+import type {
+    GetContractRequest,
+    GetContractResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import type {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetIdentityProviderConfigResponse } from "../../core/types/responses/get-identity-provider-config-response.js";

@@ -4,8 +4,6 @@ import {
     ContractServiceClient,
     EventQueryServiceClient,
     GetConnectedSynchronizersRequest,
-    GetContractRequest,
-    GetEventsByContractIdRequest,
     GetLatestPrunedOffsetsRequest,
     GetLedgerEndRequest,
     GetParticipantIdRequest,
@@ -33,6 +31,14 @@ import {
     GetUpdatesPageRequest,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    GetContractRequest as ProtobufGetContractRequest,
+    GetContractResponse as ProtobufGetContractResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import {
+    GetEventsByContractIdRequest as ProtobufGetEventsByContractIdRequest,
+    GetEventsByContractIdResponse as ProtobufGetEventsByContractIdResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 
 describe("GrpcTransport batch 1 read services", () => {
     it("maps ledger admin read methods", async () => {
@@ -193,6 +199,25 @@ describe("GrpcTransport batch 1 read services", () => {
     });
 
     it("maps ledger read methods and completion streaming", async () => {
+        const contractResponse = ProtobufGetContractResponse.create({
+            createdEvent: {
+                contractId: "contract-1",
+            },
+        });
+        const eventsResponse = ProtobufGetEventsByContractIdResponse.create({
+            created: {
+                createdEvent: {
+                    contractId: "contract-1",
+                },
+                synchronizerId: "sync-1",
+            },
+            archived: {
+                archivedEvent: {
+                    contractId: "contract-1",
+                },
+                synchronizerId: "sync-2",
+            },
+        });
         const getUpdateByOffsetAsync = vi.fn(async () => ({
             update: {
                 oneofKind: "transaction",
@@ -273,25 +298,23 @@ describe("GrpcTransport batch 1 read services", () => {
             listPartiesAsync: async () => ({ partyDetails: [], nextPageToken: "" }),
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
-            getContractAsync: async () => ({
-                createdEvent: {
-                    contractId: "contract-1",
-                },
-            }),
-            getEventsByContractIdAsync: async () => ({
-                created: {
-                    createdEvent: {
+            getContractAsync: async (request: unknown) => {
+                expect(request).toEqual(
+                    ProtobufGetContractRequest.create({
                         contractId: "contract-1",
-                    },
-                    synchronizerId: "sync-1",
-                },
-                archived: {
-                    archivedEvent: {
+                        queryingParties: ["Alice"],
+                    }),
+                );
+                return contractResponse;
+            },
+            getEventsByContractIdAsync: async (request: unknown) => {
+                expect(request).toEqual(
+                    ProtobufGetEventsByContractIdRequest.create({
                         contractId: "contract-1",
-                    },
-                    synchronizerId: "sync-2",
-                },
-            }),
+                    }),
+                );
+                return eventsResponse;
+            },
             queryContractsAsync: async () => ({ activeContracts: [] }),
             getConnectedSynchronizersAsync: async () => ({
                 connectedSynchronizers: [
@@ -343,7 +366,7 @@ describe("GrpcTransport batch 1 read services", () => {
             new CommandCompletionServiceClient(transport);
 
         const contract = await contractService.getContractAsync(
-            new GetContractRequest({
+            ProtobufGetContractRequest.create({
                 contractId: "contract-1",
                 queryingParties: ["Alice"],
             }),
@@ -351,11 +374,14 @@ describe("GrpcTransport batch 1 read services", () => {
         );
 
         const events = await eventQueryService.getEventsByContractIdAsync(
-            new GetEventsByContractIdRequest({
+            ProtobufGetEventsByContractIdRequest.create({
                 contractId: "contract-1",
             }),
             options,
         );
+
+        expect(contract).toBe(contractResponse);
+        expect(events).toBe(eventsResponse);
 
         const connectedSynchronizers =
             await stateService.getConnectedSynchronizersAsync(

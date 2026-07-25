@@ -1,8 +1,6 @@
 import {
     CantonClient,
     GetActiveContractsPageRequest,
-    GetContractRequest,
-    GetEventsByContractIdRequest,
     GetLedgerEndRequest,
 } from "../../../src/index.js";
 import {
