@@ -1209,7 +1209,7 @@ export class GrpcTransport implements ITransport {
             options,
         );
 
-        return mapGrpcDropTemporaryTopologyStoreResponse(payload as any);
+        return payload as ProtobufDropTemporaryTopologyStoreResponse;
     }
 
     public async listPartyHostingLimitsAsync(
