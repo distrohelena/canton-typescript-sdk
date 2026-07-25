@@ -15,6 +15,12 @@ function expectMessageType(value: {
     expect(value.create).toBeTypeOf("function");
     expect(value.fromJson).toBeTypeOf("function");
     expect(value.toJson).toBeTypeOf("function");
+
+    const message = value.create();
+
+    const json = value.toJson(message);
+
+    expect(value.fromJson(json)).toEqual(message);
 }
 
 describe("protobuf public exports", () => {
@@ -28,5 +34,13 @@ describe("protobuf public exports", () => {
         expectMessageType(google.protobuf.Duration);
 
         expect(ledgerApiV2.GetUpdateByIdRequest.create()).toMatchObject({});
+
+        const duration = google.protobuf.Duration.create({
+            nanos: 250_000_000,
+            seconds: "1",
+        });
+
+        expect(google.protobuf.Duration.toJson(duration)).toBe("1.250s");
+        expect(google.protobuf.Duration.fromJson("1.250s")).toEqual(duration);
     });
 });

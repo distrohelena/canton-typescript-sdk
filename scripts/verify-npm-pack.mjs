@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
-import { mkdtemp, readFile, rm, unlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -158,6 +158,38 @@ async function readPackedPackageJsonAsync(tarballPath) {
     return JSON.parse(output);
 }
 
+async function validateProtobufExportAsync(tarballPath, destinationPath) {
+    const unpackedPath = join(destinationPath, "unpacked");
+    const packagePath = join(unpackedPath, "package");
+    const consumerPath = join(unpackedPath, "consumer");
+    const packageLinkPath = join(
+        consumerPath,
+        "node_modules/@distrohelena/canton-typescript-sdk",
+    );
+
+    await mkdir(unpackedPath, { recursive: true });
+    await runCommandAsync("tar", ["-xf", tarballPath, "-C", unpackedPath]);
+    await mkdir(join(consumerPath, "node_modules/@distrohelena"), {
+        recursive: true,
+    });
+    await symlink(packagePath, packageLinkPath, "dir");
+    await symlink(resolve(process.cwd(), "node_modules"), join(packagePath, "node_modules"), "dir");
+
+    await executeFileAsync(
+        "node",
+        [
+            "--input-type=module",
+            "--eval",
+            [
+                'import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";',
+                "const request = ledgerApiV2.GetUpdateByIdRequest.create();",
+                'if (request === undefined) throw new Error("protobuf create() returned undefined");',
+            ].join("\n"),
+        ],
+        { cwd: consumerPath },
+    );
+}
+
 async function writeStdoutLineAsync(value) {
     await new Promise((resolve, reject) => {
         process.stdout.write(`${value}\n`, (error) => {
@@ -246,9 +278,13 @@ async function verifyPackAsync() {
             packedTarball.tarballPath,
         );
 
-        validateEntries(entries);
         validateExports(packedPackageJson);
         validateLocalnetBinEntries(packedPackageJson);
+        await validateProtobufExportAsync(
+            packedTarball.tarballPath,
+            packedTarball.packDestinationPath,
+        );
+        validateEntries(entries);
 
         await writeStdoutLineAsync(
             `Verified package verification for ${packedTarball.tarballPath}.`,
