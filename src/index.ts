@@ -248,7 +248,6 @@ export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
 export { ImportTopologySnapshotRequest } from "./core/types/requests/import-topology-snapshot-request.js";
 export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-topology-snapshot-v2-request.js";
-export { GetNoWaitCommitmentsFromRequest } from "./core/types/requests/get-no-wait-commitments-from-request.js";
 export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
 export { GetPackageRequest } from "./core/types/requests/get-package-request.js";
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
@@ -298,7 +297,6 @@ export { GetCommandStatusResponse } from "./core/types/responses/get-command-sta
 export { HealthCheckResponse } from "./core/types/responses/health-check-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { GetIdentityProviderConfigResponse } from "./core/types/responses/get-identity-provider-config-response.js";
-export { GetNoWaitCommitmentsFromResponse } from "./core/types/responses/get-no-wait-commitments-from-response.js";
 export { GetLatestPrunedOffsetsResponse } from "./core/types/responses/get-latest-pruned-offsets-response.js";
 export { GetLedgerEndResponse } from "./core/types/responses/get-ledger-end-response.js";
 export { GetParticipantStatusResponse } from "./core/types/responses/get-participant-status-response.js";

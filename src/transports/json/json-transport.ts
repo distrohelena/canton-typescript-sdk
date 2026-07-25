@@ -3,7 +3,6 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import {
@@ -32,10 +31,11 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import type {
+    GetNoWaitCommitmentsFromRequest,
+    GetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleRequest as GetParticipantPruningScheduleRequest,
     GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
     GetScheduleRequest as GetPruningScheduleRequest,

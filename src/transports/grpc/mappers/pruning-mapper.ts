@@ -2,14 +2,10 @@ import { ParticipantPruningSchedule } from "../../../core/types/participant-prun
 import { PruningSchedule } from "../../../core/types/pruning-schedule.js";
 import { SafeToPruneCommitmentState } from "../../../core/types/safe-to-prune-commitment-state.js";
 import { WaitCommitmentsSetup } from "../../../core/types/wait-commitments-setup.js";
-import { GetNoWaitCommitmentsFromRequest } from "../../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetNoWaitCommitmentsFromResponse } from "../../../core/types/responses/get-no-wait-commitments-from-response.js";
 import {
     SafeToPruneCommitmentState as GrpcSafeToPruneCommitmentState,
 } from "../generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
-    GetNoWaitCommitmentsFromRequest as GrpcGetNoWaitCommitmentsFromRequest,
-    GetNoWaitCommitmentsFromResponse as GrpcGetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleRequest as GrpcGetParticipantScheduleRequest,
     GetParticipantScheduleResponse as GrpcGetParticipantScheduleResponse,
     GetScheduleRequest as GrpcGetScheduleRequest,
@@ -19,28 +15,6 @@ import {
     WaitCommitmentsSetup as GrpcWaitCommitmentsSetup,
 } from "../generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { mapGrpcTimestamp, mapSdkDuration } from "./topology-common-mapper.js";
-
-export function mapGrpcGetNoWaitCommitmentsFromRequest(
-    request: GetNoWaitCommitmentsFromRequest,
-): GrpcGetNoWaitCommitmentsFromRequest {
-    return {
-        synchronizerIds: [...request.synchronizerIds],
-        participantUids: [...request.participantUids],
-    };
-}
-
-export function mapGrpcGetNoWaitCommitmentsFrom(
-    payload?: Partial<GrpcGetNoWaitCommitmentsFromResponse>,
-): GetNoWaitCommitmentsFromResponse {
-    return new GetNoWaitCommitmentsFromResponse({
-        ignoredParticipants: (payload?.ignoredParticipants ?? []).map(
-            (item) => mapGrpcWaitCommitmentsSetup(item),
-        ),
-        notIgnoredParticipants: (payload?.notIgnoredParticipants ?? []).map(
-            (item) => mapGrpcWaitCommitmentsSetup(item),
-        ),
-    });
-}
 
 function mapGrpcSafeToPruneCommitmentState(
     value?: SafeToPruneCommitmentState,

@@ -25,7 +25,6 @@ import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
-import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
@@ -89,11 +88,12 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetNoWaitCommitmentsFromResponse } from "../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../core/types/responses/get-parties-response.js";
 import type {
+    GetNoWaitCommitmentsFromRequest,
+    GetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleRequest as GetParticipantPruningScheduleRequest,
     GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
     GetScheduleRequest as GetPruningScheduleRequest,

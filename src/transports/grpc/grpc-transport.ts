@@ -7,7 +7,6 @@ import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
-import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
@@ -40,7 +39,6 @@ import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/ty
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
-import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -109,8 +107,6 @@ import {
     mapGrpcClearPartyOnboardingFlagResponse,
 } from "./mappers/participant-party-management-mapper.js";
 import {
-    mapGrpcGetNoWaitCommitmentsFrom,
-    mapGrpcGetNoWaitCommitmentsFromRequest,
 } from "./mappers/pruning-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
@@ -319,6 +315,7 @@ import type {
     GetSafePruningOffsetResponse as ProtobufGetSafePruningOffsetResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
+    GetNoWaitCommitmentsFromRequest as ProtobufGetNoWaitCommitmentsFromRequest,
     GetNoWaitCommitmentsFromResponse as ProtobufGetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleRequest as ProtobufGetParticipantScheduleRequest,
     GetParticipantScheduleResponse as ProtobufGetParticipantScheduleResponse,
@@ -970,19 +967,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getNoWaitCommitmentsFromAsync(
-        request: GetNoWaitCommitmentsFromRequest,
+        request: ProtobufGetNoWaitCommitmentsFromRequest,
         options?: RequestOptions,
-    ): Promise<GetNoWaitCommitmentsFromResponse> {
+    ): Promise<ProtobufGetNoWaitCommitmentsFromResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getNoWaitCommitmentsFromAsync!(
-            mapGrpcGetNoWaitCommitmentsFromRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetNoWaitCommitmentsFrom(
-            payload as Partial<ProtobufGetNoWaitCommitmentsFromResponse>,
-        );
+        return payload as ProtobufGetNoWaitCommitmentsFromResponse;
     }
 
     public async trafficControlStateAsync(

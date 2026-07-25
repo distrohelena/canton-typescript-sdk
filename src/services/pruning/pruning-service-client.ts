@@ -1,7 +1,9 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
+import type {
+    GetNoWaitCommitmentsFromRequest,
+    GetNoWaitCommitmentsFromResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import type {
     GetParticipantScheduleRequest as GetParticipantPruningScheduleRequest,
     GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
