@@ -1,18 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    ListPendingOperationsRequest,
-    ListPendingOperationsResponse,
     ParticipantRepairServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    ListPendingOperationsRequest,
+    ListPendingOperationsResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 
 describe("ParticipantRepairServiceClient", () => {
     it("forwards participant repair read requests through the selected transport", async () => {
         const listPendingOperationsAsync = vi.fn(
-            async () =>
-                new ListPendingOperationsResponse({
-                    pendingOperations: [],
-                }),
+            async () => ListPendingOperationsResponse.create(),
         );
 
         const transport = {
@@ -23,7 +22,7 @@ describe("ParticipantRepairServiceClient", () => {
 
         const client = new ParticipantRepairServiceClient(transport as never);
 
-        const request = new ListPendingOperationsRequest({
+        const request = ListPendingOperationsRequest.create({
             operationName: "repair-op",
             filterOperationKey: "key-1",
         });
@@ -37,7 +36,7 @@ describe("ParticipantRepairServiceClient", () => {
                 request,
                 options,
             ),
-        ).resolves.toBeInstanceOf(ListPendingOperationsResponse);
+        ).resolves.toBeDefined();
 
         expect(listPendingOperationsAsync).toHaveBeenCalledWith(
             request,

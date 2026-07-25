@@ -283,7 +283,6 @@ export { ListKnownPackagesRequest } from "./core/types/requests/list-known-packa
 export { ListDarsRequest } from "./core/types/requests/list-dars-request.js";
 export { ListIdentityProviderConfigsRequest } from "./core/types/requests/list-identity-provider-configs-request.js";
 export { ListKeyOwnersRequest } from "./core/types/requests/list-key-owners-request.js";
-export { ListPendingOperationsRequest } from "./core/types/requests/list-pending-operations-request.js";
 export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-request.js";
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
 export { SignTopologyTransactionsRequest } from "./core/types/requests/sign-topology-transactions-request.js";
@@ -341,7 +340,6 @@ export { ListIdentityProviderConfigsResponse } from "./core/types/responses/list
 export { ListKnownPackagesResponse } from "./core/types/responses/list-known-packages-response.js";
 export { ListKnownPartiesResponse } from "./core/types/responses/list-known-parties-response.js";
 export { ListKeyOwnersResponse } from "./core/types/responses/list-key-owners-response.js";
-export { ListPendingOperationsResponse } from "./core/types/responses/list-pending-operations-response.js";
 export { ListParticipantSynchronizerPermissionResponse } from "./core/types/responses/list-participant-synchronizer-permission-response.js";
 export { ListPartyHostingLimitsResponse } from "./core/types/responses/list-party-hosting-limits-response.js";
 export { ListPartyToKeyMappingResponse } from "./core/types/responses/list-party-to-key-mapping-response.js";

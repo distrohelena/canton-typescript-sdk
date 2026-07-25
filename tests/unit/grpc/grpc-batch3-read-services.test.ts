@@ -4,13 +4,13 @@ import {
     GetDarRequest,
     GetHighestOffsetByTimestampRequest,
     ListDarsRequest,
-    ListPendingOperationsRequest,
     ParticipantPackageServiceClient,
     ParticipantPartyManagementServiceClient,
     ParticipantRepairServiceClient,
     RequestOptions,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import { ListPendingOperationsRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 
 describe("GrpcTransport batch 3 read services", () => {
     it("maps participant-admin package and lightweight read methods", async () => {
@@ -137,7 +137,7 @@ describe("GrpcTransport batch 3 read services", () => {
 
         const pendingOperations =
             await participantRepair.listPendingOperationsAsync(
-                new ListPendingOperationsRequest({
+                ListPendingOperationsRequest.create({
                     operationName: "repair-op",
                 }),
                 options,
@@ -150,7 +150,9 @@ describe("GrpcTransport batch 3 read services", () => {
         expect(pendingOperations.pendingOperations[0]).toMatchObject({
             operationName: "repair-op",
             operationKey: "key-1",
-            synchronizerId: "sync-1",
+            synchronizer: {
+                kind: { oneofKind: "id", id: "sync-1" },
+            },
         });
     });
 });

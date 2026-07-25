@@ -25,7 +25,6 @@ import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-pa
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
-import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
@@ -71,7 +70,6 @@ import { ListSequencerSynchronizerStateResponse } from "../../core/types/respons
 import { ListSequencingParametersStateResponse } from "../../core/types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
-import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
@@ -120,10 +118,6 @@ import {
     mapGrpcGetHighestOffsetByTimestamp,
     mapGrpcGetHighestOffsetByTimestampRequest,
 } from "./mappers/participant-party-management-mapper.js";
-import {
-    mapGrpcListPendingOperations,
-    mapGrpcListPendingOperationsRequest,
-} from "./mappers/participant-repair-mapper.js";
 import {
     mapGrpcGetNoWaitCommitmentsFrom,
     mapGrpcGetNoWaitCommitmentsFromRequest,
@@ -323,7 +317,8 @@ import {
     ClearPartyOnboardingFlagResponse as ProtobufClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampResponse as ProtobufGetHighestOffsetByTimestampResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
-import {
+import type {
+    ListPendingOperationsRequest as ProtobufListPendingOperationsRequest,
     ListPendingOperationsResponse as ProtobufListPendingOperationsResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 import type {
@@ -1045,19 +1040,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listPendingOperationsAsync(
-        request: ListPendingOperationsRequest,
+        request: ProtobufListPendingOperationsRequest,
         options?: RequestOptions,
-    ): Promise<ListPendingOperationsResponse> {
+    ): Promise<ProtobufListPendingOperationsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listPendingOperationsAsync!(
-            mapGrpcListPendingOperationsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListPendingOperations(
-            payload as Partial<ProtobufListPendingOperationsResponse>,
-        );
+        return payload as ProtobufListPendingOperationsResponse;
     }
 
     public async getResourceLimitsAsync(

@@ -16,7 +16,6 @@ import {
 } from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
@@ -55,9 +54,10 @@ import type {
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import type {
+    ListPendingOperationsRequest,
+    ListPendingOperationsResponse,
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";

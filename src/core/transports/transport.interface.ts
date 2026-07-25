@@ -50,7 +50,6 @@ import { ListSequencerSynchronizerStateRequest } from "../types/requests/list-se
 import { ListSequencingParametersStateRequest } from "../types/requests/list-sequencing-parameters-state-request.js";
 import { ListSynchronizerParametersStateRequest } from "../types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
-import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
@@ -108,7 +107,6 @@ import { ListMediatorSynchronizerStateResponse } from "../types/responses/list-m
 import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
-import { ListPendingOperationsResponse } from "../types/responses/list-pending-operations-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../types/responses/list-participant-synchronizer-permission-response.js";
 import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
@@ -118,6 +116,8 @@ import { ListSequencingParametersStateResponse } from "../types/responses/list-s
 import { ListSynchronizerParametersStateResponse } from "../types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
 import type {
+    ListPendingOperationsRequest,
+    ListPendingOperationsResponse,
     CountInFlightRequest,
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
