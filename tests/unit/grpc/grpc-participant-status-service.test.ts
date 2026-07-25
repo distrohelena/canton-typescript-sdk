@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-    AdminNotInitializedExternalInputKind,
-    ConnectedSynchronizerHealth,
-    GetParticipantStatusRequest,
-    RequestOptions,
-} from "../../../src";
+import { RequestOptions } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
-import { ConnectedSynchronizer_Health } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import { ConnectedSynchronizer_Health, ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { NotInitialized_WaitingForExternalInput } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/health/v30/status_service.js";
 
 describe("GrpcTransport participant status service", () => {
@@ -78,7 +73,7 @@ describe("GrpcTransport participant status service", () => {
         } as any);
 
         const result = await transport.getParticipantStatusAsync(
-            new GetParticipantStatusRequest(),
+            ParticipantStatusRequest.create(),
             new RequestOptions({
                 timeoutMs: 2_500,
             }),
@@ -88,22 +83,24 @@ describe("GrpcTransport participant status service", () => {
             {},
             expect.any(RequestOptions),
         );
-        expect(result.status?.uid).toBe("participant::sandbox");
-        expect(result.status?.active).toBe(true);
-        expect(result.status?.uptime).toEqual({
+        expect(result.kind.oneofKind).toBe("status");
+        expect(result.kind.status.commonStatus?.uid).toBe("participant::sandbox");
+        expect(result.kind.status.active).toBe(true);
+        expect(result.kind.status.commonStatus?.uptime).toEqual({
             seconds: "15",
             nanos: 7,
         });
-        expect(result.status?.connectedSynchronizers[0].health).toBe(
-            ConnectedSynchronizerHealth.healthy,
+        expect(result.kind.status.connectedSynchronizers[0].health).toBe(
+            ConnectedSynchronizer_Health.HEALTHY,
         );
-        expect(result.status?.supportedProtocolVersions).toEqual([30]);
-        expect(result.status?.components[0]).toMatchObject({
+        expect(result.kind.status.supportedProtocolVersions).toEqual([30]);
+        expect(result.kind.status.commonStatus?.components[0]).toMatchObject({
             name: "database",
-            kind: "ok",
-            description: "ready",
+            status: {
+                oneofKind: "ok",
+                ok: { description: "ready" },
+            },
         });
-        expect(result.notInitialized).toBeUndefined();
     });
 
     it("maps not-initialized participant status responses", async () => {
@@ -142,14 +139,14 @@ describe("GrpcTransport participant status service", () => {
         } as any);
 
         const result = await transport.getParticipantStatusAsync(
-            new GetParticipantStatusRequest(),
+            ParticipantStatusRequest.create(),
         );
 
-        expect(result.status).toBeUndefined();
-        expect(result.notInitialized?.active).toBe(false);
-        expect(result.notInitialized?.waitingForExternalInput).toBe(
-            AdminNotInitializedExternalInputKind.id,
+        expect(result.kind.oneofKind).toBe("notInitialized");
+        expect(result.kind.notInitialized.active).toBe(false);
+        expect(result.kind.notInitialized.waitingForExternalInput).toBe(
+            NotInitialized_WaitingForExternalInput.ID,
         );
-        expect(result.notInitialized?.version).toBe("3.4.0");
+        expect(result.kind.notInitialized.version).toBe("3.4.0");
     });
 });
