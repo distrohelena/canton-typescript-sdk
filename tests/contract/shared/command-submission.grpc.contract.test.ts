@@ -31,7 +31,7 @@ describe("grpc command submission contract", () => {
                 grantUserRightsAsync: async () => ({ rights: [] }),
                 uploadPackageAsync: async () => ({ packageId: "unused" }),
                 queryContractsAsync: async () => ({ contracts: [] }),
-                streamTransactionsAsync: async () => [],
+                getUpdatesAsync: async () => [],
                 prepareSubmissionAsync: async () => ({
                     preparedTransaction: {},
                     preparedTransactionHash: new Uint8Array([9, 9, 9]),
@@ -87,7 +87,7 @@ describe("grpc command submission contract", () => {
                 grantUserRightsAsync: async () => ({ rights: [] }),
                 uploadPackageAsync: async () => ({ packageId: "unused" }),
                 queryContractsAsync: async () => ({ contracts: [] }),
-                streamTransactionsAsync: async () => [],
+                getUpdatesAsync: async () => [],
                 prepareSubmissionAsync: async () => ({
                     preparedTransaction: {},
                     preparedTransactionHash: new Uint8Array([9, 9, 9]),

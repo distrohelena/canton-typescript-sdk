@@ -71,7 +71,7 @@ describe("GrpcTransport package services", () => {
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",
@@ -227,7 +227,7 @@ describe("GrpcTransport package services", () => {
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",

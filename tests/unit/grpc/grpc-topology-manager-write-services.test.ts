@@ -31,7 +31,7 @@ describe("GrpcTransport topology manager write services", () => {
             generateTopologyTransactionsAsync,
             addTopologyTransactionsAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",

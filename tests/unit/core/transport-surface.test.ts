@@ -19,7 +19,6 @@ describe("transport surface", () => {
         expect(grpcTransport).not.toHaveProperty("uploadPackageAsync");
         expect(grpcTransport).not.toHaveProperty("queryContractsAsync");
         expect(grpcTransport).not.toHaveProperty("streamQueryAsync");
-        expect(grpcTransport).not.toHaveProperty("streamTransactionsAsync");
         expect(grpcTransport).not.toHaveProperty("assembleSignedTransactions");
 
         expect(jsonTransport).not.toHaveProperty("getHealthAsync");
@@ -28,7 +27,6 @@ describe("transport surface", () => {
         expect(jsonTransport).not.toHaveProperty("uploadPackageAsync");
         expect(jsonTransport).not.toHaveProperty("queryContractsAsync");
         expect(jsonTransport).not.toHaveProperty("streamQueryAsync");
-        expect(jsonTransport).not.toHaveProperty("streamTransactionsAsync");
         expect(jsonTransport).not.toHaveProperty("assembleSignedTransactions");
     });
 

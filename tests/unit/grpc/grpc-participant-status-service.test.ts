@@ -70,7 +70,7 @@ describe("GrpcTransport participant status service", () => {
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             getParticipantStatusAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",
@@ -134,7 +134,7 @@ describe("GrpcTransport participant status service", () => {
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             getParticipantStatusAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",

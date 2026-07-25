@@ -1960,7 +1960,7 @@ export class GrpcTransport implements ITransport {
         options?: RequestOptions,
     ): AsyncIterable<GetUpdatesResponse> {
         this.throwIfDisposed();
-        return this.operations.streamTransactionsAsync(request, options);
+        return this.operations.getUpdatesAsync(request, options);
     }
 
     public async getUpdateByOffsetAsync(

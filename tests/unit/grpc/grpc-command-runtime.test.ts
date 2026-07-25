@@ -35,7 +35,7 @@ describe("GrpcTransport live ledger shapes", () => {
                         nextPageToken: new Uint8Array([1, 2, 3]),
                     };
                 },
-                streamTransactionsAsync: request => {
+                getUpdatesAsync: request => {
                     capturedStream = request;
                     return (async function* () {})();
                 },

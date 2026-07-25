@@ -387,7 +387,7 @@ export interface GrpcOperations {
     getConnectedSynchronizersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLedgerEndAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLatestPrunedOffsetsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    streamTransactionsAsync(request: GetUpdatesRequest, options?: RequestOptions): AsyncIterable<GetUpdatesResponse>;
+    getUpdatesAsync(request: GetUpdatesRequest, options?: RequestOptions): AsyncIterable<GetUpdatesResponse>;
     getUpdateByOffsetAsync?(request: GrpcGetUpdateByOffsetRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
     getUpdateByIdAsync?(request: GrpcGetUpdateByIdRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
     getUpdateByHashAsync?(request: GrpcGetUpdateByHashRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
@@ -2122,7 +2122,7 @@ export function createGrpcOperations(
                 ),
             );
         },
-        streamTransactionsAsync(
+        getUpdatesAsync(
             request: GetUpdatesRequest,
             requestOptions?: RequestOptions,
         ): AsyncIterable<GetUpdatesResponse> {
@@ -2331,7 +2331,7 @@ function wrapGrpcOperations(
                 return operation;
             }
 
-            if (property === "streamTransactionsAsync") {
+            if (property === "getUpdatesAsync") {
                 return (...args: unknown[]) => wrapGrpcStream(
                     () => operation.apply(target, args) as AsyncIterable<GetUpdatesResponse>,
                     onGrpcError,

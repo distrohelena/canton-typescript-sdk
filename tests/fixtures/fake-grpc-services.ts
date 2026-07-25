@@ -19,7 +19,7 @@ export function createFakeGrpcOperations(
             created: undefined,
             archived: undefined,
         }),
-        streamTransactionsAsync: async () => [],
+        getUpdatesAsync: async () => [],
         prepareSubmissionAsync: async () => ({
             preparedTransaction: {},
             preparedTransactionHash: new Uint8Array([9, 9, 9]),

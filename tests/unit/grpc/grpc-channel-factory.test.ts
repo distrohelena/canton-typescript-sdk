@@ -136,7 +136,7 @@ describe("gRPC call-options factory", () => {
             },
         );
 
-        const stream = operations.streamTransactionsAsync({
+        const stream = operations.getUpdatesAsync({
             beginExclusive: "0",
             descendingOrder: false,
         });
@@ -148,6 +148,35 @@ describe("gRPC call-options factory", () => {
             grpcCode: "PERMISSION_DENIED",
         });
         expect(onGrpcError).toHaveBeenCalledTimes(1);
+    });
+
+    it("normalizes a rejecting trailing stream status", async () => {
+        const rawError = Object.assign(new Error("trailing failure"), { name: "RpcError", code: "UNAVAILABLE", meta: {} });
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(new CantonClientOptions({ transportKind: TransportKind.grpc, onGrpcError }), "http://localhost:6865", GrpcChannelSecurity.insecure, {
+            updateServiceClient: { getUpdates: () => ({ responses: (async function* () { yield { update: { oneofKind: undefined } }; })(), status: Promise.reject(rawError) }) },
+        });
+
+        await expect((async () => { for await (const _response of operations.getUpdatesAsync({ beginExclusive: "0", descendingOrder: false })) {} })()).rejects.toMatchObject({ grpcCode: "UNAVAILABLE" });
+        expect(onGrpcError).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns the underlying iterator early and observes its rejecting status", async () => {
+        let returned = false;
+        const rawError = Object.assign(new Error("cancelled"), { name: "RpcError", code: "CANCELLED", meta: {} });
+        const responses: AsyncIterable<unknown> = {
+            [Symbol.asyncIterator]() { return { next: async () => ({ done: false, value: { update: { oneofKind: undefined } } }), return: async () => { returned = true; return { done: true, value: undefined }; } }; },
+        };
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(new CantonClientOptions({ transportKind: TransportKind.grpc, onGrpcError }), "http://localhost:6865", GrpcChannelSecurity.insecure, {
+            updateServiceClient: { getUpdates: () => ({ responses, status: Promise.reject(rawError) }) },
+        });
+        const iterator = operations.getUpdatesAsync({ beginExclusive: "0", descendingOrder: false })[Symbol.asyncIterator]();
+        await iterator.next();
+        await iterator.return?.();
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(returned).toBe(true);
+        expect(onGrpcError).not.toHaveBeenCalled();
     });
 
     it("creates insecure channel credentials", () => {

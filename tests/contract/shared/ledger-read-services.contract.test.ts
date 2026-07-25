@@ -53,7 +53,7 @@ describe("shared ledger read services contract", () => {
                     },
                 ],
             }),
-            streamTransactionsAsync: () => (async function* () { yield {
+            getUpdatesAsync: () => (async function* () { yield {
                 update: {
                     oneofKind: "transaction",
                     transaction: { transactionId: "grpc-tx-1" },

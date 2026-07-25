@@ -23,7 +23,7 @@ describe("GrpcTransport request timeouts", () => {
             }),
             uploadPackageAsync: async () => ({ packageId: "pkg-1" }),
             queryContractsAsync: async () => ({ contracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 commandId: "cmd-1",
                 transactionId: "tx-1",
@@ -59,7 +59,7 @@ describe("GrpcTransport request timeouts", () => {
             }),
             uploadPackageAsync: async () => ({ packageId: "pkg-1" }),
             queryContractsAsync: async () => ({ contracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 commandId: "cmd-1",
                 transactionId: "tx-1",

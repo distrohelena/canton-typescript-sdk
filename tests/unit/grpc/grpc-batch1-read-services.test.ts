@@ -118,7 +118,7 @@ describe("GrpcTransport batch 1 read services", () => {
                 ],
             }),
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({ updateId: "unused" }),
         } as any);
 
@@ -318,7 +318,7 @@ describe("GrpcTransport batch 1 read services", () => {
                 participantPrunedUpToInclusive: "3",
                 allDivulgedContractsPrunedUpToInclusive: "2",
             }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             getUpdateByOffsetAsync,
             getUpdateByIdAsync,
             getUpdateByHashAsync,

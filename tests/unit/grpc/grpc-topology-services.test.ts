@@ -30,7 +30,7 @@ describe("GrpcTransport topology services", () => {
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             listAvailableStoresAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",
@@ -83,7 +83,7 @@ describe("GrpcTransport topology services", () => {
             topologyListPartiesAsync,
             listKeyOwnersAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",
@@ -141,7 +141,7 @@ describe("GrpcTransport topology services", () => {
             listPartyToParticipantAsync,
             listPartyToKeyMappingAsync,
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({
                 updateId: "unused",
                 completionOffset: "0",

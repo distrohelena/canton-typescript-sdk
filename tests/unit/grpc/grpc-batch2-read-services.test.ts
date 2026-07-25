@@ -25,7 +25,7 @@ describe("GrpcTransport batch 2 read services", () => {
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
             queryContractsAsync: async () => ({ activeContracts: [] }),
-            streamTransactionsAsync: async () => [],
+            getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({ updateId: "unused" }),
             getCommandStatusAsync: async () => ({
                 commandStatus: [
