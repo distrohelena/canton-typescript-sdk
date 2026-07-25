@@ -47,7 +47,6 @@ import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
-import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
@@ -114,6 +113,8 @@ import type {
     ListSynchronizerParametersStateResponse,
     ListPartyToParticipantRequest,
     ListPartyToParticipantResponse,
+    ListVettedPackagesRequest as TopologyListVettedPackagesRequest,
+    ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -161,7 +162,6 @@ import type {
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
-import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";
 import type {
     TrafficControlStateRequest,
     TrafficControlStateResponse,

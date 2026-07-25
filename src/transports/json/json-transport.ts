@@ -47,6 +47,8 @@ import type {
     ListSynchronizerParametersStateResponse,
     ListPartyToParticipantRequest,
     ListPartyToParticipantResponse,
+    ListVettedPackagesRequest as TopologyListVettedPackagesRequest,
+    ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -1045,9 +1047,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async topologyListVettedPackagesAsync(
-        _request: any,
+        _request: TopologyListVettedPackagesRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<TopologyListVettedPackagesResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

@@ -19,7 +19,6 @@ import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-par
 import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
-import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -41,7 +40,6 @@ import { ListSynchronizerTrustCertificateResponse } from "../../core/types/respo
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
-import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
@@ -109,8 +107,6 @@ import {
     mapGrpcListPartyToKeyMappingResponse,
     mapGrpcListSynchronizerTrustCertificateRequest,
     mapGrpcListSynchronizerTrustCertificateResponse,
-    mapGrpcTopologyListVettedPackagesRequest,
-    mapGrpcTopologyListVettedPackagesResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
     mapGrpcAddTopologyTransactionsRequest,
@@ -316,6 +312,7 @@ import {
     ListSynchronizerParametersStateRequest as ProtobufListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse as ProtobufListSynchronizerParametersStateResponse,
     ListSynchronizerTrustCertificateResponse as ProtobufListSynchronizerTrustCertificateResponse,
+    ListVettedPackagesRequest as ProtobufTopologyListVettedPackagesRequest,
     ListVettedPackagesResponse as ProtobufTopologyListVettedPackagesResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
@@ -1274,19 +1271,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async topologyListVettedPackagesAsync(
-        request: TopologyListVettedPackagesRequest,
+        request: ProtobufTopologyListVettedPackagesRequest,
         options?: RequestOptions,
-    ): Promise<TopologyListVettedPackagesResponse> {
+    ): Promise<ProtobufTopologyListVettedPackagesResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.topologyListVettedPackagesAsync!(
-            mapGrpcTopologyListVettedPackagesRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcTopologyListVettedPackagesResponse(
-            payload as Partial<ProtobufTopologyListVettedPackagesResponse>,
-        );
+        return payload as ProtobufTopologyListVettedPackagesResponse;
     }
 
     public async listPartyToParticipantAsync(
