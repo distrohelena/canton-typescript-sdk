@@ -32,8 +32,6 @@ import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-own
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
-import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
-import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
@@ -85,8 +83,6 @@ import { ListSequencingParametersStateResponse } from "../../core/types/response
 import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
-import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
-import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
@@ -145,10 +141,6 @@ import {
 import {
     mapGrpcInspectCommitmentContracts,
     mapGrpcInspectCommitmentContractsRequest,
-    mapGrpcLookupReceivedAcsCommitments,
-    mapGrpcLookupReceivedAcsCommitmentsRequest,
-    mapGrpcLookupSentAcsCommitments,
-    mapGrpcLookupSentAcsCommitmentsRequest,
     mapGrpcOpenCommitment,
     mapGrpcOpenCommitmentRequest,
 } from "./mappers/participant-inspection-mapper.js";
@@ -341,13 +333,13 @@ import {
     GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsRequest as ProtobufGetIntervalsBehindForCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
-    GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
-    GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
     InspectCommitmentContractsResponse as ProtobufInspectCommitmentContractsResponse,
-    LookupReceivedAcsCommitmentsResponse as ProtobufLookupReceivedAcsCommitmentsResponse,
     LookupOffsetByTimeRequest as ProtobufLookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse as ProtobufLookupOffsetByTimeResponse,
+    LookupReceivedAcsCommitmentsRequest as ProtobufLookupReceivedAcsCommitmentsRequest,
     LookupSentAcsCommitmentsResponse as ProtobufLookupSentAcsCommitmentsResponse,
+    LookupReceivedAcsCommitmentsResponse as ProtobufLookupReceivedAcsCommitmentsResponse,
+    LookupSentAcsCommitmentsRequest as ProtobufLookupSentAcsCommitmentsRequest,
     OpenCommitmentResponse as ProtobufOpenCommitmentResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
@@ -912,35 +904,31 @@ export class GrpcTransport implements ITransport {
     }
 
     public async lookupSentAcsCommitmentsAsync(
-        request: LookupSentAcsCommitmentsRequest,
+        request: ProtobufLookupSentAcsCommitmentsRequest,
         options?: RequestOptions,
-    ): Promise<LookupSentAcsCommitmentsResponse> {
+    ): Promise<ProtobufLookupSentAcsCommitmentsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.lookupSentAcsCommitmentsAsync!(
-            mapGrpcLookupSentAcsCommitmentsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcLookupSentAcsCommitments(
-            payload as Partial<ProtobufLookupSentAcsCommitmentsResponse>,
-        );
+        return payload as ProtobufLookupSentAcsCommitmentsResponse;
     }
 
     public async lookupReceivedAcsCommitmentsAsync(
-        request: LookupReceivedAcsCommitmentsRequest,
+        request: ProtobufLookupReceivedAcsCommitmentsRequest,
         options?: RequestOptions,
-    ): Promise<LookupReceivedAcsCommitmentsResponse> {
+    ): Promise<ProtobufLookupReceivedAcsCommitmentsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.lookupReceivedAcsCommitmentsAsync!(
-            mapGrpcLookupReceivedAcsCommitmentsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcLookupReceivedAcsCommitments(
-            payload as Partial<ProtobufLookupReceivedAcsCommitmentsResponse>,
-        );
+        return payload as ProtobufLookupReceivedAcsCommitmentsResponse;
     }
 
     public async addPartyAsync(

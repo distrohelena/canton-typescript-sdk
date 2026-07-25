@@ -10,22 +10,14 @@ import { SentAcsCommitmentState } from "../../../core/types/sent-acs-commitment-
 import { SlowCounterParticipantSynchronizerConfig } from "../../../core/types/slow-counter-participant-synchronizer-config.js";
 import { SynchronizerTimeRange } from "../../../core/types/synchronizer-time-range.js";
 import { InspectCommitmentContractsRequest } from "../../../core/types/requests/inspect-commitment-contracts-request.js";
-import { LookupReceivedAcsCommitmentsRequest } from "../../../core/types/requests/lookup-received-acs-commitments-request.js";
-import { LookupSentAcsCommitmentsRequest } from "../../../core/types/requests/lookup-sent-acs-commitments-request.js";
 import { OpenCommitmentRequest } from "../../../core/types/requests/open-commitment-request.js";
 import { InspectCommitmentContractsResponse } from "../../../core/types/responses/inspect-commitment-contracts-response.js";
-import { LookupReceivedAcsCommitmentsResponse } from "../../../core/types/responses/lookup-received-acs-commitments-response.js";
-import { LookupSentAcsCommitmentsResponse } from "../../../core/types/responses/lookup-sent-acs-commitments-response.js";
 import { OpenCommitmentResponse } from "../../../core/types/responses/open-commitment-response.js";
 import {
     Interval as GrpcInterval,
     CounterParticipantInfo as GrpcCounterParticipantInfo,
     InspectCommitmentContractsRequest as GrpcInspectCommitmentContractsRequest,
     InspectCommitmentContractsResponse as GrpcInspectCommitmentContractsResponse,
-    LookupReceivedAcsCommitmentsRequest as GrpcLookupReceivedAcsCommitmentsRequest,
-    LookupReceivedAcsCommitmentsResponse as GrpcLookupReceivedAcsCommitmentsResponse,
-    LookupSentAcsCommitmentsRequest as GrpcLookupSentAcsCommitmentsRequest,
-    LookupSentAcsCommitmentsResponse as GrpcLookupSentAcsCommitmentsResponse,
     OpenCommitmentRequest as GrpcOpenCommitmentRequest,
     OpenCommitmentResponse as GrpcOpenCommitmentResponse,
     ReceivedAcsCommitment as GrpcReceivedAcsCommitment,
@@ -76,56 +68,6 @@ export function mapGrpcInspectCommitmentContracts(
 ): InspectCommitmentContractsResponse {
     return new InspectCommitmentContractsResponse({
         chunk: payload?.chunk,
-    });
-}
-
-export function mapGrpcLookupSentAcsCommitmentsRequest(
-    request: LookupSentAcsCommitmentsRequest,
-): GrpcLookupSentAcsCommitmentsRequest {
-    return {
-        timeRanges: request.timeRanges.map((item) =>
-            mapGrpcSynchronizerTimeRange(item),
-        ),
-        counterParticipantIds: [...request.counterParticipantIds],
-        commitmentState: request.commitmentState.map((item) =>
-            mapGrpcSentCommitmentState(item),
-        ),
-        verbose: request.verbose,
-    };
-}
-
-export function mapGrpcLookupSentAcsCommitments(
-    payload?: Partial<GrpcLookupSentAcsCommitmentsResponse>,
-): LookupSentAcsCommitmentsResponse {
-    return new LookupSentAcsCommitmentsResponse({
-        sent: (payload?.sent ?? []).map((item) =>
-            mapGrpcSentAcsCommitmentPerSynchronizer(item),
-        ),
-    });
-}
-
-export function mapGrpcLookupReceivedAcsCommitmentsRequest(
-    request: LookupReceivedAcsCommitmentsRequest,
-): GrpcLookupReceivedAcsCommitmentsRequest {
-    return {
-        timeRanges: request.timeRanges.map((item) =>
-            mapGrpcSynchronizerTimeRange(item),
-        ),
-        counterParticipantIds: [...request.counterParticipantIds],
-        commitmentState: request.commitmentState.map((item) =>
-            mapGrpcReceivedCommitmentState(item),
-        ),
-        verbose: request.verbose,
-    };
-}
-
-export function mapGrpcLookupReceivedAcsCommitments(
-    payload?: Partial<GrpcLookupReceivedAcsCommitmentsResponse>,
-): LookupReceivedAcsCommitmentsResponse {
-    return new LookupReceivedAcsCommitmentsResponse({
-        received: (payload?.received ?? []).map((item) =>
-            mapGrpcReceivedAcsCommitmentPerSynchronizer(item),
-        ),
     });
 }
 

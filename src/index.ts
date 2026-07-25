@@ -289,8 +289,6 @@ export { ListKeyOwnersRequest } from "./core/types/requests/list-key-owners-requ
 export { ListPendingOperationsRequest } from "./core/types/requests/list-pending-operations-request.js";
 export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-request.js";
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
-export { LookupReceivedAcsCommitmentsRequest } from "./core/types/requests/lookup-received-acs-commitments-request.js";
-export { LookupSentAcsCommitmentsRequest } from "./core/types/requests/lookup-sent-acs-commitments-request.js";
 export { OpenCommitmentRequest } from "./core/types/requests/open-commitment-request.js";
 export { SignTopologyTransactionsRequest } from "./core/types/requests/sign-topology-transactions-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
@@ -341,8 +339,6 @@ export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/respo
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";
 export { ListLsuSequencerConnectionSuccessorResponse } from "./core/types/responses/list-lsu-sequencer-connection-successor-response.js";
 export { ListMediatorSynchronizerStateResponse } from "./core/types/responses/list-mediator-synchronizer-state-response.js";
-export { LookupReceivedAcsCommitmentsResponse } from "./core/types/responses/lookup-received-acs-commitments-response.js";
-export { LookupSentAcsCommitmentsResponse } from "./core/types/responses/lookup-sent-acs-commitments-response.js";
 export { OpenCommitmentResponse } from "./core/types/responses/open-commitment-response.js";
 export { ListNamespaceDelegationResponse } from "./core/types/responses/list-namespace-delegation-response.js";
 export { ListOwnerToKeyMappingResponse } from "./core/types/responses/list-owner-to-key-mapping-response.js";

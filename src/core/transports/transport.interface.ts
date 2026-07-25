@@ -57,8 +57,6 @@ import { ListSynchronizerParametersStateRequest } from "../types/requests/list-s
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
-import { LookupReceivedAcsCommitmentsRequest } from "../types/requests/lookup-received-acs-commitments-request.js";
-import { LookupSentAcsCommitmentsRequest } from "../types/requests/lookup-sent-acs-commitments-request.js";
 import { OpenCommitmentRequest } from "../types/requests/open-commitment-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
@@ -133,8 +131,6 @@ import { ListSequencerSynchronizerStateResponse } from "../types/responses/list-
 import { ListSequencingParametersStateResponse } from "../types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
-import { LookupReceivedAcsCommitmentsResponse } from "../types/responses/lookup-received-acs-commitments-response.js";
-import { LookupSentAcsCommitmentsResponse } from "../types/responses/lookup-sent-acs-commitments-response.js";
 import type {
     CountInFlightRequest,
     CountInFlightResponse,
@@ -144,6 +140,10 @@ import type {
     GetIntervalsBehindForCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
+    LookupReceivedAcsCommitmentsRequest,
+    LookupReceivedAcsCommitmentsResponse,
+    LookupSentAcsCommitmentsRequest,
+    LookupSentAcsCommitmentsResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { OpenCommitmentResponse } from "../types/responses/open-commitment-response.js";
 import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
