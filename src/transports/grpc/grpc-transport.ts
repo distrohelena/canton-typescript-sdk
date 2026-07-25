@@ -1195,7 +1195,7 @@ export class GrpcTransport implements ITransport {
                 options,
             );
 
-        return mapGrpcCreateTemporaryTopologyStoreResponse(payload as any);
+        return payload as ProtobufCreateTemporaryTopologyStoreResponse;
     }
 
     public async dropTemporaryTopologyStoreAsync(
