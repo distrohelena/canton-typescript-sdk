@@ -5,9 +5,9 @@ import {
     ExerciseCommand,
     SignCommandResult,
     GetActiveContractsPageRequest,
-    GetUpdatesRequest,
     SubmitCommandRequest,
 } from "../../../src";
+import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
@@ -35,10 +35,9 @@ describe("GrpcTransport live ledger shapes", () => {
                         nextPageToken: new Uint8Array([1, 2, 3]),
                     };
                 },
-                streamTransactionsAsync: async request => {
+                streamTransactionsAsync: request => {
                     capturedStream = request;
-
-                    return [];
+                    return (async function* () {})();
                 },
                 submitCommandAsync: async request => {
                     capturedSubmit = request;
@@ -61,17 +60,9 @@ describe("GrpcTransport live ledger shapes", () => {
             }),
         );
 
-        await transport.getUpdatesAsync(
-            new GetUpdatesRequest({
-                party: "Alice",
-                beginOffset: "0",
-                endOffset: "10",
-                templateId: "Main:Iou",
-            }),
-            {
-                nextAsync: async () => undefined,
-            },
-        );
+        for await (const _update of transport.getUpdatesAsync(
+            GetUpdatesRequest.create({ beginExclusive: "0", endInclusive: "10" }),
+        )) { /* exhaust */ }
 
         const result = await transport.submitCommandAsync(
             new SubmitCommandRequest({
@@ -130,7 +121,6 @@ describe("GrpcTransport live ledger shapes", () => {
         expect(capturedStream).toMatchObject({
             beginExclusive: "0",
             endInclusive: "10",
-            updateFormat: expect.any(Object),
         });
         expect(capturedSubmit).toMatchObject({
             commands: {

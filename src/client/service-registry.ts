@@ -1,6 +1,16 @@
 import { CantonClientOptions } from "./canton-client-options.js";
 import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
+import type {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+    GetUpdatesPageRequest,
+    GetUpdatesPageResponse,
+    GetUpdatesRequest,
+    GetUpdatesResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
@@ -41,11 +51,6 @@ import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-sc
 import { GetResourceLimitsRequest } from "../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../core/types/requests/get-synchronizer-id-request.js";
-import { GetUpdateByHashRequest } from "../core/types/requests/get-update-by-hash-request.js";
-import { GetUpdateByIdRequest } from "../core/types/requests/get-update-by-id-request.js";
-import { GetUpdateByOffsetRequest } from "../core/types/requests/get-update-by-offset-request.js";
-import { GetUpdatesRequest } from "../core/types/requests/get-updates-request.js";
-import { GetUpdatesPageRequest } from "../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../core/types/requests/get-user-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
@@ -136,10 +141,6 @@ import { GetPruningScheduleResponse } from "../core/types/responses/get-pruning-
 import { GetResourceLimitsResponse } from "../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../core/types/responses/get-synchronizer-id-response.js";
-import { GetUpdateByHashResponse } from "../core/types/responses/get-update-by-hash-response.js";
-import { GetUpdateByIdResponse } from "../core/types/responses/get-update-by-id-response.js";
-import { GetUpdateByOffsetResponse } from "../core/types/responses/get-update-by-offset-response.js";
-import { GetUpdatesPageResponse } from "../core/types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
@@ -1065,11 +1066,10 @@ class PlaceholderTransport implements ITransport {
         );
     }
 
-    public async getUpdatesAsync(
+    public getUpdatesAsync(
         _request: GetUpdatesRequest,
-        _observer: TransactionObserver,
         _options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<GetUpdatesResponse> {
         this.throwIfDisposed();
 
         throw new TransportError("UpdateService.GetUpdates is not available yet");
@@ -1078,7 +1078,7 @@ class PlaceholderTransport implements ITransport {
     public async getUpdateByOffsetAsync(
         _request: GetUpdateByOffsetRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByOffsetResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new TransportError(
@@ -1089,7 +1089,7 @@ class PlaceholderTransport implements ITransport {
     public async getUpdateByIdAsync(
         _request: GetUpdateByIdRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByIdResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new TransportError(
@@ -1100,7 +1100,7 @@ class PlaceholderTransport implements ITransport {
     public async getUpdateByHashAsync(
         _request: GetUpdateByHashRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByHashResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new TransportError(
@@ -1514,19 +1514,19 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
-    public async getUpdatesAsync(): Promise<void> {
+    public getUpdatesAsync(): AsyncIterable<GetUpdatesResponse> {
         this.throwMissingEndpoint();
     }
 
-    public async getUpdateByOffsetAsync(): Promise<GetUpdateByOffsetResponse> {
+    public async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
         this.throwMissingEndpoint();
     }
 
-    public async getUpdateByIdAsync(): Promise<GetUpdateByIdResponse> {
+    public async getUpdateByIdAsync(): Promise<GetUpdateResponse> {
         this.throwMissingEndpoint();
     }
 
-    public async getUpdateByHashAsync(): Promise<GetUpdateByHashResponse> {
+    public async getUpdateByHashAsync(): Promise<GetUpdateResponse> {
         this.throwMissingEndpoint();
     }
 
@@ -1908,19 +1908,19 @@ class CompositeTransport implements ITransport {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async getUpdatesAsync(): Promise<void> {
+    public getUpdatesAsync(): AsyncIterable<GetUpdatesResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async getUpdateByOffsetAsync(): Promise<GetUpdateByOffsetResponse> {
+    public async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async getUpdateByIdAsync(): Promise<GetUpdateByIdResponse> {
+    public async getUpdateByIdAsync(): Promise<GetUpdateResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async getUpdateByHashAsync(): Promise<GetUpdateByHashResponse> {
+    public async getUpdateByHashAsync(): Promise<GetUpdateResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 

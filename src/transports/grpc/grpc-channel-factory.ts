@@ -387,11 +387,11 @@ export interface GrpcOperations {
     getConnectedSynchronizersAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLedgerEndAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     getLatestPrunedOffsetsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    streamTransactionsAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getUpdateByOffsetAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getUpdateByIdAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getUpdateByHashAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
-    getUpdatesPageAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    streamTransactionsAsync(request: GetUpdatesRequest, options?: RequestOptions): AsyncIterable<GetUpdatesResponse>;
+    getUpdateByOffsetAsync?(request: GrpcGetUpdateByOffsetRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
+    getUpdateByIdAsync?(request: GrpcGetUpdateByIdRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
+    getUpdateByHashAsync?(request: GrpcGetUpdateByHashRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
+    getUpdatesPageAsync?(request: GrpcGetUpdatesPageRequest, options?: RequestOptions): Promise<GrpcGetUpdatesPageResponse>;
     getCompletionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     prepareSubmissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     executeSubmissionAndWaitAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -2122,20 +2122,14 @@ export function createGrpcOperations(
                 ),
             );
         },
-        async streamTransactionsAsync(
-            request: unknown,
+        streamTransactionsAsync(
+            request: GetUpdatesRequest,
             requestOptions?: RequestOptions,
-        ): Promise<GetUpdatesResponse[]> {
-            const callOptions =
-                await buildCallOptionsForLedgerSurfaceAsync(
-                    options,
-                    requestOptions,
-                );
-
-            return await collectServerResponsesAsync(
-                updateServiceClient.getUpdates(
-                    request as GetUpdatesRequest,
-                    callOptions,
+        ): AsyncIterable<GetUpdatesResponse> {
+            return streamServerResponsesAsync(
+                async () => updateServiceClient.getUpdates(
+                    request,
+                    await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
                 ),
             );
         },
@@ -2337,6 +2331,13 @@ function wrapGrpcOperations(
                 return operation;
             }
 
+            if (property === "streamTransactionsAsync") {
+                return (...args: unknown[]) => wrapGrpcStream(
+                    () => operation.apply(target, args) as AsyncIterable<GetUpdatesResponse>,
+                    onGrpcError,
+                );
+            }
+
             return async (...args: unknown[]) => {
                 try {
                     return await operation.apply(target, args);
@@ -2358,6 +2359,26 @@ function wrapGrpcOperations(
             };
         },
     });
+}
+
+async function* wrapGrpcStream<T>(
+    createStream: () => AsyncIterable<T>,
+    onGrpcError?: (error: GrpcTransportError) => void,
+): AsyncIterable<T> {
+    try {
+        for await (const response of createStream()) {
+            yield response;
+        }
+    } catch (error) {
+        throw notifyGrpcError(error, onGrpcError);
+    }
+}
+
+function notifyGrpcError(error: unknown, onGrpcError?: (error: GrpcTransportError) => void): unknown {
+    const parsedError = GrpcTransportError.fromUnknown(error);
+    if (parsedError === undefined) return error;
+    try { onGrpcError?.(parsedError); } catch { /* observers do not replace failures */ }
+    return parsedError;
 }
 
 async function unwrapUnaryResponse<TResponse>(
@@ -2388,4 +2409,28 @@ async function collectServerResponsesAsync<TResponse>(
     await call.status;
 
     return responses;
+}
+
+async function* streamServerResponsesAsync<TResponse>(
+    createCall: () => Promise<ServerStreamingCallLike<TResponse>>,
+): AsyncIterable<TResponse> {
+    let call: ServerStreamingCallLike<TResponse> | undefined;
+    let exhausted = false;
+    let iterator: AsyncIterator<TResponse> | undefined;
+    try {
+        call = await createCall();
+        iterator = call.responses[Symbol.asyncIterator]();
+        while (true) {
+            const next = await iterator.next();
+            if (next.done) break;
+            yield next.value;
+        }
+        exhausted = true;
+        await call.status;
+    } finally {
+        if (!exhausted && call !== undefined) {
+            await iterator.return?.();
+            void call.status.catch(() => undefined);
+        }
+    }
 }

@@ -13,10 +13,6 @@ import {
     GetLedgerEndRequest,
     GetParticipantIdRequest,
     GetPartiesRequest,
-    GetUpdateByHashRequest,
-    GetUpdateByIdRequest,
-    GetUpdateByOffsetRequest,
-    GetUpdatesPageRequest,
     GetUserRequest,
     ListKnownPackagesRequest,
     ListUserRightsRequest,
@@ -30,6 +26,12 @@ import {
     UserManagementServiceClient,
     UserRightKind,
 } from "../../../src";
+import {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdatesPageRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport batch 1 read services", () => {
@@ -372,28 +374,28 @@ describe("GrpcTransport batch 1 read services", () => {
         );
 
         const byOffset = await updateService.getUpdateByOffsetAsync(
-            new GetUpdateByOffsetRequest({
+            GetUpdateByOffsetRequest.create({
                 offset: "11",
             }),
             options,
         );
 
         const byId = await updateService.getUpdateByIdAsync(
-            new GetUpdateByIdRequest({
+            GetUpdateByIdRequest.create({
                 updateId: "tx-2",
             }),
             options,
         );
 
         const byHash = await updateService.getUpdateByHashAsync(
-            new GetUpdateByHashRequest({
+            GetUpdateByHashRequest.create({
                 transactionHash: new Uint8Array([1]),
             }),
             options,
         );
 
         const page = await updateService.getUpdatesPageAsync(
-            new GetUpdatesPageRequest(),
+            GetUpdatesPageRequest.create(),
             options,
         );
 
@@ -424,9 +426,9 @@ describe("GrpcTransport batch 1 read services", () => {
         );
         expect(ledgerEnd.offset).toBe("17");
         expect(prunedOffsets.allDivulgedContractsPrunedUpToInclusive).toBe("2");
-        expect(byOffset.update).toMatchObject({ updateId: "tx-1" });
-        expect(byId.update).toMatchObject({ updateId: "topo-1" });
-        expect(byHash.update).toMatchObject({ updateId: "reassign-1" });
+        expect(byOffset.update).toMatchObject({ oneofKind: "transaction", transaction: { updateId: "tx-1" } });
+        expect(byId.update).toMatchObject({ oneofKind: "topologyTransaction", topologyTransaction: { updateId: "topo-1" } });
+        expect(byHash.update).toMatchObject({ oneofKind: "reassignment", reassignment: { updateId: "reassign-1" } });
         expect(page.nextPageToken).toEqual(new Uint8Array([9]));
         expect(completionEvents).toHaveLength(2);
         expect(completionEvents[0].completion).toMatchObject({

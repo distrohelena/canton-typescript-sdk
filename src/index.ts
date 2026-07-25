@@ -284,7 +284,6 @@ export { GetPackageStatusRequest } from "./core/types/requests/get-package-statu
 export { GetParticipantIdRequest } from "./core/types/requests/get-participant-id-request.js";
 export { GetResourceLimitsRequest } from "./core/types/requests/get-resource-limits-request.js";
 export { GetSafePruningOffsetRequest } from "./core/types/requests/get-safe-pruning-offset-request.js";
-export { GetUpdatesRequest } from "./core/types/requests/get-updates-request.js";
 export { GetCompletionsRequest } from "./core/types/requests/get-completions-request.js";
 export { GetConnectedSynchronizersRequest } from "./core/types/requests/get-connected-synchronizers-request.js";
 export { GetContractRequest } from "./core/types/requests/get-contract-request.js";
@@ -293,10 +292,6 @@ export { GetLatestPrunedOffsetsRequest } from "./core/types/requests/get-latest-
 export { GetLedgerEndRequest } from "./core/types/requests/get-ledger-end-request.js";
 export { GetPartiesRequest } from "./core/types/requests/get-parties-request.js";
 export { GetSynchronizerIdRequest } from "./core/types/requests/get-synchronizer-id-request.js";
-export { GetUpdateByHashRequest } from "./core/types/requests/get-update-by-hash-request.js";
-export { GetUpdateByIdRequest } from "./core/types/requests/get-update-by-id-request.js";
-export { GetUpdateByOffsetRequest } from "./core/types/requests/get-update-by-offset-request.js";
-export { GetUpdatesPageRequest } from "./core/types/requests/get-updates-page-request.js";
 export { GetUserRequest } from "./core/types/requests/get-user-request.js";
 export { ListLsuAnnouncementRequest } from "./core/types/requests/list-lsu-announcement-request.js";
 export { ListLsuSequencerConnectionSuccessorRequest } from "./core/types/requests/list-lsu-sequencer-connection-successor-request.js";
@@ -368,10 +363,6 @@ export { GetPruningScheduleResponse } from "./core/types/responses/get-pruning-s
 export { GetResourceLimitsResponse } from "./core/types/responses/get-resource-limits-response.js";
 export { GetSafePruningOffsetResponse } from "./core/types/responses/get-safe-pruning-offset-response.js";
 export { GetSynchronizerIdResponse } from "./core/types/responses/get-synchronizer-id-response.js";
-export { GetUpdateByHashResponse } from "./core/types/responses/get-update-by-hash-response.js";
-export { GetUpdateByIdResponse } from "./core/types/responses/get-update-by-id-response.js";
-export { GetUpdateByOffsetResponse } from "./core/types/responses/get-update-by-offset-response.js";
-export { GetUpdatesPageResponse } from "./core/types/responses/get-updates-page-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";

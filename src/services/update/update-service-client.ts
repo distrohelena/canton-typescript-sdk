@@ -1,15 +1,15 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetUpdateByHashRequest } from "../../core/types/requests/get-update-by-hash-request.js";
-import { GetUpdateByIdRequest } from "../../core/types/requests/get-update-by-id-request.js";
-import { GetUpdateByOffsetRequest } from "../../core/types/requests/get-update-by-offset-request.js";
-import { GetUpdatesPageRequest } from "../../core/types/requests/get-updates-page-request.js";
-import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
-import { GetUpdateByHashResponse } from "../../core/types/responses/get-update-by-hash-response.js";
-import { GetUpdateByIdResponse } from "../../core/types/responses/get-update-by-id-response.js";
-import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update-by-offset-response.js";
-import { GetUpdatesPageResponse } from "../../core/types/responses/get-updates-page-response.js";
-import { TransactionObserver } from "../events/transaction-observer.interface.js";
+import type {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+    GetUpdatesPageRequest,
+    GetUpdatesPageResponse,
+    GetUpdatesRequest,
+    GetUpdatesResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 
 export class UpdateServiceClient {
     public constructor(private readonly transport: ITransport) {
@@ -19,17 +19,16 @@ export class UpdateServiceClient {
     /** Reads ledger updates. gRPC-backed; JSON currently rejects it. */
     public getUpdatesAsync(
         request: GetUpdatesRequest,
-        observer: TransactionObserver,
         options?: RequestOptions,
-    ): Promise<void> {
-        return this.transport.getUpdatesAsync(request, observer, options);
+    ): AsyncIterable<GetUpdatesResponse> {
+        return this.getUpdatesLazy(request, options);
     }
 
     /** Reads one update by offset. Supported on gRPC; JSON rejects it. */
     public getUpdateByOffsetAsync(
         request: GetUpdateByOffsetRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByOffsetResponse> {
+    ): Promise<GetUpdateResponse> {
         return this.transport.getUpdateByOffsetAsync(request, options);
     }
 
@@ -37,7 +36,7 @@ export class UpdateServiceClient {
     public getUpdateByIdAsync(
         request: GetUpdateByIdRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByIdResponse> {
+    ): Promise<GetUpdateResponse> {
         return this.transport.getUpdateByIdAsync(request, options);
     }
 
@@ -45,7 +44,7 @@ export class UpdateServiceClient {
     public getUpdateByHashAsync(
         request: GetUpdateByHashRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByHashResponse> {
+    ): Promise<GetUpdateResponse> {
         return this.transport.getUpdateByHashAsync(request, options);
     }
 
@@ -55,5 +54,12 @@ export class UpdateServiceClient {
         options?: RequestOptions,
     ): Promise<GetUpdatesPageResponse> {
         return this.transport.getUpdatesPageAsync(request, options);
+    }
+
+    private async *getUpdatesLazy(
+        request: GetUpdatesRequest,
+        options?: RequestOptions,
+    ): AsyncIterable<GetUpdatesResponse> {
+        yield* this.transport.getUpdatesAsync(request, options);
     }
 }

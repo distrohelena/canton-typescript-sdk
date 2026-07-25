@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GetUpdateByOffsetRequest } from "../../../../src/core/types/requests/get-update-by-offset-request.js";
-import { GetUpdateByOffsetResponse } from "../../../../src/core/types/responses/get-update-by-offset-response.js";
+import { GetUpdateByOffsetRequest, GetUpdateResponse } from "../../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { ReplayUnsupportedUpdateException } from "../../../../src/debugger/index.js";
 import { ReplayUpdateLoader } from "../../../../src/debugger/replay/replay-update-loader.js";
 
@@ -10,11 +9,11 @@ describe("ReplayUpdateLoader", () => {
             updateService: {
                 async getUpdateByOffsetAsync(
                     request: GetUpdateByOffsetRequest,
-                ): Promise<GetUpdateByOffsetResponse> {
+                ): Promise<GetUpdateResponse> {
                     expect(request.offset).toBe("42");
 
-                    return new GetUpdateByOffsetResponse({
-                        update: {
+                    return GetUpdateResponse.create({
+                        update: { oneofKind: "transaction", transaction: {
                             updateId: "tx-1",
                             offset: "42",
                             events: [
@@ -35,7 +34,7 @@ describe("ReplayUpdateLoader", () => {
                                     },
                                 },
                             ],
-                        },
+                        } },
                     });
                 },
             },
@@ -50,9 +49,9 @@ describe("ReplayUpdateLoader", () => {
     it("derives a create replay entrypoint from a created event payload", async () => {
         const loader = new ReplayUpdateLoader({
             updateService: {
-                async getUpdateByOffsetAsync(): Promise<GetUpdateByOffsetResponse> {
-                    return new GetUpdateByOffsetResponse({
-                        update: {
+                async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
+                    return GetUpdateResponse.create({
+                        update: { oneofKind: "transaction", transaction: {
                             updateId: "tx-1",
                             offset: "42",
                             events: [
@@ -73,7 +72,7 @@ describe("ReplayUpdateLoader", () => {
                                     },
                                 },
                             ],
-                        },
+                        } },
                     });
                 },
             },
@@ -87,9 +86,9 @@ describe("ReplayUpdateLoader", () => {
     it("rejects updates whose initiating callable cannot be reconstructed", async () => {
         const loader = new ReplayUpdateLoader({
             updateService: {
-                async getUpdateByOffsetAsync(): Promise<GetUpdateByOffsetResponse> {
-                    return new GetUpdateByOffsetResponse({
-                        update: {
+                async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
+                    return GetUpdateResponse.create({
+                        update: { oneofKind: "transaction", transaction: {
                             updateId: "tx-2",
                             offset: "43",
                             events: [
@@ -102,7 +101,7 @@ describe("ReplayUpdateLoader", () => {
                                     },
                                 },
                             ],
-                        },
+                        } },
                     });
                 },
             },

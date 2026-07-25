@@ -1,4 +1,14 @@
 import { TransportFeatures } from "./transport-features.interface.js";
+import type {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+    GetUpdatesPageRequest,
+    GetUpdatesPageResponse,
+    GetUpdatesRequest,
+    GetUpdatesResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.js";
@@ -41,11 +51,6 @@ import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedul
 import { GetResourceLimitsRequest } from "../types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../types/requests/get-synchronizer-id-request.js";
-import { GetUpdateByHashRequest } from "../types/requests/get-update-by-hash-request.js";
-import { GetUpdateByIdRequest } from "../types/requests/get-update-by-id-request.js";
-import { GetUpdateByOffsetRequest } from "../types/requests/get-update-by-offset-request.js";
-import { GetUpdatesRequest } from "../types/requests/get-updates-request.js";
-import { GetUpdatesPageRequest } from "../types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
@@ -121,13 +126,9 @@ import { GetPruningScheduleResponse } from "../types/responses/get-pruning-sched
 import { GetResourceLimitsResponse } from "../types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../types/responses/get-synchronizer-id-response.js";
-import { GetUpdateByHashResponse } from "../types/responses/get-update-by-hash-response.js";
-import { GetUpdateByIdResponse } from "../types/responses/get-update-by-id-response.js";
-import { GetUpdateByOffsetResponse } from "../types/responses/get-update-by-offset-response.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetActiveContractsPageResponse } from "../types/responses/get-active-contracts-page-response.js";
 import { GetLedgerApiVersionResponse } from "../types/responses/get-ledger-api-version-response.js";
-import { GetUpdatesPageResponse } from "../types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
 import { AddPartyAsyncResponse } from "../types/responses/add-party-async-response.js";
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
@@ -720,27 +721,26 @@ export interface ITransport {
     /** Reads ledger updates. gRPC-backed; JSON currently rejects it. */
     getUpdatesAsync(
         request: GetUpdatesRequest,
-        observer: TransactionObserver,
         options?: RequestOptions,
-    ): Promise<void>;
+    ): AsyncIterable<GetUpdatesResponse>;
 
     /** Reads one update by offset. Supported on gRPC; JSON rejects it. */
     getUpdateByOffsetAsync(
         request: GetUpdateByOffsetRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByOffsetResponse>;
+    ): Promise<GetUpdateResponse>;
 
     /** Reads one update by update id. Supported on gRPC; JSON rejects it. */
     getUpdateByIdAsync(
         request: GetUpdateByIdRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByIdResponse>;
+    ): Promise<GetUpdateResponse>;
 
     /** Reads one update by transaction hash. Supported on gRPC; JSON rejects it. */
     getUpdateByHashAsync(
         request: GetUpdateByHashRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByHashResponse>;
+    ): Promise<GetUpdateResponse>;
 
     /** Reads a page of updates. Supported on gRPC; JSON rejects it. */
     getUpdatesPageAsync(

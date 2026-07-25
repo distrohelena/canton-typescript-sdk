@@ -136,7 +136,15 @@ describe("gRPC call-options factory", () => {
             },
         );
 
-        await expect(operations.streamTransactionsAsync({})).rejects.toMatchObject({
+        const stream = operations.streamTransactionsAsync({
+            beginExclusive: "0",
+            descendingOrder: false,
+        });
+        await expect((async () => {
+            for await (const _response of stream) {
+                // exhaust the stream
+            }
+        })()).rejects.toMatchObject({
             grpcCode: "PERMISSION_DENIED",
         });
         expect(onGrpcError).toHaveBeenCalledTimes(1);

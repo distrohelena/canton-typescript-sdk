@@ -10,10 +10,6 @@ import {
     GetLedgerEndRequest,
     GetParticipantIdRequest,
     GetPartiesRequest,
-    GetUpdateByHashRequest,
-    GetUpdateByIdRequest,
-    GetUpdateByOffsetRequest,
-    GetUpdatesPageRequest,
     GetUserRequest,
     ListKnownPackagesRequest,
     ListUserRightsRequest,
@@ -21,6 +17,12 @@ import {
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdatesPageRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 
 describe("Batch 1 read services with JSON transport", () => {
     it("rejects unsupported ledger-admin and ledger read methods", async () => {
@@ -124,7 +126,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "UpdateService.GetUpdateByOffset",
                 () =>
                     client.updateService.getUpdateByOffsetAsync(
-                        new GetUpdateByOffsetRequest({
+                        GetUpdateByOffsetRequest.create({
                             offset: "1",
                         }),
                     ),
@@ -133,7 +135,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "UpdateService.GetUpdateById",
                 () =>
                     client.updateService.getUpdateByIdAsync(
-                        new GetUpdateByIdRequest({
+                        GetUpdateByIdRequest.create({
                             updateId: "u-1",
                         }),
                     ),
@@ -142,7 +144,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "UpdateService.GetUpdateByHash",
                 () =>
                     client.updateService.getUpdateByHashAsync(
-                        new GetUpdateByHashRequest({
+                        GetUpdateByHashRequest.create({
                             transactionHash: new Uint8Array([1]),
                         }),
                     ),
@@ -151,7 +153,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "UpdateService.GetUpdatesPage",
                 () =>
                     client.updateService.getUpdatesPageAsync(
-                        new GetUpdatesPageRequest(),
+                        GetUpdatesPageRequest.create(),
                     ),
             ],
             [

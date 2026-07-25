@@ -10,7 +10,7 @@ import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "../../../src/daml-lf/model/daml-lf-value-definition.js";
 import { GetContractRequest } from "../../../src/core/types/requests/get-contract-request.js";
 import { GetEventsByContractIdRequest } from "../../../src/core/types/requests/get-events-by-contract-id-request.js";
-import { GetUpdateByOffsetResponse } from "../../../src/core/types/responses/get-update-by-offset-response.js";
+import { GetUpdateResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GetContractResponse } from "../../../src/core/types/responses/get-contract-response.js";
 import { GetEventsByContractIdResponse } from "../../../src/core/types/responses/get-events-by-contract-id-response.js";
 import { ContractCreated } from "../../../src/core/types/contract-created.js";
@@ -85,9 +85,9 @@ describe("LedgerReplayDebuggerClient integration", () => {
         );
         const updateLoader = new ReplayUpdateLoader({
             updateService: {
-                async getUpdateByOffsetAsync(): Promise<GetUpdateByOffsetResponse> {
-                    return new GetUpdateByOffsetResponse({
-                        update: {
+                async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
+                    return GetUpdateResponse.create({
+                        update: { oneofKind: "transaction", transaction: {
                             updateId: "tx-1",
                             offset: "42",
                             actAs: ["Alice"],
@@ -108,7 +108,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                                     },
                                 },
                             ],
-                        },
+                        } },
                     });
                 },
             },

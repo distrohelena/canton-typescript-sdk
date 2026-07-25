@@ -1,5 +1,7 @@
-import { GetUpdateByOffsetRequest } from "../../core/types/requests/get-update-by-offset-request.js";
-import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update-by-offset-response.js";
+import {
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { ReplayUnsupportedUpdateException } from "../errors/replay-unsupported-update.exception.js";
 import { ReplayEntrypoint } from "./replay-entrypoint.js";
 import { validateReplayVisibilityOrThrow } from "./replay-update-visibility-validator.js";
@@ -8,7 +10,7 @@ import { TransactionShape } from "../../transports/grpc/generated/canton/com/dam
 interface IReplayUpdateService {
     getUpdateByOffsetAsync(
         request: GetUpdateByOffsetRequest,
-    ): Promise<GetUpdateByOffsetResponse>;
+    ): Promise<GetUpdateResponse>;
 }
 
 export class ReplayUpdateLoader {
@@ -30,14 +32,15 @@ export class ReplayUpdateLoader {
     }> {
         const response =
             await this.dependencies.updateService.getUpdateByOffsetAsync(
-                new GetUpdateByOffsetRequest({
+                GetUpdateByOffsetRequest.create({
                     offset,
                     updateFormat: createReplayUpdateFormat(
                         this.dependencies.visibleParties,
                     ),
                 }),
             );
-        const transaction = response.update as
+        const transaction = response.update.oneofKind === "transaction"
+            ? response.update.transaction as
             | {
                   updateId?: string;
                   offset?: string;
@@ -68,7 +71,8 @@ export class ReplayUpdateLoader {
                       };
                   }[];
               }
-            | undefined;
+            | undefined
+            : undefined;
 
         if (
             transaction === undefined ||

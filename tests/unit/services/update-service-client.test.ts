@@ -1,47 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetUpdateByHashRequest,
-    GetUpdateByHashResponse,
-    GetUpdateByIdRequest,
-    GetUpdateByIdResponse,
-    GetUpdateByOffsetRequest,
-    GetUpdateByOffsetResponse,
-    GetUpdatesPageRequest,
-    GetUpdatesPageResponse,
     RequestOptions,
     UpdateServiceClient,
 } from "../../../src";
+import {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+    GetUpdatesPageRequest,
+    GetUpdatesPageResponse,
+    GetUpdatesRequest,
+    GetUpdatesResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 
 describe("UpdateServiceClient read methods", () => {
     it("forwards update read requests through the selected transport", async () => {
         const getUpdateByOffsetAsync = vi.fn(
             async () =>
-                new GetUpdateByOffsetResponse({
-                    update: undefined,
-                }),
+                GetUpdateResponse.create({ update: { oneofKind: undefined } }),
         );
 
         const getUpdateByIdAsync = vi.fn(
             async () =>
-                new GetUpdateByIdResponse({
-                    update: undefined,
-                }),
+                GetUpdateResponse.create({ update: { oneofKind: undefined } }),
         );
 
         const getUpdateByHashAsync = vi.fn(
             async () =>
-                new GetUpdateByHashResponse({
-                    update: undefined,
-                }),
+                GetUpdateResponse.create({ update: { oneofKind: undefined } }),
         );
 
         const getUpdatesPageAsync = vi.fn(
             async () =>
-                new GetUpdatesPageResponse({
-                    updates: [],
-                    lowestPageOffsetExclusive: "0",
-                    highestPageOffsetInclusive: "0",
-                }),
+                GetUpdatesPageResponse.create({ updates: [] }),
         );
 
         const transport = {
@@ -60,53 +52,72 @@ describe("UpdateServiceClient read methods", () => {
 
         await expect(
             client.getUpdateByOffsetAsync(
-                new GetUpdateByOffsetRequest({
-                    offset: "7",
-                }),
+                GetUpdateByOffsetRequest.create({ offset: "7" }),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetUpdateByOffsetResponse);
+        ).resolves.toBe(
+            await getUpdateByOffsetAsync.mock.results[0]?.value,
+        );
 
         await expect(
             client.getUpdateByIdAsync(
-                new GetUpdateByIdRequest({
-                    updateId: "update-1",
-                }),
+                GetUpdateByIdRequest.create({ updateId: "update-1" }),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetUpdateByIdResponse);
+        ).resolves.toBe(
+            await getUpdateByIdAsync.mock.results[0]?.value,
+        );
 
         await expect(
             client.getUpdateByHashAsync(
-                new GetUpdateByHashRequest({
-                    transactionHash: new Uint8Array([1, 2, 3]),
-                }),
+                GetUpdateByHashRequest.create({ transactionHash: new Uint8Array([1, 2, 3]) }),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetUpdateByHashResponse);
+        ).resolves.toBe(
+            await getUpdateByHashAsync.mock.results[0]?.value,
+        );
 
         await expect(
             client.getUpdatesPageAsync(
-                new GetUpdatesPageRequest(),
+                GetUpdatesPageRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetUpdatesPageResponse);
+        ).resolves.toBe(
+            await getUpdatesPageAsync.mock.results[0]?.value,
+        );
 
         expect(getUpdateByOffsetAsync).toHaveBeenCalledWith(
-            expect.any(GetUpdateByOffsetRequest),
+            expect.objectContaining({ offset: "7" }),
             options,
         );
         expect(getUpdateByIdAsync).toHaveBeenCalledWith(
-            expect.any(GetUpdateByIdRequest),
+            expect.objectContaining({ updateId: "update-1" }),
             options,
         );
         expect(getUpdateByHashAsync).toHaveBeenCalledWith(
-            expect.any(GetUpdateByHashRequest),
+            expect.objectContaining({ transactionHash: new Uint8Array([1, 2, 3]) }),
             options,
         );
         expect(getUpdatesPageAsync).toHaveBeenCalledWith(
-            expect.any(GetUpdatesPageRequest),
+            expect.objectContaining({}),
             options,
         );
+    });
+
+    it("returns generated updates unchanged and exposes a lazy generated stream", async () => {
+        const response = GetUpdateResponse.create({ update: { oneofKind: undefined } });
+        const streamed = GetUpdatesResponse.create({ update: { oneofKind: undefined } });
+        const getUpdateByIdAsync = vi.fn(async () => response);
+        const getUpdatesAsync = vi.fn(() => (async function* () { yield streamed; })());
+        const client = new UpdateServiceClient({
+            features: { supportsCommandSigning: false },
+            getUpdateByIdAsync,
+            getUpdatesAsync,
+        } as never);
+
+        expect(await client.getUpdateByIdAsync(GetUpdateByIdRequest.create({ updateId: "u" }))).toBe(response);
+        const stream = client.getUpdatesAsync(GetUpdatesRequest.create({ beginExclusive: "0" }));
+        expect(getUpdatesAsync).not.toHaveBeenCalled();
+        expect((await stream[Symbol.asyncIterator]().next()).value).toBe(streamed);
     });
 });

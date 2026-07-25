@@ -35,15 +35,10 @@ import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
-import { GetUpdateByHashRequest } from "../../core/types/requests/get-update-by-hash-request.js";
-import { GetUpdateByIdRequest } from "../../core/types/requests/get-update-by-id-request.js";
-import { GetUpdateByOffsetRequest } from "../../core/types/requests/get-update-by-offset-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
 } from "../../core/types/requests/grant-user-rights-request.js";
-import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
-import { GetUpdatesPageRequest } from "../../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
@@ -100,10 +95,6 @@ import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruni
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
-import { GetUpdateByHashResponse } from "../../core/types/responses/get-update-by-hash-response.js";
-import { GetUpdateByIdResponse } from "../../core/types/responses/get-update-by-id-response.js";
-import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update-by-offset-response.js";
-import { GetUpdatesPageResponse } from "../../core/types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
@@ -131,6 +122,16 @@ import { UploadDarFileResponse } from "../../core/types/responses/upload-dar-fil
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
+import type {
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdateResponse,
+    GetUpdatesPageRequest,
+    GetUpdatesPageResponse,
+    GetUpdatesRequest,
+    GetUpdatesResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import {
@@ -1228,11 +1229,10 @@ export class JsonTransport implements ITransport {
         }
     }
 
-    public async getUpdatesAsync(
+    public getUpdatesAsync(
         _request: GetUpdatesRequest,
-        _observer: TransactionObserver,
         _options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<GetUpdatesResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1243,7 +1243,7 @@ export class JsonTransport implements ITransport {
     public async getUpdateByOffsetAsync(
         _request: GetUpdateByOffsetRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByOffsetResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1254,7 +1254,7 @@ export class JsonTransport implements ITransport {
     public async getUpdateByIdAsync(
         _request: GetUpdateByIdRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByIdResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1265,7 +1265,7 @@ export class JsonTransport implements ITransport {
     public async getUpdateByHashAsync(
         _request: GetUpdateByHashRequest,
         _options?: RequestOptions,
-    ): Promise<GetUpdateByHashResponse> {
+    ): Promise<GetUpdateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

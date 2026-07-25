@@ -3,9 +3,9 @@ import {
     GetActiveContractsPageRequest,
     GetActiveContractsPageResponse,
     GetActiveContractsRequest,
-    GetUpdatesRequest,
     NotSupportedError,
 } from "../../../src";
+import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { StateServiceClient } from "../../../src/services/state/state-service-client.js";
 import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
@@ -53,14 +53,12 @@ describe("shared ledger read services contract", () => {
                     },
                 ],
             }),
-            streamTransactionsAsync: async () => [
-                {
-                    update: {
-                        oneofKind: "transaction",
-                        transaction: { transactionId: "grpc-tx-1" },
-                    },
+            streamTransactionsAsync: () => (async function* () { yield {
+                update: {
+                    oneofKind: "transaction",
+                    transaction: { transactionId: "grpc-tx-1" },
                 },
-            ],
+            }; })(),
         });
 
         const jsonStateService = new StateServiceClient(jsonTransport);
@@ -105,21 +103,14 @@ describe("shared ledger read services contract", () => {
             { nextAsync: jsonQueryNextAsync },
         );
         await expect(
-            jsonUpdateService.getUpdatesAsync(
-                new GetUpdatesRequest({
-                    party: "Alice",
-                    templateId: "Main:Iou",
-                }),
-                { nextAsync: vi.fn(async () => undefined) },
-            ),
+            (async () => { for await (const _update of jsonUpdateService.getUpdatesAsync(
+                GetUpdatesRequest.create({ beginExclusive: "0" }),
+            )) {} })(),
         ).rejects.toThrow(NotSupportedError);
-        await grpcUpdateService.getUpdatesAsync(
-            new GetUpdatesRequest({
-                party: "Alice",
-                templateId: "Main:Iou",
-            }),
-            { nextAsync: grpcEventNextAsync },
-        );
+        const grpcUpdates = [];
+        for await (const update of grpcUpdateService.getUpdatesAsync(
+            GetUpdatesRequest.create({ beginExclusive: "0" }),
+        )) grpcUpdates.push(update);
 
         expect(capturedJsonBodies["/v1/query"]).toEqual({
             templateIds: ["Main:Iou"],
@@ -131,8 +122,6 @@ describe("shared ledger read services contract", () => {
         expect(jsonQueryNextAsync).toHaveBeenCalledWith({
             contractId: "json-c1",
         });
-        expect(grpcEventNextAsync).toHaveBeenCalledWith({
-            transactionId: "grpc-tx-1",
-        });
+        expect(grpcUpdates[0]).toMatchObject({ update: { oneofKind: "transaction", transaction: { transactionId: "grpc-tx-1" } } });
     });
 });

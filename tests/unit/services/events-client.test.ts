@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { GetUpdatesRequest, NotSupportedError } from "../../../src";
+import { NotSupportedError } from "../../../src";
+import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
 
 describe("UpdateServiceClient", () => {
@@ -27,11 +28,9 @@ describe("UpdateServiceClient", () => {
             getActiveContractsAsync: async () => {
                 throw new Error("not used");
             },
-            getUpdatesAsync: async () => {
-                throw new NotSupportedError(
-                    "UpdateService.GetUpdates is gRPC-only",
-                );
-            },
+            getUpdatesAsync: () => (async function* () {
+                throw new NotSupportedError("UpdateService.GetUpdates is gRPC-only");
+            })(),
             submitCommandAsync: async () => {
                 throw new Error("not used");
             },
@@ -40,10 +39,9 @@ describe("UpdateServiceClient", () => {
         const client = new UpdateServiceClient(transport);
 
         await expect(
-            client.getUpdatesAsync(
-                new GetUpdatesRequest({ party: "Alice" }),
-                { nextAsync: vi.fn(async () => undefined) },
-            ),
+            (async () => { for await (const _update of client.getUpdatesAsync(
+                GetUpdatesRequest.create({ beginExclusive: "0" }),
+            )) { /* exhaust */ } })(),
         ).rejects.toThrow(NotSupportedError);
     });
 });

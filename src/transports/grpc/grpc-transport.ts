@@ -38,13 +38,8 @@ import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
 import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
-import { GetUpdateByHashRequest } from "../../core/types/requests/get-update-by-hash-request.js";
-import { GetUpdateByIdRequest } from "../../core/types/requests/get-update-by-id-request.js";
-import { GetUpdateByOffsetRequest } from "../../core/types/requests/get-update-by-offset-request.js";
 import { GrantUserRightsRequest } from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { GetUpdatesRequest } from "../../core/types/requests/get-updates-request.js";
-import { GetUpdatesPageRequest } from "../../core/types/requests/get-updates-page-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { HealthCheckRequest } from "../../core/types/requests/health-check-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
@@ -124,10 +119,6 @@ import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruni
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
 import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
-import { GetUpdateByHashResponse } from "../../core/types/responses/get-update-by-hash-response.js";
-import { GetUpdateByIdResponse } from "../../core/types/responses/get-update-by-id-response.js";
-import { GetUpdateByOffsetResponse } from "../../core/types/responses/get-update-by-offset-response.js";
-import { GetUpdatesPageResponse } from "../../core/types/responses/get-updates-page-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
@@ -229,20 +220,6 @@ import {
     mapGrpcListIdentityProviderConfigs,
     mapGrpcListIdentityProviderConfigsRequest,
 } from "./mappers/identity-provider-config-mapper.js";
-import {
-    mapGrpcStreamTransactionsRequest,
-    mapGrpcTransactionEvents,
-} from "./mappers/events-mapper.js";
-import {
-    mapGrpcGetUpdateByHash,
-    mapGrpcGetUpdateByHashRequest,
-    mapGrpcGetUpdateById,
-    mapGrpcGetUpdateByIdRequest,
-    mapGrpcGetUpdateByOffset,
-    mapGrpcGetUpdateByOffsetRequest,
-    mapGrpcGetUpdatesPage,
-    mapGrpcGetUpdatesPageRequest,
-} from "./mappers/update-read-mapper.js";
 import {
     mapGrpcListKnownPackages,
     mapGrpcListKnownPackagesRequest,
@@ -457,6 +434,12 @@ import {
 import {
     GetUpdateResponse as ProtobufGetUpdateResponse,
     GetUpdatesPageResponse as ProtobufGetUpdatesPageResponse,
+    GetUpdateByHashRequest,
+    GetUpdateByIdRequest,
+    GetUpdateByOffsetRequest,
+    GetUpdatesRequest,
+    GetUpdatesPageRequest,
+    GetUpdatesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/update_service.js";
 import {
     CurrentTimeResponse as ProtobufCurrentTimeResponse,
@@ -1972,94 +1955,48 @@ export class GrpcTransport implements ITransport {
         );
     }
 
-    public async getUpdatesAsync(
+    public getUpdatesAsync(
         request: GetUpdatesRequest,
-        observer: TransactionObserver,
         options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<GetUpdatesResponse> {
         this.throwIfDisposed();
-
-        const payload = await this.operations.streamTransactionsAsync(
-            mapGrpcStreamTransactionsRequest({
-                party: request.party,
-                beginOffset: request.beginOffset,
-                endOffset: request.endOffset,
-                templateId: request.templateId,
-            }),
-            options,
-        );
-
-        const events = mapGrpcTransactionEvents(
-            payload as { events?: unknown[] } | readonly unknown[],
-        );
-
-        for (const event of events) {
-            await observer.nextAsync(event);
-        }
+        return this.operations.streamTransactionsAsync(request, options);
     }
 
     public async getUpdateByOffsetAsync(
         request: GetUpdateByOffsetRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByOffsetResponse> {
+    ): Promise<ProtobufGetUpdateResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getUpdateByOffsetAsync!(
-            mapGrpcGetUpdateByOffsetRequest(request),
-            options,
-        );
-
-        return mapGrpcGetUpdateByOffset(
-            payload as Partial<ProtobufGetUpdateResponse>,
-        );
+        return await this.operations.getUpdateByOffsetAsync!(request, options) as ProtobufGetUpdateResponse;
     }
 
     public async getUpdateByIdAsync(
         request: GetUpdateByIdRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByIdResponse> {
+    ): Promise<ProtobufGetUpdateResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getUpdateByIdAsync!(
-            mapGrpcGetUpdateByIdRequest(request),
-            options,
-        );
-
-        return mapGrpcGetUpdateById(
-            payload as Partial<ProtobufGetUpdateResponse>,
-        );
+        return await this.operations.getUpdateByIdAsync!(request, options) as ProtobufGetUpdateResponse;
     }
 
     public async getUpdateByHashAsync(
         request: GetUpdateByHashRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdateByHashResponse> {
+    ): Promise<ProtobufGetUpdateResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getUpdateByHashAsync!(
-            mapGrpcGetUpdateByHashRequest(request),
-            options,
-        );
-
-        return mapGrpcGetUpdateByHash(
-            payload as Partial<ProtobufGetUpdateResponse>,
-        );
+        return await this.operations.getUpdateByHashAsync!(request, options) as ProtobufGetUpdateResponse;
     }
 
     public async getUpdatesPageAsync(
         request: GetUpdatesPageRequest,
         options?: RequestOptions,
-    ): Promise<GetUpdatesPageResponse> {
+    ): Promise<ProtobufGetUpdatesPageResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getUpdatesPageAsync!(
-            mapGrpcGetUpdatesPageRequest(request),
-            options,
-        );
-
-        return mapGrpcGetUpdatesPage(
-            payload as Partial<ProtobufGetUpdatesPageResponse>,
-        );
+        return await this.operations.getUpdatesPageAsync!(request, options) as ProtobufGetUpdatesPageResponse;
     }
 
     public async getCompletionsAsync(
