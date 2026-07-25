@@ -9,7 +9,6 @@ import { GetActiveContractsRequest } from "../../core/types/requests/get-active-
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
-import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
@@ -44,7 +43,6 @@ import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-asyn
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
@@ -117,8 +115,6 @@ import {
     mapGrpcGetNoWaitCommitmentsFromRequest,
     mapGrpcGetParticipantPruningSchedule,
     mapGrpcGetParticipantPruningScheduleRequest,
-    mapGrpcGetPruningSchedule,
-    mapGrpcGetPruningScheduleRequest,
 } from "./mappers/pruning-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
@@ -329,6 +325,7 @@ import type {
 import {
     GetNoWaitCommitmentsFromResponse as ProtobufGetNoWaitCommitmentsFromResponse,
     GetParticipantScheduleResponse as ProtobufGetParticipantScheduleResponse,
+    GetScheduleRequest as ProtobufGetScheduleRequest,
     GetScheduleResponse as ProtobufGetScheduleResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import type {
@@ -947,19 +944,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getPruningScheduleAsync(
-        request: GetPruningScheduleRequest,
+        request: ProtobufGetScheduleRequest,
         options?: RequestOptions,
-    ): Promise<GetPruningScheduleResponse> {
+    ): Promise<ProtobufGetScheduleResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getPruningScheduleAsync!(
-            mapGrpcGetPruningScheduleRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetPruningSchedule(
-            payload as Partial<ProtobufGetScheduleResponse>,
-        );
+        return payload as ProtobufGetScheduleResponse;
     }
 
     public async getParticipantPruningScheduleAsync(

@@ -30,7 +30,6 @@ import { GetParticipantIdRequest } from "../core/types/requests/get-participant-
 import { GetParticipantPruningScheduleRequest } from "../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
-import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-schedule-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
@@ -96,8 +95,9 @@ import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
 import { GetParticipantPruningScheduleResponse } from "../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPartiesResponse } from "../core/types/responses/get-parties-response.js";
-import { GetPruningScheduleResponse } from "../core/types/responses/get-pruning-schedule-response.js";
 import type {
+    GetScheduleRequest as GetPruningScheduleRequest,
+    GetScheduleResponse as GetPruningScheduleResponse,
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";

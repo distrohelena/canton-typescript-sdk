@@ -251,7 +251,6 @@ export { ImportTopologySnapshotV2Request } from "./core/types/requests/import-to
 export { GetNoWaitCommitmentsFromRequest } from "./core/types/requests/get-no-wait-commitments-from-request.js";
 export { GetParticipantPruningScheduleRequest } from "./core/types/requests/get-participant-pruning-schedule-request.js";
 export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
-export { GetPruningScheduleRequest } from "./core/types/requests/get-pruning-schedule-request.js";
 export { GetPackageRequest } from "./core/types/requests/get-package-request.js";
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
 export { GetPackageStatusRequest } from "./core/types/requests/get-package-status-request.js";
@@ -310,7 +309,6 @@ export { GetPackageResponse } from "./core/types/responses/get-package-response.
 export { GetPackageReferencesResponse } from "./core/types/responses/get-package-references-response.js";
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
-export { GetPruningScheduleResponse } from "./core/types/responses/get-pruning-schedule-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";

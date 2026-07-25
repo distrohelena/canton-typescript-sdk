@@ -24,7 +24,6 @@ import { GetActiveContractsRequest } from "../types/requests/get-active-contract
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
-import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
@@ -70,8 +69,9 @@ import type {
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
-import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
 import type {
+    GetScheduleRequest as GetPruningScheduleRequest,
+    GetScheduleResponse as GetPruningScheduleResponse,
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";

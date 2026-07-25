@@ -4,10 +4,8 @@ import { SafeToPruneCommitmentState } from "../../../core/types/safe-to-prune-co
 import { WaitCommitmentsSetup } from "../../../core/types/wait-commitments-setup.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../../core/types/requests/get-participant-pruning-schedule-request.js";
-import { GetPruningScheduleRequest } from "../../../core/types/requests/get-pruning-schedule-request.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetPruningScheduleResponse } from "../../../core/types/responses/get-pruning-schedule-response.js";
 import {
     SafeToPruneCommitmentState as GrpcSafeToPruneCommitmentState,
 } from "../generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
@@ -23,20 +21,6 @@ import {
     WaitCommitmentsSetup as GrpcWaitCommitmentsSetup,
 } from "../generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { mapGrpcTimestamp, mapSdkDuration } from "./topology-common-mapper.js";
-
-export function mapGrpcGetPruningScheduleRequest(
-    _request: GetPruningScheduleRequest,
-): GrpcGetScheduleRequest {
-    return {};
-}
-
-export function mapGrpcGetPruningSchedule(
-    payload?: Partial<GrpcGetScheduleResponse>,
-): GetPruningScheduleResponse {
-    return new GetPruningScheduleResponse({
-        schedule: mapGrpcPruningSchedule(payload?.schedule),
-    });
-}
 
 export function mapGrpcGetParticipantPruningScheduleRequest(
     _request: GetParticipantPruningScheduleRequest,

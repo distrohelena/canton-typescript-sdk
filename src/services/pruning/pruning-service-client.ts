@@ -2,10 +2,12 @@ import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
-import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
+import type {
+    GetScheduleRequest as GetPruningScheduleRequest,
+    GetScheduleResponse as GetPruningScheduleResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import type {
     GetSafePruningOffsetRequest,
     GetSafePruningOffsetResponse,
