@@ -45,7 +45,6 @@ import { GetPackageRequest } from "../types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../types/requests/get-participant-id-request.js";
-import { GetParticipantStatusRequest } from "../types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../types/requests/get-resource-limits-request.js";
@@ -124,7 +123,6 @@ import { GetPackageResponse } from "../types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../types/responses/get-package-status-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
 import { GetParticipantIdResponse } from "../types/responses/get-participant-id-response.js";
-import { GetParticipantStatusResponse } from "../types/responses/get-participant-status-response.js";
 import { GetPartiesResponse } from "../types/responses/get-parties-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
@@ -196,6 +194,7 @@ import { RequestOptions } from "../types/request-options.js";
 import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
+import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;
@@ -367,9 +366,9 @@ export interface ITransport {
 
     /** Reads participant admin status. Supported on gRPC; JSON rejects it. */
     getParticipantStatusAsync(
-        request: GetParticipantStatusRequest,
+        request: ParticipantStatusRequest,
         options?: RequestOptions,
-    ): Promise<GetParticipantStatusResponse>;
+    ): Promise<ParticipantStatusResponse>;
 
     /** Reads the participant ledger offset for a timestamp. Supported on gRPC; JSON rejects it. */
     lookupOffsetByTimeAsync(

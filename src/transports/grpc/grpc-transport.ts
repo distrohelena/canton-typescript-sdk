@@ -28,7 +28,6 @@ import { GetPackageRequest } from "../../core/types/requests/get-package-request
 import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
-import { GetParticipantStatusRequest } from "../../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
@@ -102,7 +101,6 @@ import { GetPackageResponse } from "../../core/types/responses/get-package-respo
 import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
@@ -230,8 +228,6 @@ import {
     mapGrpcUploadPackageRequest,
 } from "./mappers/packages-mapper.js";
 import {
-    mapGrpcGetParticipantStatusRequest,
-    mapGrpcParticipantStatusResponse,
 } from "./mappers/participant-status-mapper.js";
 import {
     mapGrpcCountInFlight,
@@ -474,7 +470,7 @@ import {
     GetScheduleResponse as ProtobufGetScheduleResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { TrafficControlStateResponse as ProtobufTrafficControlStateResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
-import { ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import { ParticipantStatusRequest, ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { GetResourceLimitsResponse as ProtobufGetResourceLimitsResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import {
     ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
@@ -964,19 +960,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getParticipantStatusAsync(
-        request: GetParticipantStatusRequest,
+        request: ParticipantStatusRequest,
         options?: RequestOptions,
-    ): Promise<GetParticipantStatusResponse> {
+    ): Promise<ProtobufParticipantStatusResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantStatusAsync!(
-            mapGrpcGetParticipantStatusRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcParticipantStatusResponse(
-            payload as Partial<ProtobufParticipantStatusResponse>,
-        );
+        return payload as ProtobufParticipantStatusResponse;
     }
 
     public async lookupOffsetByTimeAsync(

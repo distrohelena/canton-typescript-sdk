@@ -25,7 +25,6 @@ import { GetPackageRequest } from "../../core/types/requests/get-package-request
 import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
-import { GetParticipantStatusRequest } from "../../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
@@ -86,7 +85,6 @@ import { GetPackageResponse } from "../../core/types/responses/get-package-respo
 import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
@@ -122,6 +120,7 @@ import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/canton/google/grpc/health/v1/health.js";
 import { GetLedgerApiVersionResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { GetLedgerApiVersionRequest } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
+import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { ObjectDisposedError } from "../../core/errors/object-disposed-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import type {
@@ -547,9 +546,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async getParticipantStatusAsync(
-        _request: GetParticipantStatusRequest,
+        _request: ParticipantStatusRequest,
         _options?: RequestOptions,
-    ): Promise<GetParticipantStatusResponse> {
+    ): Promise<ParticipantStatusResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

@@ -1,7 +1,6 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { GetParticipantStatusRequest } from "../../core/types/requests/get-participant-status-request.js";
-import { GetParticipantStatusResponse } from "../../core/types/responses/get-participant-status-response.js";
+import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 
 export class ParticipantStatusServiceClient {
     public constructor(private readonly transport: ITransport) {
@@ -10,9 +9,9 @@ export class ParticipantStatusServiceClient {
 
     /** Reads participant admin status. Supported on gRPC; JSON rejects it. */
     public getParticipantStatusAsync(
-        request: GetParticipantStatusRequest,
+        request: ParticipantStatusRequest,
         options?: RequestOptions,
-    ): Promise<GetParticipantStatusResponse> {
+    ): Promise<ParticipantStatusResponse> {
         return this.transport.getParticipantStatusAsync(request, options);
     }
 }
