@@ -74,7 +74,14 @@ function generatedExportExists(identity: string): boolean {
 
     const source = readFileSync(resolve(process.cwd(), sourceFile), "utf8");
 
-    return new RegExp(`export (?:interface|class|const) ${symbol}(?:\\s|=|<)`).test(source);
+    if (new RegExp(`export (?:interface|class|const) ${symbol}(?:\\s|=|<)`).test(source)) {
+        return true;
+    }
+
+    // Some generated service modules import message types from their protobuf
+    // module rather than re-exporting them. They still resolve to a generated
+    // identity and are valid inventory references.
+    return new RegExp(`import(?: type)? \\{ ${symbol} \\} from "\\.\\.[^"]+"`).test(source);
 }
 
 describe("protobuf RPC disposition inventory", () => {
@@ -101,6 +108,11 @@ describe("protobuf RPC disposition inventory", () => {
     });
 
     it("documents complete generated and JSON adapter contracts for direct RPCs", () => {
+        const grpcFactory = readFileSync(
+            resolve(process.cwd(), "src/transports/grpc/grpc-channel-factory.ts"),
+            "utf8",
+        );
+
         for (const entry of readInventory().filter(
             (candidate) => candidate.disposition === "direct-rpc",
         )) {
@@ -119,6 +131,8 @@ describe("protobuf RPC disposition inventory", () => {
                     "src/transports/grpc/grpc-channel-factory.ts",
                     "GrpcOperations",
                 )).toContain(entry.grpcOperation.slice("GrpcOperations.".length));
+                const [service, rpc] = entry.serviceRpc.split(".");
+                expect(grpcFactory, entry.method).toContain(`${service}.${rpc}(`);
             }
 
             if (entry.json.status === "supported") {

@@ -2,7 +2,7 @@
 
 This is the migration source of truth for every declared public transport and gRPC operation. It is enforced by `tests/unit/public/protobuf-rpc-inventory.test.ts` against the two interfaces.
 
-`direct-rpc` entries migrate to the recorded generated request and unary/stream response. `high-level` retains SDK workflows (lifecycle, interactive signing/preparation, command coordination, decentralized-party allocation, and the JSON-only active-contract observer stream). `removed` is a legacy internal alias. JSON capability is deliberately independent from that public disposition.
+`direct-rpc` entries record exact generated `module#symbol` request and unary/stream response identities derived from generated client signatures. `high-level` retains SDK workflows, including the JSON-only active-contract observer stream; `removed` is a legacy internal alias.
 
 ## Structured inventory
 
@@ -25,9 +25,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getLedgerApiVersionAsync",
-    "serviceRpc": "GetHealth service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "versionServiceClient.getLedgerApiVersion",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.ts#GetLedgerApiVersionRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.ts#GetLedgerApiVersionResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getHealthAsync",
     "json": {
@@ -41,9 +41,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "checkHealthAsync",
-    "serviceRpc": "CheckHealth service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "healthClient.check",
+    "generatedRequest": "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.checkHealthAsync",
     "json": {
@@ -55,9 +55,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "allocatePartyAsync",
-    "serviceRpc": "CreateParty service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.allocateParty",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#AllocatePartyRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#AllocatePartyResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.createPartyAsync",
     "json": {
@@ -99,9 +99,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listKnownPartiesAsync",
-    "serviceRpc": "ListParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.listKnownParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#ListKnownPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#ListKnownPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartiesAsync",
     "json": {
@@ -115,9 +115,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantIdAsync",
-    "serviceRpc": "GetParticipantId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.getParticipantId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetParticipantIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetParticipantIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantIdAsync",
     "json": {
@@ -129,9 +129,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getPartiesAsync",
-    "serviceRpc": "GetParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.getParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPartiesAsync",
     "json": {
@@ -143,9 +143,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "grantUserRightsAsync",
-    "serviceRpc": "GrantUserRights service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.grantUserRights",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GrantUserRightsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GrantUserRightsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.grantUserRightsAsync",
     "json": {
@@ -159,9 +159,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getCommandStatusAsync",
-    "serviceRpc": "GetCommandStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "commandInspectionServiceClient.getCommandStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.ts#GetCommandStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.ts#GetCommandStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getCommandStatusAsync",
     "json": {
@@ -173,9 +173,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUserAsync",
-    "serviceRpc": "GetUser service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.getUser",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GetUserRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GetUserResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUserAsync",
     "json": {
@@ -187,9 +187,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listUsersAsync",
-    "serviceRpc": "ListUsers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.listUsers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUsersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUsersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listUsersAsync",
     "json": {
@@ -201,9 +201,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listUserRightsAsync",
-    "serviceRpc": "ListUserRights service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.listUserRights",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUserRightsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUserRightsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listUserRightsAsync",
     "json": {
@@ -215,9 +215,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "uploadDarFileAsync",
-    "serviceRpc": "UploadPackage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "packageManagementServiceClient.uploadDarFile",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#UploadDarFileRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#UploadDarFileResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.uploadPackageAsync",
     "json": {
@@ -231,9 +231,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listKnownPackagesAsync",
-    "serviceRpc": "ListKnownPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "packageManagementServiceClient.listKnownPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#ListKnownPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#ListKnownPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listKnownPackagesAsync",
     "json": {
@@ -245,9 +245,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getIdentityProviderConfigAsync",
-    "serviceRpc": "GetIdentityProviderConfig service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityProviderConfigServiceClient.getIdentityProviderConfig",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#GetIdentityProviderConfigRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#GetIdentityProviderConfigResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIdentityProviderConfigAsync",
     "json": {
@@ -259,9 +259,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listIdentityProviderConfigsAsync",
-    "serviceRpc": "ListIdentityProviderConfigs service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityProviderConfigServiceClient.listIdentityProviderConfigs",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#ListIdentityProviderConfigsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#ListIdentityProviderConfigsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listIdentityProviderConfigsAsync",
     "json": {
@@ -273,9 +273,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listPackagesAsync",
-    "serviceRpc": "ListPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.listPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPackagesAsync",
     "json": {
@@ -287,9 +287,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getPackageAsync",
-    "serviceRpc": "GetPackage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.getPackage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPackageAsync",
     "json": {
@@ -301,9 +301,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getPackageStatusAsync",
-    "serviceRpc": "GetPackageStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.getPackageStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPackageStatusAsync",
     "json": {
@@ -315,9 +315,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listVettedPackagesAsync",
-    "serviceRpc": "ListVettedPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.listVettedPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListVettedPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListVettedPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listVettedPackagesAsync",
     "json": {
@@ -329,9 +329,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listParticipantPackagesAsync",
-    "serviceRpc": "ListParticipantPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.listPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantPackagesAsync",
     "json": {
@@ -343,9 +343,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantPackageContentsAsync",
-    "serviceRpc": "GetParticipantPackageContents service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getPackageContents",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageContentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageContentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPackageContentsAsync",
     "json": {
@@ -357,9 +357,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantPackageReferencesAsync",
-    "serviceRpc": "GetParticipantPackageReferences service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getPackageReferences",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageReferencesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageReferencesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPackageReferencesAsync",
     "json": {
@@ -371,9 +371,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantDarAsync",
-    "serviceRpc": "GetParticipantDar service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getDar",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantDarAsync",
     "json": {
@@ -385,9 +385,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listParticipantDarsAsync",
-    "serviceRpc": "ListParticipantDars service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.listDars",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListDarsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListDarsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantDarsAsync",
     "json": {
@@ -399,9 +399,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantDarContentsAsync",
-    "serviceRpc": "GetParticipantDarContents service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getDarContents",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarContentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarContentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantDarContentsAsync",
     "json": {
@@ -413,9 +413,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantStatusAsync",
-    "serviceRpc": "GetParticipantStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantStatusServiceClient.participantStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.ts#ParticipantStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.ts#ParticipantStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantStatusAsync",
     "json": {
@@ -427,9 +427,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "lookupOffsetByTimeAsync",
-    "serviceRpc": "LookupOffsetByTime service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupOffsetByTime",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupOffsetByTimeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupOffsetByTimeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupOffsetByTimeAsync",
     "json": {
@@ -441,9 +441,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "openCommitmentAsync",
-    "serviceRpc": "OpenCommitment service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.openCommitment",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#OpenCommitmentRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#OpenCommitmentResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.openCommitmentAsync",
     "json": {
@@ -455,9 +455,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "inspectCommitmentContractsAsync",
-    "serviceRpc": "InspectCommitmentContracts service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.inspectCommitmentContracts",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#InspectCommitmentContractsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#InspectCommitmentContractsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.inspectCommitmentContractsAsync",
     "json": {
@@ -469,9 +469,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "countInFlightAsync",
-    "serviceRpc": "CountInFlight service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.countInFlight",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#CountInFlightRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#CountInFlightResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.countInFlightAsync",
     "json": {
@@ -483,9 +483,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getConfigForSlowCounterParticipantsAsync",
-    "serviceRpc": "GetConfigForSlowCounterParticipants service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.getConfigForSlowCounterParticipants",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetConfigForSlowCounterParticipantsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetConfigForSlowCounterParticipantsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getConfigForSlowCounterParticipantsAsync",
     "json": {
@@ -497,9 +497,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getIntervalsBehindForCounterParticipantsAsync",
-    "serviceRpc": "GetIntervalsBehindForCounterParticipants service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.getIntervalsBehindForCounterParticipants",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetIntervalsBehindForCounterParticipantsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetIntervalsBehindForCounterParticipantsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIntervalsBehindForCounterParticipantsAsync",
     "json": {
@@ -511,9 +511,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "lookupSentAcsCommitmentsAsync",
-    "serviceRpc": "LookupSentAcsCommitments service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupSentAcsCommitments",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupSentAcsCommitmentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupSentAcsCommitmentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupSentAcsCommitmentsAsync",
     "json": {
@@ -525,9 +525,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "lookupReceivedAcsCommitmentsAsync",
-    "serviceRpc": "LookupReceivedAcsCommitments service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupReceivedAcsCommitments",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupReceivedAcsCommitmentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupReceivedAcsCommitmentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupReceivedAcsCommitmentsAsync",
     "json": {
@@ -539,9 +539,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "addPartyAsync",
-    "serviceRpc": "AddParty service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.addPartyAsync",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#AddPartyAsyncRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#AddPartyAsyncResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.addPartyAsync",
     "json": {
@@ -553,9 +553,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "clearPartyOnboardingFlagAsync",
-    "serviceRpc": "ClearPartyOnboardingFlag service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.clearPartyOnboardingFlag",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#ClearPartyOnboardingFlagRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#ClearPartyOnboardingFlagResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.clearPartyOnboardingFlagAsync",
     "json": {
@@ -567,9 +567,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getHighestOffsetByTimestampAsync",
-    "serviceRpc": "GetHighestOffsetByTimestamp service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.getHighestOffsetByTimestamp",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#GetHighestOffsetByTimestampRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#GetHighestOffsetByTimestampResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getHighestOffsetByTimestampAsync",
     "json": {
@@ -581,9 +581,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getSafePruningOffsetAsync",
-    "serviceRpc": "GetSafePruningOffset service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getSafePruningOffset",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetSafePruningOffsetRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetSafePruningOffsetResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getSafePruningOffsetAsync",
     "json": {
@@ -595,9 +595,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getPruningScheduleAsync",
-    "serviceRpc": "GetPruningSchedule service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getSchedule",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetScheduleRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetScheduleResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPruningScheduleAsync",
     "json": {
@@ -609,9 +609,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getParticipantPruningScheduleAsync",
-    "serviceRpc": "GetParticipantPruningSchedule service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getParticipantSchedule",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetParticipantScheduleRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetParticipantScheduleResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPruningScheduleAsync",
     "json": {
@@ -623,9 +623,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getNoWaitCommitmentsFromAsync",
-    "serviceRpc": "GetNoWaitCommitmentsFrom service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getNoWaitCommitmentsFrom",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetNoWaitCommitmentsFromRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetNoWaitCommitmentsFromResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getNoWaitCommitmentsFromAsync",
     "json": {
@@ -637,9 +637,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "trafficControlStateAsync",
-    "serviceRpc": "TrafficControlState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "trafficControlServiceClient.trafficControlState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.ts#TrafficControlStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.ts#TrafficControlStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.trafficControlStateAsync",
     "json": {
@@ -651,9 +651,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listConnectedSynchronizersAsync",
-    "serviceRpc": "ListConnectedSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.listConnectedSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListConnectedSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListConnectedSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listConnectedSynchronizersAsync",
     "json": {
@@ -665,9 +665,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getSynchronizerIdAsync",
-    "serviceRpc": "GetSynchronizerId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.getSynchronizerId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#GetSynchronizerIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#GetSynchronizerIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getSynchronizerIdAsync",
     "json": {
@@ -679,9 +679,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listRegisteredSynchronizersAsync",
-    "serviceRpc": "ListRegisteredSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.listRegisteredSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListRegisteredSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListRegisteredSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listRegisteredSynchronizersAsync",
     "json": {
@@ -693,9 +693,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listPendingOperationsAsync",
-    "serviceRpc": "ListPendingOperations service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantRepairServiceClient.listPendingOperations",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.ts#ListPendingOperationsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.ts#ListPendingOperationsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPendingOperationsAsync",
     "json": {
@@ -707,9 +707,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getResourceLimitsAsync",
-    "serviceRpc": "GetResourceLimits service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "resourceManagementServiceClient.getResourceLimits",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.ts#GetResourceLimitsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.ts#GetResourceLimitsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getResourceLimitsAsync",
     "json": {
@@ -721,9 +721,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getIdAsync",
-    "serviceRpc": "GetId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityInitializationServiceClient.getId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#GetIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#GetIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIdAsync",
     "json": {
@@ -735,9 +735,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "currentTimeAsync",
-    "serviceRpc": "CurrentTime service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityInitializationServiceClient.currentTime",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#CurrentTimeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#CurrentTimeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.currentTimeAsync",
     "json": {
@@ -749,9 +749,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getContractAsync",
-    "serviceRpc": "GetContract service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "contractServiceClient.getContract",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.ts#GetContractRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.ts#GetContractResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getContractAsync",
     "json": {
@@ -763,9 +763,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getEventsByContractIdAsync",
-    "serviceRpc": "GetEventsByContractId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "eventQueryServiceClient.getEventsByContractId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.ts#GetEventsByContractIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.ts#GetEventsByContractIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getEventsByContractIdAsync",
     "json": {
@@ -777,9 +777,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listNamespaceDelegationAsync",
-    "serviceRpc": "ListNamespaceDelegation service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listNamespaceDelegation",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListNamespaceDelegationRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListNamespaceDelegationResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listNamespaceDelegationAsync",
     "json": {
@@ -791,9 +791,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listDecentralizedNamespaceDefinitionAsync",
-    "serviceRpc": "ListDecentralizedNamespaceDefinition service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listDecentralizedNamespaceDefinition",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListDecentralizedNamespaceDefinitionRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListDecentralizedNamespaceDefinitionResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listDecentralizedNamespaceDefinitionAsync",
     "json": {
@@ -805,9 +805,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listOwnerToKeyMappingAsync",
-    "serviceRpc": "ListOwnerToKeyMapping service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listOwnerToKeyMapping",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListOwnerToKeyMappingRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListOwnerToKeyMappingResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listOwnerToKeyMappingAsync",
     "json": {
@@ -819,9 +819,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listPartyToKeyMappingAsync",
-    "serviceRpc": "ListPartyToKeyMapping service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyToKeyMapping",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToKeyMappingRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToKeyMappingResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyToKeyMappingAsync",
     "json": {
@@ -833,9 +833,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listSynchronizerTrustCertificateAsync",
-    "serviceRpc": "ListSynchronizerTrustCertificate service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSynchronizerTrustCertificate",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerTrustCertificateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerTrustCertificateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSynchronizerTrustCertificateAsync",
     "json": {
@@ -847,9 +847,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listParticipantSynchronizerPermissionAsync",
-    "serviceRpc": "ListParticipantSynchronizerPermission service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listParticipantSynchronizerPermission",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListParticipantSynchronizerPermissionRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListParticipantSynchronizerPermissionResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantSynchronizerPermissionAsync",
     "json": {
@@ -861,9 +861,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "authorizeTopologyTransactionsAsync",
-    "serviceRpc": "AuthorizeTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.authorize",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AuthorizeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AuthorizeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.authorizeTopologyTransactionsAsync",
     "json": {
@@ -875,9 +875,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "addTopologyTransactionsAsync",
-    "serviceRpc": "AddTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.addTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AddTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AddTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.addTopologyTransactionsAsync",
     "json": {
@@ -889,9 +889,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "importTopologySnapshotAsync",
-    "serviceRpc": "ImportTopologySnapshot service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.importTopologySnapshot",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.importTopologySnapshotAsync",
     "json": {
@@ -903,9 +903,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "importTopologySnapshotV2Async",
-    "serviceRpc": "ImportTopologySnapshotV2 service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.importTopologySnapshotV2",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotV2Request",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotV2Response",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.importTopologySnapshotV2Async",
     "json": {
@@ -917,9 +917,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "signTopologyTransactionsAsync",
-    "serviceRpc": "SignTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.signTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#SignTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#SignTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.signTopologyTransactionsAsync",
     "json": {
@@ -931,9 +931,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "generateTopologyTransactionsAsync",
-    "serviceRpc": "GenerateTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.generateTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#GenerateTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#GenerateTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.generateTopologyTransactionsAsync",
     "json": {
@@ -945,9 +945,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "createTemporaryTopologyStoreAsync",
-    "serviceRpc": "CreateTemporaryTopologyStore service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.createTemporaryTopologyStore",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#CreateTemporaryTopologyStoreRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#CreateTemporaryTopologyStoreResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.createTemporaryTopologyStoreAsync",
     "json": {
@@ -959,9 +959,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "dropTemporaryTopologyStoreAsync",
-    "serviceRpc": "DropTemporaryTopologyStore service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.dropTemporaryTopologyStore",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#DropTemporaryTopologyStoreRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#DropTemporaryTopologyStoreResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.dropTemporaryTopologyStoreAsync",
     "json": {
@@ -973,9 +973,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listPartyHostingLimitsAsync",
-    "serviceRpc": "ListPartyHostingLimits service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyHostingLimits",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyHostingLimitsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyHostingLimitsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyHostingLimitsAsync",
     "json": {
@@ -987,9 +987,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "topologyListVettedPackagesAsync",
-    "serviceRpc": "TopologyListVettedPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listVettedPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListVettedPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListVettedPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.topologyListVettedPackagesAsync",
     "json": {
@@ -1001,9 +1001,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listPartyToParticipantAsync",
-    "serviceRpc": "ListPartyToParticipant service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyToParticipant",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToParticipantRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToParticipantResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyToParticipantAsync",
     "json": {
@@ -1015,9 +1015,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listSynchronizerParametersStateAsync",
-    "serviceRpc": "ListSynchronizerParametersState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSynchronizerParametersState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerParametersStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerParametersStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSynchronizerParametersStateAsync",
     "json": {
@@ -1029,9 +1029,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listSequencingParametersStateAsync",
-    "serviceRpc": "ListSequencingParametersState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSequencingParametersState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencingParametersStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencingParametersStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSequencingParametersStateAsync",
     "json": {
@@ -1043,9 +1043,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listMediatorSynchronizerStateAsync",
-    "serviceRpc": "ListMediatorSynchronizerState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listMediatorSynchronizerState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListMediatorSynchronizerStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListMediatorSynchronizerStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listMediatorSynchronizerStateAsync",
     "json": {
@@ -1057,9 +1057,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listSequencerSynchronizerStateAsync",
-    "serviceRpc": "ListSequencerSynchronizerState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSequencerSynchronizerState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencerSynchronizerStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencerSynchronizerStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSequencerSynchronizerStateAsync",
     "json": {
@@ -1071,9 +1071,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listLsuAnnouncementAsync",
-    "serviceRpc": "ListLsuAnnouncement service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listLsuAnnouncement",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuAnnouncementRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuAnnouncementResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listLsuAnnouncementAsync",
     "json": {
@@ -1085,9 +1085,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listLsuSequencerConnectionSuccessorAsync",
-    "serviceRpc": "ListLsuSequencerConnectionSuccessor service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listLsuSequencerConnectionSuccessor",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuSequencerConnectionSuccessorRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuSequencerConnectionSuccessorResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listLsuSequencerConnectionSuccessorAsync",
     "json": {
@@ -1099,9 +1099,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listAvailableStoresAsync",
-    "serviceRpc": "ListAvailableStores service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAvailableStores",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAvailableStoresRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAvailableStoresResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAvailableStoresAsync",
     "json": {
@@ -1113,9 +1113,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listAllAsync",
-    "serviceRpc": "ListAll service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAll",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAllAsync",
     "json": {
@@ -1127,9 +1127,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listAllV2Async",
-    "serviceRpc": "ListAllV2 service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAllV2",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllV2Request",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllV2Response",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAllV2Async",
     "json": {
@@ -1141,9 +1141,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "topologyListPartiesAsync",
-    "serviceRpc": "TopologyListParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyAggregationServiceClient.listParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.topologyListPartiesAsync",
     "json": {
@@ -1155,9 +1155,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "listKeyOwnersAsync",
-    "serviceRpc": "ListKeyOwners service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyAggregationServiceClient.listKeyOwners",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListKeyOwnersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListKeyOwnersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listKeyOwnersAsync",
     "json": {
@@ -1169,9 +1169,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getActiveContractsPageAsync",
-    "serviceRpc": "QueryContracts service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getActiveContractsPage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetActiveContractsPageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetActiveContractsPageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.queryContractsAsync",
     "json": {
@@ -1183,9 +1183,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getConnectedSynchronizersAsync",
-    "serviceRpc": "GetConnectedSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getConnectedSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetConnectedSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetConnectedSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getConnectedSynchronizersAsync",
     "json": {
@@ -1197,9 +1197,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getLedgerEndAsync",
-    "serviceRpc": "GetLedgerEnd service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getLedgerEnd",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLedgerEndRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLedgerEndResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getLedgerEndAsync",
     "json": {
@@ -1211,9 +1211,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getLatestPrunedOffsetsAsync",
-    "serviceRpc": "GetLatestPrunedOffsets service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getLatestPrunedOffsets",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLatestPrunedOffsetsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLatestPrunedOffsetsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getLatestPrunedOffsetsAsync",
     "json": {
@@ -1241,9 +1241,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUpdatesAsync",
-    "serviceRpc": "StreamTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "updateServiceClient.getUpdates",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.streamTransactionsAsync",
     "json": {
@@ -1255,9 +1255,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUpdateByOffsetAsync",
-    "serviceRpc": "GetUpdateByOffset service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByOffsetRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateByOffset",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByOffsetRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByOffsetAsync",
     "json": {
@@ -1269,9 +1269,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUpdateByIdAsync",
-    "serviceRpc": "GetUpdateById service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByIdRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateById",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByIdAsync",
     "json": {
@@ -1283,9 +1283,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUpdateByHashAsync",
-    "serviceRpc": "GetUpdateByHash service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByHashRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateByHash",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByHashRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByHashAsync",
     "json": {
@@ -1297,9 +1297,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getUpdatesPageAsync",
-    "serviceRpc": "GetUpdatesPage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesPageRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesPageResponse",
+    "serviceRpc": "updateServiceClient.getUpdatesPage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesPageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesPageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdatesPageAsync",
     "json": {
@@ -1311,9 +1311,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "ITransport",
     "method": "getCompletionsAsync",
-    "serviceRpc": "GetCompletions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "commandCompletionServiceClient.getCompletions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.ts#GetCompletionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.ts#CompletionStreamResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getCompletionsAsync",
     "json": {
@@ -1395,9 +1395,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "checkHealthAsync",
-    "serviceRpc": "CheckHealth service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "healthClient.check",
+    "generatedRequest": "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.checkHealthAsync",
     "json": {
@@ -1425,9 +1425,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "createPartyAsync",
-    "serviceRpc": "CreateParty service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.allocateParty",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#AllocatePartyRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#AllocatePartyResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.createPartyAsync",
     "json": {
@@ -1441,9 +1441,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPartiesAsync",
-    "serviceRpc": "ListParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.listKnownParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#ListKnownPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#ListKnownPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartiesAsync",
     "json": {
@@ -1485,9 +1485,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantIdAsync",
-    "serviceRpc": "GetParticipantId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.getParticipantId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetParticipantIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetParticipantIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantIdAsync",
     "json": {
@@ -1499,9 +1499,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getPartiesAsync",
-    "serviceRpc": "GetParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "partyManagementServiceClient.getParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.ts#GetPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPartiesAsync",
     "json": {
@@ -1513,9 +1513,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "grantUserRightsAsync",
-    "serviceRpc": "GrantUserRights service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.grantUserRights",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GrantUserRightsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GrantUserRightsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.grantUserRightsAsync",
     "json": {
@@ -1529,9 +1529,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getCommandStatusAsync",
-    "serviceRpc": "GetCommandStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "commandInspectionServiceClient.getCommandStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.ts#GetCommandStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.ts#GetCommandStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getCommandStatusAsync",
     "json": {
@@ -1543,9 +1543,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getUserAsync",
-    "serviceRpc": "GetUser service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.getUser",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GetUserRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#GetUserResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUserAsync",
     "json": {
@@ -1557,9 +1557,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listUsersAsync",
-    "serviceRpc": "ListUsers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.listUsers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUsersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUsersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listUsersAsync",
     "json": {
@@ -1571,9 +1571,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listUserRightsAsync",
-    "serviceRpc": "ListUserRights service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "userManagementServiceClient.listUserRights",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUserRightsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.ts#ListUserRightsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listUserRightsAsync",
     "json": {
@@ -1585,9 +1585,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "uploadPackageAsync",
-    "serviceRpc": "UploadPackage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "packageManagementServiceClient.uploadDarFile",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#UploadDarFileRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#UploadDarFileResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.uploadPackageAsync",
     "json": {
@@ -1601,9 +1601,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listKnownPackagesAsync",
-    "serviceRpc": "ListKnownPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "packageManagementServiceClient.listKnownPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#ListKnownPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.ts#ListKnownPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listKnownPackagesAsync",
     "json": {
@@ -1615,9 +1615,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getIdentityProviderConfigAsync",
-    "serviceRpc": "GetIdentityProviderConfig service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityProviderConfigServiceClient.getIdentityProviderConfig",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#GetIdentityProviderConfigRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#GetIdentityProviderConfigResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIdentityProviderConfigAsync",
     "json": {
@@ -1629,9 +1629,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listIdentityProviderConfigsAsync",
-    "serviceRpc": "ListIdentityProviderConfigs service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityProviderConfigServiceClient.listIdentityProviderConfigs",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#ListIdentityProviderConfigsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.ts#ListIdentityProviderConfigsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listIdentityProviderConfigsAsync",
     "json": {
@@ -1643,9 +1643,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPackagesAsync",
-    "serviceRpc": "ListPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.listPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPackagesAsync",
     "json": {
@@ -1657,9 +1657,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getPackageAsync",
-    "serviceRpc": "GetPackage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.getPackage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPackageAsync",
     "json": {
@@ -1671,9 +1671,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getPackageStatusAsync",
-    "serviceRpc": "GetPackageStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.getPackageStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#GetPackageStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPackageStatusAsync",
     "json": {
@@ -1685,9 +1685,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listVettedPackagesAsync",
-    "serviceRpc": "ListVettedPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "ledgerPackageServiceClient.listVettedPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListVettedPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.ts#ListVettedPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listVettedPackagesAsync",
     "json": {
@@ -1699,9 +1699,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listParticipantPackagesAsync",
-    "serviceRpc": "ListParticipantPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.listPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantPackagesAsync",
     "json": {
@@ -1713,9 +1713,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantPackageContentsAsync",
-    "serviceRpc": "GetParticipantPackageContents service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getPackageContents",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageContentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageContentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPackageContentsAsync",
     "json": {
@@ -1727,9 +1727,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantPackageReferencesAsync",
-    "serviceRpc": "GetParticipantPackageReferences service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getPackageReferences",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageReferencesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetPackageReferencesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPackageReferencesAsync",
     "json": {
@@ -1741,9 +1741,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantDarAsync",
-    "serviceRpc": "GetParticipantDar service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getDar",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantDarAsync",
     "json": {
@@ -1755,9 +1755,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listParticipantDarsAsync",
-    "serviceRpc": "ListParticipantDars service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.listDars",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListDarsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#ListDarsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantDarsAsync",
     "json": {
@@ -1769,9 +1769,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantDarContentsAsync",
-    "serviceRpc": "GetParticipantDarContents service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPackageServiceClient.getDarContents",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarContentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.ts#GetDarContentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantDarContentsAsync",
     "json": {
@@ -1783,9 +1783,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantStatusAsync",
-    "serviceRpc": "GetParticipantStatus service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantStatusServiceClient.participantStatus",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.ts#ParticipantStatusRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.ts#ParticipantStatusResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantStatusAsync",
     "json": {
@@ -1797,9 +1797,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "lookupOffsetByTimeAsync",
-    "serviceRpc": "LookupOffsetByTime service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupOffsetByTime",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupOffsetByTimeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupOffsetByTimeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupOffsetByTimeAsync",
     "json": {
@@ -1811,9 +1811,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "openCommitmentAsync",
-    "serviceRpc": "OpenCommitment service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.openCommitment",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#OpenCommitmentRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#OpenCommitmentResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.openCommitmentAsync",
     "json": {
@@ -1825,9 +1825,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "inspectCommitmentContractsAsync",
-    "serviceRpc": "InspectCommitmentContracts service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.inspectCommitmentContracts",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#InspectCommitmentContractsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#InspectCommitmentContractsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.inspectCommitmentContractsAsync",
     "json": {
@@ -1839,9 +1839,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "countInFlightAsync",
-    "serviceRpc": "CountInFlight service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.countInFlight",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#CountInFlightRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#CountInFlightResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.countInFlightAsync",
     "json": {
@@ -1853,9 +1853,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getConfigForSlowCounterParticipantsAsync",
-    "serviceRpc": "GetConfigForSlowCounterParticipants service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.getConfigForSlowCounterParticipants",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetConfigForSlowCounterParticipantsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetConfigForSlowCounterParticipantsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getConfigForSlowCounterParticipantsAsync",
     "json": {
@@ -1867,9 +1867,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getIntervalsBehindForCounterParticipantsAsync",
-    "serviceRpc": "GetIntervalsBehindForCounterParticipants service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.getIntervalsBehindForCounterParticipants",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetIntervalsBehindForCounterParticipantsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#GetIntervalsBehindForCounterParticipantsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIntervalsBehindForCounterParticipantsAsync",
     "json": {
@@ -1881,9 +1881,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "lookupSentAcsCommitmentsAsync",
-    "serviceRpc": "LookupSentAcsCommitments service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupSentAcsCommitments",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupSentAcsCommitmentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupSentAcsCommitmentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupSentAcsCommitmentsAsync",
     "json": {
@@ -1895,9 +1895,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "lookupReceivedAcsCommitmentsAsync",
-    "serviceRpc": "LookupReceivedAcsCommitments service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantInspectionServiceClient.lookupReceivedAcsCommitments",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupReceivedAcsCommitmentsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.ts#LookupReceivedAcsCommitmentsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.lookupReceivedAcsCommitmentsAsync",
     "json": {
@@ -1909,9 +1909,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "addPartyAsync",
-    "serviceRpc": "AddParty service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.addPartyAsync",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#AddPartyAsyncRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#AddPartyAsyncResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.addPartyAsync",
     "json": {
@@ -1923,9 +1923,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "clearPartyOnboardingFlagAsync",
-    "serviceRpc": "ClearPartyOnboardingFlag service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.clearPartyOnboardingFlag",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#ClearPartyOnboardingFlagRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#ClearPartyOnboardingFlagResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.clearPartyOnboardingFlagAsync",
     "json": {
@@ -1937,9 +1937,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getHighestOffsetByTimestampAsync",
-    "serviceRpc": "GetHighestOffsetByTimestamp service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantPartyManagementServiceClient.getHighestOffsetByTimestamp",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#GetHighestOffsetByTimestampRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.ts#GetHighestOffsetByTimestampResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getHighestOffsetByTimestampAsync",
     "json": {
@@ -1951,9 +1951,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getSafePruningOffsetAsync",
-    "serviceRpc": "GetSafePruningOffset service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getSafePruningOffset",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetSafePruningOffsetRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetSafePruningOffsetResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getSafePruningOffsetAsync",
     "json": {
@@ -1965,9 +1965,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getPruningScheduleAsync",
-    "serviceRpc": "GetPruningSchedule service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getSchedule",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetScheduleRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetScheduleResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getPruningScheduleAsync",
     "json": {
@@ -1979,9 +1979,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getParticipantPruningScheduleAsync",
-    "serviceRpc": "GetParticipantPruningSchedule service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getParticipantSchedule",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetParticipantScheduleRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetParticipantScheduleResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getParticipantPruningScheduleAsync",
     "json": {
@@ -1993,9 +1993,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getNoWaitCommitmentsFromAsync",
-    "serviceRpc": "GetNoWaitCommitmentsFrom service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "pruningServiceClient.getNoWaitCommitmentsFrom",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetNoWaitCommitmentsFromRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.ts#GetNoWaitCommitmentsFromResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getNoWaitCommitmentsFromAsync",
     "json": {
@@ -2007,9 +2007,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "trafficControlStateAsync",
-    "serviceRpc": "TrafficControlState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "trafficControlServiceClient.trafficControlState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.ts#TrafficControlStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.ts#TrafficControlStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.trafficControlStateAsync",
     "json": {
@@ -2021,9 +2021,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listConnectedSynchronizersAsync",
-    "serviceRpc": "ListConnectedSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.listConnectedSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListConnectedSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListConnectedSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listConnectedSynchronizersAsync",
     "json": {
@@ -2035,9 +2035,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getSynchronizerIdAsync",
-    "serviceRpc": "GetSynchronizerId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.getSynchronizerId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#GetSynchronizerIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#GetSynchronizerIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getSynchronizerIdAsync",
     "json": {
@@ -2049,9 +2049,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listRegisteredSynchronizersAsync",
-    "serviceRpc": "ListRegisteredSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "synchronizerConnectivityServiceClient.listRegisteredSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListRegisteredSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.ts#ListRegisteredSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listRegisteredSynchronizersAsync",
     "json": {
@@ -2063,9 +2063,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPendingOperationsAsync",
-    "serviceRpc": "ListPendingOperations service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "participantRepairServiceClient.listPendingOperations",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.ts#ListPendingOperationsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.ts#ListPendingOperationsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPendingOperationsAsync",
     "json": {
@@ -2077,9 +2077,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getResourceLimitsAsync",
-    "serviceRpc": "GetResourceLimits service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "resourceManagementServiceClient.getResourceLimits",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.ts#GetResourceLimitsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.ts#GetResourceLimitsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getResourceLimitsAsync",
     "json": {
@@ -2091,9 +2091,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getIdAsync",
-    "serviceRpc": "GetId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityInitializationServiceClient.getId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#GetIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#GetIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getIdAsync",
     "json": {
@@ -2105,9 +2105,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "currentTimeAsync",
-    "serviceRpc": "CurrentTime service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "identityInitializationServiceClient.currentTime",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#CurrentTimeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.ts#CurrentTimeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.currentTimeAsync",
     "json": {
@@ -2119,9 +2119,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listNamespaceDelegationAsync",
-    "serviceRpc": "ListNamespaceDelegation service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listNamespaceDelegation",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListNamespaceDelegationRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListNamespaceDelegationResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listNamespaceDelegationAsync",
     "json": {
@@ -2133,9 +2133,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listDecentralizedNamespaceDefinitionAsync",
-    "serviceRpc": "ListDecentralizedNamespaceDefinition service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listDecentralizedNamespaceDefinition",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListDecentralizedNamespaceDefinitionRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListDecentralizedNamespaceDefinitionResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listDecentralizedNamespaceDefinitionAsync",
     "json": {
@@ -2147,9 +2147,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listOwnerToKeyMappingAsync",
-    "serviceRpc": "ListOwnerToKeyMapping service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listOwnerToKeyMapping",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListOwnerToKeyMappingRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListOwnerToKeyMappingResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listOwnerToKeyMappingAsync",
     "json": {
@@ -2161,9 +2161,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPartyToKeyMappingAsync",
-    "serviceRpc": "ListPartyToKeyMapping service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyToKeyMapping",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToKeyMappingRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToKeyMappingResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyToKeyMappingAsync",
     "json": {
@@ -2175,9 +2175,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listSynchronizerTrustCertificateAsync",
-    "serviceRpc": "ListSynchronizerTrustCertificate service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSynchronizerTrustCertificate",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerTrustCertificateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerTrustCertificateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSynchronizerTrustCertificateAsync",
     "json": {
@@ -2189,9 +2189,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listParticipantSynchronizerPermissionAsync",
-    "serviceRpc": "ListParticipantSynchronizerPermission service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listParticipantSynchronizerPermission",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListParticipantSynchronizerPermissionRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListParticipantSynchronizerPermissionResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listParticipantSynchronizerPermissionAsync",
     "json": {
@@ -2203,9 +2203,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "authorizeTopologyTransactionsAsync",
-    "serviceRpc": "AuthorizeTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.authorize",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AuthorizeRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AuthorizeResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.authorizeTopologyTransactionsAsync",
     "json": {
@@ -2217,9 +2217,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "addTopologyTransactionsAsync",
-    "serviceRpc": "AddTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.addTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AddTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#AddTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.addTopologyTransactionsAsync",
     "json": {
@@ -2231,9 +2231,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "importTopologySnapshotAsync",
-    "serviceRpc": "ImportTopologySnapshot service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.importTopologySnapshot",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.importTopologySnapshotAsync",
     "json": {
@@ -2245,9 +2245,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "importTopologySnapshotV2Async",
-    "serviceRpc": "ImportTopologySnapshotV2 service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.importTopologySnapshotV2",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotV2Request",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#ImportTopologySnapshotV2Response",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.importTopologySnapshotV2Async",
     "json": {
@@ -2259,9 +2259,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "signTopologyTransactionsAsync",
-    "serviceRpc": "SignTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.signTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#SignTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#SignTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.signTopologyTransactionsAsync",
     "json": {
@@ -2273,9 +2273,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "generateTopologyTransactionsAsync",
-    "serviceRpc": "GenerateTopologyTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.generateTransactions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#GenerateTransactionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#GenerateTransactionsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.generateTopologyTransactionsAsync",
     "json": {
@@ -2287,9 +2287,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "createTemporaryTopologyStoreAsync",
-    "serviceRpc": "CreateTemporaryTopologyStore service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.createTemporaryTopologyStore",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#CreateTemporaryTopologyStoreRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#CreateTemporaryTopologyStoreResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.createTemporaryTopologyStoreAsync",
     "json": {
@@ -2301,9 +2301,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "dropTemporaryTopologyStoreAsync",
-    "serviceRpc": "DropTemporaryTopologyStore service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerWriteServiceClient.dropTemporaryTopologyStore",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#DropTemporaryTopologyStoreRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.ts#DropTemporaryTopologyStoreResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.dropTemporaryTopologyStoreAsync",
     "json": {
@@ -2315,9 +2315,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPartyHostingLimitsAsync",
-    "serviceRpc": "ListPartyHostingLimits service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyHostingLimits",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyHostingLimitsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyHostingLimitsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyHostingLimitsAsync",
     "json": {
@@ -2329,9 +2329,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "topologyListVettedPackagesAsync",
-    "serviceRpc": "TopologyListVettedPackages service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listVettedPackages",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListVettedPackagesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListVettedPackagesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.topologyListVettedPackagesAsync",
     "json": {
@@ -2343,9 +2343,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listPartyToParticipantAsync",
-    "serviceRpc": "ListPartyToParticipant service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listPartyToParticipant",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToParticipantRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListPartyToParticipantResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listPartyToParticipantAsync",
     "json": {
@@ -2357,9 +2357,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listSynchronizerParametersStateAsync",
-    "serviceRpc": "ListSynchronizerParametersState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSynchronizerParametersState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerParametersStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSynchronizerParametersStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSynchronizerParametersStateAsync",
     "json": {
@@ -2371,9 +2371,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listSequencingParametersStateAsync",
-    "serviceRpc": "ListSequencingParametersState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSequencingParametersState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencingParametersStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencingParametersStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSequencingParametersStateAsync",
     "json": {
@@ -2385,9 +2385,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listMediatorSynchronizerStateAsync",
-    "serviceRpc": "ListMediatorSynchronizerState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listMediatorSynchronizerState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListMediatorSynchronizerStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListMediatorSynchronizerStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listMediatorSynchronizerStateAsync",
     "json": {
@@ -2399,9 +2399,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listSequencerSynchronizerStateAsync",
-    "serviceRpc": "ListSequencerSynchronizerState service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listSequencerSynchronizerState",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencerSynchronizerStateRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListSequencerSynchronizerStateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listSequencerSynchronizerStateAsync",
     "json": {
@@ -2413,9 +2413,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listLsuAnnouncementAsync",
-    "serviceRpc": "ListLsuAnnouncement service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listLsuAnnouncement",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuAnnouncementRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuAnnouncementResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listLsuAnnouncementAsync",
     "json": {
@@ -2427,9 +2427,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listLsuSequencerConnectionSuccessorAsync",
-    "serviceRpc": "ListLsuSequencerConnectionSuccessor service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listLsuSequencerConnectionSuccessor",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuSequencerConnectionSuccessorRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListLsuSequencerConnectionSuccessorResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listLsuSequencerConnectionSuccessorAsync",
     "json": {
@@ -2441,9 +2441,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listAvailableStoresAsync",
-    "serviceRpc": "ListAvailableStores service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAvailableStores",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAvailableStoresRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAvailableStoresResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAvailableStoresAsync",
     "json": {
@@ -2455,9 +2455,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listAllAsync",
-    "serviceRpc": "ListAll service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAll",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAllAsync",
     "json": {
@@ -2469,9 +2469,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listAllV2Async",
-    "serviceRpc": "ListAllV2 service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyManagerReadServiceClient.listAllV2",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllV2Request",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.ts#ListAllV2Response",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listAllV2Async",
     "json": {
@@ -2483,9 +2483,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "topologyListPartiesAsync",
-    "serviceRpc": "TopologyListParties service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyAggregationServiceClient.listParties",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListPartiesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListPartiesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.topologyListPartiesAsync",
     "json": {
@@ -2497,9 +2497,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "listKeyOwnersAsync",
-    "serviceRpc": "ListKeyOwners service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "topologyAggregationServiceClient.listKeyOwners",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListKeyOwnersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.ts#ListKeyOwnersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.listKeyOwnersAsync",
     "json": {
@@ -2511,9 +2511,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getContractAsync",
-    "serviceRpc": "GetContract service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "contractServiceClient.getContract",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.ts#GetContractRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.ts#GetContractResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getContractAsync",
     "json": {
@@ -2525,9 +2525,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getEventsByContractIdAsync",
-    "serviceRpc": "GetEventsByContractId service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "eventQueryServiceClient.getEventsByContractId",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.ts#GetEventsByContractIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.ts#GetEventsByContractIdResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getEventsByContractIdAsync",
     "json": {
@@ -2539,9 +2539,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "queryContractsAsync",
-    "serviceRpc": "QueryContracts service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getActiveContractsPage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetActiveContractsPageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetActiveContractsPageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.queryContractsAsync",
     "json": {
@@ -2553,9 +2553,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getConnectedSynchronizersAsync",
-    "serviceRpc": "GetConnectedSynchronizers service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getConnectedSynchronizers",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetConnectedSynchronizersRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetConnectedSynchronizersResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getConnectedSynchronizersAsync",
     "json": {
@@ -2567,9 +2567,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getLedgerEndAsync",
-    "serviceRpc": "GetLedgerEnd service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getLedgerEnd",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLedgerEndRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLedgerEndResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getLedgerEndAsync",
     "json": {
@@ -2581,9 +2581,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getLatestPrunedOffsetsAsync",
-    "serviceRpc": "GetLatestPrunedOffsets service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "stateServiceClient.getLatestPrunedOffsets",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLatestPrunedOffsetsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.ts#GetLatestPrunedOffsetsResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getLatestPrunedOffsetsAsync",
     "json": {
@@ -2595,9 +2595,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "streamTransactionsAsync",
-    "serviceRpc": "StreamTransactions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "updateServiceClient.getUpdates",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.streamTransactionsAsync",
     "json": {
@@ -2609,9 +2609,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getUpdateByOffsetAsync",
-    "serviceRpc": "GetUpdateByOffset service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByOffsetRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateByOffset",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByOffsetRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByOffsetAsync",
     "json": {
@@ -2623,9 +2623,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getUpdateByIdAsync",
-    "serviceRpc": "GetUpdateById service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByIdRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateById",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByIdRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByIdAsync",
     "json": {
@@ -2637,9 +2637,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getUpdateByHashAsync",
-    "serviceRpc": "GetUpdateByHash service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateByHashRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdateResponse",
+    "serviceRpc": "updateServiceClient.getUpdateByHash",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateByHashRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdateResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdateByHashAsync",
     "json": {
@@ -2651,9 +2651,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getUpdatesPageAsync",
-    "serviceRpc": "GetUpdatesPage service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesPageRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesPageResponse",
+    "serviceRpc": "updateServiceClient.getUpdatesPage",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesPageRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesPageResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getUpdatesPageAsync",
     "json": {
@@ -2665,9 +2665,9 @@ This is the migration source of truth for every declared public transport and gR
   {
     "surface": "GrpcOperations",
     "method": "getCompletionsAsync",
-    "serviceRpc": "GetCompletions service/RPC (see grpc-channel-factory)",
-    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesRequest",
-    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js#GetUpdatesResponse",
+    "serviceRpc": "commandCompletionServiceClient.getCompletions",
+    "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.ts#GetCompletionsRequest",
+    "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.ts#CompletionStreamResponse",
     "disposition": "direct-rpc",
     "grpcOperation": "GrpcOperations.getCompletionsAsync",
     "json": {
