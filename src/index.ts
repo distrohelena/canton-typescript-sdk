@@ -225,8 +225,6 @@ export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
-export { CreateTemporaryTopologyStoreRequest } from "./core/types/requests/create-temporary-topology-store-request.js";
-export { DropTemporaryTopologyStoreRequest } from "./core/types/requests/drop-temporary-topology-store-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateExternalPartyTopologyRequest } from "./core/types/requests/generate-external-party-topology-request.js";
@@ -302,8 +300,6 @@ export { GetPartiesResponse } from "./core/types/responses/get-parties-response.
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";
-export { CreateTemporaryTopologyStoreResponse } from "./core/types/responses/create-temporary-topology-store-response.js";
-export { DropTemporaryTopologyStoreResponse } from "./core/types/responses/drop-temporary-topology-store-response.js";
 export { GenerateExternalPartyTopologyResponse } from "./core/types/responses/generate-external-party-topology-response.js";
 export { GenerateTopologyTransactionsResponse } from "./core/types/responses/generate-topology-transactions-response.js";
 export { ImportTopologySnapshotResponse } from "./core/types/responses/import-topology-snapshot-response.js";

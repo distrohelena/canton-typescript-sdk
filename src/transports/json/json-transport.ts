@@ -19,6 +19,12 @@ import type {
     ListKeyOwnersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import type {
+    CreateTemporaryTopologyStoreRequest,
+    CreateTemporaryTopologyStoreResponse,
+    DropTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
+import type {
     AddPartyAsyncRequest,
     AddPartyAsyncResponse,
     GetContractRequest,
@@ -1036,9 +1042,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async createTemporaryTopologyStoreAsync(
-        _request: any,
+        _request: CreateTemporaryTopologyStoreRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<CreateTemporaryTopologyStoreResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1047,9 +1053,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async dropTemporaryTopologyStoreAsync(
-        _request: any,
+        _request: DropTemporaryTopologyStoreRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<DropTemporaryTopologyStoreResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

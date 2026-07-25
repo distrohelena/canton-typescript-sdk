@@ -5,8 +5,6 @@ import {
     AuthorizeTopologyTransactionsRequest,
     CantonClient,
     CantonClientOptions,
-    CreateTemporaryTopologyStoreRequest,
-    DropTemporaryTopologyStoreRequest,
     GenerateTopologyTransactionsRequest,
     ImportTopologySnapshotRequest,
     ImportTopologySnapshotV2Request,
@@ -32,6 +30,10 @@ import {
     TopologyListVettedPackagesRequest,
     TransportKind,
 } from "../../../src";
+import {
+    CreateTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
     ListAllV2Request,
     ListAvailableStoresRequest,
@@ -270,14 +272,14 @@ describe("Topology services with JSON transport", () => {
                 "TopologyManagerWriteService.CreateTemporaryTopologyStore",
                 () =>
                     client.topologyManagerWriteService.createTemporaryTopologyStoreAsync(
-                        new CreateTemporaryTopologyStoreRequest(),
+                        CreateTemporaryTopologyStoreRequest.create(),
                     ),
             ],
             [
                 "TopologyManagerWriteService.DropTemporaryTopologyStore",
                 () =>
                     client.topologyManagerWriteService.dropTemporaryTopologyStoreAsync(
-                        new DropTemporaryTopologyStoreRequest(),
+                        DropTemporaryTopologyStoreRequest.create(),
                     ),
             ],
         ] as const;

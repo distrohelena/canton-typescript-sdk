@@ -4,8 +4,6 @@ import {
     AuthorizeTopologyTransactionsProposal,
     AuthorizeTopologyTransactionsRequest,
 } from "../../../core/types/requests/authorize-topology-transactions-request.js";
-import { CreateTemporaryTopologyStoreRequest } from "../../../core/types/requests/create-temporary-topology-store-request.js";
-import { DropTemporaryTopologyStoreRequest } from "../../../core/types/requests/drop-temporary-topology-store-request.js";
 import {
     GenerateTopologyTransactionsProposal,
     GenerateTopologyTransactionsRequest,
@@ -15,8 +13,6 @@ import { ImportTopologySnapshotV2Request } from "../../../core/types/requests/im
 import { SignTopologyTransactionsRequest } from "../../../core/types/requests/sign-topology-transactions-request.js";
 import { AddTopologyTransactionsResponse } from "../../../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../../../core/types/responses/authorize-topology-transactions-response.js";
-import { CreateTemporaryTopologyStoreResponse } from "../../../core/types/responses/create-temporary-topology-store-response.js";
-import { DropTemporaryTopologyStoreResponse } from "../../../core/types/responses/drop-temporary-topology-store-response.js";
 import { GenerateTopologyTransactionsResponse } from "../../../core/types/responses/generate-topology-transactions-response.js";
 import { ImportTopologySnapshotResponse } from "../../../core/types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../../../core/types/responses/import-topology-snapshot-v2-response.js";
@@ -39,7 +35,6 @@ import { TopologyForceFlag } from "../../../core/types/topology/topology-force-f
 import { TopologyMapping } from "../../../core/types/topology/topology-mapping.js";
 import { TopologySignatureDelegation } from "../../../core/types/topology/topology-signature-delegation.js";
 import { TopologySigningKeysWithThreshold, TopologySigningPublicKey } from "../../../core/types/topology/topology-public-key.js";
-import { TopologyStoreId, TopologyStoreKind, TopologyStoreTemporary } from "../../../core/types/topology/topology-store-id.js";
 import { TopologyTransactionSignature } from "../../../core/types/topology/topology-transaction-signature.js";
 import { Duration } from "../generated/canton/google/protobuf/duration.js";
 import {
@@ -53,20 +48,13 @@ import {
     SigningKeysWithThreshold,
     SigningKeyUsage,
 } from "../generated/canton/com/digitalasset/canton/crypto/v30/crypto.js";
-import {
-    StoreId,
-    StoreId_Temporary,
-} from "../generated/canton/com/digitalasset/canton/topology/admin/v30/common.js";
+import { StoreId } from "../generated/canton/com/digitalasset/canton/topology/admin/v30/common.js";
 import {
     AddTransactionsRequest as GrpcAddTransactionsRequest,
     AddTransactionsResponse as GrpcAddTransactionsResponse,
     AuthorizeRequest as GrpcAuthorizeRequest,
     AuthorizeRequest_Proposal as GrpcAuthorizeRequestProposal,
     AuthorizeResponse as GrpcAuthorizeResponse,
-    CreateTemporaryTopologyStoreRequest as GrpcCreateTemporaryTopologyStoreRequest,
-    CreateTemporaryTopologyStoreResponse as GrpcCreateTemporaryTopologyStoreResponse,
-    DropTemporaryTopologyStoreRequest as GrpcDropTemporaryTopologyStoreRequest,
-    DropTemporaryTopologyStoreResponse as GrpcDropTemporaryTopologyStoreResponse,
     ForceFlag,
     GenerateTransactionsRequest as GrpcGenerateTransactionsRequest,
     GenerateTransactionsRequest_Proposal as GrpcGenerateTransactionsProposal,
@@ -223,42 +211,6 @@ export function mapGrpcSignTopologyTransactionsResponse(
             mapSdkSignedTopologyTransaction,
         ),
     });
-}
-
-export function mapGrpcCreateTemporaryTopologyStoreRequest(
-    request: CreateTemporaryTopologyStoreRequest,
-): GrpcCreateTemporaryTopologyStoreRequest {
-    return {
-        name: request.name,
-        protocolVersion: request.protocolVersion,
-    };
-}
-
-export function mapGrpcCreateTemporaryTopologyStoreResponse(
-    payload: Partial<GrpcCreateTemporaryTopologyStoreResponse>,
-): CreateTemporaryTopologyStoreResponse {
-    return new CreateTemporaryTopologyStoreResponse({
-        storeId:
-            payload.storeId === undefined
-                ? undefined
-                : new TopologyStoreTemporary({
-                    name: payload.storeId.name,
-                }),
-    });
-}
-
-export function mapGrpcDropTemporaryTopologyStoreRequest(
-    request: DropTemporaryTopologyStoreRequest,
-): GrpcDropTemporaryTopologyStoreRequest {
-    return {
-        storeId: mapGrpcTemporaryStoreId(request.storeId),
-    };
-}
-
-export function mapGrpcDropTemporaryTopologyStoreResponse(
-    _payload: Partial<GrpcDropTemporaryTopologyStoreResponse>,
-): DropTemporaryTopologyStoreResponse {
-    return new DropTemporaryTopologyStoreResponse();
 }
 
 function mapGrpcGenerateTopologyTransactionsProposal(
@@ -731,16 +683,4 @@ function mapSdkSigningKeySpec(value?: SigningKeySpec): string | undefined {
         default:
             return "unspecified";
     }
-}
-
-function mapGrpcTemporaryStoreId(
-    value?: TopologyStoreTemporary,
-): StoreId_Temporary | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return {
-        name: value.name,
-    };
 }

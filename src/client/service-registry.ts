@@ -27,8 +27,6 @@ import { GetParticipantIdRequest } from "../core/types/requests/get-participant-
 import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
-import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
-import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
@@ -42,8 +40,12 @@ import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
-import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/create-temporary-topology-store-response.js";
-import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
+import type {
+    CreateTemporaryTopologyStoreRequest,
+    CreateTemporaryTopologyStoreResponse,
+    DropTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import type {

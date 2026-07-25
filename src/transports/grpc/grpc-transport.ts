@@ -73,10 +73,6 @@ import {
     mapGrpcAddTopologyTransactionsResponse,
     mapGrpcAuthorizeTopologyTransactionsRequest,
     mapGrpcAuthorizeTopologyTransactionsResponse,
-    mapGrpcCreateTemporaryTopologyStoreRequest,
-    mapGrpcCreateTemporaryTopologyStoreResponse,
-    mapGrpcDropTemporaryTopologyStoreRequest,
-    mapGrpcDropTemporaryTopologyStoreResponse,
     mapGrpcGenerateTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsResponse,
     mapGrpcImportTopologySnapshotRequest,
@@ -247,6 +243,12 @@ import {
     ListPartiesRequest as ProtobufTopologyListPartiesRequest,
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
+import type {
+    CreateTemporaryTopologyStoreRequest as ProtobufCreateTemporaryTopologyStoreRequest,
+    CreateTemporaryTopologyStoreResponse as ProtobufCreateTemporaryTopologyStoreResponse,
+    DropTemporaryTopologyStoreRequest as ProtobufDropTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreResponse as ProtobufDropTemporaryTopologyStoreResponse,
+} from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
     ListAllRequest as ProtobufTopologyListAllRequest,
     ListAllResponse as ProtobufTopologyListAllResponse,
@@ -1184,30 +1186,24 @@ export class GrpcTransport implements ITransport {
     }
 
     public async createTemporaryTopologyStoreAsync(
-        request: any,
+        request: ProtobufCreateTemporaryTopologyStoreRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufCreateTemporaryTopologyStoreResponse> {
         this.throwIfDisposed();
 
         const payload =
-            await this.operations.createTemporaryTopologyStoreAsync!(
-                mapGrpcCreateTemporaryTopologyStoreRequest(request),
-                options,
-            );
+            await this.operations.createTemporaryTopologyStoreAsync!(request, options);
 
         return payload as ProtobufCreateTemporaryTopologyStoreResponse;
     }
 
     public async dropTemporaryTopologyStoreAsync(
-        request: any,
+        request: ProtobufDropTemporaryTopologyStoreRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufDropTemporaryTopologyStoreResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.dropTemporaryTopologyStoreAsync!(
-            mapGrpcDropTemporaryTopologyStoreRequest(request),
-            options,
-        );
+        const payload = await this.operations.dropTemporaryTopologyStoreAsync!(request, options);
 
         return payload as ProtobufDropTemporaryTopologyStoreResponse;
     }

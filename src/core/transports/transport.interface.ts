@@ -17,10 +17,8 @@ import { AllocateExternalPartyRequest } from "../types/requests/allocate-externa
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
-import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
-import { DropTemporaryTopologyStoreRequest } from "../types/requests/drop-temporary-topology-store-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
@@ -57,8 +55,12 @@ import { AllocatePartyResponse } from "../types/responses/allocate-party-respons
 import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
-import { CreateTemporaryTopologyStoreResponse } from "../types/responses/create-temporary-topology-store-response.js";
-import { DropTemporaryTopologyStoreResponse } from "../types/responses/drop-temporary-topology-store-response.js";
+import type {
+    CreateTemporaryTopologyStoreRequest,
+    CreateTemporaryTopologyStoreResponse,
+    DropTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
 import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
