@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CommitmentChunkObserver,
-    GetConfigForSlowCounterParticipantsRequest,
-    GetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsResponse,
     ParticipantInspectionServiceClient,
@@ -11,6 +9,8 @@ import {
 import {
     CountInFlightRequest,
     CountInFlightResponse,
+    GetConfigForSlowCounterParticipantsRequest,
+    GetConfigForSlowCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
@@ -34,7 +34,7 @@ describe("ParticipantInspectionServiceClient", () => {
 
         const getConfigForSlowCounterParticipantsAsync = vi.fn(
             async () =>
-                new GetConfigForSlowCounterParticipantsResponse({
+                GetConfigForSlowCounterParticipantsResponse.create({
                     configs: [],
                 }),
         );
@@ -116,7 +116,7 @@ describe("ParticipantInspectionServiceClient", () => {
         );
 
         await client.getConfigForSlowCounterParticipantsAsync(
-            new GetConfigForSlowCounterParticipantsRequest({
+            GetConfigForSlowCounterParticipantsRequest.create({
                 synchronizerIds: ["sync-1"],
             }),
             options,
@@ -182,7 +182,7 @@ describe("ParticipantInspectionServiceClient", () => {
             options,
         );
         expect(getConfigForSlowCounterParticipantsAsync).toHaveBeenLastCalledWith(
-            expect.any(GetConfigForSlowCounterParticipantsRequest),
+            expect.objectContaining({ synchronizerIds: ["sync-1"] }),
             options,
         );
         expect(

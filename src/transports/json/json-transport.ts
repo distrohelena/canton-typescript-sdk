@@ -5,7 +5,6 @@ import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
@@ -45,7 +44,6 @@ import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import type {
     CurrentTimeRequest,
@@ -86,6 +84,8 @@ import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/loo
 import type {
     CountInFlightRequest,
     CountInFlightResponse,
+    GetConfigForSlowCounterParticipantsRequest,
+    GetConfigForSlowCounterParticipantsResponse,
     LookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";

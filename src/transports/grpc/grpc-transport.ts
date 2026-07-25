@@ -8,7 +8,6 @@ import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear
 import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/types/requests/get-intervals-behind-for-counter-participants-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
@@ -58,7 +57,6 @@ import { GetPackageContentsResponse } from "../../core/types/responses/get-packa
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
-import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/types/responses/get-intervals-behind-for-counter-participants-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
@@ -147,8 +145,6 @@ import {
 import {
 } from "./mappers/participant-status-mapper.js";
 import {
-    mapGrpcGetConfigForSlowCounterParticipants,
-    mapGrpcGetConfigForSlowCounterParticipantsRequest,
     mapGrpcGetIntervalsBehindForCounterParticipants,
     mapGrpcGetIntervalsBehindForCounterParticipantsRequest,
     mapGrpcInspectCommitmentContracts,
@@ -345,6 +341,8 @@ import {
 import {
     CountInFlightRequest as ProtobufCountInFlightRequest,
     CountInFlightResponse as ProtobufCountInFlightResponse,
+    GetConfigForSlowCounterParticipantsRequest as ProtobufGetConfigForSlowCounterParticipantsRequest,
+    GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
     GetConfigForSlowCounterParticipantsResponse as ProtobufGetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
     InspectCommitmentContractsResponse as ProtobufInspectCommitmentContractsResponse,
@@ -886,20 +884,18 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getConfigForSlowCounterParticipantsAsync(
-        request: GetConfigForSlowCounterParticipantsRequest,
+        request: ProtobufGetConfigForSlowCounterParticipantsRequest,
         options?: RequestOptions,
-    ): Promise<GetConfigForSlowCounterParticipantsResponse> {
+    ): Promise<ProtobufGetConfigForSlowCounterParticipantsResponse> {
         this.throwIfDisposed();
 
         const payload =
             await this.operations.getConfigForSlowCounterParticipantsAsync!(
-                mapGrpcGetConfigForSlowCounterParticipantsRequest(request),
+                request,
                 options,
             );
 
-        return mapGrpcGetConfigForSlowCounterParticipants(
-            payload as Partial<ProtobufGetConfigForSlowCounterParticipantsResponse>,
-        );
+        return payload as ProtobufGetConfigForSlowCounterParticipantsResponse;
     }
 
     public async getIntervalsBehindForCounterParticipantsAsync(

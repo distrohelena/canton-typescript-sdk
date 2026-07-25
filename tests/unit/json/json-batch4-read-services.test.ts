@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
-    GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
 import {
     CountInFlightRequest,
+    GetConfigForSlowCounterParticipantsRequest,
     LookupOffsetByTimeRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
@@ -49,7 +49,7 @@ describe("Batch 4 read services with JSON transport", () => {
                 "ParticipantInspectionService.GetConfigForSlowCounterParticipants",
                 () =>
                     client.participantInspectionService.getConfigForSlowCounterParticipantsAsync(
-                        new GetConfigForSlowCounterParticipantsRequest({
+                        GetConfigForSlowCounterParticipantsRequest.create({
                             synchronizerIds: ["sync-1"],
                         }),
                     ),

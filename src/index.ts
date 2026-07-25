@@ -245,7 +245,6 @@ export { ListAllV2Request } from "./core/types/requests/list-all-v2-request.js";
 export { ListAvailableStoresRequest } from "./core/types/requests/list-available-stores-request.js";
 export { ListDecentralizedNamespaceDefinitionRequest } from "./core/types/requests/list-decentralized-namespace-definition-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
-export { GetConfigForSlowCounterParticipantsRequest } from "./core/types/requests/get-config-for-slow-counter-participants-request.js";
 export { GetHighestOffsetByTimestampRequest } from "./core/types/requests/get-highest-offset-by-timestamp-request.js";
 export { GetIdentityProviderConfigRequest } from "./core/types/requests/get-identity-provider-config-request.js";
 export { GetIntervalsBehindForCounterParticipantsRequest } from "./core/types/requests/get-intervals-behind-for-counter-participants-request.js";
@@ -309,7 +308,6 @@ export { GetActiveContractsPageResponse } from "./core/types/responses/get-activ
 export { GetConnectedSynchronizersResponse } from "./core/types/responses/get-connected-synchronizers-response.js";
 export { GetCommandStatusResponse } from "./core/types/responses/get-command-status-response.js";
 export { HealthCheckResponse } from "./core/types/responses/health-check-response.js";
-export { GetConfigForSlowCounterParticipantsResponse } from "./core/types/responses/get-config-for-slow-counter-participants-response.js";
 export { GetLedgerApiVersionResponse } from "./core/types/responses/get-ledger-api-version-response.js";
 export { GetHighestOffsetByTimestampResponse } from "./core/types/responses/get-highest-offset-by-timestamp-response.js";
 export { GetIdentityProviderConfigResponse } from "./core/types/responses/get-identity-provider-config-response.js";
