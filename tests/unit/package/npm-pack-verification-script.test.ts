@@ -101,6 +101,12 @@ describe("npm pack verifier", () => {
         expect(verifyPackModule.getExpectedExportKeys()).toContain("./testing");
     });
 
+    it("requires the protobuf entry point in packed exports", async () => {
+        const verifyPackModule = await loadVerifyPackModuleAsync();
+
+        expect(verifyPackModule.getExpectedExportKeys()).toContain("./protobuf");
+    });
+
     it("requires both published localnet launcher commands", async () => {
         const verifyPackModule = await loadVerifyPackModuleAsync();
 

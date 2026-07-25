@@ -164,3 +164,13 @@ if (result.status !== 0) {
 }
 
 normalizeGeneratedImports(outputRoot);
+
+const barrelResult = spawnSync(
+    "node",
+    ["./scripts/generate-protobuf-public-barrel.mjs"],
+    { cwd: workspaceRoot, stdio: "inherit" },
+);
+
+if (barrelResult.status !== 0) {
+    process.exit(barrelResult.status ?? 1);
+}

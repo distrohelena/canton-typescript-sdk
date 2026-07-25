@@ -54,6 +54,10 @@
             "types": "./dist/grpc/index.d.ts",
             "import": "./dist/grpc/index.js"
         },
+        "./protobuf": {
+            "types": "./dist/protobuf/index.d.ts",
+            "import": "./dist/protobuf/index.js"
+        },
         "./json": {
             "types": "./dist/json/index.d.ts",
             "import": "./dist/json/index.js"

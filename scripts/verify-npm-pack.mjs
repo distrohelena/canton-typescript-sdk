@@ -9,6 +9,7 @@ const executeFileAsync = promisify(execFile);
 const expectedExportKeys = [
     ".",
     "./grpc",
+    "./protobuf",
     "./json",
     "./daml-lf",
     "./daml-interface",
