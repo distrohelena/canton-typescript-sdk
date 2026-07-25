@@ -14,6 +14,7 @@
 
 **Files:**
 - Create: `src/protobuf/index.ts`
+- Create: `scripts/generate-protobuf-public-barrel.mjs`
 - Modify: `package.json`
 - Modify: `tsconfig.json` if declaration/output inclusion requires it
 - Modify: `src/index.ts` only to remove any duplicate generated root exports if discovered
@@ -21,7 +22,7 @@
 
 - [ ] **Step 1: Write a failing public-import test**
 
-  Import `ledgerApiV2` and representative `canton`, `comDigitalasset`, and `google` generated namespaces from `@distrohelena/canton-typescript-sdk/protobuf`. Assert each exposes a generated message type object with `create`, `toJson`, and `fromJson`; use `ledgerApiV2.GetUpdateByIdRequest.create({ updateId: "update-1" })` to prove the public construction API.
+  Import `ledgerApiV2`, `canton`, `comDaml`, `comDigitalasset`, and `google` namespaces from `@distrohelena/canton-typescript-sdk/protobuf`. Assert each exposes a generated message type object with `create`, `toJson`, and `fromJson`; use `ledgerApiV2.GetUpdateByIdRequest.create({ updateId: "update-1" })` to prove the public construction API.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -31,7 +32,7 @@
 
 - [ ] **Step 3: Add exhaustive namespace barrel and package export**
 
-  Create `src/protobuf/index.ts` with namespace exports for every generated source root under `src/transports/grpc/generated`—including `canton`, `com.daml`, `com.digitalasset`, and `google`—without flattening names that collide. Add the `./protobuf` export to `package.json`, targeting `dist/protobuf/index.{js,d.ts}`. If TypeScript package-self resolution prevents the test from resolving the built subpath, add a focused Vitest alias that still exercises the source barrel and verify the packed export separately in Task 5.
+  Create `scripts/generate-protobuf-public-barrel.mjs` that walks all generated `.ts` files and writes a deterministic `src/protobuf/index.ts`. It must export exactly five non-colliding top-level namespaces—`ledgerApiV2` for `com/daml/ledger/api/v2`, plus `canton`, `comDaml`, `comDigitalasset`, and `google`—and nested namespace objects mirroring every remaining directory segment. It must re-export both message interfaces and `MessageType` values without a flat symbol namespace. Run this generator from `generate:grpc` and check the generated barrel into source. Add the `./protobuf` export to `package.json`, targeting `dist/protobuf/index.{js,d.ts}`. If TypeScript package-self resolution prevents the test from resolving the built subpath, add a focused Vitest alias that still exercises the source barrel and verify the packed export separately in Task 5.
 
 - [ ] **Step 4: Run the test and build to verify they pass**
 
@@ -42,7 +43,7 @@
 - [ ] **Step 5: Commit**
 
   ```bash
-  rtk git add src/protobuf/index.ts package.json tsconfig.json tests/unit/public/protobuf-exports.test.ts src/index.ts
+  rtk git add src/protobuf/index.ts scripts/generate-protobuf-public-barrel.mjs scripts/generate-grpc-bindings.mjs package.json tsconfig.json tests/unit/public/protobuf-exports.test.ts src/index.ts
   rtk git commit -m "feat: export generated protobuf api"
   ```
 
@@ -58,7 +59,7 @@
 
 - [ ] **Step 1: Write a failing inventory consistency test**
 
-  Parse the inventory's structured table/JSON code block and assert every public `ITransport` method has exactly one entry and a disposition of `direct-rpc`, `high-level`, `unsupported`, or `removed`. Assert every `direct-rpc` entry specifies generated request, unary/stream response, gRPC operation, and JSON adapter status.
+  Parse the inventory's structured table/JSON code block and assert every public `ITransport` method has exactly one **public disposition** of `direct-rpc`, `high-level`, or `removed`. Assert every `direct-rpc` entry specifies generated request, unary/stream response, gRPC operation, and an independent JSON adapter/capability status (`supported` with endpoint/projection/reconstruction details, or `unsupported` with operation-specific error).
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -68,7 +69,7 @@
 
 - [ ] **Step 3: Build the inventory from actual public/transport operations**
 
-  Document every `ITransport` method and every `GrpcOperations` member. Record service/RPC, generated request and response or stream element types, direct/high-level/unsupported/removed disposition, gRPC operation method, JSON endpoint/adapter status, and corresponding test path. Mark interactive signing/preparation and decentralized-party workflows as `high-level`; do not falsely classify composed workflows as direct RPCs. The Update service entries must nominate the exact Ledger API v2 generated types used in Task 3.
+  Document every `ITransport` method and every `GrpcOperations` member. Record service/RPC, generated request and response or stream element types, direct/high-level/removed public disposition, gRPC operation method, independent JSON endpoint/adapter status, and corresponding test path. Mark interactive signing/preparation and decentralized-party workflows as `high-level`; do not falsely classify composed workflows as direct RPCs. The Update service entries must nominate the exact Ledger API v2 generated types used in Task 3 and show `direct-rpc` plus JSON `unsupported` until a real adapter exists.
 
 - [ ] **Step 4: Run the inventory test to verify it passes**
 
@@ -90,6 +91,9 @@
 - Modify: `src/core/transports/transport.interface.ts`
 - Modify: `src/transports/grpc/grpc-channel-factory.ts`
 - Modify: `src/transports/grpc/grpc-transport.ts`
+- Modify: `src/client/service-registry.ts`
+- Modify: `src/debugger/replay/replay-update-loader.ts`
+- Modify: `src/transports/grpc/mappers/events-mapper.ts`
 - Delete: `src/core/types/requests/get-update-by-id-request.ts`
 - Delete: `src/core/types/requests/get-update-by-offset-request.ts`
 - Delete: `src/core/types/requests/get-update-by-hash-request.ts`
@@ -103,10 +107,11 @@
 - Modify: `src/index.ts`
 - Test: `tests/unit/grpc/grpc-update-read-mapper.test.ts` or its existing equivalent
 - Test: `tests/unit/services/update-service-client.test.ts` or create it
+- Test: affected debugger/replay, contract ledger-read, gRPC batch, JSON batch, command-runtime, and fake-`GrpcOperations` fixtures identified by the compiler
 
 - [ ] **Step 1: Write failing direct-response tests**
 
-  Import generated Update service messages through the new protobuf namespace. Assert `getUpdateByIdAsync`, offset, and hash accept generated request messages and return the exact generated `GetUpdateResponse` reference, including `update.oneofKind`. Assert page lookup returns generated `GetUpdatesPageResponse`. Replace the observer stream test with `for await` over generated `GetUpdatesResponse` elements and assert the outer response is retained.
+  Import generated Update service messages through the new protobuf namespace. Assert `getUpdateByIdAsync`, offset, and hash accept generated request messages and return the exact generated `GetUpdateResponse` reference, including `update.oneofKind`. Assert page lookup returns generated `GetUpdatesPageResponse`. Add a failing direct stream test that checks `for await` receives each original `GetUpdatesResponse` object in channel order (same object references), can stop early via iterator return/disposal, and receives channel errors unchanged. Update fake `GrpcOperations` to provide an async iterable rather than a collected response array.
 
 - [ ] **Step 2: Run the focused tests to verify they fail**
 
@@ -116,7 +121,7 @@
 
 - [ ] **Step 3: Remove Update DTO/mapping layer and type operations**
 
-  Change Update service and transport signatures to the generated `GetUpdateByIdRequest`, `GetUpdateByOffsetRequest`, `GetUpdateByHashRequest`, `GetUpdatesPageRequest`, `GetUpdateResponse`, `GetUpdatesPageResponse`, `GetUpdatesRequest`, and `GetUpdatesResponse` types. Return channel payload references unchanged. Convert direct update streaming to `AsyncIterable<GetUpdatesResponse>` and remove its observer DTO adapter. Type the corresponding `GrpcOperations` members precisely. Delete obsolete Update request/response classes, their root exports, and mapper functions that only project fields.
+  Change Update service and transport signatures to the generated `GetUpdateByIdRequest`, `GetUpdateByOffsetRequest`, `GetUpdateByHashRequest`, `GetUpdatesPageRequest`, `GetUpdateResponse`, `GetUpdatesPageResponse`, `GetUpdatesRequest`, and `GetUpdatesResponse` types. Return unary/channel payload references unchanged. Replace collected `Promise<GetUpdatesResponse[]>` stream operations with a typed `AsyncIterable<GetUpdatesResponse>` operation (rename it to match `getUpdatesAsync`); return the channel response iterable directly, preserving cancellation/disposal and errors. Remove the observer DTO adapter and obsolete `mapGrpcStreamTransactionsRequest` only after every dependent caller has moved. Delete obsolete Update request/response classes, root exports, and mapper functions that only project fields. Update all listed production/test call sites in this same task until the build is green.
 
 - [ ] **Step 4: Run focused tests and build to verify they pass**
 
@@ -141,7 +146,7 @@
 
 - [ ] **Step 1: Write failing JSON capability tests**
 
-  For each Update RPC classified unsupported in the inventory, invoke the generated-message public method through JSON transport and assert the existing `NotSupportedError` with an operation-specific message. Do not test an invented JSON DTO conversion.
+  For each Update RPC classified as public `direct-rpc` but JSON-adapter `unsupported` in the inventory, invoke the generated-message public method through JSON transport and assert the existing `NotSupportedError` with an operation-specific message. Do not test an invented JSON DTO conversion.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -173,9 +178,9 @@
 
 - [ ] **Step 1: Verify the published export surface**
 
-  Run: `rtk npm run build && rtk npm run verify:pack`
+  Run: `rtk npm run build && rtk npm run verify:pack && rtk npm pack --json`
 
-  Expected: PASS; the packed package exposes `@distrohelena/canton-typescript-sdk/protobuf` and has no missing generated runtime files.
+  Expected: PASS; update `scripts/verify-npm-pack.mjs` and its tests to require the `./protobuf` export, then unpack the tarball into a temporary directory and dynamically import `@distrohelena/canton-typescript-sdk/protobuf` from that package. Assert `ledgerApiV2.GetUpdateByIdRequest.create` is present and usable, and that generated runtime files are included.
 
 - [ ] **Step 2: Run all unit tests**
 
@@ -185,9 +190,9 @@
 
 - [ ] **Step 3: Run the direct-Update legacy audit**
 
-  Run: `rtk rg -n 'GetUpdateBy(Id|Offset|Hash)Request|GetUpdates(Page)?Request|GetUpdate(ById|ByOffset|ByHash|sPage)Response|mapGrpcGetUpdate' src tests --glob '*.ts'`
+  Run: `rtk test ! -e src/core/types/requests/get-update-by-id-request.ts && rtk test ! -e src/core/types/requests/get-update-by-offset-request.ts && rtk test ! -e src/core/types/requests/get-update-by-hash-request.ts && rtk test ! -e src/core/types/requests/get-updates-page-request.ts && rtk test ! -e src/core/types/requests/get-updates-request.ts && rtk rg -n 'core/types/(requests|responses)/get-update|mapGrpcGetUpdate|mapGrpcStreamTransactionsRequest' src tests --glob '*.ts' -g '!src/transports/grpc/generated/**'`
 
-  Expected: only generated types and inventory/documentation references remain; no SDK Update DTO imports or lossy projection mapper remains.
+  Expected: all deleted paths are absent and ripgrep finds no SDK Update DTO imports or lossy/legacy mapper symbol outside explicitly documented migration history.
 
 - [ ] **Step 4: Commit verification corrections if needed**
 
