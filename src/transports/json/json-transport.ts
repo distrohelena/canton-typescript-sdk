@@ -18,7 +18,6 @@ import { GetParticipantIdRequest } from "../../core/types/requests/get-participa
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
-import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
 import {
     GrantUserRightsRequest,
     UserRightAssignment,
@@ -26,7 +25,6 @@ import {
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
-import { ListConnectedSynchronizersRequest } from "../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../core/types/requests/list-registered-synchronizers-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
@@ -71,12 +69,16 @@ import type {
     GetResourceLimitsResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
-import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
-import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
+import type {
+    GetSynchronizerIdRequest,
+    GetSynchronizerIdResponse,
+    ListConnectedSynchronizersRequest,
+    ListConnectedSynchronizersResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../core/types/responses/list-registered-synchronizers-response.js";

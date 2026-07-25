@@ -2,10 +2,10 @@ import {
     GetParticipantIdRequest,
     GetParticipantStatusRequest,
     HealthCheckRequest,
-    ListConnectedSynchronizersRequest,
     ListKnownPartiesRequest,
     TransportKind,
 } from "../../../src/index.js";
+import { ListConnectedSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { createLiveClient } from "./live-client-factory.js";
 import { LiveMultiNodeEnvironment } from "./live-multi-node-test-environment.js";
 import { LiveTestEnvironment } from "./live-test-environment.js";
@@ -168,7 +168,7 @@ async function assertSynchronizerConnectivityAsync(
 ): Promise<void> {
     try {
         await client.synchronizerConnectivityService.listConnectedSynchronizersAsync(
-            new ListConnectedSynchronizersRequest(),
+            ListConnectedSynchronizersRequest.create(),
         );
     } catch (error) {
         throw createConnectivityError(

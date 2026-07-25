@@ -41,7 +41,6 @@ import { GetParticipantStatusRequest } from "../core/types/requests/get-particip
 import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../core/types/requests/get-pruning-schedule-request.js";
 import { GetSafePruningOffsetRequest } from "../core/types/requests/get-safe-pruning-offset-request.js";
-import { GetSynchronizerIdRequest } from "../core/types/requests/get-synchronizer-id-request.js";
 import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../core/types/requests/create-temporary-topology-store-request.js";
 import { DropTemporaryTopologyStoreRequest } from "../core/types/requests/drop-temporary-topology-store-request.js";
@@ -52,7 +51,6 @@ import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-t
 import { ListAllRequest } from "../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../core/types/requests/list-available-stores-request.js";
-import { ListConnectedSynchronizersRequest } from "../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../core/types/requests/list-registered-synchronizers-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../core/types/requests/list-key-owners-request.js";
@@ -129,7 +127,6 @@ import type {
     GetResourceLimitsResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import { GetSafePruningOffsetResponse } from "../core/types/responses/get-safe-pruning-offset-response.js";
-import { GetSynchronizerIdResponse } from "../core/types/responses/get-synchronizer-id-response.js";
 import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
 import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
 import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
@@ -137,7 +134,12 @@ import { ImportTopologySnapshotV2Response } from "../core/types/responses/import
 import { ListAllResponse } from "../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../core/types/responses/list-available-stores-response.js";
-import { ListConnectedSynchronizersResponse } from "../core/types/responses/list-connected-synchronizers-response.js";
+import type {
+    GetSynchronizerIdRequest,
+    GetSynchronizerIdResponse,
+    ListConnectedSynchronizersRequest,
+    ListConnectedSynchronizersResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListRegisteredSynchronizersResponse } from "../core/types/responses/list-registered-synchronizers-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../core/types/responses/list-key-owners-response.js";

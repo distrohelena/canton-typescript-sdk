@@ -19,12 +19,10 @@ import { GetPackageReferencesRequest } from "../../core/types/requests/get-packa
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
-import { GetSynchronizerIdRequest } from "../../core/types/requests/get-synchronizer-id-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListAllV2Request } from "../../core/types/requests/list-all-v2-request.js";
 import { ListAvailableStoresRequest } from "../../core/types/requests/list-available-stores-request.js";
-import { ListConnectedSynchronizersRequest } from "../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-announcement-request.js";
@@ -72,13 +70,11 @@ import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
-import { GetSynchronizerIdResponse } from "../../core/types/responses/get-synchronizer-id-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
 import { ListAllResponse } from "../../core/types/responses/list-all-response.js";
 import { ListAllV2Response } from "../../core/types/responses/list-all-v2-response.js";
 import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
-import { ListConnectedSynchronizersResponse } from "../../core/types/responses/list-connected-synchronizers-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
@@ -197,10 +193,6 @@ import {
     mapGrpcGetSafePruningOffsetRequest,
 } from "./mappers/pruning-mapper.js";
 import {
-    mapGrpcGetSynchronizerId,
-    mapGrpcGetSynchronizerIdRequest,
-    mapGrpcListConnectedSynchronizers,
-    mapGrpcListConnectedSynchronizersRequest,
     mapGrpcListRegisteredSynchronizers,
     mapGrpcListRegisteredSynchronizersRequest,
 } from "./mappers/synchronizer-connectivity-mapper.js";
@@ -383,9 +375,13 @@ import {
     ListPendingOperationsResponse as ProtobufListPendingOperationsResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 import {
-    GetSynchronizerIdResponse as ProtobufGetSynchronizerIdResponse,
-    ListConnectedSynchronizersResponse as ProtobufListConnectedSynchronizersResponse,
     ListRegisteredSynchronizersResponse as ProtobufListRegisteredSynchronizersResponse,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
+import type {
+    GetSynchronizerIdRequest,
+    GetSynchronizerIdResponse,
+    ListConnectedSynchronizersRequest,
+    ListConnectedSynchronizersResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { GetSafePruningOffsetResponse as ProtobufGetSafePruningOffsetResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import {
@@ -1100,14 +1096,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListConnectedSynchronizersResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.listConnectedSynchronizersAsync!(
-            mapGrpcListConnectedSynchronizersRequest(request),
-            options,
-        );
-
-        return mapGrpcListConnectedSynchronizers(
-            payload as Partial<ProtobufListConnectedSynchronizersResponse>,
-        );
+        return await this.operations.listConnectedSynchronizersAsync!(request, options);
     }
 
     public async getSynchronizerIdAsync(
@@ -1116,14 +1105,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetSynchronizerIdResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getSynchronizerIdAsync!(
-            mapGrpcGetSynchronizerIdRequest(request),
-            options,
-        );
-
-        return mapGrpcGetSynchronizerId(
-            payload as Partial<ProtobufGetSynchronizerIdResponse>,
-        );
+        return await this.operations.getSynchronizerIdAsync!(request, options);
     }
 
     public async listRegisteredSynchronizersAsync(

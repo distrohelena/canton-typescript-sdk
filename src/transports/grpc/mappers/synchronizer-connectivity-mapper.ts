@@ -10,19 +10,9 @@ import { RegisteredSynchronizerSubmissionRequestAmplification } from "../../../c
 import { RegisteredSynchronizerSubscriptionLivenessLimits } from "../../../core/types/registered-synchronizer-subscription-liveness-limits.js";
 import { RegisteredSynchronizerTimeProofRequestConfig } from "../../../core/types/registered-synchronizer-time-proof-request-config.js";
 import { RegisteredSynchronizerTimeTrackerConfig } from "../../../core/types/registered-synchronizer-time-tracker-config.js";
-import { ParticipantConnectedSynchronizer } from "../../../core/types/participant-connected-synchronizer.js";
-import { GetSynchronizerIdRequest } from "../../../core/types/requests/get-synchronizer-id-request.js";
-import { ListConnectedSynchronizersRequest } from "../../../core/types/requests/list-connected-synchronizers-request.js";
 import { ListRegisteredSynchronizersRequest } from "../../../core/types/requests/list-registered-synchronizers-request.js";
-import { GetSynchronizerIdResponse } from "../../../core/types/responses/get-synchronizer-id-response.js";
-import { ListConnectedSynchronizersResponse } from "../../../core/types/responses/list-connected-synchronizers-response.js";
 import { ListRegisteredSynchronizersResponse } from "../../../core/types/responses/list-registered-synchronizers-response.js";
 import {
-    GetSynchronizerIdRequest as GrpcGetSynchronizerIdRequest,
-    GetSynchronizerIdResponse as GrpcGetSynchronizerIdResponse,
-    ListConnectedSynchronizersRequest as GrpcListConnectedSynchronizersRequest,
-    ListConnectedSynchronizersResponse as GrpcListConnectedSynchronizersResponse,
-    ListConnectedSynchronizersResponse_Result,
     ListRegisteredSynchronizersRequest as GrpcListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse as GrpcListRegisteredSynchronizersResponse,
     ListRegisteredSynchronizersResponse_Result,
@@ -40,39 +30,6 @@ import { SynchronizerTimeTrackerConfig, TimeProofRequestConfig } from "../genera
 import { SynchronizerPredecessor } from "../generated/canton/com/digitalasset/canton/admin/topology/v30/common.js";
 import { mapSdkDuration, mapSdkTimestamp } from "./topology-common-mapper.js";
 
-export function mapGrpcListConnectedSynchronizersRequest(
-    _request: ListConnectedSynchronizersRequest,
-): GrpcListConnectedSynchronizersRequest {
-    return {};
-}
-
-export function mapGrpcListConnectedSynchronizers(
-    payload?: Partial<GrpcListConnectedSynchronizersResponse>,
-): ListConnectedSynchronizersResponse {
-    return new ListConnectedSynchronizersResponse({
-        connectedSynchronizers: (payload?.connectedSynchronizers ?? []).map(
-            (item) => mapGrpcParticipantConnectedSynchronizer(item),
-        ),
-    });
-}
-
-export function mapGrpcGetSynchronizerIdRequest(
-    request: GetSynchronizerIdRequest,
-): GrpcGetSynchronizerIdRequest {
-    return {
-        synchronizerAlias: request.synchronizerAlias,
-    };
-}
-
-export function mapGrpcGetSynchronizerId(
-    payload?: Partial<GrpcGetSynchronizerIdResponse>,
-): GetSynchronizerIdResponse {
-    return new GetSynchronizerIdResponse({
-        synchronizerId: payload?.synchronizerId,
-        physicalSynchronizerId: payload?.physicalSynchronizerId,
-    });
-}
-
 export function mapGrpcListRegisteredSynchronizersRequest(
     request: ListRegisteredSynchronizersRequest,
 ): GrpcListRegisteredSynchronizersRequest {
@@ -88,17 +45,6 @@ export function mapGrpcListRegisteredSynchronizers(
         registeredSynchronizers: (payload?.results ?? []).map((item) =>
             mapGrpcRegisteredSynchronizer(item),
         ),
-    });
-}
-
-function mapGrpcParticipantConnectedSynchronizer(
-    payload?: Partial<ListConnectedSynchronizersResponse_Result>,
-): ParticipantConnectedSynchronizer {
-    return new ParticipantConnectedSynchronizer({
-        synchronizerAlias: payload?.synchronizerAlias ?? "",
-        synchronizerId: payload?.synchronizerId ?? "",
-        physicalSynchronizerId: payload?.physicalSynchronizerId ?? "",
-        healthy: payload?.healthy ?? false,
     });
 }
 

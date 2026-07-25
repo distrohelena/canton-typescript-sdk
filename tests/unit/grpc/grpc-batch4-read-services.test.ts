@@ -3,8 +3,6 @@ import {
     CountInFlightRequest,
     GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
-    GetSynchronizerIdRequest,
-    ListConnectedSynchronizersRequest,
     LookupOffsetByTimeRequest,
     ParticipantInspectionServiceClient,
     RequestOptions,
@@ -12,9 +10,28 @@ import {
     TopologyDuration,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    GetSynchronizerIdRequest,
+    GetSynchronizerIdResponse,
+    ListConnectedSynchronizersRequest,
+    ListConnectedSynchronizersResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("GrpcTransport batch 4 read services", () => {
     it("maps participant inspection and synchronizer connectivity reads", async () => {
+        const connectedSynchronizersResponse =
+            ListConnectedSynchronizersResponse.create({
+                connectedSynchronizers: [{
+                    synchronizerAlias: "sync-alias-1",
+                    synchronizerId: "sync-1",
+                    physicalSynchronizerId: "physical-sync-1",
+                    healthy: true,
+                }],
+            });
+        const synchronizerIdResponse = GetSynchronizerIdResponse.create({
+            synchronizerId: "sync-1",
+            physicalSynchronizerId: "physical-sync-1",
+        });
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -60,20 +77,8 @@ describe("GrpcTransport batch 4 read services", () => {
                     },
                 ],
             }),
-            listConnectedSynchronizersAsync: async () => ({
-                connectedSynchronizers: [
-                    {
-                        synchronizerAlias: "sync-alias-1",
-                        synchronizerId: "sync-1",
-                        physicalSynchronizerId: "physical-sync-1",
-                        healthy: true,
-                    },
-                ],
-            }),
-            getSynchronizerIdAsync: async () => ({
-                synchronizerId: "sync-1",
-                physicalSynchronizerId: "physical-sync-1",
-            }),
+            listConnectedSynchronizersAsync: async () => connectedSynchronizersResponse,
+            getSynchronizerIdAsync: async () => synchronizerIdResponse,
         } as any);
 
         const options = new RequestOptions({
@@ -121,13 +126,13 @@ describe("GrpcTransport batch 4 read services", () => {
 
         const connectedSynchronizers =
             await synchronizerConnectivity.listConnectedSynchronizersAsync(
-                new ListConnectedSynchronizersRequest(),
+                ListConnectedSynchronizersRequest.create(),
                 options,
             );
 
         const synchronizerId =
             await synchronizerConnectivity.getSynchronizerIdAsync(
-                new GetSynchronizerIdRequest({
+                GetSynchronizerIdRequest.create({
                     synchronizerAlias: "sync-alias-1",
                 }),
                 options,
@@ -142,12 +147,7 @@ describe("GrpcTransport batch 4 read services", () => {
                 nanos: 0,
             }),
         );
-        expect(connectedSynchronizers.connectedSynchronizers[0]).toMatchObject({
-            synchronizerAlias: "sync-alias-1",
-            synchronizerId: "sync-1",
-            physicalSynchronizerId: "physical-sync-1",
-            healthy: true,
-        });
-        expect(synchronizerId.physicalSynchronizerId).toBe("physical-sync-1");
+        expect(connectedSynchronizers).toBe(connectedSynchronizersResponse);
+        expect(synchronizerId).toBe(synchronizerIdResponse);
     });
 });

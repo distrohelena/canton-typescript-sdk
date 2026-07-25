@@ -5,12 +5,14 @@ import {
     CountInFlightRequest,
     GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
-    GetSynchronizerIdRequest,
-    ListConnectedSynchronizersRequest,
     LookupOffsetByTimeRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import {
+    GetSynchronizerIdRequest,
+    ListConnectedSynchronizersRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("Batch 4 read services with JSON transport", () => {
     it("rejects unsupported participant-admin inspection and synchronizer connectivity reads", async () => {
@@ -64,14 +66,14 @@ describe("Batch 4 read services with JSON transport", () => {
                 "SynchronizerConnectivityService.ListConnectedSynchronizers",
                 () =>
                     client.synchronizerConnectivityService.listConnectedSynchronizersAsync(
-                        new ListConnectedSynchronizersRequest(),
+                        ListConnectedSynchronizersRequest.create(),
                     ),
             ],
             [
                 "SynchronizerConnectivityService.GetSynchronizerId",
                 () =>
                     client.synchronizerConnectivityService.getSynchronizerIdAsync(
-                        new GetSynchronizerIdRequest({
+                        GetSynchronizerIdRequest.create({
                             synchronizerAlias: "sync-alias-1",
                         }),
                     ),

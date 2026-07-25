@@ -116,7 +116,6 @@ export { CantonHashPurpose } from "./core/types/canton-hash-purpose.js";
 export { HealthCheckStatus } from "./core/types/health-check-status.js";
 export { PackageStatus } from "./core/types/package-status.js";
 export { PendingOperationMetadata } from "./core/types/pending-operation-metadata.js";
-export { ParticipantConnectedSynchronizer } from "./core/types/participant-connected-synchronizer.js";
 export { ParticipantPruningSchedule } from "./core/types/participant-pruning-schedule.js";
 export { PruningSchedule } from "./core/types/pruning-schedule.js";
 export { ReceivedAcsCommitment } from "./core/types/received-acs-commitment.js";
@@ -257,7 +256,6 @@ export { ListPackagesRequest } from "./core/types/requests/list-packages-request
 export { ListAllRequest } from "./core/types/requests/list-all-request.js";
 export { ListAllV2Request } from "./core/types/requests/list-all-v2-request.js";
 export { ListAvailableStoresRequest } from "./core/types/requests/list-available-stores-request.js";
-export { ListConnectedSynchronizersRequest } from "./core/types/requests/list-connected-synchronizers-request.js";
 export { ListDecentralizedNamespaceDefinitionRequest } from "./core/types/requests/list-decentralized-namespace-definition-request.js";
 export { ListRegisteredSynchronizersRequest } from "./core/types/requests/list-registered-synchronizers-request.js";
 export { GetLedgerApiVersionRequest } from "./core/types/requests/get-ledger-api-version-request.js";
@@ -282,7 +280,6 @@ export { GetConnectedSynchronizersRequest } from "./core/types/requests/get-conn
 export { GetLatestPrunedOffsetsRequest } from "./core/types/requests/get-latest-pruned-offsets-request.js";
 export { GetLedgerEndRequest } from "./core/types/requests/get-ledger-end-request.js";
 export { GetPartiesRequest } from "./core/types/requests/get-parties-request.js";
-export { GetSynchronizerIdRequest } from "./core/types/requests/get-synchronizer-id-request.js";
 export { GetUserRequest } from "./core/types/requests/get-user-request.js";
 export { ListLsuAnnouncementRequest } from "./core/types/requests/list-lsu-announcement-request.js";
 export { ListLsuSequencerConnectionSuccessorRequest } from "./core/types/requests/list-lsu-sequencer-connection-successor-request.js";
@@ -347,7 +344,6 @@ export { GetPackageStatusResponse } from "./core/types/responses/get-package-sta
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
 export { GetPruningScheduleResponse } from "./core/types/responses/get-pruning-schedule-response.js";
 export { GetSafePruningOffsetResponse } from "./core/types/responses/get-safe-pruning-offset-response.js";
-export { GetSynchronizerIdResponse } from "./core/types/responses/get-synchronizer-id-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
 export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
 export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";
@@ -361,7 +357,6 @@ export { ImportTopologySnapshotV2Response } from "./core/types/responses/import-
 export { ListAllResponse } from "./core/types/responses/list-all-response.js";
 export { ListAllV2Response } from "./core/types/responses/list-all-v2-response.js";
 export { ListAvailableStoresResponse } from "./core/types/responses/list-available-stores-response.js";
-export { ListConnectedSynchronizersResponse } from "./core/types/responses/list-connected-synchronizers-response.js";
 export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/responses/list-decentralized-namespace-definition-response.js";
 export { ListRegisteredSynchronizersResponse } from "./core/types/responses/list-registered-synchronizers-response.js";
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";

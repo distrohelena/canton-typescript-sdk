@@ -1,25 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    RequestOptions,
+    SynchronizerConnectivityServiceClient,
+} from "../../../src";
+import {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
-    RequestOptions,
-    SynchronizerConnectivityServiceClient,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("SynchronizerConnectivityServiceClient", () => {
     it("forwards synchronizer connectivity reads through the selected transport", async () => {
         const listConnectedSynchronizersAsync = vi.fn(
             async () =>
-                new ListConnectedSynchronizersResponse({
+                ListConnectedSynchronizersResponse.create({
                     connectedSynchronizers: [],
                 }),
         );
 
         const getSynchronizerIdAsync = vi.fn(
             async () =>
-                new GetSynchronizerIdResponse({
+                GetSynchronizerIdResponse.create({
                     synchronizerId: "sync-1",
                     physicalSynchronizerId: "physical-sync-1",
                 }),
@@ -48,12 +50,12 @@ describe("SynchronizerConnectivityServiceClient", () => {
         });
 
         await client.listConnectedSynchronizersAsync(
-            new ListConnectedSynchronizersRequest(),
+            ListConnectedSynchronizersRequest.create(),
             options,
         );
 
         await client.getSynchronizerIdAsync(
-            new GetSynchronizerIdRequest({
+            GetSynchronizerIdRequest.create({
                 synchronizerAlias: "sync-alias-1",
             }),
             options,
@@ -67,11 +69,11 @@ describe("SynchronizerConnectivityServiceClient", () => {
         );
 
         expect(listConnectedSynchronizersAsync).toHaveBeenLastCalledWith(
-            expect.any(ListConnectedSynchronizersRequest),
+            ListConnectedSynchronizersRequest.create(),
             options,
         );
         expect(getSynchronizerIdAsync).toHaveBeenLastCalledWith(
-            expect.any(GetSynchronizerIdRequest),
+            GetSynchronizerIdRequest.create({ synchronizerAlias: "sync-alias-1" }),
             options,
         );
         expect(listRegisteredSynchronizersAsync).toHaveBeenLastCalledWith(

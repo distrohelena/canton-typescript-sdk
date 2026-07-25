@@ -11,10 +11,10 @@ import {
     GenerateExternalPartyTopologyRequest,
     GetParticipantIdRequest,
     GetPartiesRequest,
-    ListConnectedSynchronizersRequest,
     ListKnownPartiesRequest,
     PartyDetails,
 } from "../../../src/index.js";
+import { ListConnectedSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { generateKeyPairSync, sign } from "node:crypto";
 
 export interface LiveExternalPartyResult {
@@ -179,7 +179,7 @@ async function discoverSingleHealthySynchronizerIdAsync(
 ): Promise<string> {
     const response =
         await client.synchronizerConnectivityService.listConnectedSynchronizersAsync(
-            new ListConnectedSynchronizersRequest(),
+            ListConnectedSynchronizersRequest.create(),
         );
 
     const healthySynchronizers = response.connectedSynchronizers.filter(
