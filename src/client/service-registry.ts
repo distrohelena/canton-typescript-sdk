@@ -11,11 +11,14 @@ import type {
     GetUpdatesRequest,
     GetUpdatesResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
+import type {
+    CompletionStreamResponse,
+    GetCompletionsRequest,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
-import { GetCompletionsRequest } from "../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../core/types/requests/current-time-request.js";
@@ -194,7 +197,6 @@ import { EndpointNotConfiguredError } from "../core/errors/endpoint-not-configur
 import { GrpcChannelSecurity } from "../core/types/grpc-channel-security.js";
 import { CommandCompletionServiceClient } from "../services/command-completion/command-completion-service-client.js";
 import { CommandInspectionServiceClient } from "../services/command-inspection/command-inspection-service-client.js";
-import { CompletionObserver } from "../services/command-completion/completion-observer.interface.js";
 import { CommitmentChunkObserver } from "../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { CommandServiceClient } from "../services/command/command-service-client.js";
 import { CommandSubmissionServiceClient } from "../services/command-submission/command-submission-service-client.js";
@@ -1119,11 +1121,10 @@ class PlaceholderTransport implements ITransport {
         );
     }
 
-    public async getCompletionsAsync(
+    public getCompletionsAsync(
         _request: GetCompletionsRequest,
-        _observer: CompletionObserver,
         _options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<CompletionStreamResponse> {
         this.throwIfDisposed();
 
         throw new TransportError(
@@ -1534,7 +1535,7 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
-    public async getCompletionsAsync(): Promise<void> {
+    public getCompletionsAsync(): AsyncIterable<CompletionStreamResponse> {
         this.throwMissingEndpoint();
     }
 
@@ -1928,7 +1929,7 @@ class CompositeTransport implements ITransport {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async getCompletionsAsync(): Promise<void> {
+    public getCompletionsAsync(): AsyncIterable<CompletionStreamResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 

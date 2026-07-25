@@ -1,15 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    CompletionObserver,
-    CompletionStreamResponse,
     CommandCompletionServiceClient,
-    GetCompletionsRequest,
     RequestOptions,
 } from "../../../src";
+import {
+    CompletionStreamResponse,
+    GetCompletionsRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 
 describe("CommandCompletionServiceClient", () => {
-    it("forwards completion read requests through the selected transport", async () => {
-        const getCompletionsAsync = vi.fn(async () => undefined);
+    it("forwards generated completion requests as a lazy stream", async () => {
+        const response = CompletionStreamResponse.create({
+            completionResponse: { oneofKind: undefined },
+        });
+        const getCompletionsAsync = vi.fn(async function* () {
+            yield response;
+        });
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -22,24 +28,19 @@ describe("CommandCompletionServiceClient", () => {
             timeoutMs: 5_000,
         });
 
-        const observer: CompletionObserver<CompletionStreamResponse> = {
-            nextAsync: async () => undefined,
-        };
+        const stream = client.getCompletionsAsync(
+            GetCompletionsRequest.create({
+                parties: ["Alice"],
+                beginExclusive: "0",
+            }),
+            options,
+        );
 
-        await expect(
-            client.getCompletionsAsync(
-                new GetCompletionsRequest({
-                    parties: ["Alice"],
-                    beginExclusive: "0",
-                }),
-                observer,
-                options,
-            ),
-        ).resolves.toBeUndefined();
+        expect(getCompletionsAsync).not.toHaveBeenCalled();
+        await expect(Array.fromAsync(stream)).resolves.toEqual([response]);
 
         expect(getCompletionsAsync).toHaveBeenCalledWith(
-            expect.any(GetCompletionsRequest),
-            observer,
+            expect.objectContaining({ beginExclusive: "0", parties: ["Alice"] }),
             options,
         );
     });

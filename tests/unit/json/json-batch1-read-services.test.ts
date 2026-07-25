@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
-    GetCompletionsRequest,
     GetConnectedSynchronizersRequest,
     GetContractRequest,
     GetEventsByContractIdRequest,
@@ -17,6 +16,7 @@ import {
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import { GetCompletionsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -158,15 +158,13 @@ describe("Batch 1 read services with JSON transport", () => {
             ],
             [
                 "CommandCompletionService.GetCompletions",
-                () =>
+                () => Array.fromAsync(
                     client.commandCompletionService.getCompletionsAsync(
-                        new GetCompletionsRequest({
+                        GetCompletionsRequest.create({
                             beginExclusive: "0",
                         }),
-                        {
-                            nextAsync: async () => undefined,
-                        },
                     ),
+                ),
             ],
         ] as const;
 

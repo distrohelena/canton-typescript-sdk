@@ -15,7 +15,7 @@ import { GetCommandStatusResponse as GrpcGetCommandStatusResponse } from "../gen
 import { Command as GrpcCommand } from "../generated/canton/com/daml/ledger/api/v2/commands.js";
 import { Value } from "../generated/canton/com/daml/ledger/api/v2/value.js";
 import { Timestamp } from "../generated/canton/google/protobuf/timestamp.js";
-import { mapGrpcCompletion } from "./command-completion-mapper.js";
+import { mapGrpcCompletion } from "./completion-mapper.js";
 
 export function mapGrpcGetCommandStatusRequest(
     request: GetCommandStatusRequest,

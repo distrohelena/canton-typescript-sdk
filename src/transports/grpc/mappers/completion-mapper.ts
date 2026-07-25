@@ -1,46 +1,5 @@
 import { Completion } from "../../../core/types/completion.js";
-import { CompletionStreamResponse } from "../../../core/types/completion-stream-response.js";
-import { OffsetCheckpoint } from "../../../core/types/offset-checkpoint.js";
-import { GetCompletionsRequest } from "../../../core/types/requests/get-completions-request.js";
 import { mapGrpcSynchronizerTime } from "./state-read-mapper.js";
-import { CompletionStreamResponse as GrpcCompletionStreamResponse } from "../generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
-
-export function mapGrpcGetCompletionsRequest(
-    request: GetCompletionsRequest,
-): {
-    parties: string[];
-    beginExclusive: string;
-} {
-    return {
-        parties: [...request.parties],
-        beginExclusive: request.beginExclusive,
-    };
-}
-
-export function mapGrpcCompletionStreamResponse(
-    payload: Partial<GrpcCompletionStreamResponse>,
-): CompletionStreamResponse {
-    switch (payload.completionResponse?.oneofKind) {
-        case "completion":
-            return new CompletionStreamResponse({
-                completion: mapGrpcCompletion(
-                    payload.completionResponse.completion,
-                ),
-            });
-        case "offsetCheckpoint":
-            return new CompletionStreamResponse({
-                offsetCheckpoint: new OffsetCheckpoint({
-                    offset: payload.completionResponse.offsetCheckpoint.offset,
-                    synchronizerTimes:
-                        payload.completionResponse.offsetCheckpoint.synchronizerTimes.map(
-                            mapGrpcSynchronizerTime,
-                        ),
-                }),
-            });
-        default:
-            return new CompletionStreamResponse({});
-    }
-}
 
 export function mapGrpcCompletion(payload: {
     commandId: string;

@@ -4,7 +4,6 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
@@ -190,10 +189,6 @@ import {
     mapGrpcQueryContracts,
     mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
-import {
-    mapGrpcCompletionStreamResponse,
-    mapGrpcGetCompletionsRequest,
-} from "./mappers/command-completion-mapper.js";
 import {
     mapGrpcGetCommandStatus,
     mapGrpcGetCommandStatusRequest,
@@ -389,7 +384,6 @@ import {
     mapGrpcListUsersRequest,
 } from "./mappers/users-mapper.js";
 import { mapGrpcHealthCheckResponse } from "./mappers/health-mapper.js";
-import { CompletionObserver } from "../../services/command-completion/completion-observer.interface.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
@@ -424,7 +418,10 @@ import {
 } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
 import { GetContractResponse as ProtobufGetContractResponse } from "./generated/canton/com/daml/ledger/api/v2/contract_service.js";
-import { CompletionStreamResponse as ProtobufCompletionStreamResponse } from "./generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
+import {
+    CompletionStreamResponse as ProtobufCompletionStreamResponse,
+    GetCompletionsRequest,
+} from "./generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { GetEventsByContractIdResponse as ProtobufGetEventsByContractIdResponse } from "./generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     GetConnectedSynchronizersResponse as ProtobufGetConnectedSynchronizersResponse,
@@ -1999,23 +1996,12 @@ export class GrpcTransport implements ITransport {
         return await this.operations.getUpdatesPageAsync!(request, options) as ProtobufGetUpdatesPageResponse;
     }
 
-    public async getCompletionsAsync(
+    public getCompletionsAsync(
         request: GetCompletionsRequest,
-        observer: CompletionObserver,
         options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<ProtobufCompletionStreamResponse> {
         this.throwIfDisposed();
-
-        const payload = await this.operations.getCompletionsAsync!(
-            mapGrpcGetCompletionsRequest(request),
-            options,
-        );
-
-        for (const response of payload as readonly ProtobufCompletionStreamResponse[]) {
-            await observer.nextAsync(
-                mapGrpcCompletionStreamResponse(response),
-            );
-        }
+        return this.operations.getCompletionsAsync!(request, options) as AsyncIterable<ProtobufCompletionStreamResponse>;
     }
 
     public async submitCommandAsync(

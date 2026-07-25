@@ -9,6 +9,10 @@ import type {
     GetUpdatesRequest,
     GetUpdatesResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
+import type {
+    CompletionStreamResponse,
+    GetCompletionsRequest,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../types/requests/add-party-async-request.js";
@@ -19,7 +23,6 @@ import { GrantUserRightsRequest } from "../types/requests/grant-user-rights-requ
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsPageRequest } from "../types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
-import { GetCompletionsRequest } from "../types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../types/requests/current-time-request.js";
@@ -182,7 +185,6 @@ import { ParticipantListPackagesResponse } from "../types/responses/participant-
 import { SubmitCommandResponse } from "../types/responses/submit-command-response.js";
 import { TrafficControlStateResponse } from "../types/responses/traffic-control-state-response.js";
 import { UploadDarFileResponse } from "../types/responses/upload-dar-file-response.js";
-import { CompletionObserver } from "../../services/command-completion/completion-observer.interface.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
@@ -751,9 +753,8 @@ export interface ITransport {
     /** Reads command completions as a stream. Supported on gRPC; JSON rejects it. */
     getCompletionsAsync(
         request: GetCompletionsRequest,
-        observer: CompletionObserver,
         options?: RequestOptions,
-    ): Promise<void>;
+    ): AsyncIterable<CompletionStreamResponse>;
 
     /**
      * Submits a command.

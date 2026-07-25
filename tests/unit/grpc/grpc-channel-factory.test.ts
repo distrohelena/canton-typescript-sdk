@@ -150,6 +150,42 @@ describe("gRPC call-options factory", () => {
         expect(onGrpcError).toHaveBeenCalledTimes(1);
     });
 
+    it("normalizes failures from the lazy completion stream", async () => {
+        const rawError = Object.assign(new Error("permission denied"), {
+            name: "RpcError",
+            code: "PERMISSION_DENIED",
+            meta: {},
+        });
+        const onGrpcError = vi.fn();
+        const operations = createGrpcOperations(
+            new CantonClientOptions({
+                transportKind: TransportKind.grpc,
+                onGrpcError,
+            }),
+            "http://localhost:6865",
+            GrpcChannelSecurity.insecure,
+            {
+                commandCompletionServiceClient: {
+                    getCompletions: () => ({
+                        responses: (async function* () {
+                            throw rawError;
+                        })(),
+                        status: Promise.resolve({}),
+                    }),
+                },
+            },
+        );
+
+        await expect((async () => {
+            for await (const _response of operations.getCompletionsAsync!({
+                beginExclusive: "0",
+            })) {
+                // exhaust the stream
+            }
+        })()).rejects.toMatchObject({ grpcCode: "PERMISSION_DENIED" });
+        expect(onGrpcError).toHaveBeenCalledTimes(1);
+    });
+
     it("normalizes a rejecting trailing stream status", async () => {
         const rawError = Object.assign(new Error("trailing failure"), { name: "RpcError", code: "UNAVAILABLE", meta: {} });
         const onGrpcError = vi.fn();

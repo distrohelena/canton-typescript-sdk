@@ -392,7 +392,7 @@ export interface GrpcOperations {
     getUpdateByIdAsync?(request: GrpcGetUpdateByIdRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
     getUpdateByHashAsync?(request: GrpcGetUpdateByHashRequest, options?: RequestOptions): Promise<GrpcGetUpdateResponse>;
     getUpdatesPageAsync?(request: GrpcGetUpdatesPageRequest, options?: RequestOptions): Promise<GrpcGetUpdatesPageResponse>;
-    getCompletionsAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
+    getCompletionsAsync?(request: GrpcGetCompletionsRequest, options?: RequestOptions): AsyncIterable<GrpcCompletionStreamResponse>;
     prepareSubmissionAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     executeSubmissionAndWaitAsync?(request: unknown, options?: RequestOptions): Promise<unknown>;
     submitCommandAsync(request: unknown, options?: RequestOptions): Promise<unknown>;
@@ -2201,20 +2201,14 @@ export function createGrpcOperations(
                 ),
             );
         },
-        async getCompletionsAsync(
-            request: unknown,
+        getCompletionsAsync(
+            request: GrpcGetCompletionsRequest,
             requestOptions?: RequestOptions,
-        ): Promise<GrpcCompletionStreamResponse[]> {
-            const callOptions =
-                await buildCallOptionsForLedgerSurfaceAsync(
-                    options,
-                    requestOptions,
-                );
-
-            return await collectServerResponsesAsync(
-                commandCompletionServiceClient.getCompletions(
-                    request as GrpcGetCompletionsRequest,
-                    callOptions,
+        ): AsyncIterable<GrpcCompletionStreamResponse> {
+            return streamServerResponsesAsync(
+                async () => commandCompletionServiceClient.getCompletions(
+                    request,
+                    await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
                 ),
             );
         },
@@ -2331,9 +2325,9 @@ function wrapGrpcOperations(
                 return operation;
             }
 
-            if (property === "getUpdatesAsync") {
+            if (property === "getUpdatesAsync" || property === "getCompletionsAsync") {
                 return (...args: unknown[]) => wrapGrpcStream(
-                    () => operation.apply(target, args) as AsyncIterable<GetUpdatesResponse>,
+                    () => operation.apply(target, args) as AsyncIterable<unknown>,
                     onGrpcError,
                 );
             }

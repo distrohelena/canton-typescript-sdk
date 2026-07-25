@@ -1,11 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CommandCompletionServiceClient,
-    CompletionObserver,
-    CompletionStreamResponse,
     ContractServiceClient,
     EventQueryServiceClient,
-    GetCompletionsRequest,
     GetConnectedSynchronizersRequest,
     GetContractRequest,
     GetEventsByContractIdRequest,
@@ -26,6 +23,9 @@ import {
     UserManagementServiceClient,
     UserRightKind,
 } from "../../../src";
+import {
+    GetCompletionsRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -236,8 +236,8 @@ describe("GrpcTransport batch 1 read services", () => {
             nextPageToken: new Uint8Array([9]),
         }));
 
-        const getCompletionsAsync = vi.fn(async () => [
-            {
+        const getCompletionsAsync = vi.fn(async function* () {
+            yield {
                 completionResponse: {
                     oneofKind: "completion",
                     completion: {
@@ -254,8 +254,8 @@ describe("GrpcTransport batch 1 read services", () => {
                         paidTrafficCost: "0",
                     },
                 },
-            },
-            {
+            };
+            yield {
                 completionResponse: {
                     oneofKind: "offsetCheckpoint",
                     offsetCheckpoint: {
@@ -263,8 +263,8 @@ describe("GrpcTransport batch 1 read services", () => {
                         synchronizerTimes: [],
                     },
                 },
-            },
-        ]);
+            };
+        });
 
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
@@ -399,21 +399,14 @@ describe("GrpcTransport batch 1 read services", () => {
             options,
         );
 
-        const completionEvents: CompletionStreamResponse[] = [];
-
-        const observer: CompletionObserver<CompletionStreamResponse> = {
-            nextAsync: async (event) => {
-                completionEvents.push(event);
-            },
-        };
-
-        await commandCompletionService.getCompletionsAsync(
-            new GetCompletionsRequest({
+        const completionEvents = await Array.fromAsync(
+            commandCompletionService.getCompletionsAsync(
+                GetCompletionsRequest.create({
                 beginExclusive: "0",
                 parties: ["Alice"],
-            }),
-            observer,
-            options,
+                }),
+                options,
+            ),
         );
 
         expect(contract.createdEvent).toMatchObject({
@@ -431,10 +424,13 @@ describe("GrpcTransport batch 1 read services", () => {
         expect(byHash.update).toMatchObject({ oneofKind: "reassignment", reassignment: { updateId: "reassign-1" } });
         expect(page.nextPageToken).toEqual(new Uint8Array([9]));
         expect(completionEvents).toHaveLength(2);
-        expect(completionEvents[0].completion).toMatchObject({
-            commandId: "cmd-1",
-            deduplicationOffset: "7",
+        expect(completionEvents[0].completionResponse).toMatchObject({
+            oneofKind: "completion",
+            completion: { commandId: "cmd-1" },
         });
-        expect(completionEvents[1].offsetCheckpoint?.offset).toBe("10");
+        expect(completionEvents[1].completionResponse).toMatchObject({
+            oneofKind: "offsetCheckpoint",
+            offsetCheckpoint: { offset: "10" },
+        });
     });
 });

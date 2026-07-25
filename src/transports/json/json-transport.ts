@@ -1,7 +1,6 @@
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
-import { GetCompletionsRequest } from "../../core/types/requests/get-completions-request.js";
 import { GetConnectedSynchronizersRequest } from "../../core/types/requests/get-connected-synchronizers-request.js";
 import { CountInFlightRequest } from "../../core/types/requests/count-in-flight-request.js";
 import { CurrentTimeRequest } from "../../core/types/requests/current-time-request.js";
@@ -148,10 +147,13 @@ import { mapJsonQueryContracts } from "./mappers/contracts-mapper.js";
 import { mapJsonTransactionEvents } from "./mappers/events-mapper.js";
 import { mapJsonGrantRights } from "./mappers/users-mapper.js";
 import { IJsonHttpClient } from "./json-http-client.js";
-import { CompletionObserver } from "../../services/command-completion/completion-observer.interface.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
+import type {
+    CompletionStreamResponse,
+    GetCompletionsRequest,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 
 export class JsonTransport implements ITransport {
     private disposed = false;
@@ -1284,11 +1286,10 @@ export class JsonTransport implements ITransport {
         );
     }
 
-    public async getCompletionsAsync(
+    public getCompletionsAsync(
         _request: GetCompletionsRequest,
-        _observer: CompletionObserver,
         _options?: RequestOptions,
-    ): Promise<void> {
+    ): AsyncIterable<CompletionStreamResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
