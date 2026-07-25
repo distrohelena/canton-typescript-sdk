@@ -3,9 +3,9 @@ import {
     CantonClient,
     CantonClientOptions,
     NotSupportedError,
-    TrafficControlStateRequest,
     TransportKind,
 } from "../../../src";
+import { TrafficControlStateRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 
 describe("Batch 6 read services with JSON transport", () => {
     it("rejects unsupported traffic control reads", async () => {
@@ -19,7 +19,7 @@ describe("Batch 6 read services with JSON transport", () => {
 
         await expect(
             client.trafficControlService.trafficControlStateAsync(
-                new TrafficControlStateRequest({
+                TrafficControlStateRequest.create({
                     synchronizerId: "sync-1",
                 }),
             ),
@@ -27,7 +27,7 @@ describe("Batch 6 read services with JSON transport", () => {
 
         await expect(
             client.trafficControlService.trafficControlStateAsync(
-                new TrafficControlStateRequest({
+                TrafficControlStateRequest.create({
                     synchronizerId: "sync-1",
                 }),
             ),

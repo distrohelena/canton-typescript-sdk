@@ -1,7 +1,9 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
-import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
+import type {
+    TrafficControlStateRequest,
+    TrafficControlStateResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 
 export class TrafficControlServiceClient {
     public constructor(private readonly transport: ITransport) {

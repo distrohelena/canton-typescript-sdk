@@ -148,7 +148,6 @@ export { SentAcsCommitmentState } from "./core/types/sent-acs-commitment-state.j
 export { SlowCounterParticipantSynchronizerConfig } from "./core/types/slow-counter-participant-synchronizer-config.js";
 export { SynchronizerTimeRange } from "./core/types/synchronizer-time-range.js";
 export { TopologyStateFilter } from "./core/types/topology-state-filter.js";
-export { TrafficState } from "./core/types/traffic-state.js";
 export { WaitCommitmentsSetup } from "./core/types/wait-commitments-setup.js";
 export { AcsCommitmentsCatchUpConfig } from "./core/types/topology/dynamic-synchronizer-parameters.js";
 export { DecentralizedNamespaceDefinition } from "./core/types/topology/decentralized-namespace-definition.js";
@@ -316,7 +315,6 @@ export { OpenCommitmentRequest } from "./core/types/requests/open-commitment-req
 export { SignTopologyTransactionsRequest } from "./core/types/requests/sign-topology-transactions-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
 export { TopologyListPartiesRequest } from "./core/types/requests/topology-list-parties-request.js";
-export { TrafficControlStateRequest } from "./core/types/requests/traffic-control-state-request.js";
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
 export type { UserRightAssignment } from "./core/types/requests/grant-user-rights-request.js";
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
@@ -396,7 +394,6 @@ export { LookupOffsetByTimeResponse } from "./core/types/responses/lookup-offset
 export { SignTopologyTransactionsResponse } from "./core/types/responses/sign-topology-transactions-response.js";
 export { TopologyListVettedPackagesResponse } from "./core/types/responses/topology-list-vetted-packages-response.js";
 export { TopologyListPartiesResponse } from "./core/types/responses/topology-list-parties-response.js";
-export { TrafficControlStateResponse } from "./core/types/responses/traffic-control-state-response.js";
 export { ParticipantListPackagesResponse } from "./core/types/responses/participant-list-packages-response.js";
 export { SubmitCommandResponse } from "./core/types/responses/submit-command-response.js";
 export { GrantUserRightsResponse } from "./core/types/responses/grant-user-rights-response.js";

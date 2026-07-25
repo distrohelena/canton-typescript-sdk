@@ -52,7 +52,6 @@ import { ListSynchronizerTrustCertificateRequest } from "../../core/types/reques
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../../core/types/requests/topology-list-vetted-packages-request.js";
-import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -107,7 +106,6 @@ import { ParticipantListPackagesResponse } from "../../core/types/responses/part
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../../core/types/responses/topology-list-vetted-packages-response.js";
-import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
@@ -206,10 +204,6 @@ import {
     mapGrpcListRegisteredSynchronizers,
     mapGrpcListRegisteredSynchronizersRequest,
 } from "./mappers/synchronizer-connectivity-mapper.js";
-import {
-    mapGrpcTrafficControlState,
-    mapGrpcTrafficControlStateRequest,
-} from "./mappers/traffic-control-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
@@ -399,7 +393,10 @@ import {
     GetParticipantScheduleResponse as ProtobufGetParticipantScheduleResponse,
     GetScheduleResponse as ProtobufGetScheduleResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
-import { TrafficControlStateResponse as ProtobufTrafficControlStateResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
+import type {
+    TrafficControlStateRequest,
+    TrafficControlStateResponse,
+} from "./generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { ParticipantStatusRequest, ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import {
     ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
@@ -1094,14 +1091,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<TrafficControlStateResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.trafficControlStateAsync!(
-            mapGrpcTrafficControlStateRequest(request),
-            options,
-        );
-
-        return mapGrpcTrafficControlState(
-            payload as Partial<ProtobufTrafficControlStateResponse>,
-        );
+        return await this.operations.trafficControlStateAsync!(request, options);
     }
 
     public async listConnectedSynchronizersAsync(

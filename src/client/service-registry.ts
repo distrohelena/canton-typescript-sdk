@@ -82,7 +82,6 @@ import { SubmitCommandRequest } from "../core/types/requests/submit-command-requ
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { TopologyListPartiesRequest } from "../core/types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../core/types/requests/topology-list-vetted-packages-request.js";
-import { TrafficControlStateRequest } from "../core/types/requests/traffic-control-state-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
@@ -166,7 +165,10 @@ import { OpenCommitmentResponse } from "../core/types/responses/open-commitment-
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import { TopologyListVettedPackagesResponse } from "../core/types/responses/topology-list-vetted-packages-response.js";
-import { TrafficControlStateResponse } from "../core/types/responses/traffic-control-state-response.js";
+import type {
+    TrafficControlStateRequest,
+    TrafficControlStateResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { ParticipantListPackagesResponse } from "../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../core/types/responses/submit-command-response.js";
 import type {

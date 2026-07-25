@@ -69,7 +69,6 @@ import { LookupOffsetByTimeRequest } from "../types/requests/lookup-offset-by-ti
 import { OpenCommitmentRequest } from "../types/requests/open-commitment-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
-import { TrafficControlStateRequest } from "../types/requests/traffic-control-state-request.js";
 import { ParticipantListPackagesRequest } from "../types/requests/participant-list-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
@@ -148,7 +147,10 @@ import { TopologyListPartiesResponse } from "../types/responses/topology-list-pa
 import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
 import { ParticipantListPackagesResponse } from "../types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../types/responses/submit-command-response.js";
-import { TrafficControlStateResponse } from "../types/responses/traffic-control-state-response.js";
+import type {
+    TrafficControlStateRequest,
+    TrafficControlStateResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";

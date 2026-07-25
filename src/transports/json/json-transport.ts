@@ -35,7 +35,6 @@ import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offs
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ParticipantListPackagesRequest } from "../../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
-import { TrafficControlStateRequest } from "../../core/types/requests/traffic-control-state-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
@@ -87,7 +86,10 @@ import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-of
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
-import { TrafficControlStateResponse } from "../../core/types/responses/traffic-control-state-response.js";
+import type {
+    TrafficControlStateRequest,
+    TrafficControlStateResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../grpc/generated/canton/google/grpc/health/v1/health.js";
 import { GetLedgerApiVersionResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";

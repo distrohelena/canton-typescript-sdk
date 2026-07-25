@@ -2,15 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 import {
     RequestOptions,
     TrafficControlServiceClient,
+} from "../../../src";
+import {
     TrafficControlStateRequest,
     TrafficControlStateResponse,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 
 describe("TrafficControlServiceClient", () => {
     it("forwards traffic control reads through the selected transport", async () => {
         const trafficControlStateAsync = vi.fn(
             async () =>
-                new TrafficControlStateResponse({}),
+                TrafficControlStateResponse.create({}),
         );
 
         const transport = {
@@ -26,14 +28,14 @@ describe("TrafficControlServiceClient", () => {
         });
 
         await client.trafficControlStateAsync(
-            new TrafficControlStateRequest({
+            TrafficControlStateRequest.create({
                 synchronizerId: "sync-1",
             }),
             options,
         );
 
         expect(trafficControlStateAsync).toHaveBeenLastCalledWith(
-            expect.any(TrafficControlStateRequest),
+            TrafficControlStateRequest.create({ synchronizerId: "sync-1" }),
             options,
         );
     });
