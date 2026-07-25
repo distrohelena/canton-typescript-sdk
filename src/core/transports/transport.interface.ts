@@ -28,7 +28,6 @@ import { ImportTopologySnapshotV2Request } from "../types/requests/import-topolo
 import { ListAllRequest } from "../types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
-import { ListMediatorSynchronizerStateRequest } from "../types/requests/list-mediator-synchronizer-state-request.js";
 import { ListNamespaceDelegationRequest } from "../types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../types/requests/list-owner-to-key-mapping-request.js";
 import { ListParticipantSynchronizerPermissionRequest } from "../types/requests/list-participant-synchronizer-permission-request.js";
@@ -87,6 +86,8 @@ import type {
     ListLsuAnnouncementResponse,
     ListLsuSequencerConnectionSuccessorRequest,
     ListLsuSequencerConnectionSuccessorResponse,
+    ListMediatorSynchronizerStateRequest,
+    ListMediatorSynchronizerStateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -106,7 +107,6 @@ import type {
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../types/responses/list-key-owners-response.js";
-import { ListMediatorSynchronizerStateResponse } from "../types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";

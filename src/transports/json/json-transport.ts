@@ -39,6 +39,8 @@ import type {
     ListLsuAnnouncementResponse,
     ListLsuSequencerConnectionSuccessorRequest,
     ListLsuSequencerConnectionSuccessorResponse,
+    ListMediatorSynchronizerStateRequest,
+    ListMediatorSynchronizerStateResponse,
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
@@ -1081,9 +1083,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listMediatorSynchronizerStateAsync(
-        _request: any,
+        _request: ListMediatorSynchronizerStateRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListMediatorSynchronizerStateResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

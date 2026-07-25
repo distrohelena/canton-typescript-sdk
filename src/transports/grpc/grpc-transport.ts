@@ -9,7 +9,6 @@ import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/
 import { ListAllRequest } from "../../core/types/requests/list-all-request.js";
 import { ListDecentralizedNamespaceDefinitionRequest } from "../../core/types/requests/list-decentralized-namespace-definition-request.js";
 import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
-import { ListMediatorSynchronizerStateRequest } from "../../core/types/requests/list-mediator-synchronizer-state-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
@@ -36,7 +35,6 @@ import { ListAllResponse } from "../../core/types/responses/list-all-response.js
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { ListMediatorSynchronizerStateResponse } from "../../core/types/responses/list-mediator-synchronizer-state-response.js";
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../../core/types/responses/list-participant-synchronizer-permission-response.js";
@@ -105,8 +103,6 @@ import {
     mapGrpcListAllResponse,
     mapGrpcListDecentralizedNamespaceDefinitionRequest,
     mapGrpcListDecentralizedNamespaceDefinitionResponse,
-    mapGrpcListMediatorSynchronizerStateRequest,
-    mapGrpcListMediatorSynchronizerStateResponse,
     mapGrpcListNamespaceDelegationRequest,
     mapGrpcListNamespaceDelegationResponse,
     mapGrpcListOwnerToKeyMappingRequest,
@@ -316,6 +312,7 @@ import {
     ListLsuAnnouncementResponse as ProtobufListLsuAnnouncementResponse,
     ListLsuSequencerConnectionSuccessorRequest as ProtobufListLsuSequencerConnectionSuccessorRequest,
     ListLsuSequencerConnectionSuccessorResponse as ProtobufListLsuSequencerConnectionSuccessorResponse,
+    ListMediatorSynchronizerStateRequest as ProtobufListMediatorSynchronizerStateRequest,
     ListMediatorSynchronizerStateResponse as ProtobufListMediatorSynchronizerStateResponse,
     ListNamespaceDelegationResponse as ProtobufListNamespaceDelegationResponse,
     ListOwnerToKeyMappingResponse as ProtobufListOwnerToKeyMappingResponse,
@@ -1359,19 +1356,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listMediatorSynchronizerStateAsync(
-        request: ListMediatorSynchronizerStateRequest,
+        request: ProtobufListMediatorSynchronizerStateRequest,
         options?: RequestOptions,
-    ): Promise<ListMediatorSynchronizerStateResponse> {
+    ): Promise<ProtobufListMediatorSynchronizerStateResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listMediatorSynchronizerStateAsync!(
-            mapGrpcListMediatorSynchronizerStateRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListMediatorSynchronizerStateResponse(
-            payload as Partial<ProtobufListMediatorSynchronizerStateResponse>,
-        );
+        return payload as ProtobufListMediatorSynchronizerStateResponse;
     }
 
     public async listSequencerSynchronizerStateAsync(
