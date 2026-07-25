@@ -15,6 +15,8 @@ import { AllocateExternalPartyResponse } from "../../core/types/responses/alloca
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
+    ListKeyOwnersRequest,
+    ListKeyOwnersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import type {
     AddPartyAsyncRequest,
@@ -1199,9 +1201,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listKeyOwnersAsync(
-        _request: any,
+        _request: ListKeyOwnersRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListKeyOwnersResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

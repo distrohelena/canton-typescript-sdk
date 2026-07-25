@@ -1,7 +1,9 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
-import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
+import type {
+    ListKeyOwnersRequest,
+    ListKeyOwnersResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,

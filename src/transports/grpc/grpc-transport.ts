@@ -6,7 +6,6 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { ListKeyOwnersRequest } from "../../core/types/requests/list-key-owners-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -18,7 +17,6 @@ import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/ty
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
-import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
@@ -65,8 +63,6 @@ import {
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
-    mapGrpcListKeyOwnersRequest,
-    mapGrpcListKeyOwnersResponse,
 } from "./mappers/topology-aggregation-mapper.js";
 import {
 } from "./mappers/state-read-mapper.js";
@@ -246,6 +242,7 @@ import type {
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import { ParticipantStatusRequest, ParticipantStatusResponse as ProtobufParticipantStatusResponse } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import {
+    ListKeyOwnersRequest as ProtobufListKeyOwnersRequest,
     ListKeyOwnersResponse as ProtobufListKeyOwnersResponse,
     ListPartiesRequest as ProtobufTopologyListPartiesRequest,
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
@@ -1399,19 +1396,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listKeyOwnersAsync(
-        request: ListKeyOwnersRequest,
+        request: ProtobufListKeyOwnersRequest,
         options?: RequestOptions,
-    ): Promise<ListKeyOwnersResponse> {
+    ): Promise<ProtobufListKeyOwnersResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listKeyOwnersAsync!(
-            mapGrpcListKeyOwnersRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListKeyOwnersResponse(
-            payload as Partial<ProtobufListKeyOwnersResponse>,
-        );
+        return payload as ProtobufListKeyOwnersResponse;
     }
 
     public async getActiveContractsPageAsync(

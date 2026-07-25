@@ -25,7 +25,6 @@ import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
 import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
-import { ListKeyOwnersRequest } from "../types/requests/list-key-owners-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import type {
     GetContractRequest,
@@ -115,7 +114,10 @@ import type {
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
-import { ListKeyOwnersResponse } from "../types/responses/list-key-owners-response.js";
+import type {
+    ListKeyOwnersRequest,
+    ListKeyOwnersResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
 import type {
     ListPendingOperationsRequest,
