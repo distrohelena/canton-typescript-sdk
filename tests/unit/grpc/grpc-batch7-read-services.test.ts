@@ -5,9 +5,15 @@ import {
     SynchronizerConnectivityServiceClient,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("GrpcTransport batch 7 read services", () => {
     it("maps ACS commitment inspection and registered synchronizer reads", async () => {
+        const registeredSynchronizersResponse =
+            ListRegisteredSynchronizersResponse.create({ results: [] });
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -68,51 +74,7 @@ describe("GrpcTransport batch 7 read services", () => {
                     },
                 ],
             }),
-            listRegisteredSynchronizersAsync: async () => ({
-                results: [
-                    {
-                        config: {
-                            synchronizerAlias: "sync-alias-1",
-                            manualConnect: true,
-                            physicalSynchronizerId: "physical-sync-1",
-                            priority: 7,
-                            initializeFromTrustedSynchronizer: true,
-                            sequencerConnections: {
-                                sequencerConnections: [
-                                    {
-                                        alias: "sequencer-1",
-                                        sequencerId: "sequencer-id-1",
-                                        type: {
-                                            oneofKind: "grpc",
-                                            grpc: {
-                                                connections: [
-                                                    "https://sequencer-1.example.com",
-                                                ],
-                                                transportSecurity: true,
-                                                customTrustCertificates:
-                                                    new Uint8Array([9]),
-                                            },
-                                        },
-                                    },
-                                ],
-                                sequencerTrustThreshold: 1,
-                                sequencerLivenessMargin: 2,
-                            },
-                        },
-                        connected: true,
-                        physicalSynchronizerId: "physical-sync-1",
-                        status: 1,
-                        synchronizerPredecessor: {
-                            predecessorPhysicalId: "physical-sync-0",
-                            upgradeTime: {
-                                seconds: "1735689800",
-                                nanos: 0,
-                            },
-                            isLateUpgrade: false,
-                        },
-                    },
-                ],
-            }),
+            listRegisteredSynchronizersAsync: async () => registeredSynchronizersResponse,
         } as any);
 
         const participantInspection = new ParticipantInspectionServiceClient(
@@ -148,11 +110,9 @@ describe("GrpcTransport batch 7 read services", () => {
                 options,
             );
 
-        const registered = await (synchronizerConnectivity as any)
+        const registered = await synchronizerConnectivity
             .listRegisteredSynchronizersAsync(
-                {
-                    allStatuses: true,
-                },
+                ListRegisteredSynchronizersRequest.create({ allStatuses: true }),
                 options,
             );
 
@@ -162,8 +122,6 @@ describe("GrpcTransport batch 7 read services", () => {
         expect(received.received[0]?.received[0]?.originCounterParticipantUid).toBe(
             "participant-3",
         );
-        expect(
-            registered.registeredSynchronizers[0]?.config?.synchronizerAlias,
-        ).toBe("sync-alias-1");
+        expect(registered).toBe(registeredSynchronizersResponse);
     });
 });

@@ -5,6 +5,7 @@ import {
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import { ListRegisteredSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("Batch 7 read services with JSON transport", () => {
     it("rejects unsupported ACS commitment inspection and registered synchronizer reads", async () => {
@@ -42,10 +43,8 @@ describe("Batch 7 read services with JSON transport", () => {
             [
                 "SynchronizerConnectivityService.ListRegisteredSynchronizers",
                 () =>
-                    (client.synchronizerConnectivityService as any)
-                        .listRegisteredSynchronizersAsync({
-                            allStatuses: true,
-                        }),
+                    client.synchronizerConnectivityService
+                        .listRegisteredSynchronizersAsync(ListRegisteredSynchronizersRequest.create({ allStatuses: true })),
             ],
         ] as const;
 

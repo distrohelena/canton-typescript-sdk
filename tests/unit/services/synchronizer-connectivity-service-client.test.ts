@@ -8,6 +8,8 @@ import {
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
+    ListRegisteredSynchronizersRequest,
+    ListRegisteredSynchronizersResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 
 describe("SynchronizerConnectivityServiceClient", () => {
@@ -28,9 +30,7 @@ describe("SynchronizerConnectivityServiceClient", () => {
         );
 
         const listRegisteredSynchronizersAsync = vi.fn(
-            async () => ({
-                registeredSynchronizers: [],
-            }),
+            async () => ListRegisteredSynchronizersResponse.create({ results: [] }),
         );
 
         const transport = {
@@ -61,10 +61,8 @@ describe("SynchronizerConnectivityServiceClient", () => {
             options,
         );
 
-        await (client as any).listRegisteredSynchronizersAsync(
-            {
-                allStatuses: true,
-            },
+        await client.listRegisteredSynchronizersAsync(
+            ListRegisteredSynchronizersRequest.create({ allStatuses: true }),
             options,
         );
 
@@ -77,9 +75,7 @@ describe("SynchronizerConnectivityServiceClient", () => {
             options,
         );
         expect(listRegisteredSynchronizersAsync).toHaveBeenLastCalledWith(
-            {
-                allStatuses: true,
-            },
+            ListRegisteredSynchronizersRequest.create({ allStatuses: true }),
             options,
         );
     });
