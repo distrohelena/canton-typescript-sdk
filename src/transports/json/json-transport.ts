@@ -35,6 +35,8 @@ import type {
     ListAllV2Response,
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
+    ListLsuAnnouncementRequest,
+    ListLsuAnnouncementResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
@@ -866,9 +868,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listNamespaceDelegationAsync(
-        _request: ListAvailableStoresRequest,
+        _request: any,
         _options?: RequestOptions,
-    ): Promise<ListAvailableStoresResponse> {
+    ): Promise<any> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -877,9 +879,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listDecentralizedNamespaceDefinitionAsync(
-        _request: ListAllV2Request,
+        _request: any,
         _options?: RequestOptions,
-    ): Promise<ListAllV2Response> {
+    ): Promise<any> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1097,9 +1099,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async listLsuAnnouncementAsync(
-        _request: any,
+        _request: ListLsuAnnouncementRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ListLsuAnnouncementResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
