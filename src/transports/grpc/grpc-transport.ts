@@ -13,7 +13,6 @@ import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-pa
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
-import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { TopologyListPartiesRequest } from "../../core/types/requests/topology-list-parties-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
@@ -30,7 +29,6 @@ import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owner
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListNamespaceDelegationResponse } from "../../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../../core/types/responses/list-owner-to-key-mapping-response.js";
-import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { TopologyListPartiesResponse } from "../../core/types/responses/topology-list-parties-response.js";
@@ -93,8 +91,6 @@ import {
     mapGrpcListNamespaceDelegationResponse,
     mapGrpcListOwnerToKeyMappingRequest,
     mapGrpcListOwnerToKeyMappingResponse,
-    mapGrpcListPartyToKeyMappingRequest,
-    mapGrpcListPartyToKeyMappingResponse,
 } from "./mappers/topology-manager-read-mapper.js";
 import {
     mapGrpcAddTopologyTransactionsRequest,
@@ -292,6 +288,7 @@ import {
     ListParticipantSynchronizerPermissionResponse as ProtobufListParticipantSynchronizerPermissionResponse,
     ListPartyHostingLimitsRequest as ProtobufListPartyHostingLimitsRequest,
     ListPartyHostingLimitsResponse as ProtobufListPartyHostingLimitsResponse,
+    ListPartyToKeyMappingRequest as ProtobufListPartyToKeyMappingRequest,
     ListPartyToKeyMappingResponse as ProtobufListPartyToKeyMappingResponse,
     ListPartyToParticipantRequest as ProtobufListPartyToParticipantRequest,
     ListPartyToParticipantResponse as ProtobufListPartyToParticipantResponse,
@@ -1076,16 +1073,16 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listPartyToKeyMappingAsync(
-        request: ListPartyToKeyMappingRequest,
+        request: ProtobufListPartyToKeyMappingRequest,
         options?: RequestOptions,
-    ): Promise<ListPartyToKeyMappingResponse> {
+    ): Promise<ProtobufListPartyToKeyMappingResponse> {
         this.throwIfDisposed();
 
         let payload: unknown;
 
         try {
             payload = await this.operations.listPartyToKeyMappingAsync!(
-                mapGrpcListPartyToKeyMappingRequest(request),
+            request,
                 options,
             );
         } catch (error) {
@@ -1095,9 +1092,7 @@ export class GrpcTransport implements ITransport {
             );
         }
 
-        return mapGrpcListPartyToKeyMappingResponse(
-            payload as Partial<ProtobufListPartyToKeyMappingResponse>,
-        );
+        return payload as ProtobufListPartyToKeyMappingResponse;
     }
 
     public async listSynchronizerTrustCertificateAsync(
