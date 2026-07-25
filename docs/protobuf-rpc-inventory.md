@@ -1245,7 +1245,7 @@ This is the migration source of truth for every declared public transport and gR
     "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesRequest",
     "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesResponse",
     "disposition": "direct-rpc",
-    "grpcOperation": "GrpcOperations.streamTransactionsAsync",
+    "grpcOperation": "GrpcOperations.getUpdatesAsync",
     "json": {
       "status": "unsupported",
       "error": "StreamTransactions is not supported by json transport"
@@ -2594,12 +2594,12 @@ This is the migration source of truth for every declared public transport and gR
   },
   {
     "surface": "GrpcOperations",
-    "method": "streamTransactionsAsync",
+    "method": "getUpdatesAsync",
     "serviceRpc": "updateServiceClient.getUpdates",
     "generatedRequest": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesRequest",
     "generatedResponse": "src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.ts#GetUpdatesResponse",
     "disposition": "direct-rpc",
-    "grpcOperation": "GrpcOperations.streamTransactionsAsync",
+    "grpcOperation": "GrpcOperations.getUpdatesAsync",
     "json": {
       "status": "unsupported",
       "error": "StreamTransactions is not supported by json transport"
@@ -2734,4 +2734,3 @@ This is the migration source of truth for every declared public transport and gR
   }
 ]
 ```
-
