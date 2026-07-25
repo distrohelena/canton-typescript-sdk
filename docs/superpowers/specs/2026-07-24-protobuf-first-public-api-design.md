@@ -10,7 +10,7 @@ This is intentionally breaking. There are no compatibility aliases, overloads, c
 
 For every direct gRPC RPC, the public method signature accepts the generated protobuf-ts request type and returns the generated protobuf-ts response type (or streams generated response messages). Forwarding means returning the same generated message POJO reference from the channel, not constructing an SDK projection. Callers construct and codec-convert messages using the corresponding generated `MessageType` (`create`, `toJson`, and `fromJson`).
 
-Generated bindings are exposed through one explicit non-colliding namespace: `@canton-network/ts-sdk/protobuf`. A generated barrel exports namespaces that mirror the source roots, such as `ledgerApiV2`, `cantonAdmin`, and `participantAdmin`; the package `exports` map exposes that subpath. It must not flatten generated types into the package root.
+Generated bindings are exposed through one explicit non-colliding namespace: `@distrohelena/canton-typescript-sdk/protobuf`. A generated barrel exports namespaces for every generated source root (not a flattened root export); the package `exports` map exposes that subpath. It must not flatten generated types into the package root.
 
 For example:
 
@@ -73,4 +73,4 @@ Transport and protocol errors remain SDK error classes so callers retain consist
 
 ## Testing
 
-Each slice first adds a public-surface test importing its generated request/response types from `@canton-network/ts-sdk/protobuf` and exercising the service method with those messages. gRPC tests assert the exact generated response reference/oneof is forwarded without lossy mapping. JSON tests assert the documented per-RPC projection and reconstruction into the same generated shape. A final compiler-guided audit proves the removed DTOs and mapper shims have no remaining imports.
+Each slice first adds a public-surface test importing its generated request/response types from `@distrohelena/canton-typescript-sdk/protobuf` and exercising the service method with those messages. gRPC tests assert the exact generated response reference/oneof is forwarded without lossy mapping. JSON tests assert the documented per-RPC projection and reconstruction into the same generated shape. A final compiler-guided audit proves the removed DTOs and mapper shims have no remaining imports.
