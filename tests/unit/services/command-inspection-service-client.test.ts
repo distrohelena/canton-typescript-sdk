@@ -1,20 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     CommandInspectionServiceClient,
+    RequestOptions,
+} from "../../../src";
+import {
     CommandState,
     GetCommandStatusRequest,
     GetCommandStatusResponse,
-    RequestOptions,
-} from "../../../src";
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 
 describe("CommandInspectionServiceClient", () => {
     it("forwards command status requests through the selected transport", async () => {
-        const getCommandStatusAsync = vi.fn(
-            async () =>
-                new GetCommandStatusResponse({
-                    commandStatuses: [],
-                }),
-        );
+        const response = GetCommandStatusResponse.create();
+        const getCommandStatusAsync = vi.fn(async () => response);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -24,9 +22,9 @@ describe("CommandInspectionServiceClient", () => {
 
         const client = new CommandInspectionServiceClient(transport as never);
 
-        const request = new GetCommandStatusRequest({
+        const request = GetCommandStatusRequest.create({
             commandIdPrefix: "cmd-",
-            state: CommandState.pending,
+            state: CommandState.PENDING,
             limit: 25,
         });
 
@@ -39,7 +37,7 @@ describe("CommandInspectionServiceClient", () => {
                 request,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetCommandStatusResponse);
+        ).resolves.toBe(response);
 
         expect(getCommandStatusAsync).toHaveBeenCalledWith(
             request,

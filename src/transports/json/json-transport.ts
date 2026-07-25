@@ -9,7 +9,6 @@ import { GetDarContentsRequest } from "../../core/types/requests/get-dar-content
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
@@ -54,7 +53,6 @@ import { GetDarContentsResponse } from "../../core/types/responses/get-dar-conte
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
 import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
-import { GetCommandStatusResponse } from "../../core/types/responses/get-command-status-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -132,6 +130,10 @@ import type {
     ListUsersRequest,
     ListUsersResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import type {
+    GetCommandStatusRequest,
+    GetCommandStatusResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import {
     GetPackageRequest,
     GetPackageResponse,

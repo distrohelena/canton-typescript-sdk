@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     CommandInspectionServiceClient,
-    CommandState,
     CurrentTimeRequest,
-    GetCommandStatusRequest,
     GetIdRequest,
     GetIdentityProviderConfigRequest,
     GetResourceLimitsRequest,
@@ -13,6 +11,10 @@ import {
     RequestOptions,
     ResourceManagementServiceClient,
 } from "../../../src";
+import {
+    CommandState,
+    GetCommandStatusRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport batch 2 read services", () => {
@@ -118,7 +120,7 @@ describe("GrpcTransport batch 2 read services", () => {
         );
 
         const commandStatuses = await commandInspection.getCommandStatusAsync(
-            new GetCommandStatusRequest({
+            GetCommandStatusRequest.create({
                 commandIdPrefix: "cmd-",
                 state: CommandState.succeeded,
                 limit: 10,
@@ -155,23 +157,22 @@ describe("GrpcTransport batch 2 read services", () => {
             options,
         );
 
-        expect(commandStatuses.commandStatuses[0]).toMatchObject({
-            state: CommandState.succeeded,
+        expect(commandStatuses.commandStatus[0]).toMatchObject({
+            state: CommandState.SUCCEEDED,
             synchronizerId: "sync-1",
         });
-        expect(commandStatuses.commandStatuses[0].commands[0]).toMatchObject({
-            templateId: {
+        expect(commandStatuses.commandStatus[0].commands[0]).toMatchObject({
+            command: { create: { templateId: {
                 packageId: "pkg-id",
                 moduleName: "Main",
                 entityName: "Iou",
-            },
-            createArguments: {
+            }, createArguments: {
                 recordId: {
                     packageId: "pkg-id",
                     moduleName: "Main",
                     entityName: "IouArguments",
                 },
-            },
+            } } },
         });
         expect(
             identityProvider.identityProviderConfig?.identityProviderId,

@@ -12,7 +12,6 @@ import { GetDarContentsRequest } from "../../core/types/requests/get-dar-content
 import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetCommandStatusRequest } from "../../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetIdRequest } from "../../core/types/requests/get-id-request.js";
@@ -75,7 +74,6 @@ import { CountInFlightResponse } from "../../core/types/responses/count-in-fligh
 import { CurrentTimeResponse } from "../../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
-import { GetCommandStatusResponse } from "../../core/types/responses/get-command-status-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetIdResponse } from "../../core/types/responses/get-id-response.js";
@@ -148,10 +146,6 @@ import {
     mapGrpcQueryContracts,
     mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
-import {
-    mapGrpcGetCommandStatus,
-    mapGrpcGetCommandStatusRequest,
-} from "./mappers/command-inspection-mapper.js";
 import {
 } from "./mappers/event-query-mapper.js";
 import {
@@ -316,8 +310,9 @@ import type { HealthCheckRequest, HealthCheckResponse } from "./generated/canton
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
 import { TransactionObserver } from "../../services/events/transaction-observer.interface.js";
-import {
-    GetCommandStatusResponse as ProtobufGetCommandStatusResponse,
+import type {
+    GetCommandStatusRequest,
+    GetCommandStatusResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import {
     GetIdentityProviderConfigResponse as ProtobufGetIdentityProviderConfigResponse,
@@ -613,14 +608,10 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetCommandStatusResponse> {
         this.throwIfDisposed();
 
-        const payload = await this.operations.getCommandStatusAsync!(
-            mapGrpcGetCommandStatusRequest(request),
+        return (await this.operations.getCommandStatusAsync!(
+            request,
             options,
-        );
-
-        return mapGrpcGetCommandStatus(
-            payload as Partial<ProtobufGetCommandStatusResponse>,
-        );
+        )) as GetCommandStatusResponse;
     }
 
     public async getUserAsync(

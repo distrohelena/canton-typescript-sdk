@@ -27,7 +27,6 @@ import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-r
 import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
 import { GetActiveContractsPageRequest } from "../core/types/requests/get-active-contracts-page-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
-import { GetCommandStatusRequest } from "../core/types/requests/get-command-status-request.js";
 import { GetConfigForSlowCounterParticipantsRequest } from "../core/types/requests/get-config-for-slow-counter-participants-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
@@ -108,7 +107,6 @@ import { GetConnectedSynchronizersResponse } from "../core/types/responses/get-c
 import { CurrentTimeResponse } from "../core/types/responses/current-time-response.js";
 import { GetDarContentsResponse } from "../core/types/responses/get-dar-contents-response.js";
 import { GetDarResponse } from "../core/types/responses/get-dar-response.js";
-import { GetCommandStatusResponse } from "../core/types/responses/get-command-status-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -199,6 +197,10 @@ import type {
     ListUsersRequest,
     ListUsersResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import type {
+    GetCommandStatusRequest,
+    GetCommandStatusResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/command_inspection_service.js";
 import { TransportError } from "../core/errors/transport-error.js";
 import { ObjectDisposedError } from "../core/errors/object-disposed-error.js";
 import { TransportKind } from "../core/types/transport-kind.js";
