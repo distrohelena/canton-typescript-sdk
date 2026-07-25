@@ -43,8 +43,6 @@ import { GetPackageReferencesRequest } from "../types/requests/get-package-refer
 import { GetPackageRequest } from "../types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
-import { GetParticipantIdRequest } from "../types/requests/get-participant-id-request.js";
-import { GetPartiesRequest } from "../types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
@@ -119,8 +117,6 @@ import { GetPackageReferencesResponse } from "../types/responses/get-package-ref
 import { GetPackageResponse } from "../types/responses/get-package-response.js";
 import { GetPackageStatusResponse } from "../types/responses/get-package-status-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
-import { GetParticipantIdResponse } from "../types/responses/get-participant-id-response.js";
-import { GetPartiesResponse } from "../types/responses/get-parties-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../types/responses/get-resource-limits-response.js";
@@ -192,6 +188,7 @@ import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/g
 import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
+import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 
 export interface ITransport {
     readonly features: TransportFeatures;

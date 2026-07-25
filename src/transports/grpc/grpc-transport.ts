@@ -26,8 +26,6 @@ import { GetPackageReferencesRequest } from "../../core/types/requests/get-packa
 import { GetPackageRequest } from "../../core/types/requests/get-package-request.js";
 import { GetPackageStatusRequest } from "../../core/types/requests/get-package-status-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
-import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
-import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetResourceLimitsRequest } from "../../core/types/requests/get-resource-limits-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
@@ -98,10 +96,8 @@ import { GetPackageResponse } from "../../core/types/responses/get-package-respo
 import { GetPackageStatusResponse } from "../../core/types/responses/get-package-status-response.js";
 import { GetLatestPrunedOffsetsResponse } from "../../core/types/responses/get-latest-pruned-offsets-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
-import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { GetActiveContractsPageResponse } from "../../core/types/responses/get-active-contracts-page-response.js";
 import { GetLedgerEndResponse } from "../../core/types/responses/get-ledger-end-response.js";
-import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
 import { GetPruningScheduleResponse } from "../../core/types/responses/get-pruning-schedule-response.js";
 import { GetResourceLimitsResponse } from "../../core/types/responses/get-resource-limits-response.js";
 import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-safe-pruning-offset-response.js";
@@ -274,7 +270,7 @@ import {
     mapGrpcTrafficControlStateRequest,
 } from "./mappers/traffic-control-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
-import { mapGrpcGetParticipantId, mapGrpcGetParticipantIdRequest, mapGrpcGetParties, mapGrpcGetPartiesRequest } from "./mappers/parties-mapper.js";
+import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
     mapGrpcListKeyOwnersRequest,
     mapGrpcListKeyOwnersResponse,
@@ -610,13 +606,11 @@ export class GrpcTransport implements ITransport {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantIdAsync!(
-            mapGrpcGetParticipantIdRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParticipantId(
-            payload as { participantId?: string },
-        );
+        return payload as GetParticipantIdResponse;
     }
 
     public async getPartiesAsync(
@@ -626,13 +620,11 @@ export class GrpcTransport implements ITransport {
         this.throwIfDisposed();
 
         const payload = await this.operations.getPartiesAsync!(
-            mapGrpcGetPartiesRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParties(
-            payload as { partyDetails?: ListKnownPartiesResponse["partyDetails"] },
-        );
+        return payload as GetPartiesResponse;
     }
 
     public async grantUserRightsAsync(
