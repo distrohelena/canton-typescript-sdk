@@ -72,7 +72,6 @@ import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../core/types/requests/lookup-sent-acs-commitments-request.js";
-import { LookupOffsetByTimeRequest } from "../core/types/requests/lookup-offset-by-time-request.js";
 import { OpenCommitmentRequest } from "../core/types/requests/open-commitment-request.js";
 import { ParticipantListPackagesRequest } from "../core/types/requests/participant-list-packages-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
@@ -164,7 +163,10 @@ import { ListSynchronizerParametersStateResponse } from "../core/types/responses
 import { ListSynchronizerTrustCertificateResponse } from "../core/types/responses/list-synchronizer-trust-certificate-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../core/types/responses/lookup-sent-acs-commitments-response.js";
-import { LookupOffsetByTimeResponse } from "../core/types/responses/lookup-offset-by-time-response.js";
+import type {
+    LookupOffsetByTimeRequest,
+    LookupOffsetByTimeResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { OpenCommitmentResponse } from "../core/types/responses/open-commitment-response.js";
 import { TopologyListPartiesResponse } from "../core/types/responses/topology-list-parties-response.js";
 import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";

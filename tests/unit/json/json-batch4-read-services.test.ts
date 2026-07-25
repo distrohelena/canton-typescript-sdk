@@ -5,10 +5,12 @@ import {
     CountInFlightRequest,
     GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
-    LookupOffsetByTimeRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import {
+    LookupOffsetByTimeRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
     GetSynchronizerIdRequest,
     ListConnectedSynchronizersRequest,
@@ -29,8 +31,8 @@ describe("Batch 4 read services with JSON transport", () => {
                 "ParticipantInspectionService.LookupOffsetByTime",
                 () =>
                     client.participantInspectionService.lookupOffsetByTimeAsync(
-                        new LookupOffsetByTimeRequest({
-                            timestamp: new Date("2026-01-01T00:00:00.000Z"),
+                        LookupOffsetByTimeRequest.create({
+                            timestamp: { seconds: "1767225600", nanos: 0 },
                         }),
                     ),
             ],

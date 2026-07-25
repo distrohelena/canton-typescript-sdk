@@ -37,7 +37,6 @@ import { ParticipantListPackagesRequest } from "../../core/types/requests/partic
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
-import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offset-by-time-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
@@ -94,7 +93,6 @@ import { ListSynchronizerTrustCertificateResponse } from "../../core/types/respo
 import { ListPendingOperationsResponse } from "../../core/types/responses/list-pending-operations-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
-import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { ParticipantListPackagesResponse } from "../../core/types/responses/participant-list-packages-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
@@ -161,8 +159,6 @@ import {
     mapGrpcInspectCommitmentContractsRequest,
     mapGrpcLookupReceivedAcsCommitments,
     mapGrpcLookupReceivedAcsCommitmentsRequest,
-    mapGrpcLookupOffsetByTime,
-    mapGrpcLookupOffsetByTimeRequest,
     mapGrpcLookupSentAcsCommitments,
     mapGrpcLookupSentAcsCommitmentsRequest,
     mapGrpcOpenCommitment,
@@ -356,6 +352,7 @@ import {
     GetIntervalsBehindForCounterParticipantsResponse as ProtobufGetIntervalsBehindForCounterParticipantsResponse,
     InspectCommitmentContractsResponse as ProtobufInspectCommitmentContractsResponse,
     LookupReceivedAcsCommitmentsResponse as ProtobufLookupReceivedAcsCommitmentsResponse,
+    LookupOffsetByTimeRequest as ProtobufLookupOffsetByTimeRequest,
     LookupOffsetByTimeResponse as ProtobufLookupOffsetByTimeResponse,
     LookupSentAcsCommitmentsResponse as ProtobufLookupSentAcsCommitmentsResponse,
     OpenCommitmentResponse as ProtobufOpenCommitmentResponse,
@@ -828,19 +825,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async lookupOffsetByTimeAsync(
-        request: LookupOffsetByTimeRequest,
+        request: ProtobufLookupOffsetByTimeRequest,
         options?: RequestOptions,
-    ): Promise<LookupOffsetByTimeResponse> {
+    ): Promise<ProtobufLookupOffsetByTimeResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.lookupOffsetByTimeAsync!(
-            mapGrpcLookupOffsetByTimeRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcLookupOffsetByTime(
-            payload as Partial<ProtobufLookupOffsetByTimeResponse>,
-        );
+        return payload as ProtobufLookupOffsetByTimeResponse;
     }
 
     public async openCommitmentAsync(

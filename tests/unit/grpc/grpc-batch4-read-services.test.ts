@@ -3,13 +3,16 @@ import {
     CountInFlightRequest,
     GetConfigForSlowCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsRequest,
-    LookupOffsetByTimeRequest,
     ParticipantInspectionServiceClient,
     RequestOptions,
     SynchronizerConnectivityServiceClient,
     TopologyDuration,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    LookupOffsetByTimeRequest,
+    LookupOffsetByTimeResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
@@ -32,6 +35,9 @@ describe("GrpcTransport batch 4 read services", () => {
             synchronizerId: "sync-1",
             physicalSynchronizerId: "physical-sync-1",
         });
+        const offsetResponse = LookupOffsetByTimeResponse.create({
+            offset: "42",
+        });
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -42,9 +48,7 @@ describe("GrpcTransport batch 4 read services", () => {
             queryContractsAsync: async () => ({ activeContracts: [] }),
             getUpdatesAsync: async () => [],
             submitCommandAsync: async () => ({ updateId: "unused" }),
-            lookupOffsetByTimeAsync: async () => ({
-                offset: "42",
-            }),
+            lookupOffsetByTimeAsync: async () => offsetResponse,
             countInFlightAsync: async () => ({
                 pendingSubmissions: 2,
                 pendingTransactions: 3,
@@ -93,8 +97,8 @@ describe("GrpcTransport batch 4 read services", () => {
             new SynchronizerConnectivityServiceClient(transport);
 
         const offset = await participantInspection.lookupOffsetByTimeAsync(
-            new LookupOffsetByTimeRequest({
-                timestamp: new Date("2026-01-01T00:00:00.000Z"),
+            LookupOffsetByTimeRequest.create({
+                timestamp: { seconds: "1767225600", nanos: 0 },
             }),
             options,
         );
@@ -138,7 +142,7 @@ describe("GrpcTransport batch 4 read services", () => {
                 options,
             );
 
-        expect(offset.offset).toBe("42");
+        expect(offset).toBe(offsetResponse);
         expect(inFlight.pendingSubmissions).toBe(2);
         expect(slowConfig.configs[0]?.thresholdDefault).toBe("5");
         expect(intervalsBehind.intervalsBehind[0]?.behindSince).toEqual(

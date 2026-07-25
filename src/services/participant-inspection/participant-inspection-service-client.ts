@@ -6,7 +6,6 @@ import { GetIntervalsBehindForCounterParticipantsRequest } from "../../core/type
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../../core/types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../../core/types/requests/lookup-sent-acs-commitments-request.js";
-import { LookupOffsetByTimeRequest } from "../../core/types/requests/lookup-offset-by-time-request.js";
 import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { CountInFlightResponse } from "../../core/types/responses/count-in-flight-response.js";
 import { GetConfigForSlowCounterParticipantsResponse } from "../../core/types/responses/get-config-for-slow-counter-participants-response.js";
@@ -14,7 +13,10 @@ import { GetIntervalsBehindForCounterParticipantsResponse } from "../../core/typ
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../../core/types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../../core/types/responses/lookup-sent-acs-commitments-response.js";
-import { LookupOffsetByTimeResponse } from "../../core/types/responses/lookup-offset-by-time-response.js";
+import type {
+    LookupOffsetByTimeRequest,
+    LookupOffsetByTimeResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { CommitmentChunkObserver } from "./commitment-chunk-observer.interface.js";
 

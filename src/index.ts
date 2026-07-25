@@ -294,7 +294,6 @@ export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-re
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
 export { LookupReceivedAcsCommitmentsRequest } from "./core/types/requests/lookup-received-acs-commitments-request.js";
 export { LookupSentAcsCommitmentsRequest } from "./core/types/requests/lookup-sent-acs-commitments-request.js";
-export { LookupOffsetByTimeRequest } from "./core/types/requests/lookup-offset-by-time-request.js";
 export { OpenCommitmentRequest } from "./core/types/requests/open-commitment-request.js";
 export { SignTopologyTransactionsRequest } from "./core/types/requests/sign-topology-transactions-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
@@ -371,7 +370,6 @@ export { ListSynchronizerTrustCertificateResponse } from "./core/types/responses
 export { ListUserRightsResponse } from "./core/types/responses/list-user-rights-response.js";
 export { ListUsersResponse } from "./core/types/responses/list-users-response.js";
 export { ListVettedPackagesResponse } from "./core/types/responses/list-vetted-packages-response.js";
-export { LookupOffsetByTimeResponse } from "./core/types/responses/lookup-offset-by-time-response.js";
 export { SignTopologyTransactionsResponse } from "./core/types/responses/sign-topology-transactions-response.js";
 export { TopologyListVettedPackagesResponse } from "./core/types/responses/topology-list-vetted-packages-response.js";
 export { TopologyListPartiesResponse } from "./core/types/responses/topology-list-parties-response.js";

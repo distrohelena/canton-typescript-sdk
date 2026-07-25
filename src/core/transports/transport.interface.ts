@@ -62,7 +62,6 @@ import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
 import { LookupReceivedAcsCommitmentsRequest } from "../types/requests/lookup-received-acs-commitments-request.js";
 import { LookupSentAcsCommitmentsRequest } from "../types/requests/lookup-sent-acs-commitments-request.js";
-import { LookupOffsetByTimeRequest } from "../types/requests/lookup-offset-by-time-request.js";
 import { OpenCommitmentRequest } from "../types/requests/open-commitment-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
@@ -142,7 +141,10 @@ import { ListSynchronizerParametersStateResponse } from "../types/responses/list
 import { ListSynchronizerTrustCertificateResponse } from "../types/responses/list-synchronizer-trust-certificate-response.js";
 import { LookupReceivedAcsCommitmentsResponse } from "../types/responses/lookup-received-acs-commitments-response.js";
 import { LookupSentAcsCommitmentsResponse } from "../types/responses/lookup-sent-acs-commitments-response.js";
-import { LookupOffsetByTimeResponse } from "../types/responses/lookup-offset-by-time-response.js";
+import type {
+    LookupOffsetByTimeRequest,
+    LookupOffsetByTimeResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import { OpenCommitmentResponse } from "../types/responses/open-commitment-response.js";
 import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
 import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";

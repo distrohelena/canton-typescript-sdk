@@ -7,17 +7,19 @@ import {
     GetConfigForSlowCounterParticipantsResponse,
     GetIntervalsBehindForCounterParticipantsRequest,
     GetIntervalsBehindForCounterParticipantsResponse,
-    LookupOffsetByTimeRequest,
-    LookupOffsetByTimeResponse,
     ParticipantInspectionServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    LookupOffsetByTimeRequest,
+    LookupOffsetByTimeResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 
 describe("ParticipantInspectionServiceClient", () => {
     it("forwards participant inspection requests through the selected transport", async () => {
         const lookupOffsetByTimeAsync = vi.fn(
             async () =>
-                new LookupOffsetByTimeResponse({
+                LookupOffsetByTimeResponse.create({
                     offset: "42",
                 }),
         );
@@ -100,8 +102,8 @@ describe("ParticipantInspectionServiceClient", () => {
         };
 
         await client.lookupOffsetByTimeAsync(
-            new LookupOffsetByTimeRequest({
-                timestamp: new Date("2026-01-01T00:00:00.000Z"),
+            LookupOffsetByTimeRequest.create({
+                timestamp: { seconds: "1767225600", nanos: 0 },
             }),
             options,
         );
@@ -172,7 +174,7 @@ describe("ParticipantInspectionServiceClient", () => {
         );
 
         expect(lookupOffsetByTimeAsync).toHaveBeenLastCalledWith(
-            expect.any(LookupOffsetByTimeRequest),
+            expect.objectContaining({ timestamp: { seconds: "1767225600", nanos: 0 } }),
             options,
         );
         expect(countInFlightAsync).toHaveBeenLastCalledWith(
