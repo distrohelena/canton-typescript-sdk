@@ -84,7 +84,61 @@ function generatedExportExists(identity: string): boolean {
     return new RegExp(`import(?: type)? \\{ ${symbol} \\} from "\\.\\.[^"]+"`).test(source);
 }
 
+function generatedSignatureFor(serviceRpc: string): {
+    request: string;
+    response: string;
+} {
+    const [service, rpc] = serviceRpc.split(".");
+    const factoryPath = "src/transports/grpc/grpc-channel-factory.ts";
+    const factory = readFileSync(resolve(process.cwd(), factoryPath), "utf8");
+    const dependency = factory.match(
+        new RegExp(`${service}\\?: Pick<\\s*([A-Za-z0-9_]+)`),
+    )?.[1];
+
+    if (!dependency) throw new Error(`No generated client dependency for ${service}`);
+
+    const importMatch = [...factory.matchAll(
+        /import\s*\{([\s\S]*?)\}\s*from\s*"([^"]+)";/g,
+    )].find((candidate) =>
+        candidate[1].split(",").some((item) =>
+            item.trim().replace(/\s+/g, " ").split(" as ").at(-1) === dependency,
+        ),
+    );
+
+    if (!importMatch) throw new Error(`No import for ${dependency}`);
+
+    const clientPath = resolve(
+        process.cwd(),
+        "src/transports/grpc",
+        importMatch[2].replace(/^\.\//, "").replace(/\.js$/, ".ts"),
+    );
+    const client = readFileSync(clientPath, "utf8");
+    const signature = client.match(new RegExp(
+        `${rpc}\\(input: ([A-Za-z0-9_]+),[^)]*\\): (?:UnaryCall|ServerStreamingCall|ClientStreamingCall)<[^,]+, ([A-Za-z0-9_]+)>`,
+    )) ?? client.match(new RegExp(
+        `${rpc}\\(options[^)]*\\): (?:UnaryCall|ServerStreamingCall|ClientStreamingCall)<([A-Za-z0-9_]+), ([A-Za-z0-9_]+)>`,
+    ));
+
+    if (!signature) throw new Error(`No generated signature for ${serviceRpc}`);
+
+    const modulePath = clientPath
+        .replace(resolve(process.cwd()) + "/", "")
+        .replace(/\.client\.ts$/, ".ts");
+
+    return {
+        request: `${modulePath}#${signature[1]}`,
+        response: `${modulePath}#${signature[2]}`,
+    };
+}
+
 describe("protobuf RPC disposition inventory", () => {
+    it("derives health RPC types instead of accepting Update types", () => {
+        expect(generatedSignatureFor("healthClient.check")).toEqual({
+            request: "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckRequest",
+            response: "src/transports/grpc/generated/canton/google/grpc/health/v1/health.ts#HealthCheckResponse",
+        });
+    });
+
     it("classifies every ITransport and GrpcOperations method exactly once", () => {
         const entries = readInventory();
 
@@ -133,6 +187,10 @@ describe("protobuf RPC disposition inventory", () => {
                 )).toContain(entry.grpcOperation.slice("GrpcOperations.".length));
                 const [service, rpc] = entry.serviceRpc.split(".");
                 expect(grpcFactory, entry.method).toContain(`${service}.${rpc}(`);
+                expect(generatedSignatureFor(entry.serviceRpc), entry.method).toEqual({
+                    request: entry.generatedRequest.replace(/\.js#/, ".ts#"),
+                    response: entry.generatedResponse.replace(/\.js#/, ".ts#"),
+                });
             }
 
             if (entry.json.status === "supported") {
