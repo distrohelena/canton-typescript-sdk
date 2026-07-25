@@ -55,13 +55,13 @@ describe("declarative campaign arbitrary", () => {
             targets: [
                 {
                     key: "pkg:Main:Iou:create",
-                    templateId: "pkg:Main:Iou",
+                    templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                     actors: ["issuer"],
                     kind: "create",
                 },
                 {
                     key: "pkg:Main:Iou:ChangeAmount",
-                    templateId: "pkg:Main:Iou",
+                    templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                     choice: "ChangeAmount",
                     actors: ["issuer", "owner"],
                 },
@@ -91,7 +91,7 @@ describe("declarative campaign arbitrary", () => {
             catalog: createDamlTestingCatalog({ getTemplates: () => [] }),
             targets: [{
                 key: "pkg:Main:Iou:Archive",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 choice: "Archive",
                 actors: ["issuer"],
             }],
@@ -129,7 +129,7 @@ describe("declarative campaign arbitrary", () => {
             catalog,
             targets: [{
                 key: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 actors: ["issuer"],
                 kind: "create",
             }],

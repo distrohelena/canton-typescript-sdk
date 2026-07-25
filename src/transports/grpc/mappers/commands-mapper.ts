@@ -107,7 +107,7 @@ export function mapGrpcLedgerCommand(command: LedgerCommand): Command {
                 oneofKind: "createAndExercise",
                 createAndExercise: {
                     templateId: command.templateId,
-                    createArguments: mapRecord(command.createArguments.fields),
+                    createArguments: mapRecord(command.createArguments),
                     choice: command.choice,
                     choiceArgument: mapValue(command.choiceArgument),
                 },
@@ -124,15 +124,20 @@ export function mapGrpcCreateCommand(command: CreateCommand): Command {
             oneofKind: "create",
             create: {
                 templateId: command.templateId,
-                createArguments: mapRecord(command.createArguments.fields),
+                createArguments: mapRecord(command.createArguments),
             },
         },
     };
 }
 
-export function mapRecord(payload: Record<string, unknown>): GrpcRecord {
+export function mapRecord(payload: DamlRecord | Record<string, unknown>): GrpcRecord {
+    const fields = payload instanceof DamlRecord ? payload.fields : payload;
+
     return {
-        fields: Object.entries(payload).map(([label, value]) => ({
+        ...(payload instanceof DamlRecord && payload.recordId !== undefined
+            ? { recordId: payload.recordId }
+            : {}),
+        fields: Object.entries(fields).map(([label, value]) => ({
             label,
             value: mapValue(value),
         })),
@@ -157,7 +162,7 @@ export function mapValue(value: unknown): Value {
     } else if (value instanceof DamlEnum) {
         return { sum: { oneofKind: "enum", enum: { enumId: value.enumId && identifier(value.enumId), constructor: value.constructorName } } };
     } else if (value instanceof DamlRecord) {
-        return { sum: { oneofKind: "record", record: { recordId: value.recordId && identifier(value.recordId), fields: mapRecord(value.fields).fields } } };
+        return { sum: { oneofKind: "record", record: mapRecord(value) } };
     } else if (value === null || value === undefined) {
         return {
             sum: {

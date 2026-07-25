@@ -37,13 +37,13 @@ describe("declarative DAML actions", () => {
         const values = fc.sample(createDeclarativeActionArbitrary(catalog, [
             {
                 key: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 actors: ["issuer"],
                 kind: "create",
             },
             {
                 key: "pkg:Main:Iou:ChangeAmount",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 choice: "ChangeAmount",
                 actors: ["owner"],
             },

@@ -86,6 +86,36 @@ describe("grpc command mapper", () => {
         });
     });
 
+    it("preserves record IDs on top-level create arguments", () => {
+        const payload = mapGrpcSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord(
+                        { issuer: "Alice" },
+                        { packageId: "pkg-id", moduleName: "Main", entityName: "IouArguments" },
+                    ),
+                }),
+            }),
+        );
+
+        expect(payload.commands.commands[0]).toMatchObject({
+            command: {
+                create: {
+                    createArguments: {
+                        recordId: {
+                            packageId: "pkg-id",
+                            moduleName: "Main",
+                            entityName: "IouArguments",
+                        },
+                    },
+                },
+            },
+        });
+    });
+
     it("maps exercise commands", () => {
         const payload = mapGrpcSubmitCommandRequest(
             new SubmitCommandRequest({

@@ -5,11 +5,12 @@ import { TestingConfigurationError } from "../errors/testing-configuration-error
 import { ResolvedDeclarativeChoiceTarget } from "../targets/target.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 import { createDamlValueArbitrary, DamlTestingValue } from "./daml-value-arbitrary.js";
+import type { TemplateId } from "../../query/model-types.js";
 
 export interface DeclarativeChoiceAction extends CampaignExecutableAction {
     readonly argument: DamlTestingValue;
     readonly choice: string;
-    readonly templateId: string;
+    readonly templateId: TemplateId;
 }
 
 /**
@@ -22,7 +23,7 @@ export function createDeclarativeChoiceActionArbitrary(
     target: ResolvedDeclarativeChoiceTarget,
     options: { readonly valueParties?: readonly string[] } = {},
 ): fc.Arbitrary<DeclarativeChoiceAction> {
-    const choice = catalog.getChoice(target.templateId, target.choice);
+    const choice = catalog.getChoice(formatTemplateId(target.templateId), target.choice);
 
     if (choice === undefined) {
         throw new TestingConfigurationError(
@@ -48,4 +49,8 @@ export function createDeclarativeChoiceActionArbitrary(
         targetKey: target.key,
         templateId: target.templateId,
     }));
+}
+
+function formatTemplateId(templateId: TemplateId): string {
+    return `${templateId.packageId}:${templateId.moduleName}:${templateId.entityName}`;
 }

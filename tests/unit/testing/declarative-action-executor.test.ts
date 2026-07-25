@@ -23,7 +23,7 @@ describe("declarative action executor", () => {
             action: {
                 actor: "issuer",
                 targetKey: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 payload: { amount: 42n },
             },
         })).resolves.toEqual({ kind: "accepted", updateId: "tx-create" });
@@ -63,7 +63,7 @@ describe("declarative action executor", () => {
             action: {
                 actor: "issuer",
                 targetKey: "pkg:Main:Iou:ChangeAmount",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 choice: "ChangeAmount",
                 argument: 7n,
             },
@@ -92,7 +92,7 @@ describe("declarative action executor", () => {
             action: {
                 actor: "issuer",
                 targetKey: "pkg:Main:Iou:Archive",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 choice: "Archive",
                 argument: "",
             },

@@ -221,6 +221,11 @@ function mapGrpcIdentifier(value?: {
 }
 
 function mapGrpcRecord(value?: {
+    recordId?: {
+        packageId: string;
+        moduleName: string;
+        entityName: string;
+    };
     fields: Array<{
         label: string;
         value?: Value;
@@ -235,7 +240,7 @@ function mapGrpcRecord(value?: {
             field.label || index.toString(),
             mapGrpcValue(field.value),
         ]),
-    ));
+    ), mapGrpcIdentifier(value.recordId));
 }
 
 function mapGrpcValue(value?: Value): unknown {

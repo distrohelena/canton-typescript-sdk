@@ -32,7 +32,7 @@ describe("declarative DAML create actions", () => {
 
         const values = fc.sample(createDeclarativeCreateActionArbitrary(catalog, {
             key: "pkg:Main:Iou:create",
-            templateId: "pkg:Main:Iou",
+            templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
             actors: ["issuer", "owner"],
             kind: "create",
         }), { seed: 97, numRuns: 20 });
@@ -74,7 +74,7 @@ describe("declarative DAML create actions", () => {
             catalog,
             {
                 key: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 actors: ["issuer"],
                 kind: "create",
             },
@@ -111,7 +111,7 @@ describe("declarative DAML create actions", () => {
             catalog,
             {
                 key: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 actors: ["issuer"],
                 kind: "create",
             },
@@ -146,7 +146,7 @@ describe("declarative DAML create actions", () => {
             catalog,
             {
                 key: "pkg:Main:Iou:create",
-                templateId: "pkg:Main:Iou",
+                templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
                 actors: ["issuer"],
                 kind: "create",
             },

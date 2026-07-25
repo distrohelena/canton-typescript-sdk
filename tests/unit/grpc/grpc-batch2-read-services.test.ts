@@ -32,7 +32,28 @@ describe("GrpcTransport batch 2 read services", () => {
                     {
                         state: 2,
                         synchronizerId: "sync-1",
-                        commands: [],
+                        commands: [
+                            {
+                                command: {
+                                    oneofKind: "create",
+                                    create: {
+                                        templateId: {
+                                            packageId: "pkg-id",
+                                            moduleName: "Main",
+                                            entityName: "Iou",
+                                        },
+                                        createArguments: {
+                                            recordId: {
+                                                packageId: "pkg-id",
+                                                moduleName: "Main",
+                                                entityName: "IouArguments",
+                                            },
+                                            fields: [],
+                                        },
+                                    },
+                                },
+                            },
+                        ],
                         timings: [
                             {
                                 description: "interpretation",
@@ -137,6 +158,20 @@ describe("GrpcTransport batch 2 read services", () => {
         expect(commandStatuses.commandStatuses[0]).toMatchObject({
             state: CommandState.succeeded,
             synchronizerId: "sync-1",
+        });
+        expect(commandStatuses.commandStatuses[0].commands[0]).toMatchObject({
+            templateId: {
+                packageId: "pkg-id",
+                moduleName: "Main",
+                entityName: "Iou",
+            },
+            createArguments: {
+                recordId: {
+                    packageId: "pkg-id",
+                    moduleName: "Main",
+                    entityName: "IouArguments",
+                },
+            },
         });
         expect(
             identityProvider.identityProviderConfig?.identityProviderId,

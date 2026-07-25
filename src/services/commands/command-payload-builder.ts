@@ -23,7 +23,7 @@ function mapCanonicalCommand(command: LedgerCommand): unknown {
         return {
             kind: "create",
             templateId: command.templateId,
-            createArguments: command.createArguments.fields,
+            createArguments: mapCanonicalRecord(command.createArguments),
         };
     } else if (command instanceof ExerciseCommand) {
         return {
@@ -45,11 +45,18 @@ function mapCanonicalCommand(command: LedgerCommand): unknown {
         return {
             kind: "createAndExercise",
             templateId: command.templateId,
-            createArguments: command.createArguments.fields,
+            createArguments: mapCanonicalRecord(command.createArguments),
             choice: command.choice,
             choiceArgument: command.choiceArgument,
         };
     }
 
     return {};
+}
+
+function mapCanonicalRecord(record: import("../../core/types/daml-values.js").DamlRecord) {
+    return {
+        fields: record.fields,
+        recordId: record.recordId ?? null,
+    };
 }

@@ -5,10 +5,11 @@ import { TestingConfigurationError } from "../errors/testing-configuration-error
 import { ResolvedDeclarativeCreateTarget } from "../targets/target.js";
 import { DamlTestingCatalog } from "./daml-testing-catalog.js";
 import { createDamlValueArbitrary, DamlTestingValue } from "./daml-value-arbitrary.js";
+import type { TemplateId } from "../../query/model-types.js";
 
 export interface DeclarativeCreateAction extends CampaignExecutableAction {
     readonly payload: Readonly<Record<string, DamlTestingValue>>;
-    readonly templateId: string;
+    readonly templateId: TemplateId;
 }
 
 export interface DeclarativeCreateActionGenerationOptions {
@@ -26,7 +27,7 @@ export function createDeclarativeCreateActionArbitrary(
     target: ResolvedDeclarativeCreateTarget,
     options: DeclarativeCreateActionGenerationOptions = {},
 ): fc.Arbitrary<DeclarativeCreateAction> {
-    const template = catalog.getTemplate(target.templateId);
+    const template = catalog.getTemplate(formatTemplateId(target.templateId));
 
     if (template === undefined) {
         throw new TestingConfigurationError(
@@ -62,4 +63,8 @@ export function createDeclarativeCreateActionArbitrary(
             targetKey: target.key,
             templateId: target.templateId,
         }));
+}
+
+function formatTemplateId(templateId: TemplateId): string {
+    return `${templateId.packageId}:${templateId.moduleName}:${templateId.entityName}`;
 }

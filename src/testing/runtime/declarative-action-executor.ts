@@ -28,7 +28,7 @@ export async function executeDeclarativeActionAsync(init: {
     const command = "choice" in init.action
         ? await createExerciseCommandAsync(init.action, init.resolveContractIdAsync)
         : new CreateCommand({
-            templateId: toTemplateId(init.action.templateId),
+            templateId: init.action.templateId,
             createArguments: new DamlRecord({ ...init.action.payload }),
         });
 
@@ -62,17 +62,9 @@ async function createExerciseCommandAsync(
     }
 
     return new ExerciseCommand({
-        templateId: toTemplateId(action.templateId),
+        templateId: action.templateId,
         contractId,
         choice: action.choice,
         choiceArgument: action.argument,
     });
-}
-
-function toTemplateId(templateId: string) {
-    const [packageId = "", moduleName, entityName] = templateId.split(":").length === 2
-        ? ["", ...templateId.split(":")]
-        : templateId.split(":");
-
-    return { packageId, moduleName, entityName };
 }
