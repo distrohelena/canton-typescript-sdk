@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ interface InventoryEntry {
     readonly generatedResponse: string;
     readonly disposition: Disposition;
     readonly grpcOperation: string;
+    readonly grpcException?: string;
     readonly json: {
         readonly status: "supported" | "unsupported";
         readonly endpoint?: string;
@@ -62,6 +63,20 @@ function entriesFor(
     return grouped;
 }
 
+function generatedExportExists(identity: string): boolean {
+    const [sourcePath, symbol] = identity.split("#");
+
+    const sourceFile = sourcePath?.replace(/\.js$/, ".ts");
+
+    if (!sourceFile || !symbol || !existsSync(resolve(process.cwd(), sourceFile))) {
+        return false;
+    }
+
+    const source = readFileSync(resolve(process.cwd(), sourceFile), "utf8");
+
+    return new RegExp(`export (?:interface|class|const) ${symbol}(?:\\s|=|<)`).test(source);
+}
+
 describe("protobuf RPC disposition inventory", () => {
     it("classifies every ITransport and GrpcOperations method exactly once", () => {
         const entries = readInventory();
@@ -94,6 +109,17 @@ describe("protobuf RPC disposition inventory", () => {
             expect(entry.generatedResponse, entry.method).not.toBe("");
             expect(entry.grpcOperation, entry.method).not.toBe("");
             expect(entry.testPath, entry.method).not.toBe("");
+            expect(existsSync(resolve(process.cwd(), entry.testPath)), entry.method).toBe(true);
+            expect(generatedExportExists(entry.generatedRequest), entry.method).toBe(true);
+            expect(generatedExportExists(entry.generatedResponse), entry.method).toBe(true);
+
+            if (!entry.grpcException) {
+                expect(entry.grpcOperation).toMatch(/^GrpcOperations\.[A-Za-z][A-Za-z0-9]*Async$/);
+                expect(methodsIn(
+                    "src/transports/grpc/grpc-channel-factory.ts",
+                    "GrpcOperations",
+                )).toContain(entry.grpcOperation.slice("GrpcOperations.".length));
+            }
 
             if (entry.json.status === "supported") {
                 expect(entry.json.endpoint, entry.method).toBeTruthy();
