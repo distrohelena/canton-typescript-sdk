@@ -43,7 +43,6 @@ import { ListParticipantSynchronizerPermissionRequest } from "../core/types/requ
 import { ListPartyHostingLimitsRequest } from "../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../core/types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
-import { ListSequencerSynchronizerStateRequest } from "../core/types/requests/list-sequencer-synchronizer-state-request.js";
 import { ListSequencingParametersStateRequest } from "../core/types/requests/list-sequencing-parameters-state-request.js";
 import { ListSynchronizerParametersStateRequest } from "../core/types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../core/types/requests/list-synchronizer-trust-certificate-request.js";
@@ -111,6 +110,8 @@ import type {
     ListLsuAnnouncementResponse,
     ListLsuSequencerConnectionSuccessorRequest,
     ListLsuSequencerConnectionSuccessorResponse,
+    ListSequencerSynchronizerStateRequest,
+    ListSequencerSynchronizerStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type {
     GetSafePruningOffsetRequest,
@@ -135,7 +136,6 @@ import { ListParticipantSynchronizerPermissionResponse } from "../core/types/res
 import { ListPartyHostingLimitsResponse } from "../core/types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../core/types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../core/types/responses/list-party-to-participant-response.js";
-import { ListSequencerSynchronizerStateResponse } from "../core/types/responses/list-sequencer-synchronizer-state-response.js";
 import { ListSequencingParametersStateResponse } from "../core/types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../core/types/responses/list-synchronizer-trust-certificate-response.js";

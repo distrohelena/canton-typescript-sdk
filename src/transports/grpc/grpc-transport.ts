@@ -18,7 +18,6 @@ import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment
 import { ListPartyHostingLimitsRequest } from "../../core/types/requests/list-party-hosting-limits-request.js";
 import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
-import { ListSequencerSynchronizerStateRequest } from "../../core/types/requests/list-sequencer-synchronizer-state-request.js";
 import { ListSequencingParametersStateRequest } from "../../core/types/requests/list-sequencing-parameters-state-request.js";
 import { ListSynchronizerParametersStateRequest } from "../../core/types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../../core/types/requests/list-synchronizer-trust-certificate-request.js";
@@ -44,7 +43,6 @@ import { ListParticipantSynchronizerPermissionResponse } from "../../core/types/
 import { ListPartyHostingLimitsResponse } from "../../core/types/responses/list-party-hosting-limits-response.js";
 import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
-import { ListSequencerSynchronizerStateResponse } from "../../core/types/responses/list-sequencer-synchronizer-state-response.js";
 import { ListSequencingParametersStateResponse } from "../../core/types/responses/list-sequencing-parameters-state-response.js";
 import { ListSynchronizerParametersStateResponse } from "../../core/types/responses/list-synchronizer-parameters-state-response.js";
 import { ListSynchronizerTrustCertificateResponse } from "../../core/types/responses/list-synchronizer-trust-certificate-response.js";
@@ -121,8 +119,6 @@ import {
     mapGrpcListPartyToKeyMappingResponse,
     mapGrpcListPartyToParticipantRequest,
     mapGrpcListPartyToParticipantResponse,
-    mapGrpcListSequencerSynchronizerStateRequest,
-    mapGrpcListSequencerSynchronizerStateResponse,
     mapGrpcListSequencingParametersStateRequest,
     mapGrpcListSequencingParametersStateResponse,
     mapGrpcListSynchronizerParametersStateRequest,
@@ -327,6 +323,7 @@ import {
     ListPartyHostingLimitsResponse as ProtobufListPartyHostingLimitsResponse,
     ListPartyToKeyMappingResponse as ProtobufListPartyToKeyMappingResponse,
     ListPartyToParticipantResponse as ProtobufListPartyToParticipantResponse,
+    ListSequencerSynchronizerStateRequest as ProtobufListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse as ProtobufListSequencerSynchronizerStateResponse,
     ListSequencingParametersStateResponse as ProtobufListSequencingParametersStateResponse,
     ListSynchronizerParametersStateResponse as ProtobufListSynchronizerParametersStateResponse,
@@ -1378,19 +1375,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listSequencerSynchronizerStateAsync(
-        request: ListSequencerSynchronizerStateRequest,
+        request: ProtobufListSequencerSynchronizerStateRequest,
         options?: RequestOptions,
-    ): Promise<ListSequencerSynchronizerStateResponse> {
+    ): Promise<ProtobufListSequencerSynchronizerStateResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listSequencerSynchronizerStateAsync!(
-            mapGrpcListSequencerSynchronizerStateRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListSequencerSynchronizerStateResponse(
-            payload as Partial<ProtobufListSequencerSynchronizerStateResponse>,
-        );
+        return payload as ProtobufListSequencerSynchronizerStateResponse;
     }
 
     public async listLsuAnnouncementAsync(
