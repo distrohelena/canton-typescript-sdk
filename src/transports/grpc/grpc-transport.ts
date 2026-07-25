@@ -6,7 +6,6 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
@@ -43,7 +42,6 @@ import { PreparedCommandSubmission } from "../../core/types/prepared-command-sub
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
-import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
 import { GetParticipantPruningScheduleResponse } from "../../core/types/responses/get-participant-pruning-schedule-response.js";
@@ -115,8 +113,6 @@ import {
     mapGrpcAddPartyAsyncResponse,
     mapGrpcClearPartyOnboardingFlagRequest,
     mapGrpcClearPartyOnboardingFlagResponse,
-    mapGrpcGetHighestOffsetByTimestamp,
-    mapGrpcGetHighestOffsetByTimestampRequest,
 } from "./mappers/participant-party-management-mapper.js";
 import {
     mapGrpcGetNoWaitCommitmentsFrom,
@@ -315,6 +311,7 @@ import {
 import {
     AddPartyAsyncResponse as ProtobufAddPartyAsyncResponse,
     ClearPartyOnboardingFlagResponse as ProtobufClearPartyOnboardingFlagResponse,
+    GetHighestOffsetByTimestampRequest as ProtobufGetHighestOffsetByTimestampRequest,
     GetHighestOffsetByTimestampResponse as ProtobufGetHighestOffsetByTimestampResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 import type {
@@ -923,19 +920,17 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getHighestOffsetByTimestampAsync(
-        request: GetHighestOffsetByTimestampRequest,
+        request: ProtobufGetHighestOffsetByTimestampRequest,
         options?: RequestOptions,
-    ): Promise<GetHighestOffsetByTimestampResponse> {
+    ): Promise<ProtobufGetHighestOffsetByTimestampResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getHighestOffsetByTimestampAsync!(
-            mapGrpcGetHighestOffsetByTimestampRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetHighestOffsetByTimestamp(
-            payload as Partial<ProtobufGetHighestOffsetByTimestampResponse>,
-        );
+        return payload as ProtobufGetHighestOffsetByTimestampResponse;
     }
 
     public async getSafePruningOffsetAsync(

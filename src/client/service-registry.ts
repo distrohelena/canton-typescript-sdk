@@ -21,7 +21,6 @@ import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-req
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
-import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
@@ -83,10 +82,11 @@ import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
 import type {
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,

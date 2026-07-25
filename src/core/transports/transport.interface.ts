@@ -21,7 +21,6 @@ import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authoriz
 import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
-import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
@@ -61,8 +60,9 @@ import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import { GetHighestOffsetByTimestampResponse } from "../types/responses/get-highest-offset-by-timestamp-response.js";
 import type {
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,

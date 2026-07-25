@@ -3,7 +3,6 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
@@ -28,8 +27,9 @@ import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import type {
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,

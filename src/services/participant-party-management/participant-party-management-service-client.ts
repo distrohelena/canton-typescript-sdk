@@ -2,10 +2,12 @@ import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
-import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
-import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
+import type {
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 
 export class ParticipantPartyManagementServiceClient {
     public constructor(private readonly transport: ITransport) {

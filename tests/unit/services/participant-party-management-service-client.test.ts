@@ -4,12 +4,14 @@ import {
     AddPartyAsyncResponse,
     ClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse,
-    GetHighestOffsetByTimestampRequest,
-    GetHighestOffsetByTimestampResponse,
     ParticipantPermission,
     ParticipantPartyManagementServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 
 describe("ParticipantPartyManagementServiceClient", () => {
     it("forwards participant party management requests through the selected transport", async () => {
@@ -31,10 +33,7 @@ describe("ParticipantPartyManagementServiceClient", () => {
         );
 
         const getHighestOffsetByTimestampAsync = vi.fn(
-            async () =>
-                new GetHighestOffsetByTimestampResponse({
-                    ledgerOffset: "42",
-                }),
+            async () => GetHighestOffsetByTimestampResponse.create({ ledgerOffset: "42" }),
         );
 
         const transport = {
@@ -49,9 +48,9 @@ describe("ParticipantPartyManagementServiceClient", () => {
             transport as never,
         );
 
-        const request = new GetHighestOffsetByTimestampRequest({
+        const request = GetHighestOffsetByTimestampRequest.create({
             synchronizerId: "sync-1",
-            timestamp: new Date("2026-01-01T00:00:00.000Z"),
+            timestamp: { seconds: "1767225600", nanos: 0 },
             force: true,
         });
 
@@ -92,7 +91,7 @@ describe("ParticipantPartyManagementServiceClient", () => {
                 request,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetHighestOffsetByTimestampResponse);
+        ).resolves.toBeDefined();
 
         expect(addPartyAsync).toHaveBeenCalledWith(
             addPartyRequest,

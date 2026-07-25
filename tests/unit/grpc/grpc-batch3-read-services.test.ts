@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     GetDarContentsRequest,
     GetDarRequest,
-    GetHighestOffsetByTimestampRequest,
     ListDarsRequest,
     ParticipantPackageServiceClient,
     ParticipantPartyManagementServiceClient,
@@ -11,6 +10,7 @@ import {
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import { ListPendingOperationsRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
+import { GetHighestOffsetByTimestampRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 
 describe("GrpcTransport batch 3 read services", () => {
     it("maps participant-admin package and lightweight read methods", async () => {
@@ -127,9 +127,9 @@ describe("GrpcTransport batch 3 read services", () => {
 
         const highestOffset =
             await participantPartyManagement.getHighestOffsetByTimestampAsync(
-                new GetHighestOffsetByTimestampRequest({
+                GetHighestOffsetByTimestampRequest.create({
                     synchronizerId: "sync-1",
-                    timestamp: new Date("2026-01-01T00:00:00.000Z"),
+                    timestamp: { seconds: "1767225600", nanos: 0 },
                     force: true,
                 }),
                 options,
