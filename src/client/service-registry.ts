@@ -20,15 +20,11 @@ import { AllocatePartyRequest } from "../core/types/requests/allocate-party-requ
 import { AddPartyAsyncRequest } from "../core/types/requests/add-party-async-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../core/types/requests/clear-party-onboarding-flag-request.js";
-import { GetDarContentsRequest } from "../core/types/requests/get-dar-contents-request.js";
-import { GetDarRequest } from "../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
-import { GetPackageContentsRequest } from "../core/types/requests/get-package-contents-request.js";
-import { GetPackageReferencesRequest } from "../core/types/requests/get-package-references-request.js";
 import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../core/types/requests/get-no-wait-commitments-from-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
@@ -63,7 +59,6 @@ import { ListSequencingParametersStateRequest } from "../core/types/requests/lis
 import { ListSynchronizerParametersStateRequest } from "../core/types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../core/types/requests/list-synchronizer-trust-certificate-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
-import { ListDarsRequest } from "../core/types/requests/list-dars-request.js";
 import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { ListPendingOperationsRequest } from "../core/types/requests/list-pending-operations-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
@@ -81,9 +76,6 @@ import { CreateTemporaryTopologyStoreResponse } from "../core/types/responses/cr
 import { DropTemporaryTopologyStoreResponse } from "../core/types/responses/drop-temporary-topology-store-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
-import { GetPackageContentsResponse } from "../core/types/responses/get-package-contents-response.js";
-import { GetDarContentsResponse } from "../core/types/responses/get-dar-contents-response.js";
-import { GetDarResponse } from "../core/types/responses/get-dar-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -93,7 +85,6 @@ import type {
     GetEventsByContractIdResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetHighestOffsetByTimestampResponse } from "../core/types/responses/get-highest-offset-by-timestamp-response.js";
-import { GetPackageReferencesResponse } from "../core/types/responses/get-package-references-response.js";
 import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
 import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
 import type {
@@ -138,7 +129,6 @@ import { ListMediatorSynchronizerStateResponse } from "../core/types/responses/l
 import { ListNamespaceDelegationResponse } from "../core/types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../core/types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
-import { ListDarsResponse } from "../core/types/responses/list-dars-response.js";
 import { ListIdentityProviderConfigsResponse } from "../core/types/responses/list-identity-provider-configs-response.js";
 import { ListPendingOperationsResponse } from "../core/types/responses/list-pending-operations-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../core/types/responses/list-participant-synchronizer-permission-response.js";
@@ -175,6 +165,16 @@ import type {
     TrafficControlStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/traffic_control_service.js";
 import type {
+    GetDarContentsRequest,
+    GetDarContentsResponse,
+    GetDarRequest,
+    GetDarResponse,
+    GetPackageContentsRequest,
+    GetPackageContentsResponse,
+    GetPackageReferencesRequest,
+    GetPackageReferencesResponse,
+    ListDarsRequest,
+    ListDarsResponse,
     ListPackagesRequest as ParticipantListPackagesRequest,
     ListPackagesResponse as ParticipantListPackagesResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";

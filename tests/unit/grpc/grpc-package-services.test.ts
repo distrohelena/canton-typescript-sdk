@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetPackageContentsRequest,
     GetPackageReferencesRequest,
-    ParticipantListPackagesRequest,
     RequestOptions,
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import {
+    GetPackageContentsRequest as ParticipantGetPackageContentsRequest,
+    GetPackageContentsResponse as ParticipantGetPackageContentsResponse,
+    ListPackagesRequest as ParticipantListPackagesRequest,
+    ListPackagesResponse as ParticipantListPackagesResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import {
     GetPackageRequest,
     GetPackageStatusRequest,
@@ -152,7 +156,7 @@ describe("GrpcTransport package services", () => {
     });
 
     it("maps participant package service requests and responses", async () => {
-        const listParticipantPackagesAsync = vi.fn(async () => ({
+        const listParticipantPackagesPayload = ParticipantListPackagesResponse.create({
             packageDescriptions: [
                 {
                     packageId: "pkg-1",
@@ -165,9 +169,12 @@ describe("GrpcTransport package services", () => {
                     size: 123,
                 },
             ],
-        }));
+        });
+        const listParticipantPackagesAsync = vi.fn(
+            async () => listParticipantPackagesPayload,
+        );
 
-        const getParticipantPackageContentsAsync = vi.fn(async () => ({
+        const getParticipantPackageContentsPayload = ParticipantGetPackageContentsResponse.create({
             description: {
                 packageId: "pkg-1",
                 name: "Main",
@@ -185,7 +192,10 @@ describe("GrpcTransport package services", () => {
             ],
             isUtilityPackage: false,
             languageVersion: "2.dev",
-        }));
+        });
+        const getParticipantPackageContentsAsync = vi.fn(
+            async () => getParticipantPackageContentsPayload,
+        );
 
         const getParticipantPackageReferencesAsync = vi.fn(async () => ({
             dars: [
@@ -227,7 +237,7 @@ describe("GrpcTransport package services", () => {
         });
 
         const listPackagesResponse = await transport.listParticipantPackagesAsync(
-            new ParticipantListPackagesRequest({
+            ParticipantListPackagesRequest.create({
                 limit: 20,
                 filterName: "Main",
             }),
@@ -236,7 +246,7 @@ describe("GrpcTransport package services", () => {
 
         const getPackageContentsResponse =
             await transport.getParticipantPackageContentsAsync(
-                new GetPackageContentsRequest({
+                ParticipantGetPackageContentsRequest.create({
                     packageId: "pkg-1",
                 }),
                 options,
@@ -260,26 +270,10 @@ describe("GrpcTransport package services", () => {
         expect(getParticipantPackageReferencesAsync).toHaveBeenLastCalledWith({
             packageId: "pkg-1",
         }, options);
-        expect(listPackagesResponse.packageDescriptions[0]).toMatchObject({
-            packageId: "pkg-1",
-            name: "Main",
-            version: "1.0.0",
-            size: 123,
-        });
-        expect(listPackagesResponse.packageDescriptions[0].uploadedAt).toEqual(
-            new Date("2024-03-09T16:00:00.000Z"),
+        expect(listPackagesResponse).toBe(listParticipantPackagesPayload);
+        expect(getPackageContentsResponse).toBe(
+            getParticipantPackageContentsPayload,
         );
-        expect(getPackageContentsResponse.description).toMatchObject({
-            packageId: "pkg-1",
-            name: "Main",
-            version: "1.0.0",
-            size: 123,
-        });
-        expect(getPackageContentsResponse.modules).toEqual([
-            { name: "Main.Module" },
-        ]);
-        expect(getPackageContentsResponse.isUtilityPackage).toBe(false);
-        expect(getPackageContentsResponse.languageVersion).toBe("2.dev");
         expect(getPackageReferencesResponse.dars).toEqual([
             {
                 main: "pkg-1",

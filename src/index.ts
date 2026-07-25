@@ -253,7 +253,6 @@ export { GetNoWaitCommitmentsFromRequest } from "./core/types/requests/get-no-wa
 export { GetParticipantPruningScheduleRequest } from "./core/types/requests/get-participant-pruning-schedule-request.js";
 export { GetParticipantStatusRequest } from "./core/types/requests/get-participant-status-request.js";
 export { GetPruningScheduleRequest } from "./core/types/requests/get-pruning-schedule-request.js";
-export { GetPackageContentsRequest } from "./core/types/requests/get-package-contents-request.js";
 export { GetPackageRequest } from "./core/types/requests/get-package-request.js";
 export { GetPackageReferencesRequest } from "./core/types/requests/get-package-references-request.js";
 export { GetPackageStatusRequest } from "./core/types/requests/get-package-status-request.js";
@@ -311,7 +310,6 @@ export { GetLedgerEndResponse } from "./core/types/responses/get-ledger-end-resp
 export { GetParticipantStatusResponse } from "./core/types/responses/get-participant-status-response.js";
 export { GetParticipantIdResponse } from "./core/types/responses/get-participant-id-response.js";
 export { GetParticipantPruningScheduleResponse } from "./core/types/responses/get-participant-pruning-schedule-response.js";
-export { GetPackageContentsResponse } from "./core/types/responses/get-package-contents-response.js";
 export { GetPackageResponse } from "./core/types/responses/get-package-response.js";
 export { GetPackageReferencesResponse } from "./core/types/responses/get-package-references-response.js";
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";

@@ -1,6 +1,4 @@
 import { createHash } from "node:crypto";
-import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
-import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { ParticipantDarDescription } from "../../core/types/participant-dar-description.js";
 import { DarArchiveLoader } from "../../daml-lf/container/dar-archive-loader.js";
 import { DamlLfPackageLoader } from "../../daml-lf/daml-lf-package-loader.js";
@@ -8,6 +6,14 @@ import { DarSourceBundleLoader } from "../../daml-lf/container/dar-source-bundle
 import { DamlLfArchiveException } from "../../daml-lf/errors/daml-lf-archive.exception.js";
 import { DarSourceMapMetadata } from "../source/dar-source-map-metadata.js";
 import { ReplayMissingSourceException } from "../errors/replay-missing-source.exception.js";
+import type {
+    GetDarRequest,
+    GetPackageReferencesRequest,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import {
+    GetDarRequest as GetDarRequestMessage,
+    GetPackageReferencesRequest as GetPackageReferencesRequestMessage,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 
 interface IParticipantPackageReadService {
     getPackageReferencesAsync(
@@ -77,7 +83,7 @@ export class ReplayArtifactResolver {
             if (candidate === undefined) {
                 const references =
                     await this.dependencies.participantPackageService.getPackageReferencesAsync(
-                        new GetPackageReferencesRequest({
+                        GetPackageReferencesRequestMessage.create({
                             packageId,
                         }),
                     );
@@ -170,7 +176,7 @@ export class ReplayArtifactResolver {
 
             const response =
                 await this.dependencies.participantPackageService.getDarAsync(
-                    new GetDarRequest({
+                    GetDarRequestMessage.create({
                         mainPackageId: dar.main,
                     }),
                 );

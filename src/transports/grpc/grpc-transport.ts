@@ -5,14 +5,10 @@ import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
-import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
-import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
-import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../../core/types/requests/get-pruning-schedule-request.js";
 import { GetSafePruningOffsetRequest } from "../../core/types/requests/get-safe-pruning-offset-request.js";
@@ -26,7 +22,6 @@ import { ListLsuAnnouncementRequest } from "../../core/types/requests/list-lsu-a
 import { ListLsuSequencerConnectionSuccessorRequest } from "../../core/types/requests/list-lsu-sequencer-connection-successor-request.js";
 import { ListMediatorSynchronizerStateRequest } from "../../core/types/requests/list-mediator-synchronizer-state-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListNamespaceDelegationRequest } from "../../core/types/requests/list-namespace-delegation-request.js";
 import { ListOwnerToKeyMappingRequest } from "../../core/types/requests/list-owner-to-key-mapping-request.js";
 import { ListParticipantSynchronizerPermissionRequest } from "../../core/types/requests/list-participant-synchronizer-permission-request.js";
@@ -49,10 +44,6 @@ import { PreparedCommandSubmission } from "../../core/types/prepared-command-sub
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
-import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
-import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
-import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
-import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
 import { GetHighestOffsetByTimestampResponse } from "../../core/types/responses/get-highest-offset-by-timestamp-response.js";
 import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GetNoWaitCommitmentsFromResponse } from "../../core/types/responses/get-no-wait-commitments-from-response.js";
@@ -66,7 +57,6 @@ import { ListAllV2Response } from "../../core/types/responses/list-all-v2-respon
 import { ListAvailableStoresResponse } from "../../core/types/responses/list-available-stores-response.js";
 import { ListDecentralizedNamespaceDefinitionResponse } from "../../core/types/responses/list-decentralized-namespace-definition-response.js";
 import { ListKeyOwnersResponse } from "../../core/types/responses/list-key-owners-response.js";
-import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { ListLsuAnnouncementResponse } from "../../core/types/responses/list-lsu-announcement-response.js";
 import { ListLsuSequencerConnectionSuccessorResponse } from "../../core/types/responses/list-lsu-sequencer-connection-successor-response.js";
@@ -120,18 +110,6 @@ import {
 } from "./mappers/external-party-management-mapper.js";
 import {
 } from "./mappers/identity-provider-config-mapper.js";
-import {
-    mapGrpcGetParticipantPackageContents,
-    mapGrpcGetParticipantPackageContentsRequest,
-    mapGrpcGetParticipantDar,
-    mapGrpcGetParticipantDarContents,
-    mapGrpcGetParticipantDarContentsRequest,
-    mapGrpcGetParticipantDarRequest,
-    mapGrpcGetParticipantPackageReferences,
-    mapGrpcGetParticipantPackageReferencesRequest,
-    mapGrpcListParticipantDars,
-    mapGrpcListParticipantDarsRequest,
-} from "./mappers/packages-mapper.js";
 import {
 } from "./mappers/participant-status-mapper.js";
 import {
@@ -309,10 +287,15 @@ import type {
     GetResourceLimitsResponse,
 } from "./generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import {
+    GetDarContentsRequest as ProtobufGetParticipantDarContentsRequest,
     GetDarContentsResponse as ProtobufGetParticipantDarContentsResponse,
+    GetDarRequest as ProtobufGetParticipantDarRequest,
     GetDarResponse as ProtobufGetParticipantDarResponse,
+    GetPackageContentsRequest as ProtobufGetParticipantPackageContentsRequest,
     GetPackageContentsResponse as ProtobufGetParticipantPackageContentsResponse,
+    GetPackageReferencesRequest as ProtobufGetParticipantPackageReferencesRequest,
     GetPackageReferencesResponse as ProtobufGetParticipantPackageReferencesResponse,
+    ListDarsRequest as ProtobufParticipantListDarsRequest,
     ListDarsResponse as ProtobufParticipantListDarsResponse,
     ListPackagesRequest as ProtobufParticipantListPackagesRequest,
     ListPackagesResponse as ProtobufParticipantListPackagesResponse,
@@ -707,83 +690,73 @@ export class GrpcTransport implements ITransport {
     }
 
     public async getParticipantPackageContentsAsync(
-        request: GetPackageContentsRequest,
+        request: ProtobufGetParticipantPackageContentsRequest,
         options?: RequestOptions,
-    ): Promise<GetPackageContentsResponse> {
+    ): Promise<ProtobufGetParticipantPackageContentsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantPackageContentsAsync!(
-            mapGrpcGetParticipantPackageContentsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParticipantPackageContents(
-            payload as Partial<ProtobufGetParticipantPackageContentsResponse>,
-        );
+        return payload as ProtobufGetParticipantPackageContentsResponse;
     }
 
     public async getParticipantPackageReferencesAsync(
-        request: GetPackageReferencesRequest,
+        request: ProtobufGetParticipantPackageReferencesRequest,
         options?: RequestOptions,
-    ): Promise<GetPackageReferencesResponse> {
+    ): Promise<ProtobufGetParticipantPackageReferencesResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantPackageReferencesAsync!(
-            mapGrpcGetParticipantPackageReferencesRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParticipantPackageReferences(
-            payload as Partial<ProtobufGetParticipantPackageReferencesResponse>,
-        );
+        return payload as ProtobufGetParticipantPackageReferencesResponse;
     }
 
     public async getParticipantDarAsync(
-        request: GetDarRequest,
+        request: ProtobufGetParticipantDarRequest,
         options?: RequestOptions,
-    ): Promise<GetDarResponse> {
+    ): Promise<ProtobufGetParticipantDarResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantDarAsync!(
-            mapGrpcGetParticipantDarRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParticipantDar(
-            payload as Partial<ProtobufGetParticipantDarResponse>,
-        );
+        return payload as ProtobufGetParticipantDarResponse;
     }
 
     public async listParticipantDarsAsync(
-        request: ListDarsRequest,
+        request: ProtobufParticipantListDarsRequest,
         options?: RequestOptions,
-    ): Promise<ListDarsResponse> {
+    ): Promise<ProtobufParticipantListDarsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.listParticipantDarsAsync!(
-            mapGrpcListParticipantDarsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcListParticipantDars(
-            payload as Partial<ProtobufParticipantListDarsResponse>,
-        );
+        return payload as ProtobufParticipantListDarsResponse;
     }
 
     public async getParticipantDarContentsAsync(
-        request: GetDarContentsRequest,
+        request: ProtobufGetParticipantDarContentsRequest,
         options?: RequestOptions,
-    ): Promise<GetDarContentsResponse> {
+    ): Promise<ProtobufGetParticipantDarContentsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.getParticipantDarContentsAsync!(
-            mapGrpcGetParticipantDarContentsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGetParticipantDarContents(
-            payload as Partial<ProtobufGetParticipantDarContentsResponse>,
-        );
+        return payload as ProtobufGetParticipantDarContentsResponse;
     }
 
     public async getParticipantStatusAsync(

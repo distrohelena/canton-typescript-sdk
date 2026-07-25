@@ -2,16 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 import {
     GetDarContentsRequest,
     GetDarRequest,
-    GetPackageContentsRequest,
     GetPackageReferencesRequest,
     ListDarsRequest,
-    ParticipantListPackagesRequest,
     GetDarContentsResponse,
     GetDarResponse,
     ListDarsResponse,
     ParticipantPackageServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    GetPackageContentsRequest,
+    ListPackagesRequest as ParticipantListPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 
 describe("ParticipantPackageServiceClient", () => {
     it("forwards participant package requests through the selected transport", async () => {
@@ -112,13 +114,13 @@ describe("ParticipantPackageServiceClient", () => {
         });
 
         await client.listPackagesAsync(
-            new ParticipantListPackagesRequest({
+            ParticipantListPackagesRequest.create({
                 limit: 10,
             }),
             options,
         );
         await client.getPackageContentsAsync(
-            new GetPackageContentsRequest({
+            GetPackageContentsRequest.create({
                 packageId: "pkg-1",
             }),
             options,
@@ -149,11 +151,11 @@ describe("ParticipantPackageServiceClient", () => {
         );
 
         expect(listParticipantPackagesAsync).toHaveBeenLastCalledWith(
-            expect.any(ParticipantListPackagesRequest),
+            expect.any(Object),
             options,
         );
         expect(getParticipantPackageContentsAsync).toHaveBeenLastCalledWith(
-            expect.any(GetPackageContentsRequest),
+            expect.any(Object),
             options,
         );
         expect(getParticipantPackageReferencesAsync).toHaveBeenLastCalledWith(

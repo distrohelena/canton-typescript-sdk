@@ -2,13 +2,9 @@ import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { AddPartyAsyncRequest } from "../../core/types/requests/add-party-async-request.js";
 import { ClearPartyOnboardingFlagRequest } from "../../core/types/requests/clear-party-onboarding-flag-request.js";
-import { GetDarContentsRequest } from "../../core/types/requests/get-dar-contents-request.js";
-import { GetDarRequest } from "../../core/types/requests/get-dar-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../../core/types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../../core/types/requests/get-no-wait-commitments-from-request.js";
-import { GetPackageContentsRequest } from "../../core/types/requests/get-package-contents-request.js";
-import { GetPackageReferencesRequest } from "../../core/types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../../core/types/requests/get-participant-pruning-schedule-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
@@ -20,16 +16,11 @@ import {
 } from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { ListDarsRequest } from "../../core/types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../../core/types/requests/list-pending-operations-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { AddPartyAsyncResponse } from "../../core/types/responses/add-party-async-response.js";
-import { GetDarContentsResponse } from "../../core/types/responses/get-dar-contents-response.js";
-import { GetDarResponse } from "../../core/types/responses/get-dar-response.js";
-import { GetPackageContentsResponse } from "../../core/types/responses/get-package-contents-response.js";
-import { GetPackageReferencesResponse } from "../../core/types/responses/get-package-references-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -58,7 +49,6 @@ import { GetSafePruningOffsetResponse } from "../../core/types/responses/get-saf
 import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ClearPartyOnboardingFlagResponse } from "../../core/types/responses/clear-party-onboarding-flag-response.js";
-import { ListDarsResponse } from "../../core/types/responses/list-dars-response.js";
 import type {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
@@ -90,6 +80,16 @@ import type {
     OpenCommitmentResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
 import type {
+    GetDarContentsRequest,
+    GetDarContentsResponse,
+    GetDarRequest,
+    GetDarResponse,
+    GetPackageContentsRequest,
+    GetPackageContentsResponse,
+    GetPackageReferencesRequest,
+    GetPackageReferencesResponse,
+    ListDarsRequest,
+    ListDarsResponse,
     ListPackagesRequest as ParticipantListPackagesRequest,
     ListPackagesResponse as ParticipantListPackagesResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";

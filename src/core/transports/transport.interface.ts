@@ -21,13 +21,9 @@ import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authoriz
 import { ClearPartyOnboardingFlagRequest } from "../types/requests/clear-party-onboarding-flag-request.js";
 import { CreateTemporaryTopologyStoreRequest } from "../types/requests/create-temporary-topology-store-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
-import { GetDarContentsRequest } from "../types/requests/get-dar-contents-request.js";
-import { GetDarRequest } from "../types/requests/get-dar-request.js";
 import { GetHighestOffsetByTimestampRequest } from "../types/requests/get-highest-offset-by-timestamp-request.js";
 import { GetNoWaitCommitmentsFromRequest } from "../types/requests/get-no-wait-commitments-from-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
-import { GetPackageContentsRequest } from "../types/requests/get-package-contents-request.js";
-import { GetPackageReferencesRequest } from "../types/requests/get-package-references-request.js";
 import { GetParticipantPruningScheduleRequest } from "../types/requests/get-participant-pruning-schedule-request.js";
 import { GetPruningScheduleRequest } from "../types/requests/get-pruning-schedule-request.js";
 import { GetSafePruningOffsetRequest } from "../types/requests/get-safe-pruning-offset-request.js";
@@ -54,14 +50,10 @@ import { ListSequencerSynchronizerStateRequest } from "../types/requests/list-se
 import { ListSequencingParametersStateRequest } from "../types/requests/list-sequencing-parameters-state-request.js";
 import { ListSynchronizerParametersStateRequest } from "../types/requests/list-synchronizer-parameters-state-request.js";
 import { ListSynchronizerTrustCertificateRequest } from "../types/requests/list-synchronizer-trust-certificate-request.js";
-import { ListDarsRequest } from "../types/requests/list-dars-request.js";
 import { ListPendingOperationsRequest } from "../types/requests/list-pending-operations-request.js";
 import { TopologyListPartiesRequest } from "../types/requests/topology-list-parties-request.js";
 import { TopologyListVettedPackagesRequest } from "../types/requests/topology-list-vetted-packages-request.js";
 import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
-import { GetPackageContentsResponse } from "../types/responses/get-package-contents-response.js";
-import { GetDarContentsResponse } from "../types/responses/get-dar-contents-response.js";
-import { GetDarResponse } from "../types/responses/get-dar-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -78,7 +70,6 @@ import type {
     GetIdResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
 import { GetNoWaitCommitmentsFromResponse } from "../types/responses/get-no-wait-commitments-from-response.js";
-import { GetPackageReferencesResponse } from "../types/responses/get-package-references-response.js";
 import { GetParticipantPruningScheduleResponse } from "../types/responses/get-participant-pruning-schedule-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import { GetPruningScheduleResponse } from "../types/responses/get-pruning-schedule-response.js";
@@ -117,7 +108,6 @@ import { ListMediatorSynchronizerStateResponse } from "../types/responses/list-m
 import { ListNamespaceDelegationResponse } from "../types/responses/list-namespace-delegation-response.js";
 import { ListOwnerToKeyMappingResponse } from "../types/responses/list-owner-to-key-mapping-response.js";
 import { ListKnownPartiesResponse } from "../types/responses/list-known-parties-response.js";
-import { ListDarsResponse } from "../types/responses/list-dars-response.js";
 import { ListPendingOperationsResponse } from "../types/responses/list-pending-operations-response.js";
 import { ListParticipantSynchronizerPermissionResponse } from "../types/responses/list-participant-synchronizer-permission-response.js";
 import { ListPartyHostingLimitsResponse } from "../types/responses/list-party-hosting-limits-response.js";
@@ -149,6 +139,16 @@ import { SignTopologyTransactionsResponse } from "../types/responses/sign-topolo
 import { TopologyListPartiesResponse } from "../types/responses/topology-list-parties-response.js";
 import { TopologyListVettedPackagesResponse } from "../types/responses/topology-list-vetted-packages-response.js";
 import type {
+    GetDarContentsRequest,
+    GetDarContentsResponse,
+    GetDarRequest,
+    GetDarResponse,
+    GetPackageContentsRequest,
+    GetPackageContentsResponse,
+    GetPackageReferencesRequest,
+    GetPackageReferencesResponse,
+    ListDarsRequest,
+    ListDarsResponse,
     ListPackagesRequest as ParticipantListPackagesRequest,
     ListPackagesResponse as ParticipantListPackagesResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
