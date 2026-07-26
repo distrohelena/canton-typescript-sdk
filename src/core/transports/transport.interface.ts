@@ -1,5 +1,22 @@
 import { TransportFeatures } from "./transport-features.interface.js";
-import type { AddTransactionsRequest, AddTransactionsResponse, AuthorizeRequest, AuthorizeResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
+import type {
+    AddTransactionsRequest,
+    AddTransactionsResponse,
+    AuthorizeRequest,
+    AuthorizeResponse,
+    CreateTemporaryTopologyStoreRequest,
+    CreateTemporaryTopologyStoreResponse,
+    DropTemporaryTopologyStoreRequest,
+    DropTemporaryTopologyStoreResponse,
+    GenerateTransactionsRequest,
+    GenerateTransactionsResponse,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotResponse,
+    ImportTopologySnapshotV2Request,
+    ImportTopologySnapshotV2Response,
+    SignTransactionsRequest,
+    SignTransactionsResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import type {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -18,11 +35,7 @@ import { AllocatePartyRequest } from "../types/requests/allocate-party-request.j
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
-import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../types/requests/generate-external-party-topology-request.js";
-import { ImportTopologySnapshotRequest } from "../types/requests/import-topology-snapshot-request.js";
-import { ImportTopologySnapshotV2Request } from "../types/requests/import-topology-snapshot-v2-request.js";
-import { SignTopologyTransactionsRequest } from "../types/requests/sign-topology-transactions-request.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -56,15 +69,6 @@ import type {
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
-import type {
-    CreateTemporaryTopologyStoreRequest,
-    CreateTemporaryTopologyStoreResponse,
-    DropTemporaryTopologyStoreRequest,
-    DropTemporaryTopologyStoreResponse,
-} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
-import { GenerateTopologyTransactionsResponse } from "../types/responses/generate-topology-transactions-response.js";
-import { ImportTopologySnapshotResponse } from "../types/responses/import-topology-snapshot-response.js";
-import { ImportTopologySnapshotV2Response } from "../types/responses/import-topology-snapshot-v2-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
@@ -148,7 +152,6 @@ import type {
     ListPendingOperationsRequest,
     ListPendingOperationsResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
-import { SignTopologyTransactionsResponse } from "../types/responses/sign-topology-transactions-response.js";
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
@@ -615,15 +618,15 @@ export interface ITransport {
 
     /** Adds local signatures to topology transactions. Supported on gRPC; JSON rejects it. */
     signTopologyTransactionsAsync(
-        request: SignTopologyTransactionsRequest,
+        request: SignTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<SignTopologyTransactionsResponse>;
+    ): Promise<SignTransactionsResponse>;
 
     /** Generates topology transactions from raw proposals. Supported on gRPC; JSON rejects it. */
     generateTopologyTransactionsAsync(
-        request: GenerateTopologyTransactionsRequest,
+        request: GenerateTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<GenerateTopologyTransactionsResponse>;
+    ): Promise<GenerateTransactionsResponse>;
 
     /** Creates a temporary topology store. Supported on gRPC; JSON rejects it. */
     createTemporaryTopologyStoreAsync(

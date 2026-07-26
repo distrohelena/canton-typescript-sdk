@@ -22,6 +22,14 @@ import type {
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreResponse,
+    GenerateTransactionsRequest,
+    GenerateTransactionsResponse,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotResponse,
+    ImportTopologySnapshotV2Request,
+    ImportTopologySnapshotV2Response,
+    SignTransactionsRequest,
+    SignTransactionsResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import type {
     GetContractRequest,
@@ -1004,9 +1012,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async importTopologySnapshotAsync(
-        _request: any,
+        _request: ImportTopologySnapshotRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ImportTopologySnapshotResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1015,9 +1023,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async importTopologySnapshotV2Async(
-        _request: any,
+        _request: ImportTopologySnapshotV2Request,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ImportTopologySnapshotV2Response> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1026,9 +1034,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async signTopologyTransactionsAsync(
-        _request: any,
+        _request: SignTransactionsRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<SignTransactionsResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(
@@ -1037,9 +1045,9 @@ export class JsonTransport implements ITransport {
     }
 
     public async generateTopologyTransactionsAsync(
-        _request: any,
+        _request: GenerateTransactionsRequest,
         _options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<GenerateTransactionsResponse> {
         this.throwIfDisposed();
 
         throw new NotSupportedError(

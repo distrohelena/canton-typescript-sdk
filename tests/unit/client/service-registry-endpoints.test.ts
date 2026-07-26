@@ -9,8 +9,6 @@ import {
     ExternalPartySigningPublicKey,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
-    GenerateTopologyTransactionsRequest,
-    GenerateTopologyTransactionsResponse,
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
     ParticipantPermission,
@@ -24,6 +22,10 @@ import {
     TransportKind,
 } from "../../../src";
 import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
+import {
+    GenerateTransactionsRequest,
+    GenerateTransactionsResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
     ListAvailableStoresRequest,
     ListAvailableStoresResponse,
@@ -171,7 +173,7 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             generateTopologyTransactionsAsync: vi.fn(async () => {
-                return new GenerateTopologyTransactionsResponse({
+                return GenerateTransactionsResponse.create({
                     generatedTransactions: [],
                 });
             }),
@@ -265,9 +267,9 @@ describe("service registry endpoint routing", () => {
         ).resolves.toBeInstanceOf(TopologyListPartiesResponse);
         await expect(
             services.topologyManagerWriteService.generateTransactionsAsync(
-                new GenerateTopologyTransactionsRequest(),
+                GenerateTransactionsRequest.create(),
             ),
-        ).resolves.toBeInstanceOf(GenerateTopologyTransactionsResponse);
+        ).resolves.toEqual(GenerateTransactionsResponse.create({ generatedTransactions: [] }));
         await expect(
             services.participantPartyManagementService.addPartyAsync(
                 AddPartyAsyncRequest.create({
@@ -438,7 +440,7 @@ describe("service registry endpoint routing", () => {
         );
         await expect(
             services.topologyManagerWriteService.generateTransactionsAsync(
-                new GenerateTopologyTransactionsRequest(),
+                GenerateTransactionsRequest.create(),
             ),
         ).rejects.toThrow(
             "The participant admin endpoint is not configured for topologyManagerWriteService.",

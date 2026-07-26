@@ -1,21 +1,26 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
-import type { AddTransactionsRequest, AddTransactionsResponse, AuthorizeRequest, AuthorizeResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
+import type {
+    AddTransactionsRequest,
+    AddTransactionsResponse,
+    AuthorizeRequest,
+    AuthorizeResponse,
+    GenerateTransactionsRequest,
+    GenerateTransactionsResponse,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotResponse,
+    ImportTopologySnapshotV2Request,
+    ImportTopologySnapshotV2Response,
+    SignTransactionsRequest,
+    SignTransactionsResponse,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { AssembleSignedTopologyTransactionsRequest } from "../../core/types/requests/assemble-signed-topology-transactions-request.js";
-import { GenerateTopologyTransactionsRequest } from "../../core/types/requests/generate-topology-transactions-request.js";
-import { ImportTopologySnapshotRequest } from "../../core/types/requests/import-topology-snapshot-request.js";
-import { ImportTopologySnapshotV2Request } from "../../core/types/requests/import-topology-snapshot-v2-request.js";
-import { SignTopologyTransactionsRequest } from "../../core/types/requests/sign-topology-transactions-request.js";
 import type {
     CreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
-import { GenerateTopologyTransactionsResponse } from "../../core/types/responses/generate-topology-transactions-response.js";
-import { ImportTopologySnapshotResponse } from "../../core/types/responses/import-topology-snapshot-response.js";
-import { ImportTopologySnapshotV2Response } from "../../core/types/responses/import-topology-snapshot-v2-response.js";
-import { SignTopologyTransactionsResponse } from "../../core/types/responses/sign-topology-transactions-response.js";
 import { SignedTopologyTransaction } from "../../core/types/topology/signed-topology-transaction.js";
 import { assembleSignedTopologyTransactions } from "./topology-signed-transaction-assembler.js";
 
@@ -61,17 +66,17 @@ export class TopologyManagerWriteServiceClient {
 
     /** Adds local signatures to topology transactions. Supported on gRPC; JSON rejects it. */
     public signTransactionsAsync(
-        request: SignTopologyTransactionsRequest,
+        request: SignTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<SignTopologyTransactionsResponse> {
+    ): Promise<SignTransactionsResponse> {
         return this.transport.signTopologyTransactionsAsync(request, options);
     }
 
     /** Generates topology transactions from raw proposals. Supported on gRPC; JSON rejects it. */
     public generateTransactionsAsync(
-        request: GenerateTopologyTransactionsRequest,
+        request: GenerateTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<GenerateTopologyTransactionsResponse> {
+    ): Promise<GenerateTransactionsResponse> {
         return this.transport.generateTopologyTransactionsAsync(
             request,
             options,

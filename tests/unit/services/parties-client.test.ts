@@ -5,8 +5,6 @@ import {
     CreateExternalPartyRequest,
     CreateDecentralizedPartyRequest,
     PreparedDecentralizedParty,
-    GenerateTopologyTransactionsResponse,
-    GeneratedTopologyTransaction,
     ExternalPartyOnboardingTransaction,
     ExternalPartySignature,
     ExternalPartySignatureFormat,
@@ -25,6 +23,7 @@ import {
     PartyDetails,
     RequestOptions,
 } from "../../../src";
+import { GenerateTransactionsResponse } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 
 describe("PartyManagementServiceClient", () => {
@@ -290,12 +289,12 @@ describe("PartyManagementServiceClient", () => {
 
     it("prepares decentralized topology through the injected topology writer", async () => {
         const generateTransactionsAsync = vi.fn(async () =>
-            new GenerateTopologyTransactionsResponse({
+            GenerateTransactionsResponse.create({
                 generatedTransactions: [
-                    new GeneratedTopologyTransaction({
+                    {
                         serializedTransaction: new Uint8Array([1]),
                         transactionHash: new Uint8Array([2]),
-                    }),
+                    },
                 ],
             }),
         );

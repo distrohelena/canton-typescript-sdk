@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-    GenerateTopologyTransactionsRequest,
-    GenerateTopologyTransactionsResponse,
-    PartyToParticipant,
-    RequestOptions,
-} from "../../../src";
+import { RequestOptions } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
     AddTransactionsRequest,
@@ -12,10 +7,11 @@ import {
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreResponse,
+    GenerateTransactionsRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 
 describe("GrpcTransport topology manager write services", () => {
-    it("maps topology manager write generation responses", async () => {
+    it("forwards topology manager write generated messages", async () => {
         const generateTopologyTransactionsAsync = vi.fn(async () => ({
             generatedTransactions: [
                 {
@@ -44,16 +40,7 @@ describe("GrpcTransport topology manager write services", () => {
             }),
         } as any);
 
-        const request = new GenerateTopologyTransactionsRequest({
-            proposals: [
-                {
-                    mapping: new PartyToParticipant({
-                        party: "ExternalParty::default",
-                        participants: [],
-                    }),
-                },
-            ],
-        });
+        const request = GenerateTransactionsRequest.create({ proposals: [] });
 
         const options = new RequestOptions({
             timeoutMs: 2_500,
@@ -83,7 +70,14 @@ describe("GrpcTransport topology manager write services", () => {
             }),
             expect.any(RequestOptions),
         );
-        expect(result).toBeInstanceOf(GenerateTopologyTransactionsResponse);
+        expect(result).toEqual({
+            generatedTransactions: [
+                {
+                    serializedTransaction: new Uint8Array([1, 2, 3]),
+                    transactionHash: new Uint8Array([4, 5, 6]),
+                },
+            ],
+        });
         expect(result.generatedTransactions[0].transactionHash).toEqual(
             new Uint8Array([4, 5, 6]),
         );

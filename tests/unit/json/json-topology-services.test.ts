@@ -3,9 +3,6 @@ import {
     AssembleSignedTopologyTransactionsRequest,
     CantonClient,
     CantonClientOptions,
-    GenerateTopologyTransactionsRequest,
-    ImportTopologySnapshotRequest,
-    ImportTopologySnapshotV2Request,
     ListAllRequest,
     ListDecentralizedNamespaceDefinitionRequest,
     ListKeyOwnersRequest,
@@ -23,7 +20,6 @@ import {
     ListSynchronizerParametersStateRequest,
     ListSynchronizerTrustCertificateRequest,
     NotSupportedError,
-    SignTopologyTransactionsRequest,
     TopologyListPartiesRequest,
     TopologyListVettedPackagesRequest,
     TransportKind,
@@ -33,6 +29,10 @@ import {
     AuthorizeRequest,
     CreateTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreRequest,
+    GenerateTransactionsRequest,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotV2Request,
+    SignTransactionsRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
     ListAllV2Request,
@@ -244,28 +244,28 @@ describe("Topology services with JSON transport", () => {
                 "TopologyManagerWriteService.ImportTopologySnapshot",
                 () =>
                     client.topologyManagerWriteService.importTopologySnapshotAsync(
-                        new ImportTopologySnapshotRequest(),
+                        ImportTopologySnapshotRequest.create(),
                     ),
             ],
             [
                 "TopologyManagerWriteService.ImportTopologySnapshotV2",
                 () =>
                     client.topologyManagerWriteService.importTopologySnapshotV2Async(
-                        new ImportTopologySnapshotV2Request(),
+                        ImportTopologySnapshotV2Request.create(),
                     ),
             ],
             [
                 "TopologyManagerWriteService.SignTransactions",
                 () =>
                     client.topologyManagerWriteService.signTransactionsAsync(
-                        new SignTopologyTransactionsRequest(),
+                        SignTransactionsRequest.create(),
                     ),
             ],
             [
                 "TopologyManagerWriteService.GenerateTransactions",
                 () =>
                     client.topologyManagerWriteService.generateTransactionsAsync(
-                        new GenerateTopologyTransactionsRequest(),
+                        GenerateTransactionsRequest.create(),
                     ),
             ],
             [

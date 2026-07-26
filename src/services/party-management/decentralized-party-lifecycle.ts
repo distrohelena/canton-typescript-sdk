@@ -4,15 +4,20 @@ import { CantonHashPurpose } from "../../core/types/canton-hash-purpose.js";
 import { CreateDecentralizedPartyRequest, DecentralizedPartyKey } from "../../core/types/requests/create-decentralized-party-request.js";
 import { PreparedDecentralizedParty } from "../../core/types/requests/finalize-decentralized-party-request.js";
 import { PreparedTopologyTransaction } from "../../core/types/topology/prepared-topology-transaction.js";
-import { GenerateTopologyTransactionsRequest } from "../../core/types/requests/generate-topology-transactions-request.js";
-import { DecentralizedNamespaceDefinition } from "../../core/types/topology/decentralized-namespace-definition.js";
-import { NamespaceDelegation } from "../../core/types/topology/namespace-delegation.js";
-import { PartyToParticipant, PartyToParticipantParticipant } from "../../core/types/topology/party-to-participant.js";
-import { ParticipantPermission } from "../../core/types/topology/participant-permission.js";
-import { TopologyMappingOperation } from "../../core/types/topology/topology-mapping-operation.js";
-import { TopologySigningKeysWithThreshold, TopologySigningPublicKey } from "../../core/types/topology/topology-public-key.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import {
+    CryptoKeyFormat,
+    SigningKeyScheme,
+    SigningKeySpec,
+    SigningKeyUsage,
+    SigningPublicKey,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/crypto/v30/crypto.js";
+import {
+    Enums_ParticipantPermission,
+    Enums_TopologyChangeOp,
+} from "../../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
+import { GenerateTransactionsRequest } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { TopologyManagerWriteServiceClient } from "../topology-manager-write/topology-manager-write-service-client.js";
 
 export async function prepareDecentralizedPartyAsync(
@@ -32,26 +37,70 @@ export async function prepareDecentralizedPartyAsync(
     const partyKeys = request.partySigningKeys.map(toTopologyKey);
 
     const participants = [
-        new PartyToParticipantParticipant({
+        {
             participantUid: localParticipant.participantId,
             permission: request.localParticipantObservationOnly
-                ? ParticipantPermission.observation
-                : ParticipantPermission.confirmation,
-        }),
+                ? Enums_ParticipantPermission.OBSERVATION
+                : Enums_ParticipantPermission.CONFIRMATION,
+        },
         ...request.otherConfirmingParticipantUids.map((participantUid) =>
-            new PartyToParticipantParticipant({ participantUid, permission: ParticipantPermission.confirmation }),
+            ({ participantUid, permission: Enums_ParticipantPermission.CONFIRMATION }),
         ),
         ...request.observingParticipantUids.map((participantUid) =>
-            new PartyToParticipantParticipant({ participantUid, permission: ParticipantPermission.observation }),
+            ({ participantUid, permission: Enums_ParticipantPermission.OBSERVATION }),
         ),
     ];
 
     const generated = await topologyWriter.generateTransactionsAsync(
-        new GenerateTopologyTransactionsRequest({
+        GenerateTransactionsRequest.create({
             proposals: [
-                { operation: TopologyMappingOperation.addReplace, serial: 1, mapping: new DecentralizedNamespaceDefinition({ decentralizedNamespace, threshold: request.ownerThreshold, owners: ownerFingerprints }) },
-                ...owners.map((targetKey) => ({ operation: TopologyMappingOperation.addReplace, serial: 1, mapping: new NamespaceDelegation({ namespace: decentralizedNamespace, targetKey, isRootDelegation: true }) })),
-                { operation: TopologyMappingOperation.addReplace, serial: 1, mapping: new PartyToParticipant({ party: partyId, threshold: request.confirmationThreshold, participants, partySigningKeys: new TopologySigningKeysWithThreshold({ threshold: request.partySigningThreshold, keys: partyKeys }) }) },
+                {
+                    operation: Enums_TopologyChangeOp.ADD_REPLACE,
+                    serial: 1,
+                    mapping: {
+                        mapping: {
+                            oneofKind: "decentralizedNamespaceDefinition",
+                            decentralizedNamespaceDefinition: {
+                                decentralizedNamespace,
+                                threshold: request.ownerThreshold,
+                                owners: ownerFingerprints,
+                            },
+                        },
+                    },
+                },
+                ...owners.map((targetKey) => ({
+                    operation: Enums_TopologyChangeOp.ADD_REPLACE,
+                    serial: 1,
+                    mapping: {
+                        mapping: {
+                            oneofKind: "namespaceDelegation" as const,
+                            namespaceDelegation: {
+                                namespace: decentralizedNamespace,
+                                targetKey,
+                                isRootDelegation: true,
+                                restriction: { oneofKind: undefined },
+                            },
+                        },
+                    },
+                })),
+                {
+                    operation: Enums_TopologyChangeOp.ADD_REPLACE,
+                    serial: 1,
+                    mapping: {
+                        mapping: {
+                            oneofKind: "partyToParticipant",
+                            partyToParticipant: {
+                                party: partyId,
+                                threshold: request.confirmationThreshold,
+                                participants,
+                                partySigningKeys: {
+                                    threshold: request.partySigningThreshold,
+                                    keys: partyKeys,
+                                },
+                            },
+                        },
+                    },
+                },
             ],
         }),
         options,
@@ -117,6 +166,47 @@ function deriveNamespace(ownerFingerprints: readonly string[]): string {
     return computeCantonHashHex(new Uint8Array(chunks), CantonHashPurpose.decentralizedNamespace);
 }
 
-function toTopologyKey(value: DecentralizedPartyKey): TopologySigningPublicKey {
-    return new TopologySigningPublicKey({ format: value.publicKey.format, publicKey: value.publicKey.keyData, keySpec: value.publicKey.keySpec, usage: ["namespace", "protocol", "proofOfOwnership"] });
+function toTopologyKey(value: DecentralizedPartyKey): SigningPublicKey {
+    return {
+        format: mapCryptoKeyFormat(value.publicKey.format),
+        publicKey: new Uint8Array(value.publicKey.keyData),
+        scheme: mapSigningKeyScheme(value.publicKey.keySpec),
+        usage: [
+            SigningKeyUsage.NAMESPACE,
+            SigningKeyUsage.PROTOCOL,
+            SigningKeyUsage.PROOF_OF_OWNERSHIP,
+        ],
+        keySpec: mapSigningKeySpec(value.publicKey.keySpec),
+    };
+}
+
+function mapCryptoKeyFormat(value?: string): CryptoKeyFormat {
+    switch (value) {
+        case "der": return CryptoKeyFormat.DER;
+        case "raw": return CryptoKeyFormat.RAW;
+        case "derX509SubjectPublicKeyInfo": return CryptoKeyFormat.DER_X509_SUBJECT_PUBLIC_KEY_INFO;
+        case "derPkcs8PrivateKeyInfo": return CryptoKeyFormat.DER_PKCS8_PRIVATE_KEY_INFO;
+        case "symbolic": return CryptoKeyFormat.SYMBOLIC;
+        default: return CryptoKeyFormat.UNSPECIFIED;
+    }
+}
+
+function mapSigningKeySpec(value?: string): SigningKeySpec {
+    switch (value) {
+        case "ecCurve25519": return SigningKeySpec.EC_CURVE25519;
+        case "ecP256": return SigningKeySpec.EC_P256;
+        case "ecP384": return SigningKeySpec.EC_P384;
+        case "ecSecp256k1": return SigningKeySpec.EC_SECP256K1;
+        case "mlDsa65": return SigningKeySpec.ML_DSA_65;
+        default: return SigningKeySpec.UNSPECIFIED;
+    }
+}
+
+function mapSigningKeyScheme(keySpec?: string): SigningKeyScheme {
+    switch (keySpec) {
+        case "ecCurve25519": return SigningKeyScheme.ED25519;
+        case "ecP256": return SigningKeyScheme.EC_DSA_P256;
+        case "ecP384": return SigningKeyScheme.EC_DSA_P384;
+        default: return SigningKeyScheme.UNSPECIFIED;
+    }
 }

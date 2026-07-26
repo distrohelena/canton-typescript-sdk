@@ -60,16 +60,6 @@ import {
 } from "./mappers/state-read-mapper.js";
 import {
 } from "./mappers/topology-manager-read-mapper.js";
-import {
-    mapGrpcGenerateTopologyTransactionsRequest,
-    mapGrpcGenerateTopologyTransactionsResponse,
-    mapGrpcImportTopologySnapshotRequest,
-    mapGrpcImportTopologySnapshotResponse,
-    mapGrpcImportTopologySnapshotV2Request,
-    mapGrpcImportTopologySnapshotV2Response,
-    mapGrpcSignTopologyTransactionsRequest,
-    mapGrpcSignTopologyTransactionsResponse,
-} from "./mappers/topology-manager-write-mapper.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
@@ -240,6 +230,14 @@ import type {
     CreateTemporaryTopologyStoreResponse as ProtobufCreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest as ProtobufDropTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreResponse as ProtobufDropTemporaryTopologyStoreResponse,
+    GenerateTransactionsRequest as ProtobufGenerateTransactionsRequest,
+    GenerateTransactionsResponse as ProtobufGenerateTransactionsResponse,
+    ImportTopologySnapshotRequest as ProtobufImportTopologySnapshotRequest,
+    ImportTopologySnapshotResponse as ProtobufImportTopologySnapshotResponse,
+    ImportTopologySnapshotV2Request as ProtobufImportTopologySnapshotV2Request,
+    ImportTopologySnapshotV2Response as ProtobufImportTopologySnapshotV2Response,
+    SignTransactionsRequest as ProtobufSignTransactionsRequest,
+    SignTransactionsResponse as ProtobufSignTransactionsResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import {
     ListAllRequest as ProtobufTopologyListAllRequest,
@@ -1122,59 +1120,59 @@ export class GrpcTransport implements ITransport {
     }
 
     public async importTopologySnapshotAsync(
-        request: any,
+        request: ProtobufImportTopologySnapshotRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufImportTopologySnapshotResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.importTopologySnapshotAsync!(
-            mapGrpcImportTopologySnapshotRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcImportTopologySnapshotResponse(payload as any);
+        return payload as ProtobufImportTopologySnapshotResponse;
     }
 
     public async importTopologySnapshotV2Async(
-        request: any,
+        request: ProtobufImportTopologySnapshotV2Request,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufImportTopologySnapshotV2Response> {
         this.throwIfDisposed();
 
         const payload = await this.operations.importTopologySnapshotV2Async!(
-            mapGrpcImportTopologySnapshotV2Request(request),
+            request,
             options,
         );
 
-        return mapGrpcImportTopologySnapshotV2Response(payload as any);
+        return payload as ProtobufImportTopologySnapshotV2Response;
     }
 
     public async signTopologyTransactionsAsync(
-        request: any,
+        request: ProtobufSignTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufSignTransactionsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.signTopologyTransactionsAsync!(
-            mapGrpcSignTopologyTransactionsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcSignTopologyTransactionsResponse(payload as any);
+        return payload as ProtobufSignTransactionsResponse;
     }
 
     public async generateTopologyTransactionsAsync(
-        request: any,
+        request: ProtobufGenerateTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufGenerateTransactionsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.generateTopologyTransactionsAsync!(
-            mapGrpcGenerateTopologyTransactionsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGenerateTopologyTransactionsResponse(payload as any);
+        return payload as ProtobufGenerateTransactionsResponse;
     }
 
     public async createTemporaryTopologyStoreAsync(

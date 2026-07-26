@@ -20,12 +20,8 @@ import { AllocatePartyRequest } from "../core/types/requests/allocate-party-requ
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
-import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
-import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
-import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-topology-snapshot-v2-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
-import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
@@ -38,9 +34,16 @@ import type {
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreResponse,
+    GenerateTransactionsRequest,
+    GenerateTransactionsResponse,
+    ImportTopologySnapshotRequest,
+    ImportTopologySnapshotResponse,
+    ImportTopologySnapshotV2Request,
+    ImportTopologySnapshotV2Response,
+    SignTransactionsRequest,
+    SignTransactionsResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
-import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -76,8 +79,6 @@ import type {
     GetScheduleRequest as GetPruningScheduleRequest,
     GetScheduleResponse as GetPruningScheduleResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
-import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
-import { ImportTopologySnapshotV2Response } from "../core/types/responses/import-topology-snapshot-v2-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
@@ -161,7 +162,6 @@ import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
-import { SignTopologyTransactionsResponse } from "../core/types/responses/sign-topology-transactions-response.js";
 import type {
     TrafficControlStateRequest,
     TrafficControlStateResponse,
@@ -905,18 +905,18 @@ class PlaceholderTransport implements ITransport {
     }
 
     public async signTopologyTransactionsAsync(
-        _request: SignTopologyTransactionsRequest,
+        _request: SignTransactionsRequest,
         _options?: RequestOptions,
-    ): Promise<SignTopologyTransactionsResponse> {
+    ): Promise<SignTransactionsResponse> {
         this.throwIfDisposed();
 
         throw new TransportError("topology transaction signing is not available yet");
     }
 
     public async generateTopologyTransactionsAsync(
-        _request: GenerateTopologyTransactionsRequest,
+        _request: GenerateTransactionsRequest,
         _options?: RequestOptions,
-    ): Promise<GenerateTopologyTransactionsResponse> {
+    ): Promise<GenerateTransactionsResponse> {
         this.throwIfDisposed();
 
         throw new TransportError("topology transaction generation is not available yet");
@@ -1477,11 +1477,11 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
-    public async signTopologyTransactionsAsync(): Promise<SignTopologyTransactionsResponse> {
+    public async signTopologyTransactionsAsync(): Promise<SignTransactionsResponse> {
         this.throwMissingEndpoint();
     }
 
-    public async generateTopologyTransactionsAsync(): Promise<GenerateTopologyTransactionsResponse> {
+    public async generateTopologyTransactionsAsync(): Promise<GenerateTransactionsResponse> {
         this.throwMissingEndpoint();
     }
 
@@ -1871,11 +1871,11 @@ class CompositeTransport implements ITransport {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async signTopologyTransactionsAsync(): Promise<SignTopologyTransactionsResponse> {
+    public async signTopologyTransactionsAsync(): Promise<SignTransactionsResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async generateTopologyTransactionsAsync(): Promise<GenerateTopologyTransactionsResponse> {
+    public async generateTopologyTransactionsAsync(): Promise<GenerateTransactionsResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 

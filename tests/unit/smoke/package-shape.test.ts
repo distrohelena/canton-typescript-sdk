@@ -13,10 +13,6 @@ import {
     GetParticipantStatusResponse,
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
-    GetPackageContentsRequest,
-    GetPackageContentsResponse,
-    GetPackageReferencesRequest,
-    GetPackageReferencesResponse,
     GetPackageRequest,
     GetPackageResponse,
     GetPackageStatusRequest,
@@ -39,11 +35,8 @@ import {
     ListVettedPackagesRequest,
     ListVettedPackagesResponse,
     ParticipantDarDescription,
-    ParticipantListPackagesRequest,
-    ParticipantListPackagesResponse,
     ParticipantNodeStatus,
     ParticipantModuleDescription,
-    ParticipantPackageDescription,
     ParticipantPackageServiceClient,
     PartyManagementServiceClient,
     PartyToParticipant,
@@ -66,12 +59,19 @@ import {
     TopologyMappingResult,
     TopologyStoreId,
     TopologyTransactions,
-    GenerateTopologyTransactionsRequest,
-    GenerateTopologyTransactionsResponse,
     AssembleSignedTopologyTransactionsRequest,
     TransportKind,
     VersionServiceClient,
 } from "../../../src";
+import {
+    GetPackageContentsRequest,
+    GetPackageContentsResponse,
+    GetPackageReferencesRequest,
+    GetPackageReferencesResponse,
+    ListPackagesRequest as ParticipantListPackagesRequest,
+    ListPackagesResponse as ParticipantListPackagesResponse,
+    PackageDescription as ParticipantPackageDescription,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 
 describe("package surface", () => {
     it("exports the grpc-shaped root client types", () => {
@@ -111,8 +111,6 @@ describe("package surface", () => {
         expect(ParticipantPermission.submission).toBe("submission");
         expect(PartyToParticipant).toBeTypeOf("function");
         expect(TopologyTransactions).toBeTypeOf("function");
-        expect(GenerateTopologyTransactionsRequest).toBeTypeOf("function");
-        expect(GenerateTopologyTransactionsResponse).toBeTypeOf("function");
         expect(AssembleSignedTopologyTransactionsRequest).toBeTypeOf(
             "function",
         );
@@ -134,11 +132,11 @@ describe("package surface", () => {
 
         const getParticipantStatusRequest = new GetParticipantStatusRequest();
 
-        const getPackageContentsRequest = new GetPackageContentsRequest({
+        const getPackageContentsRequest = GetPackageContentsRequest.create({
             packageId: "pkg-1",
         });
 
-        const getPackageReferencesRequest = new GetPackageReferencesRequest({
+        const getPackageReferencesRequest = GetPackageReferencesRequest.create({
             packageId: "pkg-1",
         });
 
@@ -150,7 +148,7 @@ describe("package surface", () => {
 
         const listVettedPackagesRequest = new ListVettedPackagesRequest();
 
-        const participantListPackagesRequest = new ParticipantListPackagesRequest({
+        const participantListPackagesRequest = ParticipantListPackagesRequest.create({
             limit: 25,
         });
 
@@ -205,30 +203,39 @@ describe("package surface", () => {
             }),
         ).toBeInstanceOf(ListVettedPackagesResponse);
         expect(
-            new ParticipantListPackagesResponse({
+            ParticipantListPackagesResponse.create({
                 packageDescriptions: [],
             }),
-        ).toBeInstanceOf(ParticipantListPackagesResponse);
+        ).toEqual(ParticipantListPackagesResponse.create({ packageDescriptions: [] }));
         expect(
-            new GetPackageContentsResponse({
+            GetPackageContentsResponse.create({
                 modules: [],
                 isUtilityPackage: false,
                 languageVersion: "2.dev",
             }),
-        ).toBeInstanceOf(GetPackageContentsResponse);
+        ).toEqual(GetPackageContentsResponse.create({
+            modules: [],
+            isUtilityPackage: false,
+            languageVersion: "2.dev",
+        }));
         expect(
-            new GetPackageReferencesResponse({
+            GetPackageReferencesResponse.create({
                 dars: [],
             }),
-        ).toBeInstanceOf(GetPackageReferencesResponse);
+        ).toEqual(GetPackageReferencesResponse.create({ dars: [] }));
         expect(
-            new ParticipantPackageDescription({
+            ParticipantPackageDescription.create({
                 packageId: "pkg-1",
                 name: "Main",
                 version: "1.0.0",
                 size: 42,
             }),
-        ).toBeInstanceOf(ParticipantPackageDescription);
+        ).toEqual(ParticipantPackageDescription.create({
+            packageId: "pkg-1",
+            name: "Main",
+            version: "1.0.0",
+            size: 42,
+        }));
         expect(
             new ParticipantModuleDescription({
                 name: "Main.Module",
