@@ -42,22 +42,7 @@ export function compileContractFindMany(
 
     const offsetSql = args.skip === undefined ? "" : `offset ${addValue(args.skip)}`;
 
-    const include = args.include;
-    const included = [
-        include?.contractType === undefined ? undefined : "to_jsonb(contract_tpe_row) as contract_type",
-        include?.createdTransaction === undefined ? undefined : "to_jsonb(created_tx) as created_transaction",
-        include?.archivedTransaction === undefined ? undefined : "to_jsonb(archived_tx) as archived_transaction",
-        include?.exercises === undefined ? undefined : "exercise_rows.exercises",
-    ].filter((field): field is string => field !== undefined);
-    const exercisesJoin = include?.exercises === undefined ? "" : `
-left join lateral (
-  select coalesce(jsonb_agg(to_jsonb(exercise_row)), '[]'::jsonb) as exercises
-  from (
-    select * from ${profile.relation("__exercises")} exercise_row
-    where exercise_row.contract_id = contract_row.contract_id
-    limit ${addValue(include.exercises.take)}
-  ) exercise_row
-) exercise_rows on true`;
+    const included = compileProfileIncludes("__contracts", "contract_row", args.include as unknown as Readonly<Record<string, unknown>> | undefined, profile, addValue);
     const jsonProjection = Object.entries(args.select?.json ?? {}).map(([name, projection]) => {
         if (projection.field !== "payload") throw new Error(`${projection.field} is not a JSON field of contracts`);
         if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
@@ -84,13 +69,73 @@ from ${profile.relation("__contracts")} contract_row
 join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix
 left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix
-${exercisesJoin}
 ${whereSql}
 ${orderBy}
 ${limitSql}
 ${offsetSql}`,
         values,
     };
+}
+
+function compileProfileIncludes(source: PqsRelation, parentAlias: string, include: Readonly<Record<string, unknown>> | undefined, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): readonly string[] {
+    const selected: string[] = [];
+    for (const [name, option] of Object.entries(include ?? {})) {
+        const edge = pqsRelationEdges[source]?.[name];
+        if (edge === undefined) throw new Error(`${name} is not a relation of ${source}`);
+        const settings = option === true ? {} : option;
+        if (settings === null || typeof settings !== "object" || Array.isArray(settings)) throw new Error(`${name} must be an include option`);
+        const options = settings as Readonly<Record<string, unknown>>;
+        if (edge.cardinality === "many" && (typeof options.take !== "number" || !Number.isInteger(options.take) || options.take < 0)) throw new Error(`${name} is a to-many relation and requires a non-negative take`);
+        const alias = `"${name}"`;
+        const nested = compileProfileIncludes(edge.target, alias, options.include as Readonly<Record<string, unknown>> | undefined, profile, addValue);
+        const metadata = pqsRelationMetadata[edge.target];
+        const requested = options.select === undefined
+            ? Object.entries(metadata.fields)
+            : Object.entries(options.select as Record<string, unknown>).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => [field, metadata.fields[field]] as const);
+        const json = (options.select as { readonly json?: Readonly<Record<string, {
+            readonly field: string;
+            readonly path: readonly string[];
+            readonly as: "text" | "numeric" | "boolean" | "timestamp";
+        }>> } | undefined)?.json ?? {};
+        const jsonSelections = Object.entries(json).map(([projectionName, projection]) => {
+            if (!PqsSchemaProfileV1.jsonField(edge.target, projection.field)) throw new Error(`${projection.field} is not a JSON field of ${edge.target}`);
+            if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${projectionName}.path must be a non-empty JSON path`);
+            const column = metadata.fields[projection.field];
+            if (column === undefined) throw new Error(`${projection.field} is not a field of ${edge.target}`);
+            const text = `${alias}."${column}" #>> ${addValue(projection.path)}::text[]`;
+            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+            return [`'${projectionName}'`, expression] as const;
+        });
+        if (requested.length === 0 && jsonSelections.length === 0) throw new Error(`Nested ${name}.select must include at least one field`);
+        if (requested.some(([, column]) => column === undefined)) throw new Error(`Nested ${name}.select references an unknown field`);
+        const fields = requested.flatMap(([field, column]) => [`'${field}'`, `${alias}."${column}"`]);
+        const nestedFields = nested.flatMap((selection) => {
+            const match = /^(.*) as "([^"]+)"$/.exec(selection);
+            return match === null ? [] : [`'${match[2]}'`, match[1]];
+        });
+        const object = `jsonb_build_object(${[...fields, ...jsonSelections.flat(), ...nestedFields].join(", ")})`;
+        const relationFilter = options.where === undefined ? "true" : compilePhysicalWhere(edge.target, options.where as Record<string, unknown>, alias, profile, addValue);
+        const condition = `${alias}."${edge.targetColumn}" = ${parentAlias}."${edge.sourceColumn}" and (${relationFilter})`;
+        const orderBy = compilePhysicalOrderBy(edge.target, options.orderBy, alias);
+        const expression = edge.cardinality === "one"
+            ? `(select ${object} from ${profile.relation(edge.target)} ${alias} where ${condition})`
+            : `(select coalesce(jsonb_agg("${name}_limited".value), '[]'::jsonb) from (select ${object} as value from ${profile.relation(edge.target)} ${alias} where ${condition}${orderBy} limit ${addValue(options.take)}) "${name}_limited")`;
+        selected.push(`${expression} as "${name}"`);
+    }
+    return selected;
+}
+
+function compilePhysicalOrderBy(relation: PqsRelation, orderBy: unknown, alias: string): string {
+    if (orderBy === undefined) return "";
+    if (!Array.isArray(orderBy) || orderBy.length === 0) throw new Error("Nested orderBy must be a non-empty list");
+    const metadata = pqsRelationMetadata[relation];
+    const entries = orderBy.flatMap((entry) => entry !== null && typeof entry === "object" ? Object.entries(entry as Record<string, unknown>) : []);
+    if (entries.length !== orderBy.length || entries.some(([, direction]) => direction !== "asc" && direction !== "desc")) throw new Error("Nested orderBy entries must have one valid direction");
+    return ` order by ${entries.map(([field, direction]) => {
+        const column = metadata.fields[field];
+        if (column === undefined) throw new Error(`${field} is not a field of ${relation}`);
+        return `${alias}."${column}" ${direction}`;
+    }).join(", ")}`;
 }
 
 export function compileContractGroupBy(

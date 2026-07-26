@@ -10,6 +10,7 @@ import {
     ContractTypeRow,
     TransactionRow,
     ExerciseRow,
+    ExerciseResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -65,7 +66,7 @@ type RuntimeSelect = Readonly<Record<string, boolean | unknown>> & {
 type RuntimeInclude = Readonly<Record<string, true | {
     readonly take?: number;
     readonly where?: RuntimeWhere;
-    readonly select?: Readonly<Record<string, boolean>>;
+    readonly select?: RuntimeSelect;
     readonly orderBy?: readonly Readonly<Record<string, "asc" | "desc">>[];
     readonly include?: RuntimeInclude;
 }>>;
@@ -430,35 +431,39 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
-    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[], includes: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>, json: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> = {}): Record<string, unknown> {
+    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[], includes: Readonly<Record<string, { readonly target: PqsRelation; readonly options: Exclude<RuntimeInclude[string], true> }>>, json: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> = {}): Record<string, unknown> {
         const scalar = Object.fromEntries(fields
             .filter(([field]) => Object.hasOwn(row, field))
             .map(([field]) => [field, mapPhysicalValue(row[field], metadata, field)]));
-        const related = Object.fromEntries(Object.entries(includes).map(([name, edge]) => [name, this.mapRelatedValue(row[name], edge.target, edge.include)]));
+        const related = Object.fromEntries(Object.entries(includes).map(([name, edge]) => [name, this.mapRelatedValue(row[name], edge.target, edge.options)]));
         const projected = Object.fromEntries(Object.entries(json).map(([name, as]) => [name, mapJsonValue(row[name], as)]));
         return { ...scalar, ...projected, ...related };
     }
 
-    private mapRelatedValue(value: unknown, relation: PqsRelation, include: RuntimeInclude | undefined): unknown {
+    private mapRelatedValue(value: unknown, relation: PqsRelation, options: Exclude<RuntimeInclude[string], true>): unknown {
         if (value === null || value === undefined) return value ?? null;
-        if (Array.isArray(value)) return value.map((entry) => this.mapRelatedValue(entry, relation, include));
+        if (Array.isArray(value)) return value.map((entry) => this.mapRelatedValue(entry, relation, options));
         if (typeof value !== "object") throw new Error(`Invalid included ${relation} row`);
         const metadata = pqsRelationMetadata[relation];
         const row = value as Record<string, unknown>;
-        const fields = Object.entries(metadata.fields).map(([field, column]) => [field, column] as const);
-        const nested = Object.fromEntries(Object.entries(include ?? {}).map(([name, option]) => {
+        const fields = this.selectedFields(relation, metadata, options.select);
+        const nested = Object.fromEntries(Object.entries(options.include ?? {}).map(([name, option]) => {
             const edge = pqsRelationEdges[relation]?.[name];
             if (edge === undefined) throw new Error(`${name} is not a relation of ${relation}`);
-            return [name, { target: edge.target, include: option === true ? undefined : option.include }];
+            return [name, { target: edge.target, options: option === true ? {} : option }];
         }));
-        const normalized = Object.fromEntries(fields.map(([field, column]) => [field, row[field] ?? row[column]]));
+        const json = Object.fromEntries(Object.entries(options.select?.json ?? {}).map(([name, projection]) => [name, projection.as]));
+        const normalized = Object.fromEntries(fields
+            .filter(([field, column]) => Object.hasOwn(row, field) || Object.hasOwn(row, column))
+            .map(([field, column]) => [field, row[field] ?? row[column]]));
         for (const name of Object.keys(nested)) normalized[name] = row[name];
-        return this.mapPhysicalRow(normalized, metadata, fields, nested);
+        for (const name of Object.keys(json)) normalized[name] = row[name];
+        return this.mapPhysicalRow(normalized, metadata, fields, nested, json);
     }
 
-    private compileIncludes(relation: PqsRelation, include: RuntimeInclude | undefined, add: (value: unknown) => string, parentExpression = this.profile.relation(relation)): { readonly selection: readonly string[]; readonly values: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>; } {
+    private compileIncludes(relation: PqsRelation, include: RuntimeInclude | undefined, add: (value: unknown) => string, parentExpression = this.profile.relation(relation)): { readonly selection: readonly string[]; readonly values: Readonly<Record<string, { readonly target: PqsRelation; readonly options: Exclude<RuntimeInclude[string], true> }>>; } {
         const selections: string[] = [];
-        const values: Record<string, { target: PqsRelation; include: RuntimeInclude | undefined }> = {};
+        const values: Record<string, { target: PqsRelation; options: Exclude<RuntimeInclude[string], true> }> = {};
         for (const [name, option] of Object.entries(include ?? {})) {
             const edge = pqsRelationEdges[relation]?.[name];
             if (edge === undefined) throw new Error(`${name} is not a relation of ${relation}`);
@@ -467,19 +472,19 @@ export class PqsQueryClient implements QueryClient {
             if (options.take !== undefined && (!Number.isInteger(options.take) || options.take < 0)) throw new Error(`${name}.take must be a non-negative integer`);
             const expression = this.compileIncludedExpression(name, edge.target, edge.sourceColumn, edge.targetColumn, edge.cardinality, options, add, parentExpression);
             selections.push(`${expression} as "${name}"`);
-            values[name] = { target: edge.target, include: options.include };
+            values[name] = { target: edge.target, options };
         }
         return { selection: selections, values };
     }
 
-    private compileJsonSelections(relation: PqsRelation, selections: RuntimeSelect["json"] | undefined, add: (value: unknown) => string): { readonly selection: readonly string[]; readonly fields: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> } {
+    private compileJsonSelections(relation: PqsRelation, selections: RuntimeSelect["json"] | undefined, add: (value: unknown) => string, tableAlias?: string): { readonly selection: readonly string[]; readonly fields: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> } {
         const selection: string[] = [];
         const fields: Record<string, "text" | "numeric" | "boolean" | "timestamp"> = {};
         for (const [name, projection] of Object.entries(selections ?? {})) {
             if (!PqsSchemaProfileV1.jsonField(relation, projection.field)) throw new Error(`${projection.field} is not a JSON field of ${relation}`);
             if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
             const column = this.field(relation, pqsRelationMetadata[relation], projection.field);
-            const text = `"${column}" #>> ${add(projection.path)}::text[]`;
+            const text = `${tableAlias === undefined ? "" : `${tableAlias}.`}"${column}" #>> ${add(projection.path)}::text[]`;
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             selection.push(`${expression} as "${name}"`);
             fields[name] = projection.as;
@@ -491,8 +496,9 @@ export class PqsQueryClient implements QueryClient {
         const alias = `"${name}"`;
         const targetMetadata = pqsRelationMetadata[target];
         const fields = this.selectedFields(target, targetMetadata, options.select);
+        const json = this.compileJsonSelections(target, options.select?.json, add, alias).selection;
         const nested = this.compileIncludes(target, options.include, add, alias).selection;
-        const object = `jsonb_build_object(${[...fields.map(([field, column]) => `'${field}', ${alias}."${column}"`), ...nested.flatMap((selection) => {
+        const object = `jsonb_build_object(${[...fields.map(([field, column]) => `'${field}', ${alias}."${column}"`), ...[...json, ...nested].flatMap((selection) => {
             const match = /^(.*) as "([^"]+)"$/.exec(selection);
             return match === null ? [] : [`'${match[2]}', ${match[1]}`];
         })].join(", ")})`;
@@ -501,7 +507,7 @@ export class PqsQueryClient implements QueryClient {
         const childWhere = where.length === 0 ? ` where ${condition}` : `${where} and ${condition}`;
         if (cardinality === "one") return `(select ${object} from ${this.profile.relation(target)} ${alias}${childWhere})`;
         const orderBy = this.compileOrderBy(target, targetMetadata, options.orderBy);
-        return `(select coalesce(jsonb_agg(${object}), '[]'::jsonb) from ${this.profile.relation(target)} ${alias}${childWhere}${orderBy} limit ${add(options.take!)})`;
+        return `(select coalesce(jsonb_agg("${name}_limited".value), '[]'::jsonb) from (select ${object} as value from ${this.profile.relation(target)} ${alias}${childWhere}${orderBy} limit ${add(options.take!)}) "${name}_limited")`;
     }
 
     private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractResult[]> {
@@ -603,6 +609,16 @@ function mapProfileJsonRow(value: unknown, relation: PqsRelation): Record<string
     return Object.fromEntries(Object.entries(metadata.fields).map(([field, column]) => [field, mapPhysicalValue(row[field] ?? row[column], metadata, field)]));
 }
 
+function mapSelectedProfileJsonRow(value: unknown, relation: PqsRelation): Record<string, unknown> | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== "object" || Array.isArray(value)) throw new Error(`Invalid included ${relation} row`);
+    const row = value as Record<string, unknown>;
+    const metadata = pqsRelationMetadata[relation];
+    return Object.fromEntries(Object.entries(metadata.fields)
+        .filter(([field, column]) => Object.hasOwn(row, field) || Object.hasOwn(row, column))
+        .map(([field, column]) => [field, mapPhysicalValue(row[field] ?? row[column], metadata, field)]));
+}
+
 function mapContractTypeJson(value: unknown): ContractTypeRow | undefined {
     const row = mapProfileJsonRow(value, "__contract_tpe");
     return row === null ? undefined : { pk: String(row.pk), payloadType: String(row.payloadType), aliases: stringArray(row.aliases), packageName: String(row.packageName), moduleName: String(row.moduleName), entityName: String(row.entityName), templateFqn: String(row.templateFqn) };
@@ -613,18 +629,27 @@ function mapTransactionJson(value: unknown): TransactionRow | undefined {
     return row === null ? undefined : { ix: String(row.ix), offset: String(row.offset), transactionId: nullableString(row.transactionId), effectiveAt: nullableDate(row.effectiveAt), workflowId: nullableString(row.workflowId), domainId: nullableString(row.domainId), traceContext: row.traceContext, externalTransactionHash: row.externalTransactionHash instanceof Uint8Array ? row.externalTransactionHash : null, paidTrafficCost: nullableString(row.paidTrafficCost) };
 }
 
-function mapExerciseJson(value: unknown): ExerciseRow {
-    const row = mapProfileJsonRow(value, "__exercises");
+function mapExerciseJson(value: unknown): ExerciseResult {
+    const raw = value as Record<string, unknown>;
+    const row = mapSelectedProfileJsonRow(value, "__exercises");
     if (row === null) throw new Error("Included exercise cannot be null");
-    return { tpePk: String(row.tpePk), contractTpePk: String(row.contractTpePk), exerciseEventPk: nullableString(row.exerciseEventPk), exercisedAtIx: nullableString(row.exercisedAtIx), contractId: String(row.contractId), argument: row.argument, result: row.result, redactionId: nullableString(row.redactionId), packagePk: String(row.packagePk), controllers: stringArray(row.controllers), lastDescendantNodeId: Number(row.lastDescendantNodeId), witnesses: stringArray(row.witnesses) };
+    const base = row;
+    const knownFields = new Set(Object.entries(pqsRelationMetadata.__exercises.fields).flatMap(([field, column]) => [field, column]));
+    const knownRelations = new Set(Object.keys(pqsRelationEdges.__exercises ?? {}));
+    const projections = Object.fromEntries(Object.entries(raw).filter(([name]) => !knownFields.has(name) && !knownRelations.has(name)));
+    return {
+        ...base,
+        ...projections,
+        ...(raw.transaction === undefined ? {} : { transaction: raw.transaction === null ? null : mapTransactionJson(raw.transaction) ?? null }),
+    } as ExerciseResult;
 }
 
 function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined, json: Readonly<Record<string, { readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> | undefined): ContractResult {
     const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
     const relations = {
-        ...(include?.contractType === undefined ? {} : { contractType: mapContractTypeJson(row.contract_type) }),
-        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: mapTransactionJson(row.created_transaction) }),
-        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: row.archived_transaction === null || row.archived_transaction === undefined ? null : mapTransactionJson(row.archived_transaction) ?? null }),
+        ...(include?.contractType === undefined ? {} : { contractType: mapContractTypeJson(row.contractType ?? row.contract_type) }),
+        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: mapTransactionJson(row.createdTransaction ?? row.created_transaction) }),
+        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: (row.archivedTransaction ?? row.archived_transaction) === null || (row.archivedTransaction ?? row.archived_transaction) === undefined ? null : mapTransactionJson(row.archivedTransaction ?? row.archived_transaction) ?? null }),
         ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises.map(mapExerciseJson) : [] }),
     };
     const projections = Object.fromEntries(Object.entries(json ?? {}).map(([name, projection]) => [name, mapJsonValue(row[name], projection.as)]));

@@ -63,7 +63,7 @@ describe("PQS query client", () => {
                 contract_type: { pk: "1", template_fqn: "pkg:Module:Template", aliases: [], payload_type: "", package_name: "", module_name: "", entity_name: "" },
                 created_transaction: { ix: "42", transaction_id: "tx", offset: "42", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null },
                 archived_transaction: null,
-                exercises: [{ contract_id: "cid", exercised_at_ix: "42", tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: null, argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: 0, witnesses: [] }],
+                exercises: [{ contract_id: "cid", exercised_at_ix: "42", tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: null, argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: 0, witnesses: [], transaction: { ix: "42", offset: "42", transaction_id: "exercise-tx", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null } }],
             }],
         });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
@@ -73,7 +73,7 @@ describe("PQS query client", () => {
                 contractType: true,
                 createdTransaction: true,
                 archivedTransaction: true,
-                exercises: { take: 2 },
+                exercises: { take: 2, include: { transaction: true } },
             },
         });
 
@@ -82,11 +82,74 @@ describe("PQS query client", () => {
             contractType: { pk: "1", templateFqn: "pkg:Module:Template" },
             createdTransaction: { ix: "42", transactionId: "tx" },
             archivedTransaction: null,
-            exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
+            exercises: [{ contractId: "cid", exercisedAtIx: "42", transaction: { transactionId: "exercise-tx" } }],
         });
-        expect(query.mock.calls[0][0]).toContain('to_jsonb(contract_tpe_row) as contract_type');
-        expect(query.mock.calls[0][0]).toContain('jsonb_agg(to_jsonb(exercise_row))');
+        expect(query.mock.calls[0][0]).toContain('jsonb_build_object(\'pk\', "contractType"."pk"');
+        expect(query.mock.calls[0][0]).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual([2]);
+    });
+
+    it("bounds filtered and ordered nested contract relations before aggregating them", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.contracts.findMany({
+            include: {
+                exercises: {
+                    take: 2,
+                    where: { witnesses: { has: "Alice" } },
+                    select: { contractId: true, exercisedAtIx: true },
+                    orderBy: [{ exercisedAtIx: "desc" }],
+                    include: { transaction: true },
+                },
+            },
+        });
+
+        const sql = query.mock.calls[0][0];
+        expect(sql).toContain('from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'exercisedAtIx\', "exercises"."exercised_at_ix"');
+        expect(sql).toContain('$1 = any("exercises"."witnesses")');
+        expect(sql).toContain('order by "exercises"."exercised_at_ix" desc limit $2) "exercises_limited"');
+        expect(sql).toContain('jsonb_agg("exercises_limited".value)');
+        expect(query.mock.calls[0][1]).toEqual(["Alice", 2]);
+    });
+
+    it("returns only the requested fields for a nested contract relation selection", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true,
+                template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template",
+                exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        const rows = await client.contracts.findMany({
+            include: { exercises: { take: 1, select: { contractId: true, exercisedAtIx: true } } },
+        });
+
+        expect(rows[0]?.exercises).toEqual([{ contractId: "cid", exercisedAtIx: "42" }]);
+    });
+
+    it("extracts JSON fields inside nested contract relation selections", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true,
+                template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template",
+                exercises: [{ owner: "Alice" }],
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.findMany({
+            include: {
+                exercises: {
+                    take: 1,
+                    select: { json: { owner: { field: "argument", path: ["owner"], as: "text" } } },
+                },
+            },
+        })).resolves.toEqual([expect.objectContaining({ exercises: [{ owner: "Alice" }] })]);
+        expect(query.mock.calls[0][0]).toContain('"exercises"."argument" #>> $1::text[]');
+        expect(query.mock.calls[0][1]).toEqual([["owner"], 1]);
     });
 
     it("runs validated raw queries with separate values", async () => {
@@ -132,9 +195,60 @@ describe("PQS query client", () => {
         await expect(client.packages.findMany({ include: { exercises: { take: 5 } } })).resolves.toEqual([
             expect.objectContaining({ id: "pkg", exercises: [expect.objectContaining({ contractId: "cid", packagePk: "1" })] }),
         ]);
-        expect(query.mock.calls[0][0]).toContain('jsonb_agg(jsonb_build_object');
+        expect(query.mock.calls[0][0]).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][0]).toContain('"exercises"."package_pk" = "public"."__packages"."pk"');
         expect(query.mock.calls[0][1]).toEqual([5]);
+    });
+
+    it("bounds filtered and ordered physical relation includes before aggregating them", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.packages.findMany({
+            include: {
+                exercises: {
+                    take: 3,
+                    where: { witnesses: { has: "Alice" } },
+                    orderBy: [{ contractId: "asc" }],
+                },
+            },
+        });
+
+        const sql = query.mock.calls[0][0];
+        expect(sql).toContain('from (select jsonb_build_object');
+        expect(sql).toContain('$1 = any("witnesses")');
+        expect(sql).toContain('order by "contract_id" asc limit $2) "exercises_limited"');
+        expect(sql).toContain('jsonb_agg("exercises_limited".value)');
+        expect(query.mock.calls[0][1]).toEqual(["Alice", 3]);
+    });
+
+    it("returns only requested fields for physical nested relation selections", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid" }] }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findMany({
+            include: { exercises: { take: 1, select: { contractId: true } } },
+        })).resolves.toEqual([{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid" }] }]);
+    });
+
+    it("extracts JSON fields inside physical nested relation selections", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ owner: "Alice" }] }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findMany({
+            include: {
+                exercises: {
+                    take: 1,
+                    select: { json: { owner: { field: "argument", path: ["owner"], as: "text" } } },
+                },
+            },
+        })).resolves.toEqual([{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ owner: "Alice" }] }]);
+        expect(query.mock.calls[0][0]).toContain('"exercises"."argument" #>> $1::text[]');
+        expect(query.mock.calls[0][1]).toEqual([["owner"], 1]);
     });
 
     it("binds physical relation filters and pagination", async () => {

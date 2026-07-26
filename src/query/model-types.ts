@@ -267,7 +267,7 @@ export interface ExerciseRow {
     readonly redactionId: string | null;
     readonly packagePk: string;
     readonly controllers: readonly string[];
-    readonly lastDescendantNodeId: number;
+    readonly lastDescendantNodeId: string;
     readonly witnesses: readonly string[];
 }
 
