@@ -11,6 +11,7 @@ import {
     TransactionRow,
     ExerciseRow,
     ExerciseResult,
+    EventResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -699,6 +700,11 @@ function mapTransactionJson(value: unknown): TransactionRow | undefined {
     return row === null ? undefined : { ix: String(row.ix), offset: String(row.offset), transactionId: nullableString(row.transactionId), effectiveAt: nullableDate(row.effectiveAt), workflowId: nullableString(row.workflowId), domainId: nullableString(row.domainId), traceContext: row.traceContext, externalTransactionHash: row.externalTransactionHash instanceof Uint8Array ? row.externalTransactionHash : null, paidTrafficCost: nullableString(row.paidTrafficCost) };
 }
 
+function mapEventJson(value: unknown): EventResult | undefined {
+    const row = mapSelectedProfileJsonRow(value, "__events");
+    return row === null ? undefined : row as EventResult;
+}
+
 function mapExerciseJson(value: unknown): ExerciseResult {
     const raw = value as Record<string, unknown>;
     const row = mapSelectedProfileJsonRow(value, "__exercises");
@@ -710,6 +716,7 @@ function mapExerciseJson(value: unknown): ExerciseResult {
     return {
         ...base,
         ...projections,
+        ...(raw.event === undefined ? {} : { event: raw.event === null ? null : mapEventJson(raw.event) ?? null }),
         ...(raw.transaction === undefined ? {} : { transaction: raw.transaction === null ? null : mapTransactionJson(raw.transaction) ?? null }),
     } as ExerciseResult;
 }

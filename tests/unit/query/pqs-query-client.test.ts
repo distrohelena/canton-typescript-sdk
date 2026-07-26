@@ -63,7 +63,7 @@ describe("PQS query client", () => {
                 contract_type: { pk: "1", template_fqn: "pkg:Module:Template", aliases: [], payload_type: "", package_name: "", module_name: "", entity_name: "" },
                 created_transaction: { ix: "42", transaction_id: "tx", offset: "42", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null },
                 archived_transaction: null,
-                exercises: [{ contract_id: "cid", exercised_at_ix: "42", tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: null, argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: 0, witnesses: [], transaction: { ix: "42", offset: "42", transaction_id: "exercise-tx", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null } }],
+                exercises: [{ contract_id: "cid", exercised_at_ix: "42", tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: "7", argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: 0, witnesses: [], event: { pk: "7", tx_ix: "42", event_id: "exercise-event", type: "exercised" }, transaction: { ix: "42", offset: "42", transaction_id: "exercise-tx", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null } }],
             }],
         });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
@@ -73,7 +73,7 @@ describe("PQS query client", () => {
                 contractType: true,
                 createdTransaction: true,
                 archivedTransaction: true,
-                exercises: { take: 2, include: { transaction: true } },
+                exercises: { take: 2, include: { event: true, transaction: true } },
             },
         });
 
@@ -82,7 +82,7 @@ describe("PQS query client", () => {
             contractType: { pk: "1", templateFqn: "pkg:Module:Template" },
             createdTransaction: { ix: "42", transactionId: "tx" },
             archivedTransaction: null,
-            exercises: [{ contractId: "cid", exercisedAtIx: "42", transaction: { transactionId: "exercise-tx" } }],
+            exercises: [{ contractId: "cid", exercisedAtIx: "42", event: { eventId: "exercise-event" }, transaction: { transactionId: "exercise-tx" } }],
         });
         expect(query.mock.calls[0][0]).toContain('jsonb_build_object(\'pk\', "contractType"."pk"');
         expect(query.mock.calls[0][0]).toContain('jsonb_agg("exercises_limited".value)');
