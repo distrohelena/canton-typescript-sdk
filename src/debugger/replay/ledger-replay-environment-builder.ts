@@ -277,7 +277,7 @@ export class LedgerReplayEnvironmentBuilder {
                 await this.dependencies.contractService.getContractAsync(
                     GetContractRequest.create({
                         contractId,
-                        queryingParties,
+                        queryingParties: [...queryingParties],
                     }),
                 );
         }

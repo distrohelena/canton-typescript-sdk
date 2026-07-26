@@ -683,7 +683,7 @@ export function createGrpcOperations(
             rpcTransport.close();
         },
         async checkHealthAsync(
-            request: GrpcGetContractRequest,
+            request: HealthCheckRequest,
             requestOptions?: RequestOptions,
         ): Promise<HealthCheckResponse> {
             const callOptions =
@@ -2022,7 +2022,7 @@ export function createGrpcOperations(
             );
         },
         async getContractAsync(
-            request: unknown,
+            request: GrpcGetContractRequest,
             requestOptions?: RequestOptions,
         ): Promise<GrpcGetContractResponse> {
             const callOptions =
@@ -2143,10 +2143,12 @@ export function createGrpcOperations(
             requestOptions?: RequestOptions,
         ): AsyncIterable<GetUpdatesResponse> {
             return streamServerResponsesAsync(
-                async () => updateServiceClient.getUpdates(
-                    request,
-                    await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
-                ),
+                async () => ({
+                    call: updateServiceClient.getUpdates(
+                        request,
+                        await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
+                    ),
+                }),
             );
         },
         async getUpdateByOffsetAsync(
@@ -2222,10 +2224,12 @@ export function createGrpcOperations(
             requestOptions?: RequestOptions,
         ): AsyncIterable<GrpcCompletionStreamResponse> {
             return streamServerResponsesAsync(
-                async () => commandCompletionServiceClient.getCompletions(
-                    request,
-                    await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
-                ),
+                async () => ({
+                    call: commandCompletionServiceClient.getCompletions(
+                        request,
+                        await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions),
+                    ),
+                }),
             );
         },
         async submitCommandAsync(
@@ -2422,16 +2426,17 @@ async function collectServerResponsesAsync<TResponse>(
 }
 
 async function* streamServerResponsesAsync<TResponse>(
-    createCall: () => Promise<ServerStreamingCallLike<TResponse>>,
+    createCall: () => Promise<{ call: ServerStreamingCallLike<TResponse> }>,
 ): AsyncIterable<TResponse> {
     let call: ServerStreamingCallLike<TResponse> | undefined;
     let exhausted = false;
     let iterator: AsyncIterator<TResponse> | undefined;
     try {
-        call = await createCall();
-        iterator = call.responses[Symbol.asyncIterator]();
+        ({ call } = await createCall());
+        const responseIterator = call.responses[Symbol.asyncIterator]();
+        iterator = responseIterator;
         while (true) {
-            const next = await iterator.next();
+            const next = await responseIterator.next();
             if (next.done) break;
             yield next.value;
         }
@@ -2439,8 +2444,8 @@ async function* streamServerResponsesAsync<TResponse>(
         await call.status;
     } finally {
         if (!exhausted && call !== undefined) {
-            await iterator.return?.();
-            void call.status.catch(() => undefined);
+            await iterator?.return?.();
+            void call.status?.catch(() => undefined);
         }
     }
 }

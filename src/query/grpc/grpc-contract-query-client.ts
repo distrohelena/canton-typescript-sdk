@@ -136,7 +136,15 @@ export class GrpcContractQueryClient implements QueryClient {
 
             activeAtOffset ??= response.activeAtOffset;
             pageToken = response.nextPageToken;
-            rows.push(...response.contracts.map(mapGrpcContract));
+            rows.push(
+                ...response.activeContracts.map((response) =>
+                    mapGrpcContract(
+                        response.contractEntry.oneofKind === "activeContract"
+                            ? response.contractEntry.activeContract
+                            : response,
+                    ),
+                ),
+            );
         } while (pageToken !== undefined && pageToken.length > 0);
 
         if (this.cache !== undefined && this.cacheTtlMs !== undefined) {

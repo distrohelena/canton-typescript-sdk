@@ -1,21 +1,24 @@
 import { RequestOptions } from "../core/types/request-options.js";
 import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
-import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
-import { PartyToParticipant } from "../core/types/topology/party-to-participant.js";
-import { TopologyBaseQuery } from "../core/types/topology/topology-base-query.js";
-import { TopologyBaseResult } from "../core/types/topology/topology-base-result.js";
 import { TopologyStoreId, TopologyStoreKind, TopologyStoreSynchronizer } from "../core/types/topology/topology-store-id.js";
+import type {
+    BaseQuery,
+    BaseResult,
+    ListPartyToParticipantRequest,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import type { PartyToParticipant } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
+import { Enums_TopologyChangeOp } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import { CantonClient } from "./canton-client.js";
 import { ExternalPartyActivationRequest } from "./external-party-activation-request.js";
 import { ExternalPartyActivationResponse } from "./external-party-activation-response.js";
 
 interface PartyToParticipantReadState {
     readonly active?: {
-        readonly context: TopologyBaseResult;
+        readonly context: BaseResult;
         readonly mapping: PartyToParticipant;
     };
     readonly proposal?: {
-        readonly context: TopologyBaseResult;
+        readonly context: BaseResult;
         readonly mapping: PartyToParticipant;
     };
 }
@@ -117,7 +120,7 @@ export class ExternalPartyActivationClient {
         request: ExternalPartyActivationRequest,
         options?: RequestOptions,
     ): Promise<{
-        readonly context: TopologyBaseResult;
+        readonly context: BaseResult;
         readonly mapping: PartyToParticipant;
     }> {
         const startedAt = Date.now();
@@ -143,44 +146,46 @@ export class ExternalPartyActivationClient {
     ): Promise<PartyToParticipantReadState> {
         const [activeResponse, proposalResponse] = await Promise.all([
             this.sourceClient.topologyManagerReadService.listPartyToParticipantAsync(
-                new ListPartyToParticipantRequest({
+                {
                     baseQuery: createSynchronizerQuery(
                         request.synchronizerId,
                         false,
                     ),
                     filterParty: request.partyId,
-                }),
+                    filterParticipant: "",
+                } satisfies ListPartyToParticipantRequest,
                 options,
             ),
             this.sourceClient.topologyManagerReadService.listPartyToParticipantAsync(
-                new ListPartyToParticipantRequest({
+                {
                     baseQuery: createSynchronizerQuery(
                         request.synchronizerId,
                         true,
                     ),
                     filterParty: request.partyId,
-                }),
+                    filterParticipant: "",
+                } satisfies ListPartyToParticipantRequest,
                 options,
             ),
         ]);
 
         const active = activeResponse.results.find(
-            (item) => item.item.party === request.partyId,
+            (item) => item.item?.party === request.partyId,
         );
         const proposal = proposalResponse.results.find(
-            (item) => item.item.party === request.partyId,
+            (item) => item.item?.party === request.partyId,
         );
 
         return {
             active:
-                active === undefined || active.context === undefined
+                active === undefined || active.context === undefined || active.item === undefined
                     ? undefined
                     : {
                           context: active.context,
                           mapping: active.item,
                       },
             proposal:
-                proposal === undefined || proposal.context === undefined
+                proposal === undefined || proposal.context === undefined || proposal.item === undefined
                     ? undefined
                     : {
                           context: proposal.context,
@@ -191,7 +196,7 @@ export class ExternalPartyActivationClient {
 
     private createActivationResponse(
         request: ExternalPartyActivationRequest,
-        context: TopologyBaseResult,
+        context: BaseResult,
         mapping: PartyToParticipant,
     ): ExternalPartyActivationResponse {
         return new ExternalPartyActivationResponse({
@@ -215,12 +220,24 @@ function createSynchronizerStoreId(synchronizerId: string): TopologyStoreId {
 function createSynchronizerQuery(
     synchronizerId: string,
     includeProposals: boolean,
-): TopologyBaseQuery {
-    return new TopologyBaseQuery({
-        storeId: createSynchronizerStoreId(synchronizerId),
-        includeProposals,
-        headState: true,
-    });
+): BaseQuery {
+    return {
+        store: {
+            store: {
+                oneofKind: "synchronizer",
+                synchronizer: {
+                    kind: {
+                        oneofKind: "id",
+                        id: synchronizerId,
+                    },
+                },
+            },
+        },
+        proposals: includeProposals,
+        operation: Enums_TopologyChangeOp.UNSPECIFIED,
+        timeQuery: { oneofKind: "headState", headState: {} },
+        filterSignedKey: "",
+    };
 }
 
 function convertBytesToHex(value: Uint8Array): string {

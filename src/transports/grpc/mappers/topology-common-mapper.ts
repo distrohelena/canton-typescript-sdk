@@ -181,6 +181,29 @@ export function mapGrpcListPartyToParticipantResponse(
     };
 }
 
+export function mapGrpcListAllV2Response(
+    payload: Partial<ListAllV2Response>,
+): { result?: TopologyTransactions } {
+    if (payload.result === undefined) {
+        return {};
+    }
+
+    return {
+        result: new TopologyTransactions({
+            items: payload.result.items.map(
+                (item) =>
+                    new TopologyTransactionItem({
+                        sequencedAt: mapSdkTimestamp(item.sequenced),
+                        validFrom: mapSdkTimestamp(item.validFrom),
+                        validUntil: mapSdkTimestamp(item.validUntil),
+                        transaction: item.transaction,
+                        rejectionReason: item.rejectionReason,
+                    }),
+            ),
+        }),
+    };
+}
+
 
 export function mapGrpcTopologyListPartiesResponse(
     payload: Partial<ListPartiesResponse>,

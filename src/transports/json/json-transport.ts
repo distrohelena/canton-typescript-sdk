@@ -1,12 +1,7 @@
-import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
+import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
-import { GetPartiesRequest } from "../../core/types/requests/get-parties-request.js";
-import {
-    GrantUserRightsRequest,
-    UserRightAssignment,
-} from "../../core/types/requests/grant-user-rights-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
@@ -25,18 +20,22 @@ import type {
     DropTemporaryTopologyStoreResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import type {
-    AddPartyAsyncRequest,
-    AddPartyAsyncResponse,
     GetContractRequest,
     GetContractResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import type {
-    GetHighestOffsetByTimestampRequest,
-    GetHighestOffsetByTimestampResponse,
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,
@@ -81,7 +80,11 @@ import type {
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
-import { GetPartiesResponse } from "../../core/types/responses/get-parties-response.js";
+import type { GetPartiesRequest, GetPartiesResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import type {
     GetNoWaitCommitmentsFromRequest,
     GetNoWaitCommitmentsFromResponse,
@@ -89,28 +92,27 @@ import type {
     GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
     GetScheduleRequest as GetPruningScheduleRequest,
     GetScheduleResponse as GetPruningScheduleResponse,
-    GetResourceLimitsRequest,
-    GetResourceLimitsResponse,
-} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
-import { GrantUserRightsResponse } from "../../core/types/responses/grant-user-rights-response.js";
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import type {
-    ClearPartyOnboardingFlagRequest,
-    ClearPartyOnboardingFlagResponse,
-    GetSafePruningOffsetRequest,
-    GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
+import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import type {
-    ListPendingOperationsRequest,
-    ListPendingOperationsResponse,
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
+import type {
+    ListPendingOperationsRequest,
+    ListPendingOperationsResponse,
+} from "../grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 import type {
     CountInFlightRequest,
     CountInFlightResponse,

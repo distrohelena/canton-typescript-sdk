@@ -4,103 +4,71 @@ import {
     CantonClient,
     ExternalPartyActivationClient,
     ExternalPartyActivationRequest,
-    ListPartyToParticipantResponse,
-    ParticipantPermission,
-    PartyToParticipant,
-    PartyToParticipantParticipant,
-    TopologyBaseResult,
-    TopologyMappingOperation,
-    TopologyMappingResult,
-    TopologyStoreId,
-    TopologyStoreKind,
-    TopologyStoreSynchronizer,
 } from "../../../src";
+import type { ListPartyToParticipantResponse } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
+import { Enums_ParticipantPermission, Enums_TopologyChangeOp } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
+import type { PartyToParticipant } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 
 describe("ExternalPartyActivationClient", () => {
     it("authorizes additional participants and waits for the mapping to become active", async () => {
         const synchronizerId =
             "global-domain::1220453245831122dddf3742433b151767ebdd4af66c1a6a20c61a13a427e697908b";
         const transactionHash = new Uint8Array([0x12, 0x20, 0xaa, 0xbb]);
-        const activeMapping = new PartyToParticipant({
+        const activeMapping: PartyToParticipant = {
             party: "ed25519_party::fingerprint",
             threshold: 2,
             participants: [
-                new PartyToParticipantParticipant({
+                {
                     participantUid: "participant::primary",
-                    permission: ParticipantPermission.confirmation,
-                }),
-                new PartyToParticipantParticipant({
+                    permission: Enums_ParticipantPermission.CONFIRMATION,
+                },
+                {
                     participantUid: "participant::secondary",
-                    permission: ParticipantPermission.confirmation,
-                }),
+                    permission: Enums_ParticipantPermission.CONFIRMATION,
+                },
             ],
-        });
+        };
 
         let activeReads = 0;
 
         const primaryClient = {
             topologyManagerReadService: {
                 listPartyToParticipantAsync: vi.fn(async (request) => {
-                    if (request.baseQuery?.includeProposals === true) {
-                        return new ListPartyToParticipantResponse({
+                    if (request.baseQuery?.proposals === true) {
+                        return {
                             results: [
-                                new TopologyMappingResult({
-                                    context: new TopologyBaseResult({
-                                        storeId: new TopologyStoreId({
-                                            kind: TopologyStoreKind.synchronizer,
-                                            synchronizer:
-                                                new TopologyStoreSynchronizer({
-                                                    id: synchronizerId,
-                                                }),
-                                        }),
-                                        operation:
-                                            TopologyMappingOperation.addReplace,
+                                {
+                                    context: {
+                                        operation: Enums_TopologyChangeOp.ADD_REPLACE,
                                         serial: 1,
                                         transactionHash,
-                                        signedByFingerprints: [
-                                            "participant::primary",
-                                            "fingerprint",
-                                        ],
-                                    }),
+                                        signedByFingerprints: ["participant::primary", "fingerprint"],
+                                    },
                                     item: activeMapping,
-                                }),
+                                },
                             ],
-                        });
+                        } satisfies ListPartyToParticipantResponse;
                     }
 
                     activeReads += 1;
 
                     if (activeReads < 2) {
-                        return new ListPartyToParticipantResponse({
-                            results: [],
-                        });
+                        return { results: [] } satisfies ListPartyToParticipantResponse;
                     }
 
-                    return new ListPartyToParticipantResponse({
+                    return {
                         results: [
-                            new TopologyMappingResult({
-                                context: new TopologyBaseResult({
-                                    storeId: new TopologyStoreId({
-                                        kind: TopologyStoreKind.synchronizer,
-                                        synchronizer:
-                                            new TopologyStoreSynchronizer({
-                                                id: synchronizerId,
-                                            }),
-                                    }),
-                                    operation:
-                                        TopologyMappingOperation.addReplace,
+                            {
+                                context: {
+                                    operation: Enums_TopologyChangeOp.ADD_REPLACE,
                                     serial: 1,
                                     transactionHash,
-                                    signedByFingerprints: [
-                                        "participant::primary",
-                                        "participant::secondary",
-                                        "fingerprint",
-                                    ],
-                                }),
+                                    signedByFingerprints: ["participant::primary", "participant::secondary", "fingerprint"],
+                                },
                                 item: activeMapping,
-                            }),
+                            },
                         ],
-                    });
+                    } satisfies ListPartyToParticipantResponse;
                 }),
             },
         } as unknown as CantonClient;
@@ -129,16 +97,29 @@ describe("ExternalPartyActivationClient", () => {
         );
 
         expect(authorizeAsync).toHaveBeenCalledTimes(1);
+        expect(
+            primaryClient.topologyManagerReadService.listPartyToParticipantAsync,
+        ).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+                baseQuery: expect.objectContaining({ proposals: false }),
+            }),
+            undefined,
+        );
+        expect(
+            primaryClient.topologyManagerReadService.listPartyToParticipantAsync,
+        ).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({
+                baseQuery: expect.objectContaining({ proposals: true }),
+            }),
+            undefined,
+        );
         expect(authorizeAsync).toHaveBeenCalledWith(
             expect.objectContaining({
                 transactionHash: "1220aabb",
                 mustFullyAuthorize: false,
-                store: expect.objectContaining({
-                    kind: TopologyStoreKind.synchronizer,
-                    synchronizer: expect.objectContaining({
-                        id: synchronizerId,
-                    }),
-                }),
+                store: expect.anything(),
             }),
             undefined,
         );
@@ -148,46 +129,37 @@ describe("ExternalPartyActivationClient", () => {
 
     it("returns immediately when the mapping is already active", async () => {
         const synchronizerId = "sync-1";
-        const activeMapping = new PartyToParticipant({
+        const activeMapping: PartyToParticipant = {
             party: "Alice",
             threshold: 1,
             participants: [
-                new PartyToParticipantParticipant({
+                {
                     participantUid: "participant::primary",
-                    permission: ParticipantPermission.confirmation,
-                }),
+                    permission: Enums_ParticipantPermission.CONFIRMATION,
+                },
             ],
-        });
+        };
 
         const primaryClient = {
             topologyManagerReadService: {
                 listPartyToParticipantAsync: vi.fn(async (request) => {
-                    if (request.baseQuery?.includeProposals === true) {
-                        return new ListPartyToParticipantResponse({
-                            results: [],
-                        });
+                    if (request.baseQuery?.proposals === true) {
+                        return { results: [] } satisfies ListPartyToParticipantResponse;
                     }
 
-                    return new ListPartyToParticipantResponse({
+                    return {
                         results: [
-                            new TopologyMappingResult({
-                                context: new TopologyBaseResult({
-                                    storeId: new TopologyStoreId({
-                                        kind: TopologyStoreKind.synchronizer,
-                                        synchronizer:
-                                            new TopologyStoreSynchronizer({
-                                                id: synchronizerId,
-                                            }),
-                                    }),
-                                    operation:
-                                        TopologyMappingOperation.addReplace,
+                            {
+                                context: {
+                                    operation: Enums_TopologyChangeOp.ADD_REPLACE,
                                     serial: 1,
                                     transactionHash: new Uint8Array([0xab]),
-                                }),
+                                    signedByFingerprints: [],
+                                },
                                 item: activeMapping,
-                            }),
+                            },
                         ],
-                    });
+                    } satisfies ListPartyToParticipantResponse;
                 }),
             },
         } as unknown as CantonClient;

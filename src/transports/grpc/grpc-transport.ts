@@ -4,10 +4,8 @@ import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { InspectCommitmentContractsRequest } from "../../core/types/requests/inspect-commitment-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
-import { OpenCommitmentRequest } from "../../core/types/requests/open-commitment-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
@@ -15,10 +13,8 @@ import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
-import { InspectCommitmentContractsResponse } from "../../core/types/responses/inspect-commitment-contracts-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
-import { OpenCommitmentResponse } from "../../core/types/responses/open-commitment-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
@@ -45,8 +41,6 @@ import {
     mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
 import {
-} from "./mappers/event-query-mapper.js";
-import {
     mapGrpcAllocateExternalPartyRequest,
     mapGrpcAllocateExternalPartyResponse,
     mapGrpcGenerateExternalPartyTopologyRequest,
@@ -56,8 +50,6 @@ import {
 } from "./mappers/identity-provider-config-mapper.js";
 import {
 } from "./mappers/participant-status-mapper.js";
-import {
-} from "./mappers/participant-party-management-mapper.js";
 import {
 } from "./mappers/pruning-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
@@ -125,7 +117,7 @@ import type {
     ListUsersRequest,
     ListUsersResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
-import { GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
+import { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -918,7 +910,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<TrafficControlStateResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.trafficControlStateAsync!(request, options);
+        return await this.operations.trafficControlStateAsync!(request, options) as TrafficControlStateResponse;
     }
 
     public async listConnectedSynchronizersAsync(
@@ -927,7 +919,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListConnectedSynchronizersResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.listConnectedSynchronizersAsync!(request, options);
+        return await this.operations.listConnectedSynchronizersAsync!(request, options) as ListConnectedSynchronizersResponse;
     }
 
     public async getSynchronizerIdAsync(
@@ -936,7 +928,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetSynchronizerIdResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.getSynchronizerIdAsync!(request, options);
+        return await this.operations.getSynchronizerIdAsync!(request, options) as GetSynchronizerIdResponse;
     }
 
     public async listRegisteredSynchronizersAsync(
@@ -945,7 +937,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListRegisteredSynchronizersResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.listRegisteredSynchronizersAsync!(request, options);
+        return await this.operations.listRegisteredSynchronizersAsync!(request, options) as ListRegisteredSynchronizersResponse;
     }
 
     public async listPendingOperationsAsync(
@@ -968,7 +960,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetResourceLimitsResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.getResourceLimitsAsync!(request, options);
+        return await this.operations.getResourceLimitsAsync!(request, options) as GetResourceLimitsResponse;
     }
 
     public async getIdAsync(
@@ -977,7 +969,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetIdResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.getIdAsync!(request, options);
+        return await this.operations.getIdAsync!(request, options) as GetIdResponse;
     }
 
     public async currentTimeAsync(
@@ -986,7 +978,7 @@ export class GrpcTransport implements ITransport {
     ): Promise<CurrentTimeResponse> {
         this.throwIfDisposed();
 
-        return await this.operations.currentTimeAsync!(request, options);
+        return await this.operations.currentTimeAsync!(request, options) as CurrentTimeResponse;
     }
 
     public async getContractAsync(

@@ -1,6 +1,7 @@
 import { CantonClientOptions } from "./canton-client-options.js";
 import { IAuthProvider } from "../core/auth/auth-provider.interface.js";
 import { ITransport } from "../core/transports/transport.interface.js";
+import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import type {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -15,31 +16,23 @@ import type {
     CompletionStreamResponse,
     GetCompletionsRequest,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
-import { AllocateExternalPartyRequest } from "../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
-import { GrantUserRightsRequest } from "../core/types/requests/grant-user-rights-request.js";
-import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
-import { GetLedgerApiVersionRequest } from "../core/types/requests/get-ledger-api-version-request.js";
-import { GetIdentityProviderConfigRequest } from "../core/types/requests/get-identity-provider-config-request.js";
-import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
-import { GetParticipantStatusRequest } from "../core/types/requests/get-participant-status-request.js";
-import { GetPartiesRequest } from "../core/types/requests/get-parties-request.js";
-import { HealthCheckRequest } from "../core/types/requests/health-check-request.js";
-import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
+import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
+import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
+import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
 import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../core/types/requests/import-topology-snapshot-v2-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
-import { ListIdentityProviderConfigsRequest } from "../core/types/requests/list-identity-provider-configs-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
-import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
+import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import type {
     CreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse,
@@ -49,30 +42,32 @@ import type {
 import { GenerateExternalPartyTopologyResponse } from "../core/types/responses/generate-external-party-topology-response.js";
 import { GenerateTopologyTransactionsResponse } from "../core/types/responses/generate-topology-transactions-response.js";
 import type {
-    AddPartyAsyncRequest,
-    AddPartyAsyncResponse,
-    ClearPartyOnboardingFlagRequest,
-    ClearPartyOnboardingFlagResponse,
     GetContractRequest,
     GetContractResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import type {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
+    GetHighestOffsetByTimestampRequest,
+    GetHighestOffsetByTimestampResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
+import type {
     GetEventsByContractIdRequest,
     GetEventsByContractIdResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
-import { GetParticipantStatusResponse } from "../core/types/responses/get-participant-status-response.js";
-import { GetIdentityProviderConfigResponse } from "../core/types/responses/get-identity-provider-config-response.js";
 import type {
-    GetHighestOffsetByTimestampRequest,
-    GetHighestOffsetByTimestampResponse,
     CurrentTimeRequest,
     CurrentTimeResponse,
     GetIdRequest,
     GetIdResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetLedgerApiVersionResponse } from "../core/types/responses/get-ledger-api-version-response.js";
 import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
-import { GetPartiesResponse } from "../core/types/responses/get-parties-response.js";
+import type {
+    GetResourceLimitsRequest,
+    GetResourceLimitsResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
 import type {
     GetNoWaitCommitmentsFromRequest,
     GetNoWaitCommitmentsFromResponse,
@@ -80,11 +75,7 @@ import type {
     GetParticipantScheduleResponse as GetParticipantPruningScheduleResponse,
     GetScheduleRequest as GetPruningScheduleRequest,
     GetScheduleResponse as GetPruningScheduleResponse,
-    GetResourceLimitsRequest,
-    GetResourceLimitsResponse,
-} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/resource_management_service.js";
-import { GrantUserRightsResponse } from "../core/types/responses/grant-user-rights-response.js";
-import { HealthCheckResponse } from "../core/types/responses/health-check-response.js";
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { ImportTopologySnapshotResponse } from "../core/types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../core/types/responses/import-topology-snapshot-v2-response.js";
 import type {
@@ -126,13 +117,15 @@ import type {
     ListSequencerSynchronizerStateResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type {
-    GetSafePruningOffsetRequest,
-    GetSafePruningOffsetResponse,
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,
     ListConnectedSynchronizersRequest,
     ListConnectedSynchronizersResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
+import type {
+    GetSafePruningOffsetRequest,
+    GetSafePruningOffsetResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import type {
     ListRegisteredSynchronizersRequest,
     ListRegisteredSynchronizersResponse,
@@ -142,10 +135,7 @@ import type {
     ListKeyOwnersResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import { ListKnownPartiesResponse } from "../core/types/responses/list-known-parties-response.js";
-import { ListIdentityProviderConfigsResponse } from "../core/types/responses/list-identity-provider-configs-response.js";
 import type {
-    ListPendingOperationsRequest,
-    ListPendingOperationsResponse,
     CountInFlightRequest,
     CountInFlightResponse,
     GetConfigForSlowCounterParticipantsRequest,
@@ -163,6 +153,10 @@ import type {
     OpenCommitmentRequest,
     OpenCommitmentResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_inspection_service.js";
+import type {
+    ListPendingOperationsRequest,
+    ListPendingOperationsResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
@@ -204,6 +198,8 @@ import type {
     ListVettedPackagesResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import type {
+    GrantUserRightsRequest,
+    GrantUserRightsResponse,
     GetUserRequest,
     GetUserResponse,
     ListUserRightsRequest,
@@ -211,6 +207,28 @@ import type {
     ListUsersRequest,
     ListUsersResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+import type {
+    GetLedgerApiVersionRequest,
+    GetLedgerApiVersionResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
+import type {
+    GetIdentityProviderConfigRequest,
+    GetIdentityProviderConfigResponse,
+    ListIdentityProviderConfigsRequest,
+    ListIdentityProviderConfigsResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
+import type {
+    GetPartiesRequest,
+    GetPartiesResponse,
+} from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import type {
+    HealthCheckRequest,
+    HealthCheckResponse,
+} from "../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
+import type {
+    ParticipantStatusRequest as GetParticipantStatusRequest,
+    ParticipantStatusResponse as GetParticipantStatusResponse,
+} from "../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import type {
     GetCommandStatusRequest,
     GetCommandStatusResponse,
