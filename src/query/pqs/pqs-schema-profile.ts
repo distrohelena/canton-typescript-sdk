@@ -15,6 +15,57 @@ export const requiredPqsRelations = [
 
 export type PqsRelation = (typeof requiredPqsRelations)[number];
 
+export interface PqsRelationEdge {
+    readonly target: PqsRelation;
+    readonly sourceColumn: string;
+    readonly targetColumn: string;
+    readonly cardinality: "one" | "many";
+    readonly nullable: boolean;
+}
+
+export const pqsRelationEdges: Readonly<Partial<Record<PqsRelation, Readonly<Record<string, PqsRelationEdge>>>>> = {
+    __contracts: {
+        contractType: { target: "__contract_tpe", sourceColumn: "tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
+        createdTransaction: { target: "__transactions", sourceColumn: "created_at_ix", targetColumn: "ix", cardinality: "one", nullable: false },
+        archivedTransaction: { target: "__transactions", sourceColumn: "archived_at_ix", targetColumn: "ix", cardinality: "one", nullable: true },
+        exercises: { target: "__exercises", sourceColumn: "contract_id", targetColumn: "contract_id", cardinality: "many", nullable: false },
+    },
+    __contract_tpe: {
+        contracts: { target: "__contracts", sourceColumn: "pk", targetColumn: "tpe_pk", cardinality: "many", nullable: false },
+        exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "contract_tpe_pk", cardinality: "many", nullable: false },
+    },
+    __events: {
+        transaction: { target: "__transactions", sourceColumn: "tx_ix", targetColumn: "ix", cardinality: "one", nullable: false },
+        exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "exercise_event_pk", cardinality: "many", nullable: false },
+    },
+    __exercises: {
+        exerciseType: { target: "__exercise_tpe", sourceColumn: "tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
+        contractType: { target: "__contract_tpe", sourceColumn: "contract_tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
+        event: { target: "__events", sourceColumn: "exercise_event_pk", targetColumn: "pk", cardinality: "one", nullable: true },
+        transaction: { target: "__transactions", sourceColumn: "exercised_at_ix", targetColumn: "ix", cardinality: "one", nullable: true },
+        package: { target: "__packages", sourceColumn: "package_pk", targetColumn: "pk", cardinality: "one", nullable: false },
+        contract: { target: "__contracts", sourceColumn: "contract_id", targetColumn: "contract_id", cardinality: "one", nullable: false },
+    },
+    __exercise_tpe: { exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "tpe_pk", cardinality: "many", nullable: false } },
+    __packages: { exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "package_pk", cardinality: "many", nullable: false } },
+    __transactions: {
+        events: { target: "__events", sourceColumn: "ix", targetColumn: "tx_ix", cardinality: "many", nullable: false },
+        createdContracts: { target: "__contracts", sourceColumn: "ix", targetColumn: "created_at_ix", cardinality: "many", nullable: false },
+        archivedContracts: { target: "__contracts", sourceColumn: "ix", targetColumn: "archived_at_ix", cardinality: "many", nullable: false },
+        exercises: { target: "__exercises", sourceColumn: "ix", targetColumn: "exercised_at_ix", cardinality: "many", nullable: false },
+    },
+};
+
+const pqsJsonFields: Readonly<Partial<Record<PqsRelation, readonly string[]>>> = {
+    __contracts: ["payload"],
+    __exercises: ["argument", "result"],
+    __transactions: ["traceContext"],
+};
+
+const pqsBucketFields: Readonly<Partial<Record<PqsRelation, readonly string[]>>> = {
+    __transactions: ["effectiveAt"],
+};
+
 export interface PqsRelationMetadata {
     readonly fields: Readonly<Record<string, string>>;
     readonly uniqueKeys: readonly (readonly string[])[];
@@ -119,6 +170,14 @@ export class PqsSchemaProfileV1 {
 
     public relation(relation: PqsRelation): string {
         return `${quoteIdentifier(this.schema)}.${quoteIdentifier(relation)}`;
+    }
+
+    public static jsonField(relation: PqsRelation, field: string): boolean {
+        return pqsJsonFields[relation]?.includes(field) ?? false;
+    }
+
+    public static bucketField(relation: PqsRelation, field: string): boolean {
+        return pqsBucketFields[relation]?.includes(field) ?? false;
     }
 }
 
