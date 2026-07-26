@@ -12,6 +12,8 @@ import {
     ContractResult,
     EventOrderBy,
     EventRow,
+    EventGroupByArgs,
+    EventGroupRow,
     EventSelect,
     EventUnique,
     EventWhere,
@@ -49,7 +51,7 @@ export interface FindManyArgs<TWhere, TSelect, TOrderBy> {
     readonly take?: number;
 }
 
-export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique> {
+export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TGroupBy = never, TGroupRow = never> {
     findMany(args?: FindManyArgs<TWhere, TSelect, TOrderBy>): Promise<readonly TRow[]>;
     findUnique(args: { readonly where: TUnique; readonly select?: TSelect }): Promise<TRow | undefined>;
     count(args?: { readonly where?: TWhere }): Promise<number>;
@@ -65,6 +67,7 @@ export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique> {
         readonly max?: Readonly<Record<string, string | null>>;
         readonly sum?: Readonly<Record<string, string | null>>;
     }>;
+    groupBy(args: TGroupBy): Promise<readonly TGroupRow[]>;
 }
 
 export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy> = Omit<
@@ -93,7 +96,7 @@ export interface QueryClient {
         }>;
     };
     readonly contractTypes: QueryDelegate<ContractTypeRow, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique>;
-    readonly events: QueryDelegate<EventRow, EventWhere, EventSelect, EventOrderBy, EventUnique>;
+    readonly events: QueryDelegate<EventRow, EventWhere, EventSelect, EventOrderBy, EventUnique, EventGroupByArgs, EventGroupRow>;
     readonly exercises: QueryCollectionDelegate<ExerciseRow, ExerciseWhere, ExerciseSelect, ExerciseOrderBy>;
     readonly exerciseTypes: QueryDelegate<ExerciseTypeRow, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique>;
     readonly packages: QueryDelegate<PackageRow, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique>;

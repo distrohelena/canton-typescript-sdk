@@ -231,4 +231,16 @@ describe("PQS query client", () => {
             expect(query.mock.calls.some(([sql]) => sql.includes(`"${relation}"`))).toBe(true);
         }
     });
+
+    it("groups events by type and a transaction time bucket", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ type: "created", transaction_effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: "2" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.events.groupBy({
+            by: ["type", { transaction: { effectiveAt: { bucket: "day" } } }],
+            aggregate: { count: true },
+        })).resolves.toEqual([{ type: "created", transaction_effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: 2 }]);
+        expect(query.mock.calls[0][0]).toContain('date_trunc(\'day\', "transaction"."effective_at")');
+        expect(query.mock.calls[0][0]).toContain('group by "event"."type", date_trunc(\'day\', "transaction"."effective_at")');
+    });
 });

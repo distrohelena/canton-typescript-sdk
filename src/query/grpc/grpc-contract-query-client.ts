@@ -105,6 +105,9 @@ export class GrpcContractQueryClient implements QueryClient {
             aggregate: async (): Promise<never> => {
                 throw new QueryCapabilityError(QuerySource.grpc, `${operation}.aggregate`);
             },
+            groupBy: async (): Promise<never> => {
+                throw new QueryCapabilityError(QuerySource.grpc, `${operation}.groupBy`);
+            },
         };
     }
 

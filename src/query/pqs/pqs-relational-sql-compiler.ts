@@ -1,4 +1,5 @@
 import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
+import { pqsRelationEdges } from "./pqs-schema-profile.js";
 
 export interface CompiledPqsRelationQuery {
     readonly text: string;
@@ -35,6 +36,41 @@ export function compilePqsRelationFindMany(
         text: `select ${fields.map(([field, column]) => `"${column}" as "${field}"`).join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
         values,
     };
+}
+
+export function compilePqsRelationGroupBy(
+    relation: PqsRelation,
+    args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } },
+    profile: PqsSchemaProfileV1,
+): CompiledPqsRelationQuery {
+    if (args.by.length === 0 || !args.aggregate.count) throw new Error("groupBy requires a key and aggregate");
+    const metadata = pqsRelationMetadata[relation];
+    const root = relation === "__events" ? "event" : "root";
+    const joins: string[] = [];
+    const expressions: string[] = [];
+    const selected: string[] = [];
+    for (const key of args.by) {
+        if (typeof key === "string") {
+            const column = field(relation, metadata, key);
+            const expression = `"${root}"."${column}"`;
+            expressions.push(expression);
+            selected.push(`${expression} as "${key}"`);
+            continue;
+        }
+        if (key === null || typeof key !== "object") throw new Error("invalid group key");
+        const [edgeName, nested] = Object.entries(key as Record<string, unknown>)[0] ?? [];
+        const edge = pqsRelationEdges[relation]?.[edgeName];
+        if (edge === undefined || edge.cardinality !== "one" || nested === null || typeof nested !== "object") throw new Error("group key must follow a profiled to-one edge");
+        const [fieldName, bucketValue] = Object.entries(nested as Record<string, unknown>)[0] ?? [];
+        const bucket = bucketValue !== null && typeof bucketValue === "object" ? (bucketValue as { bucket?: unknown }).bucket : undefined;
+        if (typeof bucket !== "string" || !["hour", "day", "week", "month"].includes(bucket) || !PqsSchemaProfileV1.bucketField(edge.target, fieldName)) throw new Error("invalid profiled time bucket");
+        const targetColumn = field(edge.target, pqsRelationMetadata[edge.target], fieldName);
+        joins.push(`join ${profile.relation(edge.target)} "${edgeName}" on "${edgeName}"."${edge.targetColumn}" = "${root}"."${edge.sourceColumn}"`);
+        const expression = `date_trunc('${bucket}', "${edgeName}"."${targetColumn}")`;
+        expressions.push(expression);
+        selected.push(`${expression} as "${edgeName}_${fieldName}_${bucket}"`);
+    }
+    return { text: `select ${[...selected, "count(*)::text as count"].join(", ")} from ${profile.relation(relation)} "${root}" ${joins.join(" ")} group by ${expressions.join(", ")}`, values: [] };
 }
 
 function selectedFields(relation: PqsRelation, metadata: PqsRelationMetadata, select: RelationFindManyArgs["select"]): readonly (readonly [string, string])[] {

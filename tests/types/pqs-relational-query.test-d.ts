@@ -3,6 +3,7 @@ import type {
     EventGroupByArgs,
     TransactionOrderBy,
 } from "../../src/query/model-types.js";
+import type { QueryClient } from "../../src/query/query-client.js";
 
 const contractDetail: ContractFindUniqueArgs = {
     where: { contractId: "cid" },
@@ -38,3 +39,6 @@ void transactionOrder;
 void eventDayBucket;
 void unknownEdge;
 void unboundedMany;
+
+declare const query: QueryClient;
+void query.events.groupBy(eventDayBucket);

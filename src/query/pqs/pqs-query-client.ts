@@ -9,6 +9,7 @@ import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany } from "./pqs-sql-compiler.js";
+import { compilePqsRelationGroupBy } from "./pqs-relational-sql-compiler.js";
 import {
     PqsRelation,
     PqsRelationMetadata,
@@ -122,6 +123,7 @@ export class PqsQueryClient implements QueryClient {
                 }
             },
             aggregate: async (args: RuntimeAggregateArgs) => this.aggregatePhysicalAsync(relation, metadata, args),
+            groupBy: async (args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } }) => this.groupPhysicalAsync(relation, args),
         };
 
         if (!hasUnique) {
@@ -140,6 +142,16 @@ export class PqsQueryClient implements QueryClient {
                 }).then((rows) => rows[0]);
             },
         };
+    }
+
+    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } }): Promise<readonly Record<string, string | number | Date | null>[]> {
+        const compiled = compilePqsRelationGroupBy(relation, args, this.profile);
+        try {
+            await this.ready;
+            return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value instanceof Date ? value : value === null ? null : String(value)])));
+        } catch (cause) {
+            throw this.wrap(`${relation}.groupBy`, cause);
+        }
     }
 
     private async readPhysicalAsync(

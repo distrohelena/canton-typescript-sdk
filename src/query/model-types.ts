@@ -335,6 +335,7 @@ export type EventGroupByKey = keyof EventRow | {
 };
 
 export type EventGroupByArgs = GroupByArgs<EventWhere, EventGroupByKey, "pk" | "txIx">;
+export type EventGroupRow = Readonly<Record<string, string | number | Date | null>>;
 
 export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.skip, "skip");
