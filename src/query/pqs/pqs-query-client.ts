@@ -11,7 +11,6 @@ import {
     TransactionRow,
     ExerciseRow,
     ExerciseResult,
-    EventResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -700,9 +699,9 @@ function mapTransactionJson(value: unknown): TransactionRow | undefined {
     return row === null ? undefined : { ix: String(row.ix), offset: String(row.offset), transactionId: nullableString(row.transactionId), effectiveAt: nullableDate(row.effectiveAt), workflowId: nullableString(row.workflowId), domainId: nullableString(row.domainId), traceContext: row.traceContext, externalTransactionHash: row.externalTransactionHash instanceof Uint8Array ? row.externalTransactionHash : null, paidTrafficCost: nullableString(row.paidTrafficCost) };
 }
 
-function mapEventJson(value: unknown): EventResult | undefined {
+function mapEventJson(value: unknown): Record<string, unknown> | undefined {
     const row = mapSelectedProfileJsonRow(value, "__events");
-    return row === null ? undefined : row as EventResult;
+    return row ?? undefined;
 }
 
 function mapExerciseJson(value: unknown): ExerciseResult {
