@@ -60,10 +60,10 @@ describe("PQS query client", () => {
             rows: [{
                 contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true,
                 template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template",
-                contract_type: { pk: "1", templateFqn: "pkg:Module:Template" },
-                created_transaction: { ix: "42", transactionId: "tx" },
+                contract_type: { pk: "1", template_fqn: "pkg:Module:Template", aliases: [], payload_type: "", package_name: "", module_name: "", entity_name: "" },
+                created_transaction: { ix: "42", transaction_id: "tx", offset: "42", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null },
                 archived_transaction: null,
-                exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
+                exercises: [{ contract_id: "cid", exercised_at_ix: "42", tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: null, argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: 0, witnesses: [] }],
             }],
         });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());

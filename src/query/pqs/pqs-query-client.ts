@@ -7,6 +7,9 @@ import {
     ContractRow,
     ContractResult,
     JsonProjectionResult,
+    ContractTypeRow,
+    TransactionRow,
+    ExerciseRow,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -592,13 +595,37 @@ function mapJsonValue(value: unknown, as: "text" | "numeric" | "boolean" | "time
     return String(value);
 }
 
+function mapProfileJsonRow(value: unknown, relation: PqsRelation): Record<string, unknown> | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== "object" || Array.isArray(value)) throw new Error(`Invalid included ${relation} row`);
+    const row = value as Record<string, unknown>;
+    const metadata = pqsRelationMetadata[relation];
+    return Object.fromEntries(Object.entries(metadata.fields).map(([field, column]) => [field, mapPhysicalValue(row[field] ?? row[column], metadata, field)]));
+}
+
+function mapContractTypeJson(value: unknown): ContractTypeRow | undefined {
+    const row = mapProfileJsonRow(value, "__contract_tpe");
+    return row === null ? undefined : { pk: String(row.pk), payloadType: String(row.payloadType), aliases: stringArray(row.aliases), packageName: String(row.packageName), moduleName: String(row.moduleName), entityName: String(row.entityName), templateFqn: String(row.templateFqn) };
+}
+
+function mapTransactionJson(value: unknown): TransactionRow | undefined {
+    const row = mapProfileJsonRow(value, "__transactions");
+    return row === null ? undefined : { ix: String(row.ix), offset: String(row.offset), transactionId: nullableString(row.transactionId), effectiveAt: nullableDate(row.effectiveAt), workflowId: nullableString(row.workflowId), domainId: nullableString(row.domainId), traceContext: row.traceContext, externalTransactionHash: row.externalTransactionHash instanceof Uint8Array ? row.externalTransactionHash : null, paidTrafficCost: nullableString(row.paidTrafficCost) };
+}
+
+function mapExerciseJson(value: unknown): ExerciseRow {
+    const row = mapProfileJsonRow(value, "__exercises");
+    if (row === null) throw new Error("Included exercise cannot be null");
+    return { tpePk: String(row.tpePk), contractTpePk: String(row.contractTpePk), exerciseEventPk: nullableString(row.exerciseEventPk), exercisedAtIx: nullableString(row.exercisedAtIx), contractId: String(row.contractId), argument: row.argument, result: row.result, redactionId: nullableString(row.redactionId), packagePk: String(row.packagePk), controllers: stringArray(row.controllers), lastDescendantNodeId: Number(row.lastDescendantNodeId), witnesses: stringArray(row.witnesses) };
+}
+
 function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined, json: Readonly<Record<string, { readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> | undefined): ContractResult {
     const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
     const relations = {
-        ...(include?.contractType === undefined ? {} : { contractType: row.contract_type as ContractResult["contractType"] }),
-        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: row.created_transaction as ContractResult["createdTransaction"] }),
-        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: row.archived_transaction as ContractResult["archivedTransaction"] }),
-        ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises as ContractResult["exercises"] : [] }),
+        ...(include?.contractType === undefined ? {} : { contractType: mapContractTypeJson(row.contract_type) }),
+        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: mapTransactionJson(row.created_transaction) }),
+        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: row.archived_transaction === null || row.archived_transaction === undefined ? null : mapTransactionJson(row.archived_transaction) ?? null }),
+        ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises.map(mapExerciseJson) : [] }),
     };
     const projections = Object.fromEntries(Object.entries(json ?? {}).map(([name, projection]) => [name, mapJsonValue(row[name], projection.as)]));
     return { ...base, ...relations, ...projections };
