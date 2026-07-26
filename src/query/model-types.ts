@@ -23,6 +23,12 @@ export interface ArrayMembershipFilter {
     readonly has: string;
 }
 
+export interface RelationListFilter<TWhere> {
+    readonly some?: TWhere;
+    readonly none?: TWhere;
+    readonly every?: TWhere;
+}
+
 export type WhereExpression<TFields> = TFields & {
     readonly and?: readonly WhereExpression<TFields>[];
     readonly or?: readonly WhereExpression<TFields>[];
@@ -150,6 +156,10 @@ type ContractWhereFields = {
     readonly active?: boolean | ScalarFilter<boolean>;
     readonly witnesses?: { readonly has: string };
     readonly payload?: ContractPayloadFilter;
+    readonly contractType?: ContractTypeWhere;
+    readonly createdTransaction?: TransactionWhere;
+    readonly archivedTransaction?: TransactionWhere;
+    readonly exercises?: RelationListFilter<ExerciseWhere>;
 };
 
 export type ContractWhere = WhereExpression<ContractWhereFields>;
@@ -257,26 +267,69 @@ export interface WatermarkRow {
     readonly instanceId: string | null;
 }
 
-export type ContractTypeWhere = RowWhere<ContractTypeRow, "pk", "payloadType" | "packageName" | "moduleName" | "entityName" | "templateFqn">;
+export type ContractTypeResult = ContractTypeRow & {
+    readonly contracts?: readonly ContractResult[];
+    readonly exercises?: readonly ExerciseResult[];
+};
+export type EventResult = EventRow & {
+    readonly transaction?: TransactionResult;
+    readonly exercises?: readonly ExerciseResult[];
+};
+export type ExerciseResult = ExerciseRow & {
+    readonly exerciseType?: ExerciseTypeResult;
+    readonly contractType?: ContractTypeResult;
+    readonly event?: EventResult | null;
+    readonly transaction?: TransactionResult | null;
+    readonly package?: PackageResult;
+    readonly contract?: ContractResult;
+};
+export type ExerciseTypeResult = ExerciseTypeRow & { readonly exercises?: readonly ExerciseResult[] };
+export type PackageResult = PackageRow & { readonly exercises?: readonly ExerciseResult[] };
+export type TransactionResult = TransactionRow & {
+    readonly events?: readonly EventResult[];
+    readonly createdContracts?: readonly ContractResult[];
+    readonly archivedContracts?: readonly ContractResult[];
+    readonly exercises?: readonly ExerciseResult[];
+};
+
+export type ContractTypeWhere = RowWhere<ContractTypeRow, "pk", "payloadType" | "packageName" | "moduleName" | "entityName" | "templateFqn"> & {
+    readonly contracts?: RelationListFilter<ContractWhere>;
+    readonly exercises?: RelationListFilter<ExerciseWhere>;
+};
 export type ContractTypeSelect = RowSelect<ContractTypeRow>;
 export type ContractTypeOrderBy = RowOrderBy<ContractTypeRow>;
 export type ContractTypeUnique = { readonly pk: string };
-export type EventWhere = RowWhere<EventRow, "pk" | "txIx", "eventId" | "type">;
+export type EventWhere = RowWhere<EventRow, "pk" | "txIx", "eventId" | "type"> & {
+    readonly transaction?: TransactionWhere;
+    readonly exercises?: RelationListFilter<ExerciseWhere>;
+};
 export type EventSelect = RowSelect<EventRow>;
 export type EventOrderBy = RowOrderBy<EventRow>;
 export type EventUnique = { readonly pk: string };
-export type ExerciseWhere = RowWhere<ExerciseRow, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId", "contractId" | "redactionId">;
+export type ExerciseWhere = RowWhere<ExerciseRow, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId", "contractId" | "redactionId"> & {
+    readonly exerciseType?: ExerciseTypeWhere;
+    readonly contractType?: ContractTypeWhere;
+    readonly event?: EventWhere;
+    readonly transaction?: TransactionWhere;
+    readonly package?: PackageWhere;
+    readonly contract?: ContractWhere;
+};
 export type ExerciseSelect = RowSelect<ExerciseRow>;
 export type ExerciseOrderBy = RowOrderBy<ExerciseRow>;
-export type ExerciseTypeWhere = RowWhere<ExerciseTypeRow, "pk", "choice" | "packageName" | "moduleName" | "entityName" | "templateFqn" | "choiceFqn">;
+export type ExerciseTypeWhere = RowWhere<ExerciseTypeRow, "pk", "choice" | "packageName" | "moduleName" | "entityName" | "templateFqn" | "choiceFqn"> & { readonly exercises?: RelationListFilter<ExerciseWhere> };
 export type ExerciseTypeSelect = RowSelect<ExerciseTypeRow>;
 export type ExerciseTypeOrderBy = RowOrderBy<ExerciseTypeRow>;
 export type ExerciseTypeUnique = { readonly pk: string };
-export type PackageWhere = RowWhere<PackageRow, "pk", "name" | "version" | "id">;
+export type PackageWhere = RowWhere<PackageRow, "pk", "name" | "version" | "id"> & { readonly exercises?: RelationListFilter<ExerciseWhere> };
 export type PackageSelect = RowSelect<PackageRow>;
 export type PackageOrderBy = RowOrderBy<PackageRow>;
 export type PackageUnique = { readonly pk: string } | { readonly id: string };
-export type TransactionWhere = RowWhere<TransactionRow, "ix" | "offset" | "effectiveAt" | "paidTrafficCost", "transactionId" | "workflowId" | "domainId">;
+export type TransactionWhere = RowWhere<TransactionRow, "ix" | "offset" | "effectiveAt" | "paidTrafficCost", "transactionId" | "workflowId" | "domainId"> & {
+    readonly events?: RelationListFilter<EventWhere>;
+    readonly createdContracts?: RelationListFilter<ContractWhere>;
+    readonly archivedContracts?: RelationListFilter<ContractWhere>;
+    readonly exercises?: RelationListFilter<ExerciseWhere>;
+};
 export type TransactionSelect = RowSelect<TransactionRow>;
 export type TransactionOrderBy = RowOrderBy<TransactionRow>;
 export type TransactionUnique = { readonly ix: string } | { readonly offset: string };

@@ -42,3 +42,7 @@ void unboundedMany;
 
 declare const query: QueryClient;
 void query.events.groupBy(eventDayBucket);
+
+void query.transactions.findMany({
+    where: { exercises: { some: { witnesses: { has: "Alice" } } } },
+});

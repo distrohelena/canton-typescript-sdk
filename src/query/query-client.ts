@@ -2,6 +2,7 @@ import { QuerySource } from "./query-source.js";
 import {
     ContractTypeOrderBy,
     ContractTypeRow,
+    ContractTypeResult,
     ContractTypeSelect,
     ContractTypeUnique,
     ContractTypeWhere,
@@ -12,6 +13,7 @@ import {
     ContractResult,
     EventOrderBy,
     EventRow,
+    EventResult,
     EventGroupByArgs,
     EventGroupRow,
     EventSelect,
@@ -19,20 +21,24 @@ import {
     EventWhere,
     ExerciseOrderBy,
     ExerciseRow,
+    ExerciseResult,
     ExerciseSelect,
     ExerciseTypeOrderBy,
     ExerciseTypeRow,
+    ExerciseTypeResult,
     ExerciseTypeSelect,
     ExerciseTypeUnique,
     ExerciseTypeWhere,
     ExerciseWhere,
     PackageOrderBy,
     PackageRow,
+    PackageResult,
     PackageSelect,
     PackageUnique,
     PackageWhere,
     TransactionOrderBy,
     TransactionRow,
+    TransactionResult,
     TransactionSelect,
     TransactionUnique,
     TransactionWhere,
@@ -41,19 +47,26 @@ import {
     WatermarkSelect,
     WatermarkUnique,
     WatermarkWhere,
+    ContractTypeInclude,
+    EventInclude,
+    ExerciseInclude,
+    ExerciseTypeInclude,
+    PackageInclude,
+    TransactionInclude,
 } from "./model-types.js";
 
-export interface FindManyArgs<TWhere, TSelect, TOrderBy> {
+export interface FindManyArgs<TWhere, TSelect, TOrderBy, TInclude = never> {
     readonly where?: TWhere;
     readonly select?: TSelect;
     readonly orderBy?: TOrderBy;
     readonly skip?: number;
     readonly take?: number;
+    readonly include?: TInclude;
 }
 
-export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TGroupBy = never, TGroupRow = never> {
-    findMany(args?: FindManyArgs<TWhere, TSelect, TOrderBy>): Promise<readonly TRow[]>;
-    findUnique(args: { readonly where: TUnique; readonly select?: TSelect }): Promise<TRow | undefined>;
+export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TInclude = never, TGroupBy = never, TGroupRow = never> {
+    findMany(args?: FindManyArgs<TWhere, TSelect, TOrderBy, TInclude>): Promise<readonly TRow[]>;
+    findUnique(args: { readonly where: TUnique; readonly select?: TSelect; readonly include?: TInclude }): Promise<TRow | undefined>;
     count(args?: { readonly where?: TWhere }): Promise<number>;
     aggregate(args: {
         readonly where?: TWhere;
@@ -70,8 +83,8 @@ export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TGroupB
     groupBy(args: TGroupBy): Promise<readonly TGroupRow[]>;
 }
 
-export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy> = Omit<
-    QueryDelegate<TRow, TWhere, TSelect, TOrderBy, never>,
+export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy, TInclude = never> = Omit<
+    QueryDelegate<TRow, TWhere, TSelect, TOrderBy, never, TInclude>,
     "findUnique"
 >;
 
@@ -95,12 +108,12 @@ export interface QueryClient {
             readonly sum?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
         }>;
     };
-    readonly contractTypes: QueryDelegate<ContractTypeRow, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique>;
-    readonly events: QueryDelegate<EventRow, EventWhere, EventSelect, EventOrderBy, EventUnique, EventGroupByArgs, EventGroupRow>;
-    readonly exercises: QueryCollectionDelegate<ExerciseRow, ExerciseWhere, ExerciseSelect, ExerciseOrderBy>;
-    readonly exerciseTypes: QueryDelegate<ExerciseTypeRow, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique>;
-    readonly packages: QueryDelegate<PackageRow, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique>;
-    readonly transactions: QueryDelegate<TransactionRow, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique>;
+    readonly contractTypes: QueryDelegate<ContractTypeResult, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique, ContractTypeInclude>;
+    readonly events: QueryDelegate<EventResult, EventWhere, EventSelect, EventOrderBy, EventUnique, EventInclude, EventGroupByArgs, EventGroupRow>;
+    readonly exercises: QueryCollectionDelegate<ExerciseResult, ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+    readonly exerciseTypes: QueryDelegate<ExerciseTypeResult, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique, ExerciseTypeInclude>;
+    readonly packages: QueryDelegate<PackageResult, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique, PackageInclude>;
+    readonly transactions: QueryDelegate<TransactionResult, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique, TransactionInclude>;
     readonly watermark: QueryDelegate<WatermarkRow, WatermarkWhere, WatermarkSelect, WatermarkOrderBy, WatermarkUnique>;
 }
 

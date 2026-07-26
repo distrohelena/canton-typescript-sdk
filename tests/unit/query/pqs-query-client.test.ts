@@ -110,6 +110,20 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).toContain('from "public"."__packages"');
     });
 
+    it("includes every profile-declared physical relation through correlated queries", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contract_id: "cid", package_pk: "1", controllers: [], witnesses: [] }] }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findMany({ include: { exercises: { take: 5 } } })).resolves.toEqual([
+            expect.objectContaining({ id: "pkg", exercises: [expect.objectContaining({ contractId: "cid", packagePk: "1" })] }),
+        ]);
+        expect(query.mock.calls[0][0]).toContain('jsonb_agg(jsonb_build_object');
+        expect(query.mock.calls[0][0]).toContain('"exercises"."package_pk" = "public"."__packages"."pk"');
+        expect(query.mock.calls[0][1]).toEqual([5]);
+    });
+
     it("binds physical relation filters and pagination", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
 
@@ -124,6 +138,19 @@ describe("PQS query client", () => {
 
         expect(query.mock.calls[0][0]).toContain("where \"id\" = $1");
         expect(query.mock.calls[0][1]).toEqual(["package-id", 10, 5]);
+    });
+
+    it("compiles profile-declared to-many relation predicates", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.transactions.findMany({
+            where: { exercises: { some: { witnesses: { has: "Alice" } } } },
+        });
+
+        expect(query.mock.calls[0][0]).toContain('exists (select 1 from "public"."__exercises" "exercises"');
+        expect(query.mock.calls[0][0]).toContain('"exercises"."exercised_at_ix" = "public"."__transactions"."ix"');
+        expect(query.mock.calls[0][1]).toEqual(["Alice"]);
     });
 
     it("compiles physical logical, range, and pattern predicates", async () => {

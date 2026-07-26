@@ -14,6 +14,7 @@ import {
     PqsRelation,
     PqsRelationMetadata,
     PqsSchemaProfileV1,
+    pqsRelationEdges,
     pqsRelationMetadata,
 } from "./pqs-schema-profile.js";
 import { assertReadOnlySql } from "./read-only-sql.js";
@@ -47,7 +48,16 @@ type RuntimeFindManyArgs = {
     readonly orderBy?: readonly Readonly<Record<string, "asc" | "desc">>[];
     readonly take?: number;
     readonly skip?: number;
+    readonly include?: RuntimeInclude;
 };
+
+type RuntimeInclude = Readonly<Record<string, true | {
+    readonly take?: number;
+    readonly where?: RuntimeWhere;
+    readonly select?: Readonly<Record<string, boolean>>;
+    readonly orderBy?: readonly Readonly<Record<string, "asc" | "desc">>[];
+    readonly include?: RuntimeInclude;
+}>>;
 
 type RuntimeAggregateArgs = {
     readonly where?: RuntimeFindManyArgs["where"];
@@ -132,12 +142,13 @@ export class PqsQueryClient implements QueryClient {
 
         return {
             ...delegate,
-            findUnique: async (args: { readonly where: Readonly<Record<string, unknown>>; readonly select?: RuntimeFindManyArgs["select"] }) => {
+            findUnique: async (args: { readonly where: Readonly<Record<string, unknown>>; readonly select?: RuntimeFindManyArgs["select"]; readonly include?: RuntimeInclude }) => {
                 this.assertUniqueWhere(relation, metadata, args.where);
 
                 return findMany({
                     where: Object.fromEntries(Object.entries(args.where).map(([field, value]) => [field, { equals: value }])),
                     select: args.select,
+                    include: args.include,
                     take: 1,
                 }).then((rows) => rows[0]);
             },
@@ -180,16 +191,18 @@ export class PqsQueryClient implements QueryClient {
         const offset = args.skip === undefined ? "" : ` offset ${add(args.skip)}`;
 
         const selection = selected.map(([field, column]) => `"${column}" as "${field}"`).join(", ");
+        const includes = this.compileIncludes(relation, args.include, add);
+        const fullSelection = [selection, ...includes.selection].filter((value) => value.length > 0).join(", ");
 
         try {
             await this.ready;
 
             const result = await this.executor.query(
-                `select ${selection} from ${this.profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
+                `select ${fullSelection} from ${this.profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
                 parameters,
             );
 
-            return result.rows.map((row) => this.mapPhysicalRow(row, metadata, selected));
+            return result.rows.map((row) => this.mapPhysicalRow(row, metadata, selected, includes.values));
         } catch (cause) {
             throw this.wrap(`${relation}.findMany`, cause);
         }
@@ -245,20 +258,45 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
-    private compileWhere(relation: PqsRelation, metadata: PqsRelationMetadata, filters: RuntimeFindManyArgs["where"]): { readonly where: string; readonly values: readonly unknown[] } {
+    private compileWhere(relation: PqsRelation, metadata: PqsRelationMetadata, filters: RuntimeFindManyArgs["where"], externalAdd?: (value: unknown) => string, parentExpression = this.profile.relation(relation)): { readonly where: string; readonly values: readonly unknown[] } {
         const values: unknown[] = [];
 
-        const add = (value: unknown) => {
+        const add = externalAdd ?? ((value: unknown) => {
             values.push(value);
-
             return `$${values.length}`;
-        };
+        });
 
         const compile = (expression: RuntimeFindManyArgs["where"]): string => {
         const conditions: string[] = [];
         for (const [field, filter] of Object.entries(expression ?? {})) {
             if (field === "and" || field === "or") { if (!Array.isArray(filter)) throw new Error(`${field} must be an array`); conditions.push(filter.length ? `(${filter.map((child) => compile(child)).join(` ${field} `)})` : field === "and" ? "true" : "false"); continue; }
             if (field === "not") { if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error("not must be an expression"); conditions.push(`not (${compile(filter as RuntimeFindManyArgs["where"])})`); continue; }
+            const edge = pqsRelationEdges[relation]?.[field];
+            if (edge !== undefined) {
+                if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error(`${field} must be a relation filter`);
+                const related = filter as Readonly<Record<string, RuntimeWhere>>;
+                const alias = `"${field}"`;
+                const relatedCondition = (child: RuntimeWhere | undefined) => {
+                    const where = this.compileWhere(edge.target, pqsRelationMetadata[edge.target], child, add, alias).where;
+                    return where.length === 0 ? "true" : where.slice(" where ".length);
+                };
+                const join = `${alias}."${edge.targetColumn}" = ${parentExpression}."${edge.sourceColumn}"`;
+                if (edge.cardinality === "one") {
+                    if (Object.keys(related).some((name) => ["some", "none", "every"].includes(name))) throw new Error(`${field} is a to-one relation`);
+                    conditions.push(`exists (select 1 from ${this.profile.relation(edge.target)} ${alias} where ${join} and (${relatedCondition(related)}))`);
+                } else {
+                    const operators = ["some", "none", "every"].filter((name) => related[name] !== undefined);
+                    if (operators.length !== 1) throw new Error(`${field} requires exactly one of some, none, or every`);
+                    const operator = operators[0];
+                    const predicate = related[operator];
+                    const condition = relatedCondition(predicate);
+                    const subquery = `select 1 from ${this.profile.relation(edge.target)} ${alias} where ${join} and (${condition})`;
+                    if (operator === "some") conditions.push(`exists (${subquery})`);
+                    else if (operator === "none") conditions.push(`not exists (${subquery})`);
+                    else conditions.push(`not exists (select 1 from ${this.profile.relation(edge.target)} ${alias} where ${join} and not (${condition}))`);
+                }
+                continue;
+            }
             const column = this.field(relation, metadata, field);
             if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error(`${field} must be a filter`);
             const scalar = filter as RuntimeFilter;
@@ -362,10 +400,62 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
-    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[]): Record<string, unknown> {
-        return Object.fromEntries(fields
+    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[], includes: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>): Record<string, unknown> {
+        const scalar = Object.fromEntries(fields
             .filter(([field]) => Object.hasOwn(row, field))
             .map(([field]) => [field, mapPhysicalValue(row[field], metadata, field)]));
+        const related = Object.fromEntries(Object.entries(includes).map(([name, edge]) => [name, this.mapRelatedValue(row[name], edge.target, edge.include)]));
+        return { ...scalar, ...related };
+    }
+
+    private mapRelatedValue(value: unknown, relation: PqsRelation, include: RuntimeInclude | undefined): unknown {
+        if (value === null || value === undefined) return value ?? null;
+        if (Array.isArray(value)) return value.map((entry) => this.mapRelatedValue(entry, relation, include));
+        if (typeof value !== "object") throw new Error(`Invalid included ${relation} row`);
+        const metadata = pqsRelationMetadata[relation];
+        const row = value as Record<string, unknown>;
+        const fields = Object.entries(metadata.fields).map(([field, column]) => [field, column] as const);
+        const nested = Object.fromEntries(Object.entries(include ?? {}).map(([name, option]) => {
+            const edge = pqsRelationEdges[relation]?.[name];
+            if (edge === undefined) throw new Error(`${name} is not a relation of ${relation}`);
+            return [name, { target: edge.target, include: option === true ? undefined : option.include }];
+        }));
+        const normalized = Object.fromEntries(fields.map(([field, column]) => [field, row[field] ?? row[column]]));
+        for (const name of Object.keys(nested)) normalized[name] = row[name];
+        return this.mapPhysicalRow(normalized, metadata, fields, nested);
+    }
+
+    private compileIncludes(relation: PqsRelation, include: RuntimeInclude | undefined, add: (value: unknown) => string, parentExpression = this.profile.relation(relation)): { readonly selection: readonly string[]; readonly values: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>; } {
+        const selections: string[] = [];
+        const values: Record<string, { target: PqsRelation; include: RuntimeInclude | undefined }> = {};
+        for (const [name, option] of Object.entries(include ?? {})) {
+            const edge = pqsRelationEdges[relation]?.[name];
+            if (edge === undefined) throw new Error(`${name} is not a relation of ${relation}`);
+            const options = option === true ? {} : option;
+            if (edge.cardinality === "many" && options.take === undefined) throw new Error(`${name} is a to-many relation and requires take`);
+            if (options.take !== undefined && (!Number.isInteger(options.take) || options.take < 0)) throw new Error(`${name}.take must be a non-negative integer`);
+            const expression = this.compileIncludedExpression(name, edge.target, edge.sourceColumn, edge.targetColumn, edge.cardinality, options, add, parentExpression);
+            selections.push(`${expression} as "${name}"`);
+            values[name] = { target: edge.target, include: options.include };
+        }
+        return { selection: selections, values };
+    }
+
+    private compileIncludedExpression(name: string, target: PqsRelation, sourceColumn: string, targetColumn: string, cardinality: "one" | "many", options: Exclude<RuntimeInclude[string], true>, add: (value: unknown) => string, parentExpression: string): string {
+        const alias = `"${name}"`;
+        const targetMetadata = pqsRelationMetadata[target];
+        const fields = this.selectedFields(target, targetMetadata, options.select);
+        const nested = this.compileIncludes(target, options.include, add, alias).selection;
+        const object = `jsonb_build_object(${[...fields.map(([field, column]) => `'${field}', ${alias}."${column}"`), ...nested.flatMap((selection) => {
+            const match = /^(.*) as "([^"]+)"$/.exec(selection);
+            return match === null ? [] : [`'${match[2]}', ${match[1]}`];
+        })].join(", ")})`;
+        const { where } = this.compileWhere(target, targetMetadata, options.where, add, alias);
+        const condition = `${alias}."${targetColumn}" = ${parentExpression}."${sourceColumn}"`;
+        const childWhere = where.length === 0 ? ` where ${condition}` : `${where} and ${condition}`;
+        if (cardinality === "one") return `(select ${object} from ${this.profile.relation(target)} ${alias}${childWhere})`;
+        const orderBy = this.compileOrderBy(target, targetMetadata, options.orderBy);
+        return `(select coalesce(jsonb_agg(${object}), '[]'::jsonb) from ${this.profile.relation(target)} ${alias}${childWhere}${orderBy} limit ${add(options.take!)})`;
     }
 
     private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractResult[]> {
