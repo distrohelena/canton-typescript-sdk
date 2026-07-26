@@ -32,6 +32,8 @@ import {
     ExerciseTypeUnique,
     ExerciseTypeWhere,
     ExerciseWhere,
+    ExerciseGroupByArgs,
+    ExerciseGroupRow,
     PackageOrderBy,
     PackageRow,
     PackageResult,
@@ -44,6 +46,8 @@ import {
     TransactionSelect,
     TransactionUnique,
     TransactionWhere,
+    TransactionGroupByArgs,
+    TransactionGroupRow,
     WatermarkOrderBy,
     WatermarkRow,
     WatermarkSelect,
@@ -86,8 +90,8 @@ export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TInclud
     groupBy(args: TGroupBy): Promise<readonly TGroupRow[]>;
 }
 
-export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy, TInclude = never> = Omit<
-    QueryDelegate<TRow, TWhere, TSelect, TOrderBy, never, TInclude>,
+export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy, TInclude = never, TGroupBy = never, TGroupRow = never> = Omit<
+    QueryDelegate<TRow, TWhere, TSelect, TOrderBy, never, TInclude, TGroupBy, TGroupRow>,
     "findUnique"
 >;
 
@@ -114,10 +118,10 @@ export interface QueryClient {
     };
     readonly contractTypes: QueryDelegate<ContractTypeResult, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique, ContractTypeInclude>;
     readonly events: QueryDelegate<EventResult, EventWhere, EventSelect, EventOrderBy, EventUnique, EventInclude, EventGroupByArgs, EventGroupRow>;
-    readonly exercises: QueryCollectionDelegate<ExerciseResult, ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+    readonly exercises: QueryCollectionDelegate<ExerciseResult, ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude, ExerciseGroupByArgs, ExerciseGroupRow>;
     readonly exerciseTypes: QueryDelegate<ExerciseTypeResult, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique, ExerciseTypeInclude>;
     readonly packages: QueryDelegate<PackageResult, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique, PackageInclude>;
-    readonly transactions: QueryDelegate<TransactionResult, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique, TransactionInclude>;
+    readonly transactions: QueryDelegate<TransactionResult, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique, TransactionInclude, TransactionGroupByArgs, TransactionGroupRow>;
     readonly watermark: QueryDelegate<WatermarkRow, WatermarkWhere, WatermarkSelect, WatermarkOrderBy, WatermarkUnique>;
 }
 

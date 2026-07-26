@@ -432,6 +432,22 @@ export type EventGroupByKey = keyof EventRow | {
 export type EventGroupByArgs = GroupByArgs<EventWhere, EventGroupByKey, "pk" | "txIx">;
 export type EventGroupRow = Readonly<Record<string, string | number | Date | null>>;
 
+export type ExerciseGroupByKey = keyof ExerciseRow | {
+    readonly argument: JsonGroupBy;
+} | {
+    readonly result: JsonGroupBy;
+};
+export type ExerciseGroupByArgs = GroupByArgs<ExerciseWhere, ExerciseGroupByKey, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId">;
+export type ExerciseGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+
+export type TransactionGroupByKey = keyof TransactionRow | {
+    readonly effectiveAt: { readonly bucket: TimeBucket };
+} | {
+    readonly traceContext: JsonGroupBy;
+};
+export type TransactionGroupByArgs = GroupByArgs<TransactionWhere, TransactionGroupByKey, "ix" | "offset" | "paidTrafficCost">;
+export type TransactionGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+
 export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.skip, "skip");
     assertPageValue(args.take, "take");

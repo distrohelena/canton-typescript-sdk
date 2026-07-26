@@ -50,6 +50,10 @@ export type {
     GroupByArgs,
     EventGroupByArgs,
     EventGroupRow,
+    ExerciseGroupByArgs,
+    ExerciseGroupRow,
+    TransactionGroupByArgs,
+    TransactionGroupRow,
 } from "./query/model-types.js";
 export type { QueryClient, QueryDelegate, QueryCollectionDelegate } from "./query/query-client.js";
 export { CantonHashingClient } from "./client/canton-hashing-client.js";

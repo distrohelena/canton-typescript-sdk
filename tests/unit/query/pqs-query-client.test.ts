@@ -319,4 +319,16 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).toContain('exists (select 1 from "public"."__exercises" "exercises"');
         expect(query.mock.calls[0][1]).toEqual(["Alice"]);
     });
+
+    it("groups traffic by transaction domain and time bucket", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ domainId: "domain", effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: "2", sum_paidTrafficCost: "12" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.transactions.groupBy({
+            by: ["domainId", { effectiveAt: { bucket: "day" } }],
+            aggregate: { count: true, sum: ["paidTrafficCost"] },
+        })).resolves.toEqual([{ domainId: "domain", effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: 2, sum_paidTrafficCost: "12" }]);
+        expect(query.mock.calls[0][0]).toContain('date_trunc(\'day\', "root"."effective_at")');
+        expect(query.mock.calls[0][0]).toContain('sum("root"."paid_traffic_cost")::text as "sum_paidTrafficCost"');
+    });
 });

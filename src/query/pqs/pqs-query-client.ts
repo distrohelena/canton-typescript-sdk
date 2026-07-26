@@ -143,7 +143,7 @@ export class PqsQueryClient implements QueryClient {
                 }
             },
             aggregate: async (args: RuntimeAggregateArgs) => this.aggregatePhysicalAsync(relation, metadata, args),
-            groupBy: async (args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true } }) => this.groupPhysicalAsync(relation, args),
+            groupBy: async (args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } }) => this.groupPhysicalAsync(relation, args),
         };
 
         if (!hasUnique) {
@@ -165,10 +165,10 @@ export class PqsQueryClient implements QueryClient {
         };
     }
 
-    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true } }): Promise<readonly Record<string, string | number | Date | null>[]> {
-        const compiled = compilePqsRelationGroupBy(relation, args, this.profile);
+    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } }): Promise<readonly Record<string, string | number | Date | null>[]> {
         const root = relation === "__events" ? '"event"' : '"root"';
         const filter = this.compileWhere(relation, pqsRelationMetadata[relation], args.where, undefined, root);
+        const compiled = compilePqsRelationGroupBy(relation, args, this.profile, filter.values.length);
         const text = filter.where.length === 0 ? compiled.text : compiled.text.replace(" group by ", `${filter.where} group by `);
         try {
             await this.ready;

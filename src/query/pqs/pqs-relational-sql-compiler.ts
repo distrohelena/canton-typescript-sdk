@@ -40,25 +40,50 @@ export function compilePqsRelationFindMany(
 
 export function compilePqsRelationGroupBy(
     relation: PqsRelation,
-    args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } },
+    args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } },
     profile: PqsSchemaProfileV1,
+    parameterOffset = 0,
 ): CompiledPqsRelationQuery {
-    if (args.by.length === 0 || !args.aggregate.count) throw new Error("groupBy requires a key and aggregate");
+    if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires a key and aggregate");
     const metadata = pqsRelationMetadata[relation];
     const root = relation === "__events" ? "event" : "root";
     const joins: string[] = [];
     const expressions: string[] = [];
     const selected: string[] = [];
+    const values: unknown[] = [];
+    const add = (value: unknown) => { values.push(value); return `$${parameterOffset + values.length}`; };
     for (const key of args.by) {
         if (typeof key === "string") {
             const column = field(relation, metadata, key);
-            const expression = `"${root}"."${column}"`;
+            const expression = metadata.arrayFields.includes(key)
+                ? `"${key}".value`
+                : `"${root}"."${column}"`;
+            if (metadata.arrayFields.includes(key)) joins.push(`cross join lateral unnest("${root}"."${column}") as "${key}"(value)`);
             expressions.push(expression);
             selected.push(`${expression} as "${key}"`);
             continue;
         }
         if (key === null || typeof key !== "object") throw new Error("invalid group key");
         const [edgeName, nested] = Object.entries(key as Record<string, unknown>)[0] ?? [];
+        if (nested !== null && typeof nested === "object" && "name" in nested && "path" in nested && "as" in nested) {
+            const projection = nested as { readonly name: unknown; readonly path: unknown; readonly as: unknown };
+            if (typeof projection.name !== "string" || !Array.isArray(projection.path) || !projection.path.every((segment) => typeof segment === "string" && segment.length > 0) || !["text", "numeric", "boolean", "timestamp"].includes(String(projection.as)) || !PqsSchemaProfileV1.jsonField(relation, edgeName)) throw new Error("invalid profiled JSON group key");
+            const column = field(relation, metadata, edgeName);
+            const text = `"${root}"."${column}" #>> ${add(projection.path)}::text[]`;
+            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+            expressions.push(expression);
+            selected.push(`${expression} as "${projection.name}"`);
+            continue;
+        }
+        if (nested !== null && typeof nested === "object" && "bucket" in nested && PqsSchemaProfileV1.bucketField(relation, edgeName)) {
+            const bucket = (nested as { bucket?: unknown }).bucket;
+            if (typeof bucket !== "string" || !["hour", "day", "week", "month"].includes(bucket)) throw new Error("invalid profiled time bucket");
+            const column = field(relation, metadata, edgeName);
+            const expression = `date_trunc('${bucket}', "${root}"."${column}")`;
+            expressions.push(expression);
+            selected.push(`${expression} as "${edgeName}_${bucket}"`);
+            continue;
+        }
         const edge = pqsRelationEdges[relation]?.[edgeName];
         if (edge === undefined || edge.cardinality !== "one" || nested === null || typeof nested !== "object") throw new Error("group key must follow a profiled to-one edge");
         const [fieldName, bucketValue] = Object.entries(nested as Record<string, unknown>)[0] ?? [];
@@ -70,7 +95,12 @@ export function compilePqsRelationGroupBy(
         expressions.push(expression);
         selected.push(`${expression} as "${edgeName}_${fieldName}_${bucket}"`);
     }
-    return { text: `select ${[...selected, "count(*)::text as count"].join(", ")} from ${profile.relation(relation)} "${root}" ${joins.join(" ")} group by ${expressions.join(", ")}`, values: [] };
+    if (args.aggregate.count) selected.push("count(*)::text as count");
+    for (const [operation, fields] of [["min", args.aggregate.min], ["max", args.aggregate.max], ["sum", args.aggregate.sum]] as const) for (const name of fields ?? []) {
+        if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
+        selected.push(`${operation}("${root}"."${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
+    }
+    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)} "${root}" ${joins.join(" ")} group by ${expressions.join(", ")}`, values };
 }
 
 function selectedFields(relation: PqsRelation, metadata: PqsRelationMetadata, select: RelationFindManyArgs["select"]): readonly (readonly [string, string])[] {

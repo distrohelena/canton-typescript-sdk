@@ -5,6 +5,7 @@ import {
     ContractOrderBy,
 } from "../model-types.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
+import { PqsRelation, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
 
 export interface CompiledPqsQuery {
     readonly text: string;
@@ -150,35 +151,71 @@ function compileWhere(where: Record<string, unknown>, addValue: (value: unknown)
         if (key === "witnesses") { const has = (value as { has?: string }).has; if (has === undefined) throw new Error("witnesses supports only has"); parts.push(`${addValue(has)} = any(contract_row.witnesses)`); continue; }
         if (key === "payload") { const payload = value as Record<string, unknown>; const compilePayload = (path: string[], filter: Record<string, unknown>) => { const ops = ["equals", "lt", "lte", "gt", "gte", "like", "ilike"].filter((op) => filter[op] !== undefined); if (ops.length === 1) { const op = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string,string>)[ops[0]]; parts.push(`contract_row.payload #>> ${addValue(path)}::text[] ${op} ${addValue(filter[ops[0]])}`); return; } for (const [name, child] of Object.entries(filter)) compilePayload([...path, name], child as Record<string, unknown>); }; if (payload.match === undefined) throw new Error("payload requires match"); compilePayload([], payload.match as Record<string, unknown>); continue; }
         if (key === "templateId") { const fields: Record<string, string> = { packageId: "contract_row.creation_package_id", moduleName: "contract_tpe_row.module_name", entityName: "contract_tpe_row.entity_name" }; for (const [name, filter] of Object.entries(value as Record<string, Record<string, unknown>>)) for (const [op, operand] of Object.entries(filter)) { const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string, string>)[op]; if (fields[name] === undefined || sql === undefined) throw new Error("invalid templateId filter"); parts.push(`${fields[name]} ${sql} ${addValue(operand)}`); } continue; }
-        if (key === "exercises") { parts.push(compileExercisesRelation(value, profile, addValue)); continue; }
+        const edge = pqsRelationEdges.__contracts?.[key];
+        if (edge !== undefined) { parts.push(compilePhysicalRelationPredicate(edge.target, key, edge.targetColumn, edge.sourceColumn, edge.cardinality, value, "contract_row", profile, addValue)); continue; }
         const column = columns[key]; if (column === undefined || value === null || typeof value !== "object") throw new Error(`${key} is not a supported contract filter`);
         for (const [op, operand] of Object.entries(value as Record<string, unknown>)) { const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string,string>)[op]; if (sql !== undefined) parts.push(`${column} ${sql} ${addValue(operand)}`); else if (op === "is" && operand === null) parts.push(`${column} is null`); else if (op === "isNot" && operand === null) parts.push(`${column} is not null`); else if (op === "in" && Array.isArray(operand)) parts.push(operand.length ? `${column} = any(${addValue(operand)})` : "false"); else throw new Error(`${op} is not supported for ${key}`); }
     }
     return parts.length === 0 ? "true" : parts.join(" and ");
 }
 
-function compileExercisesRelation(value: unknown, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): string {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("exercises must be a relation filter");
-    const filter = value as Record<string, unknown>;
-    const operators = ["some", "none", "every"].filter((name) => filter[name] !== undefined);
-    if (operators.length !== 1) throw new Error("exercises requires exactly one of some, none, or every");
-    const child = filter[operators[0]];
-    if (child === null || typeof child !== "object" || Array.isArray(child)) throw new Error("exercise relation predicate must be an expression");
-    const conditions: string[] = [];
-    for (const [field, predicate] of Object.entries(child as Record<string, unknown>)) {
-        if (field === "witnesses") {
-            const has = (predicate as { has?: unknown }).has;
-            if (typeof has !== "string") throw new Error("exercise witnesses requires has");
-            conditions.push(`${addValue(has)} = any(exercise_row.witnesses)`);
-        } else if (field === "contractId") {
-            const equals = (predicate as { equals?: unknown }).equals;
-            if (typeof equals !== "string") throw new Error("exercise contractId requires equals");
-            conditions.push(`exercise_row.contract_id = ${addValue(equals)}`);
-        } else throw new Error(`${field} is not supported in contract exercise relation filter`);
+function compilePhysicalRelationPredicate(target: PqsRelation, edgeName: string, targetColumn: string, sourceColumn: string, cardinality: "one" | "many", value: unknown, parentAlias: string, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): string {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${edgeName} must be a relation filter`);
+    const relation = value as Record<string, unknown>;
+    const alias = `"${edgeName}"`;
+    const join = `${alias}."${targetColumn}" = ${parentAlias}."${sourceColumn}"`;
+    if (cardinality === "one") {
+        const predicate = compilePhysicalWhere(target, relation, alias, profile, addValue);
+        return `exists (select 1 from ${profile.relation(target)} ${alias} where ${join} and (${predicate}))`;
     }
-    const condition = conditions.length === 0 ? "true" : conditions.join(" and ");
-    const base = `select 1 from ${profile.relation("__exercises")} exercise_row where exercise_row.contract_id = contract_row.contract_id and (${condition})`;
-    return operators[0] === "some" ? `exists (${base})` : operators[0] === "none" ? `not exists (${base})` : `not exists (select 1 from ${profile.relation("__exercises")} exercise_row where exercise_row.contract_id = contract_row.contract_id and not (${condition}))`;
+    const operators = ["some", "none", "every"].filter((name) => relation[name] !== undefined);
+    if (operators.length !== 1) throw new Error(`${edgeName} requires exactly one of some, none, or every`);
+    const predicate = compilePhysicalWhere(target, relation[operators[0]] as Record<string, unknown>, alias, profile, addValue);
+    const base = `select 1 from ${profile.relation(target)} ${alias} where ${join} and (${predicate})`;
+    return operators[0] === "some" ? `exists (${base})` : operators[0] === "none" ? `not exists (${base})` : `not exists (select 1 from ${profile.relation(target)} ${alias} where ${join} and not (${predicate}))`;
+}
+
+function compilePhysicalWhere(relation: PqsRelation, expression: Record<string, unknown>, alias: string, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): string {
+    if (expression === null || typeof expression !== "object" || Array.isArray(expression)) throw new Error(`${relation} relation predicate must be an expression`);
+    const metadata = pqsRelationMetadata[relation];
+    const conditions: string[] = [];
+    for (const [field, value] of Object.entries(expression)) {
+        if (field === "and" || field === "or") {
+            if (!Array.isArray(value)) throw new Error(`${field} must be an array`);
+            conditions.push(value.length === 0 ? field === "and" ? "true" : "false" : `(${value.map((child) => compilePhysicalWhere(relation, child as Record<string, unknown>, alias, profile, addValue)).join(` ${field} `)})`);
+            continue;
+        }
+        if (field === "not") {
+            conditions.push(`not (${compilePhysicalWhere(relation, value as Record<string, unknown>, alias, profile, addValue)})`);
+            continue;
+        }
+        const edge = pqsRelationEdges[relation]?.[field];
+        if (edge !== undefined) {
+            conditions.push(compilePhysicalRelationPredicate(edge.target, field, edge.targetColumn, edge.sourceColumn, edge.cardinality, value, alias, profile, addValue));
+            continue;
+        }
+        const column = metadata.fields[field];
+        if (column === undefined || value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${field} is not a field of ${relation}`);
+        const filter = value as Record<string, unknown>;
+        const text = PqsSchemaProfileV1.jsonField(relation, field) && Array.isArray(filter.path) ? `${alias}."${column}" #>> ${addValue(filter.path)}::text[]` : `${alias}."${column}"`;
+        if (Array.isArray(filter.path) && (filter.path.length === 0 || filter.path.some((segment) => typeof segment !== "string" || segment.length === 0))) throw new Error(`${field}.path must be a non-empty JSON path`);
+        if (filter.is === null) conditions.push(`${text} is null`);
+        if (filter.isNot === null) conditions.push(`${text} is not null`);
+        if (filter.equals !== undefined) conditions.push(`${text} = ${addValue(filter.equals)}`);
+        if (filter.in !== undefined) {
+            if (!Array.isArray(filter.in)) throw new Error(`${field}.in must be an array`);
+            conditions.push(filter.in.length === 0 ? "false" : `${text} = any(${addValue(filter.in)})`);
+        }
+        if (filter.has !== undefined) {
+            if (!metadata.arrayFields.includes(field)) throw new Error(`${field} is not an array field of ${relation}`);
+            conditions.push(`${addValue(filter.has)} = any(${alias}."${column}")`);
+        }
+        for (const [operator, operand] of Object.entries(filter)) {
+            const sql = ({ lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string, string>)[operator];
+            if (sql !== undefined) conditions.push(`${text} ${sql} ${addValue(operand)}`);
+        }
+    }
+    return conditions.length === 0 ? "true" : conditions.join(" and ");
 }
 
 function compileOrderBy(

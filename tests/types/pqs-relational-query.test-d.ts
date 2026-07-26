@@ -43,6 +43,11 @@ void unboundedMany;
 declare const query: QueryClient;
 void query.events.groupBy(eventDayBucket);
 
+void query.transactions.groupBy({
+    by: ["domainId", { effectiveAt: { bucket: "day" } }],
+    aggregate: { count: true, sum: ["paidTrafficCost"] },
+});
+
 void query.transactions.findMany({
     where: { exercises: { some: { witnesses: { has: "Alice" } } } },
 });

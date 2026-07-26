@@ -70,8 +70,8 @@ describe("PQS SQL compiler", () => {
             where: { exercises: { some: { witnesses: { has: "Alice" } } } },
         }, new PqsSchemaProfileV1());
 
-        expect(query.text).toContain('exists (select 1 from "public"."__exercises" exercise_row');
-        expect(query.text).toContain('exercise_row.contract_id = contract_row.contract_id');
+        expect(query.text).toContain('exists (select 1 from "public"."__exercises" "exercises"');
+        expect(query.text).toContain('"exercises"."contract_id" = contract_row."contract_id"');
         expect(query.values).toEqual(["Alice"]);
     });
 });
