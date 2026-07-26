@@ -40,6 +40,23 @@ export function compileContractFindMany(
 
     const offsetSql = args.skip === undefined ? "" : `offset ${addValue(args.skip)}`;
 
+    const include = args.include;
+    const included = [
+        include?.contractType === undefined ? undefined : "to_jsonb(contract_tpe_row) as contract_type",
+        include?.createdTransaction === undefined ? undefined : "to_jsonb(created_tx) as created_transaction",
+        include?.archivedTransaction === undefined ? undefined : "to_jsonb(archived_tx) as archived_transaction",
+        include?.exercises === undefined ? undefined : "exercise_rows.exercises",
+    ].filter((field): field is string => field !== undefined);
+    const exercisesJoin = include?.exercises === undefined ? "" : `
+left join lateral (
+  select coalesce(jsonb_agg(to_jsonb(exercise_row)), '[]'::jsonb) as exercises
+  from (
+    select * from ${profile.relation("__exercises")} exercise_row
+    where exercise_row.contract_id = contract_row.contract_id
+    limit ${addValue(include.exercises.take)}
+  ) exercise_row
+) exercise_rows on true`;
+
     return {
         text: `select
   contract_row.contract_id as contract_id,
@@ -53,11 +70,12 @@ export function compileContractFindMany(
   contract_row.archived_at_ix is null as active,
   contract_row.creation_package_id as template_package_id,
   contract_tpe_row.module_name as template_module_name,
-  contract_tpe_row.entity_name as template_entity_name
+  contract_tpe_row.entity_name as template_entity_name${included.length === 0 ? "" : `,\n  ${included.join(",\n  ")}`}
 from ${profile.relation("__contracts")} contract_row
 join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix
 left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix
+${exercisesJoin}
 ${whereSql}
 ${orderBy}
 ${limitSql}

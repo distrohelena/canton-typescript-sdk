@@ -9,6 +9,7 @@ import {
     ContractFindManyArgs,
     ContractFindUniqueArgs,
     ContractRow,
+    ContractResult,
     EventOrderBy,
     EventRow,
     EventSelect,
@@ -75,8 +76,8 @@ export interface QueryClient {
     readonly source: QuerySource;
     $queryRaw<TRow>(sql: string, values?: readonly unknown[]): Promise<readonly TRow[]>;
     readonly contracts: {
-        findMany(args?: ContractFindManyArgs): Promise<readonly ContractRow[]>;
-        findUnique(args: ContractFindUniqueArgs): Promise<ContractRow | undefined>;
+        findMany(args?: ContractFindManyArgs): Promise<readonly ContractResult[]>;
+        findUnique(args: ContractFindUniqueArgs): Promise<ContractResult | undefined>;
         count(args?: ContractCountArgs): Promise<number>;
         aggregate(args: {
             readonly where?: ContractCountArgs["where"];

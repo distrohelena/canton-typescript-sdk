@@ -42,6 +42,40 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual(["pkg", "Module", "Template"]);
     });
 
+    it("includes profiled to-one and bounded to-many contract relations", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true,
+                template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template",
+                contract_type: { pk: "1", templateFqn: "pkg:Module:Template" },
+                created_transaction: { ix: "42", transactionId: "tx" },
+                archived_transaction: null,
+                exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        const rows = await client.contracts.findMany({
+            include: {
+                contractType: true,
+                createdTransaction: true,
+                archivedTransaction: true,
+                exercises: { take: 2 },
+            },
+        });
+
+        expect(rows[0]).toMatchObject({
+            contractId: "cid",
+            contractType: { pk: "1", templateFqn: "pkg:Module:Template" },
+            createdTransaction: { ix: "42", transactionId: "tx" },
+            archivedTransaction: null,
+            exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
+        });
+        expect(query.mock.calls[0][0]).toContain('to_jsonb(contract_tpe_row) as contract_type');
+        expect(query.mock.calls[0][0]).toContain('jsonb_agg(to_jsonb(exercise_row))');
+        expect(query.mock.calls[0][1]).toEqual([2]);
+    });
+
     it("runs validated raw queries with separate values", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
 

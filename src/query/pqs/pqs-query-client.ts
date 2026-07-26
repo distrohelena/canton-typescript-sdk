@@ -3,6 +3,7 @@ import {
     ContractFindManyArgs,
     ContractFindUniqueArgs,
     ContractRow,
+    ContractResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -355,11 +356,12 @@ export class PqsQueryClient implements QueryClient {
             .map(([field]) => [field, mapPhysicalValue(row[field], metadata, field)]));
     }
 
-    private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractRow[]> {
+    private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractResult[]> {
         const compiled = compileContractFindMany(args, this.profile);
 
         try {
-            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map(mapContractRow);
+            const include = "include" in args ? args.include : undefined;
+            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, include));
 
             const select = "select" in args ? args.select : undefined;
 
@@ -373,7 +375,7 @@ export class PqsQueryClient implements QueryClient {
                 throw new Error("select must include at least one field");
             }
 
-            return rows.map((row) => Object.fromEntries(fields.map((field) => [field, row[field as keyof ContractRow]])) as unknown as ContractRow);
+            return rows.map((row) => ({ ...row, ...Object.fromEntries(fields.map((field) => [field, row[field as keyof ContractRow]])) }));
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
         }
@@ -427,8 +429,15 @@ function mapPhysicalValue(value: unknown, metadata: PqsRelationMetadata, field: 
     return value;
 }
 
-function mapContractRow(row: Record<string, unknown>): ContractRow {
-    return { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
+function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined): ContractResult {
+    const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
+    const relations = {
+        ...(include?.contractType === undefined ? {} : { contractType: row.contract_type as ContractResult["contractType"] }),
+        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: row.created_transaction as ContractResult["createdTransaction"] }),
+        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: row.archived_transaction as ContractResult["archivedTransaction"] }),
+        ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises as ContractResult["exercises"] : [] }),
+    };
+    return { ...base, ...relations };
 }
 
 function nullableString(value: unknown): string | null {

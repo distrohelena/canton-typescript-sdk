@@ -112,6 +112,15 @@ export interface ContractRow {
     readonly active: boolean;
 }
 
+export interface ContractRelationRow {
+    readonly contractType?: ContractTypeRow;
+    readonly createdTransaction?: TransactionRow;
+    readonly archivedTransaction?: TransactionRow | null;
+    readonly exercises?: readonly ExerciseRow[];
+}
+
+export type ContractResult = ContractRow & ContractRelationRow;
+
 export interface TemplateId {
     readonly packageId: string;
     readonly moduleName: string;
