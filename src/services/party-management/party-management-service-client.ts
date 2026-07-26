@@ -1,16 +1,12 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
-import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreateExternalPartyRequest } from "../../core/types/requests/create-external-party-request.js";
 import { CreateDecentralizedPartyRequest } from "../../core/types/requests/create-decentralized-party-request.js";
-import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
-import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import { ExternalPartyOnboardingTransaction } from "../../core/types/external-party/external-party-onboarding-transaction.js";
 import { ExternalPartySignature } from "../../core/types/external-party/external-party-signature.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
-import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { PreparedDecentralizedParty } from "../../core/types/requests/finalize-decentralized-party-request.js";
 import { DecentralizedPartyDetachedSignature } from "../../core/types/requests/finalize-decentralized-party-request.js";
@@ -19,8 +15,24 @@ import { TopologyManagerWriteServiceClient } from "../topology-manager-write/top
 import { prepareDecentralizedPartyAsync } from "./decentralized-party-lifecycle.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { computeCantonPublicKeyFingerprint } from "../../core/hashing/canton-hash.js";
-import { GetParticipantIdRequest } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
-import type { GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import {
+    AllocateExternalPartyRequest,
+    GetParticipantIdRequest,
+    GenerateExternalPartyTopologyRequest,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import type {
+    AllocateExternalPartyResponse,
+    GenerateExternalPartyTopologyResponse,
+    GetParticipantIdResponse,
+    GetPartiesRequest,
+    GetPartiesResponse,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import {
+    CryptoKeyFormat,
+    SignatureFormat,
+    SigningAlgorithmSpec,
+    SigningKeySpec,
+} from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/crypto.js";
 
 export class PartyManagementServiceClient {
     public constructor(
@@ -114,12 +126,12 @@ export class PartyManagementServiceClient {
             }
         }
 
-        return this.allocateExternalPartyAsync(new AllocateExternalPartyRequest({
+        return this.allocateExternalPartyAsync(AllocateExternalPartyRequest.create({
             synchronizer: prepared.synchronizer,
             onboardingTransactions: prepared.transactions.map((transaction) =>
-                new ExternalPartyOnboardingTransaction({
+                ({
                     transaction: transaction.serializedTransaction,
-                    signatures: signaturesByHash.get(toHex(transaction.transactionHash)) ?? [],
+                    signatures: (signaturesByHash.get(toHex(transaction.transactionHash)) ?? []).map(toGeneratedSignature),
                 }),
             ),
             multiHashSignatures: [],
@@ -219,10 +231,10 @@ export class PartyManagementServiceClient {
         options?: RequestOptions,
     ): Promise<AllocateExternalPartyResponse> {
         const generated = await this.generateExternalPartyTopologyAsync(
-            new GenerateExternalPartyTopologyRequest({
+            GenerateExternalPartyTopologyRequest.create({
                 synchronizer: request.synchronizer,
                 partyHint: request.partyHint,
-                publicKey: request.publicKey,
+                publicKey: toGeneratedPublicKey(request.publicKey),
                 localParticipantObservationOnly:
                     request.localParticipantObservationOnly,
                 otherConfirmingParticipantUids:
@@ -261,10 +273,13 @@ export class PartyManagementServiceClient {
         );
 
         return this.allocateExternalPartyAsync(
-            new AllocateExternalPartyRequest({
+            AllocateExternalPartyRequest.create({
                 synchronizer: request.synchronizer,
-                onboardingTransactions,
-                multiHashSignatures: [multiHashSignature],
+                onboardingTransactions: onboardingTransactions.map((transaction) => ({
+                    transaction: transaction.transaction,
+                    signatures: transaction.signatures.map(toGeneratedSignature),
+                })),
+                multiHashSignatures: [toGeneratedSignature(multiHashSignature)],
                 identityProviderId: request.identityProviderId,
                 waitForAllocation: request.waitForAllocation,
                 userId: request.userId,
@@ -295,6 +310,29 @@ export class PartyManagementServiceClient {
         });
     }
 }
+
+function toGeneratedPublicKey(value: CreateExternalPartyRequest["publicKey"]): GenerateExternalPartyTopologyRequest["publicKey"] {
+    if (value === undefined) return undefined;
+    return {
+        format: mapCryptoKeyFormat(value.format),
+        keyData: new Uint8Array(value.keyData),
+        keySpec: mapSigningKeySpec(value.keySpec),
+    };
+}
+
+function toGeneratedSignature(value: ExternalPartySignature) {
+    return {
+        format: mapSignatureFormat(value.format),
+        signature: new Uint8Array(value.signature),
+        signedBy: value.signedByFingerprint,
+        signingAlgorithmSpec: mapSigningAlgorithm(value.signingAlgorithmSpec),
+    };
+}
+
+function mapCryptoKeyFormat(value: string): CryptoKeyFormat { return value === "der" ? CryptoKeyFormat.DER : value === "raw" ? CryptoKeyFormat.RAW : value === "derX509SubjectPublicKeyInfo" ? CryptoKeyFormat.DER_X509_SUBJECT_PUBLIC_KEY_INFO : CryptoKeyFormat.UNSPECIFIED; }
+function mapSigningKeySpec(value: string): SigningKeySpec { return value === "ecCurve25519" ? SigningKeySpec.EC_CURVE25519 : value === "ecP256" ? SigningKeySpec.EC_P256 : value === "ecP384" ? SigningKeySpec.EC_P384 : value === "ecSecp256k1" ? SigningKeySpec.EC_SECP256K1 : value === "mlDsa65" ? SigningKeySpec.ML_DSA_65 : SigningKeySpec.UNSPECIFIED; }
+function mapSignatureFormat(value: string): SignatureFormat { return value === "raw" ? SignatureFormat.RAW : value === "der" ? SignatureFormat.DER : value === "concat" ? SignatureFormat.CONCAT : value === "symbolic" ? SignatureFormat.SYMBOLIC : SignatureFormat.UNSPECIFIED; }
+function mapSigningAlgorithm(value: string): SigningAlgorithmSpec { return value === "ed25519" ? SigningAlgorithmSpec.ED25519 : value === "ecDsaSha256" ? SigningAlgorithmSpec.EC_DSA_SHA_256 : value === "ecDsaSha384" ? SigningAlgorithmSpec.EC_DSA_SHA_384 : value === "mlDsa65" ? SigningAlgorithmSpec.ML_DSA_65 : SigningAlgorithmSpec.UNSPECIFIED; }
 
 function toHex(bytes: Uint8Array): string {
     return [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");

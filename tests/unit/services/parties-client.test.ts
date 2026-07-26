@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AllocateExternalPartyRequest,
-    AllocateExternalPartyResponse,
     CreateExternalPartyRequest,
     CreateDecentralizedPartyRequest,
     PreparedDecentralizedParty,
@@ -12,8 +10,6 @@ import {
     ExternalPartySigningPublicKey,
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
-    GenerateExternalPartyTopologyRequest,
-    GenerateExternalPartyTopologyResponse,
     GetParticipantIdRequest,
     GetParticipantIdResponse,
     GetPartiesRequest,
@@ -23,6 +19,12 @@ import {
     PartyDetails,
     RequestOptions,
 } from "../../../src";
+import {
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyResponse,
+    GenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GenerateTransactionsResponse } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 
@@ -56,7 +58,7 @@ describe("PartyManagementServiceClient", () => {
 
         const generateExternalPartyTopologyAsync = vi.fn(
             async () =>
-                new GenerateExternalPartyTopologyResponse({
+                GenerateExternalPartyTopologyResponse.create({
                     partyId: "ed25519_party::fingerprint",
                     publicKeyFingerprint: "fingerprint",
                     topologyTransactions: [new Uint8Array([1, 2, 3])],
@@ -66,7 +68,7 @@ describe("PartyManagementServiceClient", () => {
 
         const allocateExternalPartyAsync = vi.fn(
             async () =>
-                new AllocateExternalPartyResponse({
+                AllocateExternalPartyResponse.create({
                     partyId: "ed25519_party::fingerprint",
                 }),
         );
@@ -122,31 +124,25 @@ describe("PartyManagementServiceClient", () => {
             filterParty: "Alice",
         });
 
-        const externalPartyRequest = new GenerateExternalPartyTopologyRequest({
+        const externalPartyRequest = GenerateExternalPartyTopologyRequest.create({
             synchronizer: "sync::sandbox",
             partyHint: "ed25519_party",
-            publicKey: new ExternalPartySigningPublicKey({
-                format: ExternalPartyCryptoKeyFormat.raw,
-                keyData: new Uint8Array([1, 2, 3]),
-                keySpec: ExternalPartySigningKeySpec.ecCurve25519,
-            }),
         });
 
-        const allocateExternalRequest = new AllocateExternalPartyRequest({
+        const allocateExternalRequest = AllocateExternalPartyRequest.create({
             synchronizer: "sync::sandbox",
             onboardingTransactions: [
-                new ExternalPartyOnboardingTransaction({
+                {
                     transaction: new Uint8Array([7, 8, 9]),
                     signatures: [
                         new ExternalPartySignature({
-                            format: ExternalPartySignatureFormat.concat,
+                            format: 3,
                             signature: new Uint8Array([10, 11, 12]),
-                            signedByFingerprint: "fingerprint",
-                            signingAlgorithmSpec:
-                                ExternalPartySigningAlgorithmSpec.ed25519,
+                            signedBy: "fingerprint",
+                            signingAlgorithmSpec: 1,
                         }),
                     ],
-                }),
+                },
             ],
         });
 
@@ -170,13 +166,15 @@ describe("PartyManagementServiceClient", () => {
                 externalPartyRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GenerateExternalPartyTopologyResponse);
+        ).resolves.toEqual(GenerateExternalPartyTopologyResponse.create({
+            partyId: "ed25519_party::fingerprint", publicKeyFingerprint: "fingerprint", topologyTransactions: [new Uint8Array([1, 2, 3])], multiHash: new Uint8Array([4, 5, 6]),
+        }));
         await expect(
             client.allocateExternalPartyAsync(
                 allocateExternalRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(AllocateExternalPartyResponse);
+        ).resolves.toEqual(AllocateExternalPartyResponse.create({ partyId: "ed25519_party::fingerprint" }));
 
         expect(listKnownPartiesAsync).toHaveBeenLastCalledWith(
             request,
@@ -339,7 +337,7 @@ describe("PartyManagementServiceClient", () => {
     });
 
     it("creates an external party with caller-provided signatures", async () => {
-        const generated = new GenerateExternalPartyTopologyResponse({
+        const generated = GenerateExternalPartyTopologyResponse.create({
             partyId: "alice::fingerprint",
             publicKeyFingerprint: "fingerprint",
             topologyTransactions: [
@@ -352,7 +350,7 @@ describe("PartyManagementServiceClient", () => {
         const generateExternalPartyTopologyAsync = vi.fn(async () => generated);
 
         const allocateExternalPartyAsync = vi.fn(
-            async () => new AllocateExternalPartyResponse({ partyId: generated.partyId }),
+            async () => AllocateExternalPartyResponse.create({ partyId: generated.partyId }),
         );
 
         const transport = {
@@ -449,13 +447,13 @@ describe("PartyManagementServiceClient", () => {
                 synchronizer: "sync::sandbox",
                 waitForAllocation: true,
                 multiHashSignatures: [expect.objectContaining({
-                    signedByFingerprint: "fingerprint",
+                    signedBy: "fingerprint",
                 })],
                 onboardingTransactions: [
                     expect.objectContaining({
                         transaction: new Uint8Array([1, 2, 3]),
                         signatures: [expect.objectContaining({
-                            signedByFingerprint: "fingerprint",
+                            signedBy: "fingerprint",
                         })],
                     }),
                     expect.objectContaining({

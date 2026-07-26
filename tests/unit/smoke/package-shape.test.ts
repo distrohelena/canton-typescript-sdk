@@ -11,14 +11,10 @@ import {
     ConnectedSynchronizerStatus,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
-    GenerateExternalPartyTopologyRequest,
-    GenerateExternalPartyTopologyResponse,
     GetPackageRequest,
     GetPackageResponse,
     GetPackageStatusRequest,
     GetPackageStatusResponse,
-    AllocateExternalPartyRequest,
-    AllocateExternalPartyResponse,
     EndpointNotConfiguredError,
     ExternalPartyCryptoKeyFormat,
     ExternalPartyOnboardingTransaction,
@@ -114,10 +110,6 @@ describe("package surface", () => {
         expect(AssembleSignedTopologyTransactionsRequest).toBeTypeOf(
             "function",
         );
-        expect(GenerateExternalPartyTopologyRequest).toBeTypeOf("function");
-        expect(GenerateExternalPartyTopologyResponse).toBeTypeOf("function");
-        expect(AllocateExternalPartyRequest).toBeTypeOf("function");
-        expect(AllocateExternalPartyResponse).toBeTypeOf("function");
         expect(ExternalPartySigningPublicKey).toBeTypeOf("function");
         expect(ExternalPartySignature).toBeTypeOf("function");
         expect(ExternalPartyOnboardingTransaction).toBeTypeOf("function");

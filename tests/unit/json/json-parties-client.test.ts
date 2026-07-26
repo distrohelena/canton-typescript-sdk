@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AllocateExternalPartyRequest,
     AllocatePartyRequest,
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
-    GenerateExternalPartyTopologyRequest,
     ListKnownPartiesRequest,
 } from "../../../src";
+import {
+    AllocateExternalPartyRequest,
+    GenerateExternalPartyTopologyRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { CreateExternalPartyRequest } from "../../../src/core/types/requests/create-external-party-request.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
@@ -97,14 +99,9 @@ describe("PartyManagementServiceClient with JSON transport", () => {
 
         await expect(
             client.generateExternalPartyTopologyAsync(
-                new GenerateExternalPartyTopologyRequest({
+                GenerateExternalPartyTopologyRequest.create({
                     synchronizer: "sync::sandbox",
                     partyHint: "ed25519_party",
-                    publicKey: new ExternalPartySigningPublicKey({
-                        format: ExternalPartyCryptoKeyFormat.raw,
-                        keyData: new Uint8Array([1, 2, 3]),
-                        keySpec: ExternalPartySigningKeySpec.ecCurve25519,
-                    }),
                 }),
             ),
         ).rejects.toThrow(
@@ -113,7 +110,7 @@ describe("PartyManagementServiceClient with JSON transport", () => {
 
         await expect(
             client.allocateExternalPartyAsync(
-                new AllocateExternalPartyRequest({
+                AllocateExternalPartyRequest.create({
                     synchronizer: "sync::sandbox",
                 }),
             ),

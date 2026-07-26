@@ -205,7 +205,6 @@ export { CreateDecentralizedPartyRequest } from "./core/types/requests/create-de
 export type { DecentralizedPartyKey, DecentralizedPartySigner, DecentralizedPartySigningRequest } from "./core/types/requests/create-decentralized-party-request.js";
 export { FinalizeDecentralizedPartyRequest, PreparedDecentralizedParty } from "./core/types/requests/finalize-decentralized-party-request.js";
 export type { DecentralizedPartyDetachedSignature, PreparedDecentralizedPartySigningRequest } from "./core/types/requests/finalize-decentralized-party-request.js";
-export { AllocateExternalPartyRequest } from "./core/types/requests/allocate-external-party-request.js";
 export {
     CreateExternalPartyRequest,
 } from "./core/types/requests/create-external-party-request.js";
@@ -222,7 +221,6 @@ export { DamlContractId } from "./core/types/daml-contract-id.js";
 export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant, DamlEnum, DamlRecord } from "./core/types/daml-values.js";
 export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-command-transaction-response.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
-export { GenerateExternalPartyTopologyRequest } from "./core/types/requests/generate-external-party-topology-request.js";
 export { GetDarContentsRequest } from "./core/types/requests/get-dar-contents-request.js";
 export { GetDarRequest } from "./core/types/requests/get-dar-request.js";
 export { GetActiveContractsPageRequest } from "./core/types/requests/get-active-contracts-page-request.js";
@@ -271,7 +269,6 @@ export { TopologyListPartiesRequest } from "./core/types/requests/topology-list-
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
 export type { UserRightAssignment } from "./core/types/requests/grant-user-rights-request.js";
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
-export { AllocateExternalPartyResponse } from "./core/types/responses/allocate-external-party-response.js";
 export { AllocatePartyResponse } from "./core/types/responses/allocate-party-response.js";
 export { GetDarContentsResponse } from "./core/types/responses/get-dar-contents-response.js";
 export { GetDarResponse } from "./core/types/responses/get-dar-response.js";
@@ -290,7 +287,6 @@ export { GetPackageReferencesResponse } from "./core/types/responses/get-package
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
-export { GenerateExternalPartyTopologyResponse } from "./core/types/responses/generate-external-party-topology-response.js";
 export { ListAllResponse } from "./core/types/responses/list-all-response.js";
 export { ListDecentralizedNamespaceDefinitionResponse } from "./core/types/responses/list-decentralized-namespace-definition-response.js";
 export { ListLsuAnnouncementResponse } from "./core/types/responses/list-lsu-announcement-response.js";

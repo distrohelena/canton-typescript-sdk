@@ -1,12 +1,9 @@
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
-import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
-import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
-import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
@@ -105,7 +102,12 @@ import type {
     GetScheduleRequest as GetPruningScheduleRequest,
     GetScheduleResponse as GetPruningScheduleResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
-import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
+import type {
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyResponse,
+    GenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import type {
     GetSynchronizerIdRequest,
     GetSynchronizerIdResponse,

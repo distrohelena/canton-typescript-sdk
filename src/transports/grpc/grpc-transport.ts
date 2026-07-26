@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
-import { AllocateExternalPartyRequest } from "../../core/types/requests/allocate-external-party-request.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GenerateExternalPartyTopologyRequest } from "../../core/types/requests/generate-external-party-topology-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
@@ -12,8 +10,6 @@ import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
-import { AllocateExternalPartyResponse } from "../../core/types/responses/allocate-external-party-response.js";
-import { GenerateExternalPartyTopologyResponse } from "../../core/types/responses/generate-external-party-topology-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
@@ -40,12 +36,6 @@ import {
     mapGrpcQueryContracts,
     mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
-import {
-    mapGrpcAllocateExternalPartyRequest,
-    mapGrpcAllocateExternalPartyResponse,
-    mapGrpcGenerateExternalPartyTopologyRequest,
-    mapGrpcGenerateExternalPartyTopologyResponse,
-} from "./mappers/external-party-management-mapper.js";
 import {
 } from "./mappers/identity-provider-config-mapper.js";
 import {
@@ -89,8 +79,10 @@ import {
     ListVettedPackagesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/package_service.js";
 import {
+    AllocateExternalPartyRequest as ProtobufAllocateExternalPartyRequest,
     AllocateExternalPartyResponse as ProtobufAllocateExternalPartyResponse,
     AllocatePartyResponse,
+    GenerateExternalPartyTopologyRequest as ProtobufGenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse as ProtobufGenerateExternalPartyTopologyResponse,
     ListKnownPartiesResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
@@ -361,35 +353,31 @@ export class GrpcTransport implements ITransport {
     }
 
     public async generateExternalPartyTopologyAsync(
-        request: GenerateExternalPartyTopologyRequest,
+        request: ProtobufGenerateExternalPartyTopologyRequest,
         options?: RequestOptions,
-    ): Promise<GenerateExternalPartyTopologyResponse> {
+    ): Promise<ProtobufGenerateExternalPartyTopologyResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.generateExternalPartyTopologyAsync!(
-            mapGrpcGenerateExternalPartyTopologyRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcGenerateExternalPartyTopologyResponse(
-            payload as ProtobufGenerateExternalPartyTopologyResponse,
-        );
+        return payload as ProtobufGenerateExternalPartyTopologyResponse;
     }
 
     public async allocateExternalPartyAsync(
-        request: AllocateExternalPartyRequest,
+        request: ProtobufAllocateExternalPartyRequest,
         options?: RequestOptions,
-    ): Promise<AllocateExternalPartyResponse> {
+    ): Promise<ProtobufAllocateExternalPartyResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.allocateExternalPartyAsync!(
-            mapGrpcAllocateExternalPartyRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcAllocateExternalPartyResponse(
-            payload as ProtobufAllocateExternalPartyResponse,
-        );
+        return payload as ProtobufAllocateExternalPartyResponse;
     }
 
     public async getParticipantIdAsync(

@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-    AllocateExternalPartyRequest,
-    AllocateExternalPartyResponse,
     ExternalPartyCryptoKeyFormat,
     ExternalPartyOnboardingTransaction,
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
-    GenerateExternalPartyTopologyRequest,
-    GenerateExternalPartyTopologyResponse,
     ListKnownPartiesRequest,
 } from "../../../src";
+import {
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyResponse,
+    GenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
@@ -71,19 +73,14 @@ describe("PartyManagementServiceClient with gRPC transport", () => {
         const client = new PartyManagementServiceClient(transport);
 
         const generated = await client.generateExternalPartyTopologyAsync(
-            new GenerateExternalPartyTopologyRequest({
+            GenerateExternalPartyTopologyRequest.create({
                 synchronizer: "sync::sandbox",
                 partyHint: "ed25519_party",
-                publicKey: new ExternalPartySigningPublicKey({
-                    format: ExternalPartyCryptoKeyFormat.raw,
-                    keyData: new Uint8Array([1, 2, 3]),
-                    keySpec: ExternalPartySigningKeySpec.ecCurve25519,
-                }),
             }),
         );
 
         const allocated = await client.allocateExternalPartyAsync(
-            new AllocateExternalPartyRequest({
+            AllocateExternalPartyRequest.create({
                 synchronizer: "sync::sandbox",
                 onboardingTransactions: [
                     new ExternalPartyOnboardingTransaction({
@@ -100,9 +97,14 @@ describe("PartyManagementServiceClient with gRPC transport", () => {
         expect(capturedAllocateRequest).toMatchObject({
             synchronizer: "sync::sandbox",
         });
-        expect(generated).toBeInstanceOf(GenerateExternalPartyTopologyResponse);
+        expect(generated).toEqual(GenerateExternalPartyTopologyResponse.create({
+            partyId: "ed25519_party::fingerprint",
+            publicKeyFingerprint: "fingerprint",
+            topologyTransactions: [new Uint8Array([1, 2, 3])],
+            multiHash: new Uint8Array([4, 5, 6]),
+        }));
         expect(generated.partyId).toBe("ed25519_party::fingerprint");
-        expect(allocated).toBeInstanceOf(AllocateExternalPartyResponse);
+        expect(allocated).toEqual(AllocateExternalPartyResponse.create({ partyId: "ed25519_party::fingerprint" }));
         expect(allocated.partyId).toBe("ed25519_party::fingerprint");
     });
 });

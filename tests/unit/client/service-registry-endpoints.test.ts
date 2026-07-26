@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-    AllocateExternalPartyRequest,
-    AllocateExternalPartyResponse,
     CantonClientOptions,
     EndpointNotConfiguredError,
     ExternalPartyCryptoKeyFormat,
@@ -9,8 +7,6 @@ import {
     ExternalPartySigningPublicKey,
     GetParticipantStatusRequest,
     GetParticipantStatusResponse,
-    GenerateExternalPartyTopologyRequest,
-    GenerateExternalPartyTopologyResponse,
     ParticipantPermission,
     UploadDarFileRequest,
     UploadDarFileResponse,
@@ -21,6 +17,12 @@ import {
     TopologyListPartiesResponse,
     TransportKind,
 } from "../../../src";
+import {
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyResponse,
+    GenerateExternalPartyTopologyRequest,
+    GenerateExternalPartyTopologyResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
 import {
     GenerateTransactionsRequest,
@@ -120,7 +122,7 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             generateExternalPartyTopologyAsync: vi.fn(async () => {
-                return new GenerateExternalPartyTopologyResponse({
+                return GenerateExternalPartyTopologyResponse.create({
                     partyId: "ed25519_party::fingerprint",
                     publicKeyFingerprint: "fingerprint",
                     topologyTransactions: [new Uint8Array([1, 2, 3])],
@@ -128,7 +130,7 @@ describe("service registry endpoint routing", () => {
                 });
             }),
             allocateExternalPartyAsync: vi.fn(async () => {
-                return new AllocateExternalPartyResponse({
+                return AllocateExternalPartyResponse.create({
                     partyId: "ed25519_party::fingerprint",
                 });
             }),
@@ -232,7 +234,7 @@ describe("service registry endpoint routing", () => {
         ).resolves.toBeInstanceOf(UploadDarFileResponse);
         await expect(
             services.partyManagementService.generateExternalPartyTopologyAsync(
-                new GenerateExternalPartyTopologyRequest({
+                GenerateExternalPartyTopologyRequest.create({
                     synchronizer: "sync::sandbox",
                     partyHint: "ed25519_party",
                     publicKey: new ExternalPartySigningPublicKey({
@@ -242,14 +244,14 @@ describe("service registry endpoint routing", () => {
                     }),
                 }),
             ),
-        ).resolves.toBeInstanceOf(GenerateExternalPartyTopologyResponse);
+        ).resolves.toEqual(GenerateExternalPartyTopologyResponse.create({ partyId: "ed25519_party::fingerprint", publicKeyFingerprint: "fingerprint", topologyTransactions: [new Uint8Array([1, 2, 3])], multiHash: new Uint8Array([4, 5, 6]) }));
         await expect(
             services.partyManagementService.allocateExternalPartyAsync(
-                new AllocateExternalPartyRequest({
+                AllocateExternalPartyRequest.create({
                     synchronizer: "sync::sandbox",
                 }),
             ),
-        ).resolves.toBeInstanceOf(AllocateExternalPartyResponse);
+        ).resolves.toEqual(AllocateExternalPartyResponse.create({ partyId: "ed25519_party::fingerprint" }));
         await expect(
             services.participantStatusService.getParticipantStatusAsync(
                 new GetParticipantStatusRequest(),
@@ -399,7 +401,7 @@ describe("service registry endpoint routing", () => {
         );
         await expect(
             services.partyManagementService.generateExternalPartyTopologyAsync(
-                new GenerateExternalPartyTopologyRequest({
+                GenerateExternalPartyTopologyRequest.create({
                     synchronizer: "sync::sandbox",
                     partyHint: "ed25519_party",
                 }),
@@ -409,7 +411,7 @@ describe("service registry endpoint routing", () => {
         );
         await expect(
             services.partyManagementService.allocateExternalPartyAsync(
-                new AllocateExternalPartyRequest({
+                AllocateExternalPartyRequest.create({
                     synchronizer: "sync::sandbox",
                 }),
             ),
