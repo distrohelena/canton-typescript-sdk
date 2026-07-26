@@ -1,6 +1,7 @@
 import {
     assertQueryPageArgs,
     ContractFindManyArgs,
+    ContractGroupByArgs,
     ContractOrderBy,
 } from "../model-types.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
@@ -80,6 +81,54 @@ ${whereSql}
 ${orderBy}
 ${limitSql}
 ${offsetSql}`,
+        values,
+    };
+}
+
+export function compileContractGroupBy(
+    args: ContractGroupByArgs,
+    profile: PqsSchemaProfileV1,
+): CompiledPqsQuery {
+    if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires keys and an aggregate");
+    const values: unknown[] = [];
+    const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, add);
+    const fields: Readonly<Record<string, string>> = {
+        contractId: "contract_row.contract_id",
+        createdEventOffset: "contract_row.created_at_ix",
+        archivedEventOffset: "contract_row.archived_at_ix",
+    };
+    const expressions: string[] = [];
+    const select: string[] = [];
+    let unnestWitnesses = false;
+    for (const key of args.by) {
+        if (key === "witnesses") {
+            unnestWitnesses = true;
+            expressions.push("witness.value");
+            select.push("witness.value as \"witnesses\"");
+        } else if (typeof key === "string") {
+            const expression = fields[key];
+            if (expression === undefined) throw new Error(`${key} is not a contract group key`);
+            expressions.push(expression);
+            select.push(`${expression} as "${key}"`);
+        } else {
+            const payload = key.payload;
+            if (payload.path.length === 0 || payload.path.some((segment) => segment.length === 0)) throw new Error("payload group path must be non-empty");
+            const base = `contract_row.payload #>> ${add(payload.path)}::text[]`;
+            const cast = payload.as === "text" ? base : `(${base})::${payload.as === "numeric" ? "numeric" : payload.as === "boolean" ? "boolean" : "timestamptz"}`;
+            expressions.push(cast);
+            select.push(`${cast} as "${payload.name}"`);
+        }
+    }
+    if (args.aggregate.count) select.push("count(*)::text as count");
+    for (const [operation, requested] of [["min", args.aggregate.min], ["max", args.aggregate.max], ["sum", args.aggregate.sum]] as const) {
+        for (const name of requested ?? []) {
+            const expression = fields[name];
+            select.push(`${operation}(${expression})::text as "${operation}_${name}"`);
+        }
+    }
+    return {
+        text: `select ${select.join(", ")} from ${profile.relation("__contracts")} contract_row${unnestWitnesses ? " cross join lateral unnest(contract_row.witnesses) as witness(value)" : ""}${where === undefined ? "" : ` where ${where}`} group by ${expressions.join(", ")}`,
         values,
     };
 }

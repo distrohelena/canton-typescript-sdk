@@ -153,6 +153,16 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual(["Alice"]);
     });
 
+    it("compiles typed JSON path predicates for profiled JSON columns", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.exercises.findMany({ where: { argument: { path: ["owner"], equals: "Alice" } } });
+
+        expect(query.mock.calls[0][0]).toContain('"argument" #>> $1::text[] = $2');
+        expect(query.mock.calls[0][1]).toEqual([["owner"], "Alice"]);
+    });
+
     it("compiles physical logical, range, and pattern predicates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
@@ -231,6 +241,18 @@ describe("PQS query client", () => {
             min: { createdEventOffset: "10" },
             sum: { createdEventOffset: "30", archivedEventOffset: "30" },
         });
+    });
+
+    it("groups contracts by JSON payload and witnesses", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ owner: "Alice", witnesses: "Alice", count: "2", sum_createdEventOffset: "42" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.groupBy({
+            by: [{ payload: { name: "owner", path: ["owner"], as: "text" } }, "witnesses"],
+            aggregate: { count: true, sum: ["createdEventOffset"] },
+        })).resolves.toEqual([{ owner: "Alice", witnesses: "Alice", count: 2, sum_createdEventOffset: "42" }]);
+        expect(query.mock.calls[0][0]).toContain("cross join lateral unnest(contract_row.witnesses)");
+        expect(query.mock.calls[0][1]).toEqual([["owner"]]);
     });
 
     it("does not expose findUnique for exercises", () => {

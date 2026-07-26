@@ -23,6 +23,20 @@ export interface ArrayMembershipFilter {
     readonly has: string;
 }
 
+export interface JsonPathFilter {
+    readonly path: readonly [string, ...readonly string[]];
+    readonly equals?: string;
+    readonly in?: readonly string[];
+    readonly lt?: string;
+    readonly lte?: string;
+    readonly gt?: string;
+    readonly gte?: string;
+    readonly like?: string;
+    readonly ilike?: string;
+    readonly is?: null;
+    readonly isNot?: null;
+}
+
 export interface RelationListFilter<TWhere> {
     readonly some?: TWhere;
     readonly none?: TWhere;
@@ -35,9 +49,10 @@ export type WhereExpression<TFields> = TFields & {
     readonly not?: WhereExpression<TFields>;
 };
 
-export type RowWhere<TRow, TOrdered extends keyof TRow = never, TPattern extends keyof TRow = never> = WhereExpression<Partial<{
+export type RowWhere<TRow, TOrdered extends keyof TRow = never, TPattern extends keyof TRow = never, TJson extends keyof TRow = never> = WhereExpression<Partial<{
     readonly [TField in keyof TRow]: TRow[TField] extends readonly string[]
         ? ScalarFilter<TRow[TField]> | ArrayMembershipFilter
+        : TField extends TJson ? JsonPathFilter
         : TField extends TPattern ? StringFilter
         : TField extends TOrdered ? OrderedFilter<TRow[TField]>
         : ScalarFilter<TRow[TField]>;
@@ -197,6 +212,13 @@ export interface ContractCountArgs {
     readonly where?: ContractWhere;
 }
 
+export type ContractGroupByKey = ContractOrderField | "witnesses" | {
+    readonly payload: JsonGroupBy;
+};
+
+export type ContractGroupByArgs = GroupByArgs<ContractWhere, ContractGroupByKey, "createdEventOffset" | "archivedEventOffset">;
+export type ContractGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+
 export interface ContractTypeRow {
     readonly pk: string;
     readonly payloadType: string;
@@ -306,7 +328,7 @@ export type EventWhere = RowWhere<EventRow, "pk" | "txIx", "eventId" | "type"> &
 export type EventSelect = RowSelect<EventRow>;
 export type EventOrderBy = RowOrderBy<EventRow>;
 export type EventUnique = { readonly pk: string };
-export type ExerciseWhere = RowWhere<ExerciseRow, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId", "contractId" | "redactionId"> & {
+export type ExerciseWhere = RowWhere<ExerciseRow, "tpePk" | "contractTpePk" | "exerciseEventPk" | "exercisedAtIx" | "packagePk" | "lastDescendantNodeId", "contractId" | "redactionId", "argument" | "result"> & {
     readonly exerciseType?: ExerciseTypeWhere;
     readonly contractType?: ContractTypeWhere;
     readonly event?: EventWhere;
@@ -324,7 +346,7 @@ export type PackageWhere = RowWhere<PackageRow, "pk", "name" | "version" | "id">
 export type PackageSelect = RowSelect<PackageRow>;
 export type PackageOrderBy = RowOrderBy<PackageRow>;
 export type PackageUnique = { readonly pk: string } | { readonly id: string };
-export type TransactionWhere = RowWhere<TransactionRow, "ix" | "offset" | "effectiveAt" | "paidTrafficCost", "transactionId" | "workflowId" | "domainId"> & {
+export type TransactionWhere = RowWhere<TransactionRow, "ix" | "offset" | "effectiveAt" | "paidTrafficCost", "transactionId" | "workflowId" | "domainId", "traceContext"> & {
     readonly events?: RelationListFilter<EventWhere>;
     readonly createdContracts?: RelationListFilter<ContractWhere>;
     readonly archivedContracts?: RelationListFilter<ContractWhere>;

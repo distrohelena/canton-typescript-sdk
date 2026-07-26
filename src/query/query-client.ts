@@ -9,6 +9,8 @@ import {
     ContractCountArgs,
     ContractFindManyArgs,
     ContractFindUniqueArgs,
+    ContractGroupByArgs,
+    ContractGroupRow,
     ContractRow,
     ContractResult,
     EventOrderBy,
@@ -107,6 +109,7 @@ export interface QueryClient {
             readonly max?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
             readonly sum?: Readonly<Partial<Record<ContractNumericField, string | null>>>;
         }>;
+        groupBy(args: ContractGroupByArgs): Promise<readonly ContractGroupRow[]>;
     };
     readonly contractTypes: QueryDelegate<ContractTypeResult, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique, ContractTypeInclude>;
     readonly events: QueryDelegate<EventResult, EventWhere, EventSelect, EventOrderBy, EventUnique, EventInclude, EventGroupByArgs, EventGroupRow>;

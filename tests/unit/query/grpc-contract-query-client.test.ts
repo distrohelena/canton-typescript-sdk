@@ -53,6 +53,7 @@ describe("gRPC contract query client", () => {
         await expect(client.contracts.findMany({ orderBy: [{ contractId: "asc" }] })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.contracts.findUnique({ where: { contractId: "cid" }, select: { contractId: true } })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.contracts.aggregate({ count: true })).rejects.toBeInstanceOf(QueryCapabilityError);
+        await expect(client.contracts.groupBy({ by: ["witnesses"], aggregate: { count: true } })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.packages.aggregate({ count: true })).rejects.toBeInstanceOf(QueryCapabilityError);
     });
 });

@@ -2,13 +2,15 @@ import {
     ContractCountArgs,
     ContractFindManyArgs,
     ContractFindUniqueArgs,
+    ContractGroupByArgs,
+    ContractGroupRow,
     ContractRow,
     ContractResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
-import { compileContractFindMany } from "./pqs-sql-compiler.js";
+import { compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
 import { compilePqsRelationGroupBy } from "./pqs-relational-sql-compiler.js";
 import {
     PqsRelation,
@@ -26,6 +28,7 @@ export interface PqsQueryExecutor {
 }
 
 type RuntimeFilter = {
+    readonly path?: readonly string[];
     readonly equals?: unknown;
     readonly in?: readonly unknown[];
     readonly is?: null;
@@ -80,6 +83,7 @@ export class PqsQueryClient implements QueryClient {
         count: async (args: ContractCountArgs = {}) =>
             (await this.findContractsAsync(args)).length,
         aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),
+        groupBy: async (args: ContractGroupByArgs) => this.groupContractsAsync(args),
     };
     public readonly contractTypes = this.createPhysicalDelegate("__contract_tpe") as unknown as QueryClient["contractTypes"];
     public readonly events = this.createPhysicalDelegate("__events") as unknown as QueryClient["events"];
@@ -301,6 +305,19 @@ export class PqsQueryClient implements QueryClient {
             if (filter === null || Array.isArray(filter) || typeof filter !== "object") throw new Error(`${field} must be a filter`);
             const scalar = filter as RuntimeFilter;
 
+            if (PqsSchemaProfileV1.jsonField(relation, field) && scalar.path !== undefined) {
+                if (scalar.path.length === 0 || scalar.path.some((segment) => segment.length === 0)) throw new Error(`${field}.path must be a non-empty JSON path`);
+                const expression = `"${column}" #>> ${add(scalar.path)}::text[]`;
+                if (scalar.is === null) conditions.push(`${expression} is null`);
+                if (scalar.isNot === null) conditions.push(`${expression} is not null`);
+                if (scalar.equals !== undefined) conditions.push(`${expression} = ${add(scalar.equals)}`);
+                if (scalar.in !== undefined) conditions.push(scalar.in.length === 0 ? "false" : `${expression} = any(${add(scalar.in)})`);
+                for (const [operator, value] of [["lt", scalar.lt], ["lte", scalar.lte], ["gt", scalar.gt], ["gte", scalar.gte], ["like", scalar.like], ["ilike", scalar.ilike]] as const) {
+                    if (value !== undefined) conditions.push(`${expression} ${operator === "lte" ? "<=" : operator === "gte" ? ">=" : operator} ${add(value)}`);
+                }
+                continue;
+            }
+
             if (scalar.is === null) {
                 conditions.push(`"${column}" is null`);
             }
@@ -508,6 +525,16 @@ export class PqsQueryClient implements QueryClient {
         }
 
         return result;
+    }
+
+    private async groupContractsAsync(args: ContractGroupByArgs): Promise<readonly ContractGroupRow[]> {
+        const compiled = compileContractGroupBy(args, this.profile);
+        try {
+            await this.ready;
+            return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value instanceof Date ? value : String(value)])));
+        } catch (cause) {
+            throw this.wrap("contracts.groupBy", cause);
+        }
     }
 
     private wrap(operation: string, cause: unknown): PqsQueryError {

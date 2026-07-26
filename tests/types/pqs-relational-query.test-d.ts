@@ -46,3 +46,7 @@ void query.events.groupBy(eventDayBucket);
 void query.transactions.findMany({
     where: { exercises: { some: { witnesses: { has: "Alice" } } } },
 });
+
+void query.exercises.findMany({
+    where: { argument: { path: ["owner"], equals: "Alice" } },
+});

@@ -34,6 +34,9 @@ export class GrpcContractQueryClient implements QueryClient {
         aggregate: async (): Promise<never> => {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.aggregate");
         },
+        groupBy: async (): Promise<never> => {
+            throw new QueryCapabilityError(QuerySource.grpc, "contracts.groupBy");
+        },
     };
     public readonly contractTypes = this.unsupported("contractTypes") as QueryClient["contractTypes"];
     public readonly events = this.unsupported("events") as QueryClient["events"];

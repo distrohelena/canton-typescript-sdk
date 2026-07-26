@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compileContractFindMany } from "../../../src/query/pqs/pqs-sql-compiler.js";
+import { compileContractFindMany, compileContractGroupBy } from "../../../src/query/pqs/pqs-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
 
 describe("PQS SQL compiler", () => {
@@ -47,5 +47,21 @@ describe("PQS SQL compiler", () => {
         expect(compiled.text).toContain("contract_row.payload #>> $2::text[] ilike $3");
         expect(compiled.text).toContain("not (contract_row.archived_at_ix is not null)");
         expect(compiled.values).toEqual(["100", ["owner", "city"], "new%"]);
+    });
+
+    it("groups contracts by payload extraction and unnested witnesses", () => {
+        const query = compileContractGroupBy({
+            where: { active: true },
+            by: [
+                { payload: { name: "owner", path: ["owner"], as: "text" } },
+                "witnesses",
+            ],
+            aggregate: { count: true, sum: ["createdEventOffset"] },
+        }, new PqsSchemaProfileV1());
+
+        expect(query.text).toContain("contract_row.payload #>> $1::text[] as \"owner\"");
+        expect(query.text).toContain("cross join lateral unnest(contract_row.witnesses) as witness(value)");
+        expect(query.text).toContain("sum(contract_row.created_at_ix)::text as \"sum_createdEventOffset\"");
+        expect(query.values).toEqual([["owner"]]);
     });
 });
