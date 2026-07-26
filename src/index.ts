@@ -222,7 +222,6 @@ export { DamlContractId } from "./core/types/daml-contract-id.js";
 export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant, DamlEnum, DamlRecord } from "./core/types/daml-values.js";
 export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-command-transaction-response.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
-export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateExternalPartyTopologyRequest } from "./core/types/requests/generate-external-party-topology-request.js";

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    AddTopologyTransactionsRequest,
     AssembleSignedTopologyTransactionsRequest,
-    AuthorizeTopologyTransactionsRequest,
     CantonClient,
     CantonClientOptions,
     GenerateTopologyTransactionsRequest,
@@ -31,6 +29,8 @@ import {
     TransportKind,
 } from "../../../src";
 import {
+    AddTransactionsRequest,
+    AuthorizeRequest,
     CreateTemporaryTopologyStoreRequest,
     DropTemporaryTopologyStoreRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
@@ -230,14 +230,14 @@ describe("Topology services with JSON transport", () => {
                 "TopologyManagerWriteService.Authorize",
                 () =>
                     client.topologyManagerWriteService.authorizeAsync(
-                        new AuthorizeTopologyTransactionsRequest(),
+                        AuthorizeRequest.create(),
                     ),
             ],
             [
                 "TopologyManagerWriteService.AddTransactions",
                 () =>
                     client.topologyManagerWriteService.addTransactionsAsync(
-                        new AddTopologyTransactionsRequest(),
+                        AddTransactionsRequest.create(),
                     ),
             ],
             [

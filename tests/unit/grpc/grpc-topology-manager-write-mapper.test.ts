@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-    AddTopologyTransactionsRequest,
-    AuthorizeTopologyTransactionsRequest,
     DecentralizedNamespaceDefinition,
     GenerateTopologyTransactionsRequest,
     GeneratedTopologyTransaction,
@@ -18,11 +16,6 @@ import {
     TopologyTransactionSignature,
 } from "../../../src";
 import {
-    AuthorizeRequest,
-} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
-import {
-    mapGrpcAddTopologyTransactionsRequest,
-    mapGrpcAuthorizeTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsResponse,
 } from "../../../src/transports/grpc/mappers/topology-manager-write-mapper.js";
@@ -122,25 +115,7 @@ describe("gRPC topology manager write mappers", () => {
         ).toBe(0);
     });
 
-    it("maps signed topology transaction requests and generated responses", () => {
-        const addRequest = mapGrpcAddTopologyTransactionsRequest(
-            new AddTopologyTransactionsRequest({
-                transactions: [
-                    new SignedTopologyTransaction({
-                        transaction: new Uint8Array([1, 2, 3]),
-                        signatures: [
-                            new TopologyTransactionSignature({
-                                format: "concat",
-                                signature: new Uint8Array([4, 5, 6]),
-                                signedByFingerprint: "fingerprint::1",
-                                signingAlgorithmSpec: "ed25519",
-                            }),
-                        ],
-                    }),
-                ],
-            }),
-        );
-
+    it("maps generated topology transaction responses", () => {
         const response = mapGrpcGenerateTopologyTransactionsResponse({
             generatedTransactions: [
                 {
@@ -150,11 +125,6 @@ describe("gRPC topology manager write mappers", () => {
             ],
         });
 
-        expect(addRequest.transactions).toHaveLength(1);
-        expect(addRequest.transactions[0].signatures[0].signedBy).toBe(
-            "fingerprint::1",
-        );
-        expect(addRequest.transactions[0].signatures[0].format).toBe(3);
         expect(response.generatedTransactions[0]).toBeInstanceOf(
             GeneratedTopologyTransaction,
         );
@@ -164,45 +134,4 @@ describe("gRPC topology manager write mappers", () => {
         expect(TopologySignatureFormat.ed25519).toBe("ed25519");
     });
 
-    it("serializes authorize requests with raw party signing keys", () => {
-        const request = new AuthorizeTopologyTransactionsRequest({
-            proposal: {
-                operation: TopologyMappingOperation.addReplace,
-                mapping: new PartyToParticipant({
-                    party: "ed25519_party::fingerprint",
-                    threshold: 2,
-                    participants: [
-                        new PartyToParticipantParticipant({
-                            participantUid: "participant1::example",
-                            permission: ParticipantPermission.confirmation,
-                        }),
-                        new PartyToParticipantParticipant({
-                            participantUid: "participant2::example",
-                            permission: ParticipantPermission.confirmation,
-                        }),
-                    ],
-                    partySigningKeys: new TopologySigningKeysWithThreshold({
-                        threshold: 1,
-                        keys: [
-                            new TopologySigningPublicKey({
-                                format: "derX509SubjectPublicKeyInfo",
-                                usage: [
-                                    "namespace",
-                                    "proofOfOwnership",
-                                    "protocol",
-                                ],
-                                keySpec: "ecCurve25519",
-                                publicKey: new Uint8Array([1, 2, 3]),
-                            }),
-                        ],
-                    }),
-                }),
-            },
-            mustFullyAuthorize: true,
-        });
-
-        const mapped = mapGrpcAuthorizeTopologyTransactionsRequest(request);
-
-        expect(() => AuthorizeRequest.toBinary(mapped)).not.toThrow();
-    });
 });

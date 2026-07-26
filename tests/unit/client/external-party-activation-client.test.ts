@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AuthorizeTopologyTransactionsResponse,
     CantonClient,
     ExternalPartyActivationClient,
     ExternalPartyActivationRequest,
@@ -73,10 +72,7 @@ describe("ExternalPartyActivationClient", () => {
             },
         } as unknown as CantonClient;
 
-        const authorizeAsync = vi.fn(
-            async () =>
-                new AuthorizeTopologyTransactionsResponse(),
-        );
+        const authorizeAsync = vi.fn(async () => ({}));
 
         const secondaryClient = {
             topologyManagerWriteService: {

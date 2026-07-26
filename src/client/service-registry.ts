@@ -17,10 +17,8 @@ import type {
     GetCompletionsRequest,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
-import { AddTopologyTransactionsRequest } from "../core/types/requests/add-topology-transactions-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
 import { GenerateExternalPartyTopologyRequest } from "../core/types/requests/generate-external-party-topology-request.js";
-import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
 import { GenerateTopologyTransactionsRequest } from "../core/types/requests/generate-topology-transactions-request.js";
 import { ImportTopologySnapshotRequest } from "../core/types/requests/import-topology-snapshot-request.js";
@@ -30,8 +28,6 @@ import { SubmitCommandRequest } from "../core/types/requests/submit-command-requ
 import { SignTopologyTransactionsRequest } from "../core/types/requests/sign-topology-transactions-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
-import { AddTopologyTransactionsResponse } from "../core/types/responses/add-topology-transactions-response.js";
-import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import type {
     AddTransactionsRequest,

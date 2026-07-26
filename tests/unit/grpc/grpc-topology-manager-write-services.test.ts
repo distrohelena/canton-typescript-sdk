@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AddTopologyTransactionsRequest,
     GenerateTopologyTransactionsRequest,
     GenerateTopologyTransactionsResponse,
     PartyToParticipant,
@@ -8,6 +7,7 @@ import {
 } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
+    AddTransactionsRequest,
     CreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
@@ -65,7 +65,7 @@ describe("GrpcTransport topology manager write services", () => {
         );
 
         await transport.addTopologyTransactionsAsync(
-            new AddTopologyTransactionsRequest({
+            AddTransactionsRequest.create({
                 transactions: [],
             }),
             options,

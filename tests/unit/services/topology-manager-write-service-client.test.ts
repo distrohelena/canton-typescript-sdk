@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AddTopologyTransactionsRequest,
-    AddTopologyTransactionsResponse,
     AssembleSignedTopologyTransactionsRequest,
     ExternalTopologySignature,
     GenerateTopologyTransactionsRequest,
@@ -11,6 +9,10 @@ import {
     TopologyManagerWriteServiceClient,
     TopologySignatureFormat,
 } from "../../../src";
+import {
+    AddTransactionsRequest,
+    AddTransactionsResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 
 describe("TopologyManagerWriteServiceClient", () => {
     it("forwards topology write requests through the selected transport", async () => {
@@ -22,7 +24,7 @@ describe("TopologyManagerWriteServiceClient", () => {
         );
 
         const addTopologyTransactionsAsync = vi.fn(
-            async () => new AddTopologyTransactionsResponse(),
+            async () => AddTransactionsResponse.create(),
         );
 
         const transport = {
@@ -36,7 +38,7 @@ describe("TopologyManagerWriteServiceClient", () => {
 
         const generateRequest = new GenerateTopologyTransactionsRequest();
 
-        const addRequest = new AddTopologyTransactionsRequest();
+        const addRequest = AddTransactionsRequest.create();
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -47,7 +49,7 @@ describe("TopologyManagerWriteServiceClient", () => {
         ).resolves.toBeInstanceOf(GenerateTopologyTransactionsResponse);
         await expect(
             client.addTransactionsAsync(addRequest, options),
-        ).resolves.toBeInstanceOf(AddTopologyTransactionsResponse);
+        ).resolves.toEqual(AddTransactionsResponse.create());
 
         expect(generateTopologyTransactionsAsync).toHaveBeenCalledWith(
             generateRequest,

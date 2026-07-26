@@ -16,8 +16,6 @@ import type {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { AllocateExternalPartyRequest } from "../types/requests/allocate-external-party-request.js";
-import { AddTopologyTransactionsRequest } from "../types/requests/add-topology-transactions-request.js";
-import { AuthorizeTopologyTransactionsRequest } from "../types/requests/authorize-topology-transactions-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
 import { GenerateTopologyTransactionsRequest } from "../types/requests/generate-topology-transactions-request.js";
@@ -56,8 +54,6 @@ import type {
     GetScheduleResponse as GetPruningScheduleResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
-import { AddTopologyTransactionsResponse } from "../types/responses/add-topology-transactions-response.js";
-import { AuthorizeTopologyTransactionsResponse } from "../types/responses/authorize-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../types/responses/allocate-external-party-response.js";
 import { GenerateExternalPartyTopologyResponse } from "../types/responses/generate-external-party-topology-response.js";
 import type {
