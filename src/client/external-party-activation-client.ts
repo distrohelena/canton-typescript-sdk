@@ -1,5 +1,4 @@
 import { RequestOptions } from "../core/types/request-options.js";
-import { AuthorizeTopologyTransactionsRequest } from "../core/types/requests/authorize-topology-transactions-request.js";
 import { TopologyStoreId, TopologyStoreKind, TopologyStoreSynchronizer } from "../core/types/topology/topology-store-id.js";
 import type {
     BaseQuery,
@@ -7,6 +6,7 @@ import type {
     ListPartyToParticipantRequest,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
 import type { PartyToParticipant } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
+import type { AuthorizeRequest } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { Enums_TopologyChangeOp } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import { CantonClient } from "./canton-client.js";
 import { ExternalPartyActivationRequest } from "./external-party-activation-request.js";
@@ -73,11 +73,13 @@ export class ExternalPartyActivationClient {
             );
         }
 
-        const authorizeRequest = new AuthorizeTopologyTransactionsRequest({
-            transactionHash,
+        const authorizeRequest = {
+            type: { oneofKind: "transactionHash" as const, transactionHash },
             mustFullyAuthorize: false,
-            store: createSynchronizerStoreId(request.synchronizerId),
-        });
+            forceChanges: [],
+            signedBy: [],
+            store: createSynchronizerQuery(request.synchronizerId, false).store,
+        } satisfies AuthorizeRequest;
 
         for (const client of request.authorizingClients) {
             await client.topologyManagerWriteService.authorizeAsync(

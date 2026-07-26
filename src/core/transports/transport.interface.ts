@@ -1,4 +1,5 @@
 import { TransportFeatures } from "./transport-features.interface.js";
+import type { AddTransactionsRequest, AddTransactionsResponse, AuthorizeRequest, AuthorizeResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import type {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -594,15 +595,15 @@ export interface ITransport {
 
     /** Authorizes topology transactions. Supported on gRPC; JSON rejects it. */
     authorizeTopologyTransactionsAsync(
-        request: AuthorizeTopologyTransactionsRequest,
+        request: AuthorizeRequest,
         options?: RequestOptions,
-    ): Promise<AuthorizeTopologyTransactionsResponse>;
+    ): Promise<AuthorizeResponse>;
 
     /** Adds topology transactions to a topology store. Supported on gRPC; JSON rejects it. */
     addTopologyTransactionsAsync(
-        request: AddTopologyTransactionsRequest,
+        request: AddTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<AddTopologyTransactionsResponse>;
+    ): Promise<AddTransactionsResponse>;
 
     /** Imports a serialized topology snapshot. Supported on gRPC; JSON rejects it. */
     importTopologySnapshotAsync(

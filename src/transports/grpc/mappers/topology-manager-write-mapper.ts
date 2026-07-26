@@ -1,9 +1,4 @@
 import { ValidationError } from "../../../core/errors/validation-error.js";
-import { AddTopologyTransactionsRequest } from "../../../core/types/requests/add-topology-transactions-request.js";
-import {
-    AuthorizeTopologyTransactionsProposal,
-    AuthorizeTopologyTransactionsRequest,
-} from "../../../core/types/requests/authorize-topology-transactions-request.js";
 import {
     GenerateTopologyTransactionsProposal,
     GenerateTopologyTransactionsRequest,
@@ -11,8 +6,6 @@ import {
 import { ImportTopologySnapshotRequest } from "../../../core/types/requests/import-topology-snapshot-request.js";
 import { ImportTopologySnapshotV2Request } from "../../../core/types/requests/import-topology-snapshot-v2-request.js";
 import { SignTopologyTransactionsRequest } from "../../../core/types/requests/sign-topology-transactions-request.js";
-import { AddTopologyTransactionsResponse } from "../../../core/types/responses/add-topology-transactions-response.js";
-import { AuthorizeTopologyTransactionsResponse } from "../../../core/types/responses/authorize-topology-transactions-response.js";
 import { GenerateTopologyTransactionsResponse } from "../../../core/types/responses/generate-topology-transactions-response.js";
 import { ImportTopologySnapshotResponse } from "../../../core/types/responses/import-topology-snapshot-response.js";
 import { ImportTopologySnapshotV2Response } from "../../../core/types/responses/import-topology-snapshot-v2-response.js";
@@ -104,61 +97,9 @@ export function mapGrpcGenerateTopologyTransactionsResponse(
     });
 }
 
-export function mapGrpcAuthorizeTopologyTransactionsRequest(
-    request: AuthorizeTopologyTransactionsRequest,
-): GrpcAuthorizeRequest {
-    return {
-        type:
-            request.proposal !== undefined
-                ? {
-                    oneofKind: "proposal",
-                    proposal: mapGrpcAuthorizeTopologyTransactionsProposal(
-                        request.proposal,
-                    ),
-                }
-                : request.transactionHash !== undefined
-                  ? {
-                        oneofKind: "transactionHash",
-                        transactionHash: request.transactionHash,
-                    }
-                  : {
-                        oneofKind: undefined,
-                    },
-        mustFullyAuthorize: request.mustFullyAuthorize,
-        forceChanges: request.forceChanges.map(mapGrpcForceFlag),
-        signedBy: [...request.signedBy],
-        store: mapGrpcTopologyStoreId(request.store),
-        waitToBecomeEffective: mapGrpcDuration(request.waitToBecomeEffective),
-    };
-}
 
-export function mapGrpcAuthorizeTopologyTransactionsResponse(
-    payload: Partial<GrpcAuthorizeResponse>,
-): AuthorizeTopologyTransactionsResponse {
-    return new AuthorizeTopologyTransactionsResponse({
-        transaction:
-            payload.transaction === undefined
-                ? undefined
-                : mapSdkSignedTopologyTransaction(payload.transaction),
-    });
-}
 
-export function mapGrpcAddTopologyTransactionsRequest(
-    request: AddTopologyTransactionsRequest,
-): GrpcAddTransactionsRequest {
-    return {
-        transactions: request.transactions.map(mapGrpcSignedTopologyTransaction),
-        forceChanges: request.forceChanges.map(mapGrpcForceFlag),
-        store: mapGrpcTopologyStoreId(request.store),
-        waitToBecomeEffective: mapGrpcDuration(request.waitToBecomeEffective),
-    };
-}
 
-export function mapGrpcAddTopologyTransactionsResponse(
-    _payload: Partial<GrpcAddTransactionsResponse>,
-): AddTopologyTransactionsResponse {
-    return new AddTopologyTransactionsResponse();
-}
 
 export function mapGrpcImportTopologySnapshotRequest(
     request: ImportTopologySnapshotRequest,
@@ -221,16 +162,6 @@ function mapGrpcGenerateTopologyTransactionsProposal(
         serial: proposal.serial,
         mapping: mapGrpcTopologyMapping(proposal.mapping),
         store: mapGrpcTopologyStoreId(proposal.store),
-    };
-}
-
-function mapGrpcAuthorizeTopologyTransactionsProposal(
-    proposal: AuthorizeTopologyTransactionsProposal,
-): GrpcAuthorizeRequestProposal {
-    return {
-        change: mapGrpcTopologyChangeOp(proposal.operation),
-        serial: proposal.serial,
-        mapping: mapGrpcTopologyMapping(proposal.mapping),
     };
 }
 

@@ -1,4 +1,5 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
+import type { AddTransactionsRequest, AddTransactionsResponse, AuthorizeRequest, AuthorizeResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { AddTopologyTransactionsRequest } from "../../core/types/requests/add-topology-transactions-request.js";
 import { AssembleSignedTopologyTransactionsRequest } from "../../core/types/requests/assemble-signed-topology-transactions-request.js";
@@ -29,9 +30,9 @@ export class TopologyManagerWriteServiceClient {
 
     /** Authorizes topology transactions. Supported on gRPC; JSON rejects it. */
     public authorizeAsync(
-        request: AuthorizeTopologyTransactionsRequest,
+        request: AuthorizeRequest,
         options?: RequestOptions,
-    ): Promise<AuthorizeTopologyTransactionsResponse> {
+    ): Promise<AuthorizeResponse> {
         return this.transport.authorizeTopologyTransactionsAsync(
             request,
             options,
@@ -40,9 +41,9 @@ export class TopologyManagerWriteServiceClient {
 
     /** Adds topology transactions to a topology store. Supported on gRPC; JSON rejects it. */
     public addTransactionsAsync(
-        request: AddTopologyTransactionsRequest,
+        request: AddTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<AddTopologyTransactionsResponse> {
+    ): Promise<AddTransactionsResponse> {
         return this.transport.addTopologyTransactionsAsync(request, options);
     }
 

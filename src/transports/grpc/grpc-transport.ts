@@ -61,10 +61,6 @@ import {
 import {
 } from "./mappers/topology-manager-read-mapper.js";
 import {
-    mapGrpcAddTopologyTransactionsRequest,
-    mapGrpcAddTopologyTransactionsResponse,
-    mapGrpcAuthorizeTopologyTransactionsRequest,
-    mapGrpcAuthorizeTopologyTransactionsResponse,
     mapGrpcGenerateTopologyTransactionsRequest,
     mapGrpcGenerateTopologyTransactionsResponse,
     mapGrpcImportTopologySnapshotRequest,
@@ -236,6 +232,10 @@ import {
     ListPartiesResponse as ProtobufTopologyListPartiesResponse,
 } from "./generated/canton/com/digitalasset/canton/topology/admin/v30/topology_aggregation_service.js";
 import type {
+    AddTransactionsRequest as ProtobufAddTransactionsRequest,
+    AddTransactionsResponse as ProtobufAddTransactionsResponse,
+    AuthorizeRequest as ProtobufAuthorizeRequest,
+    AuthorizeResponse as ProtobufAuthorizeResponse,
     CreateTemporaryTopologyStoreRequest as ProtobufCreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse as ProtobufCreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest as ProtobufDropTemporaryTopologyStoreRequest,
@@ -1094,31 +1094,31 @@ export class GrpcTransport implements ITransport {
     }
 
     public async authorizeTopologyTransactionsAsync(
-        request: any,
+        request: ProtobufAuthorizeRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufAuthorizeResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.authorizeTopologyTransactionsAsync!(
-            mapGrpcAuthorizeTopologyTransactionsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcAuthorizeTopologyTransactionsResponse(payload as any);
+        return payload as ProtobufAuthorizeResponse;
     }
 
     public async addTopologyTransactionsAsync(
-        request: any,
+        request: ProtobufAddTransactionsRequest,
         options?: RequestOptions,
-    ): Promise<any> {
+    ): Promise<ProtobufAddTransactionsResponse> {
         this.throwIfDisposed();
 
         const payload = await this.operations.addTopologyTransactionsAsync!(
-            mapGrpcAddTopologyTransactionsRequest(request),
+            request,
             options,
         );
 
-        return mapGrpcAddTopologyTransactionsResponse(payload as any);
+        return payload as ProtobufAddTransactionsResponse;
     }
 
     public async importTopologySnapshotAsync(

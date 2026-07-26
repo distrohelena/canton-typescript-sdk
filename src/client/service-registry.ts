@@ -34,6 +34,10 @@ import { AddTopologyTransactionsResponse } from "../core/types/responses/add-top
 import { AuthorizeTopologyTransactionsResponse } from "../core/types/responses/authorize-topology-transactions-response.js";
 import { AllocateExternalPartyResponse } from "../core/types/responses/allocate-external-party-response.js";
 import type {
+    AddTransactionsRequest,
+    AddTransactionsResponse,
+    AuthorizeRequest,
+    AuthorizeResponse,
     CreateTemporaryTopologyStoreRequest,
     CreateTemporaryTopologyStoreResponse,
     DropTemporaryTopologyStoreRequest,
@@ -869,18 +873,18 @@ class PlaceholderTransport implements ITransport {
     }
 
     public async authorizeTopologyTransactionsAsync(
-        _request: AuthorizeTopologyTransactionsRequest,
+        _request: AuthorizeRequest,
         _options?: RequestOptions,
-    ): Promise<AuthorizeTopologyTransactionsResponse> {
+    ): Promise<AuthorizeResponse> {
         this.throwIfDisposed();
 
         throw new TransportError("topology transaction authorization is not available yet");
     }
 
     public async addTopologyTransactionsAsync(
-        _request: AddTopologyTransactionsRequest,
+        _request: AddTransactionsRequest,
         _options?: RequestOptions,
-    ): Promise<AddTopologyTransactionsResponse> {
+    ): Promise<AddTransactionsResponse> {
         this.throwIfDisposed();
 
         throw new TransportError("topology transaction writes are not available yet");
@@ -1461,11 +1465,11 @@ class MissingEndpointTransport implements ITransport {
         this.throwMissingEndpoint();
     }
 
-    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeTopologyTransactionsResponse> {
+    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeResponse> {
         this.throwMissingEndpoint();
     }
 
-    public async addTopologyTransactionsAsync(): Promise<AddTopologyTransactionsResponse> {
+    public async addTopologyTransactionsAsync(): Promise<AddTransactionsResponse> {
         this.throwMissingEndpoint();
     }
 
@@ -1855,11 +1859,11 @@ class CompositeTransport implements ITransport {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeTopologyTransactionsResponse> {
+    public async authorizeTopologyTransactionsAsync(): Promise<AuthorizeResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 
-    public async addTopologyTransactionsAsync(): Promise<AddTopologyTransactionsResponse> {
+    public async addTopologyTransactionsAsync(): Promise<AddTransactionsResponse> {
         throw new TransportError("Composite transport does not forward service calls.");
     }
 

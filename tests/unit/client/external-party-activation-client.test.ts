@@ -117,9 +117,13 @@ describe("ExternalPartyActivationClient", () => {
         );
         expect(authorizeAsync).toHaveBeenCalledWith(
             expect.objectContaining({
-                transactionHash: "1220aabb",
+                type: {
+                    oneofKind: "transactionHash",
+                    transactionHash: "1220aabb",
+                },
                 mustFullyAuthorize: false,
-                store: expect.anything(),
+                forceChanges: [],
+                signedBy: [],
             }),
             undefined,
         );

@@ -201,7 +201,6 @@ export { CreateCommand } from "./core/types/commands/create-command.js";
 export { ExerciseByKeyCommand } from "./core/types/commands/exercise-by-key-command.js";
 export { ExerciseCommand } from "./core/types/commands/exercise-command.js";
 export type { LedgerCommand } from "./core/types/commands/ledger-command.js";
-export { AddTopologyTransactionsRequest } from "./core/types/requests/add-topology-transactions-request.js";
 export { CreateDecentralizedPartyRequest } from "./core/types/requests/create-decentralized-party-request.js";
 export type { DecentralizedPartyKey, DecentralizedPartySigner, DecentralizedPartySigningRequest } from "./core/types/requests/create-decentralized-party-request.js";
 export { FinalizeDecentralizedPartyRequest, PreparedDecentralizedParty } from "./core/types/requests/finalize-decentralized-party-request.js";
@@ -224,7 +223,6 @@ export { DamlUnit, DamlDate, DamlTimestamp, DamlTextMap, DamlGenMap, DamlVariant
 export { SubmitCommandTransactionResponse } from "./core/types/responses/submit-command-transaction-response.js";
 export { AssembleSignedTopologyTransactionsRequest } from "./core/types/requests/assemble-signed-topology-transactions-request.js";
 export { AuthorizeTopologyTransactionsProposal } from "./core/types/requests/authorize-topology-transactions-request.js";
-export { AuthorizeTopologyTransactionsRequest } from "./core/types/requests/authorize-topology-transactions-request.js";
 export { GenerateTopologyTransactionsProposal } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateTopologyTransactionsRequest } from "./core/types/requests/generate-topology-transactions-request.js";
 export { GenerateExternalPartyTopologyRequest } from "./core/types/requests/generate-external-party-topology-request.js";
@@ -298,8 +296,6 @@ export { GetPackageReferencesResponse } from "./core/types/responses/get-package
 export { GetPackageStatusResponse } from "./core/types/responses/get-package-status-response.js";
 export { GetPartiesResponse } from "./core/types/responses/get-parties-response.js";
 export { GetUserResponse } from "./core/types/responses/get-user-response.js";
-export { AddTopologyTransactionsResponse } from "./core/types/responses/add-topology-transactions-response.js";
-export { AuthorizeTopologyTransactionsResponse } from "./core/types/responses/authorize-topology-transactions-response.js";
 export { GenerateExternalPartyTopologyResponse } from "./core/types/responses/generate-external-party-topology-response.js";
 export { GenerateTopologyTransactionsResponse } from "./core/types/responses/generate-topology-transactions-response.js";
 export { ImportTopologySnapshotResponse } from "./core/types/responses/import-topology-snapshot-response.js";
