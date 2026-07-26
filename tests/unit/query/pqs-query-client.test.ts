@@ -294,6 +294,26 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual([["owner"]]);
     });
 
+    it("filters physical relation traversals by logical contract predicates", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await client.exercises.findMany({
+            where: {
+                contract: {
+                    active: true,
+                    witnesses: { has: "Alice" },
+                    payload: { match: { owner: { equals: "Alice" } } },
+                },
+            },
+        });
+
+        expect(query.mock.calls[0][0]).toContain('"contract"."archived_at_ix" is null');
+        expect(query.mock.calls[0][0]).toContain('$1 = any("contract"."witnesses")');
+        expect(query.mock.calls[0][0]).toContain('"contract"."payload" #>> $2::text[] = $3');
+        expect(query.mock.calls[0][1]).toEqual(["Alice", ["owner"], "Alice"]);
+    });
+
     it("binds physical relation filters and pagination", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
 

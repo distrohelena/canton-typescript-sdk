@@ -297,6 +297,11 @@ export class PqsQueryClient implements QueryClient {
             return `$${values.length}`;
         });
 
+        if (relation === "__contracts") {
+            const where = this.compileLogicalContractWhere(filters, add, parentExpression);
+            return { where: where === "true" ? "" : ` where ${where}`, values };
+        }
+
         const compile = (expression: RuntimeFindManyArgs["where"]): string => {
         const conditions: string[] = [];
         for (const [field, filter] of Object.entries(expression ?? {})) {
@@ -380,6 +385,28 @@ export class PqsQueryClient implements QueryClient {
 
         const where = compile(filters);
         return { where: where === "true" ? "" : ` where ${where}`, values };
+    }
+
+    private compileLogicalContractWhere(filters: RuntimeFindManyArgs["where"], add: (value: unknown) => string, alias: string): string {
+        const compile = (expression: RuntimeFindManyArgs["where"]): string => {
+            const conditions: string[] = [];
+            for (const [field, filter] of Object.entries(expression ?? {})) {
+                if (field === "and" || field === "or") { if (!Array.isArray(filter)) throw new Error(`${field} must be an array`); conditions.push(filter.length === 0 ? field === "and" ? "true" : "false" : `(${filter.map((child) => compile(child)).join(` ${field} `)})`); continue; }
+                if (field === "not") { conditions.push(`not (${compile(filter as RuntimeWhere)})`); continue; }
+                if (field === "active") { const value = typeof filter === "boolean" ? filter : (filter as RuntimeFilter).equals; if (typeof value !== "boolean") throw new Error("active supports only equals"); conditions.push(`${alias}."archived_at_ix" is ${value ? "null" : "not null"}`); continue; }
+                if (field === "witnesses") { const value = (filter as RuntimeFilter).has; if (typeof value !== "string") throw new Error("witnesses supports only has"); conditions.push(`${add(value)} = any(${alias}."witnesses")`); continue; }
+                if (field === "payload") { const match = (filter as { readonly match?: unknown }).match; if (match === undefined || typeof match !== "object" || match === null) throw new Error("payload requires match"); for (const [key, value] of Object.entries(match as Record<string, RuntimeFilter>)) if (value.equals !== undefined) conditions.push(`${alias}."payload" #>> ${add([key])}::text[] = ${add(value.equals)}`); continue; }
+                const columns: Readonly<Record<string, string>> = { contractId: "contract_id", packageId: "creation_package_id", createdEventOffset: "created_at_ix", archivedEventOffset: "archived_at_ix" };
+                const column = columns[field];
+                if (column === undefined || filter === null || typeof filter !== "object") throw new Error(`${field} is not a supported contract filter`);
+                const value = filter as RuntimeFilter;
+                if (value.equals !== undefined) conditions.push(`${alias}."${column}" = ${add(value.equals)}`);
+                else if (value.in !== undefined) conditions.push(value.in.length === 0 ? "false" : `${alias}."${column}" = any(${add(value.in)})`);
+                else throw new Error(`${field} requires equals or in`);
+            }
+            return conditions.length === 0 ? "true" : conditions.join(" and ");
+        };
+        return compile(filters);
     }
 
     private selectedFields(relation: PqsRelation, metadata: PqsRelationMetadata, select: RuntimeFindManyArgs["select"]): readonly (readonly [string, string])[] {
