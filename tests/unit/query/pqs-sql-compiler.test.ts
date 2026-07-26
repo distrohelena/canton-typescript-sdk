@@ -64,4 +64,14 @@ describe("PQS SQL compiler", () => {
         expect(query.text).toContain("sum(contract_row.created_at_ix)::text as \"sum_createdEventOffset\"");
         expect(query.values).toEqual([["owner"]]);
     });
+
+    it("filters contracts through profiled exercise relations", () => {
+        const query = compileContractFindMany({
+            where: { exercises: { some: { witnesses: { has: "Alice" } } } },
+        }, new PqsSchemaProfileV1());
+
+        expect(query.text).toContain('exists (select 1 from "public"."__exercises" exercise_row');
+        expect(query.text).toContain('exercise_row.contract_id = contract_row.contract_id');
+        expect(query.values).toEqual(["Alice"]);
+    });
 });

@@ -26,7 +26,7 @@ export function compileContractFindMany(
     };
 
     const conditions: string[] = [];
-    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, addValue);
+    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, addValue, profile);
     if (where !== undefined) conditions.push(where);
 
     if (args.parties !== undefined) {
@@ -99,7 +99,7 @@ export function compileContractGroupBy(
     if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires keys and an aggregate");
     const values: unknown[] = [];
     const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
-    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, add);
+    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, add, profile);
     const fields: Readonly<Record<string, string>> = {
         contractId: "contract_row.contract_id",
         createdEventOffset: "contract_row.created_at_ix",
@@ -140,20 +140,45 @@ export function compileContractGroupBy(
     };
 }
 
-function compileWhere(where: Record<string, unknown>, addValue: (value: unknown) => string): string {
+function compileWhere(where: Record<string, unknown>, addValue: (value: unknown) => string, profile: PqsSchemaProfileV1): string {
     const columns: Record<string, string> = { contractId: "contract_row.contract_id", packageId: "contract_row.creation_package_id", createdEventOffset: "contract_row.created_at_ix", createdAt: "created_tx.effective_at", archivedEventOffset: "contract_row.archived_at_ix", archivedAt: "archived_tx.effective_at" };
     const parts: string[] = [];
     for (const [key, value] of Object.entries(where)) {
-        if (key === "and" || key === "or") { if (!Array.isArray(value)) throw new Error(`${key} must be an array`); parts.push(value.length === 0 ? key === "and" ? "true" : "false" : `(${value.map((child) => compileWhere(child as Record<string, unknown>, addValue)).join(` ${key} `)})`); continue; }
-        if (key === "not") { parts.push(`not (${compileWhere(value as Record<string, unknown>, addValue)})`); continue; }
+        if (key === "and" || key === "or") { if (!Array.isArray(value)) throw new Error(`${key} must be an array`); parts.push(value.length === 0 ? key === "and" ? "true" : "false" : `(${value.map((child) => compileWhere(child as Record<string, unknown>, addValue, profile)).join(` ${key} `)})`); continue; }
+        if (key === "not") { parts.push(`not (${compileWhere(value as Record<string, unknown>, addValue, profile)})`); continue; }
         if (key === "active") { const active = typeof value === "boolean" ? value : (value as { equals?: boolean }).equals; if (typeof active !== "boolean") throw new Error("active supports only equals"); parts.push(active ? "contract_row.archived_at_ix is null" : "contract_row.archived_at_ix is not null"); continue; }
         if (key === "witnesses") { const has = (value as { has?: string }).has; if (has === undefined) throw new Error("witnesses supports only has"); parts.push(`${addValue(has)} = any(contract_row.witnesses)`); continue; }
         if (key === "payload") { const payload = value as Record<string, unknown>; const compilePayload = (path: string[], filter: Record<string, unknown>) => { const ops = ["equals", "lt", "lte", "gt", "gte", "like", "ilike"].filter((op) => filter[op] !== undefined); if (ops.length === 1) { const op = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string,string>)[ops[0]]; parts.push(`contract_row.payload #>> ${addValue(path)}::text[] ${op} ${addValue(filter[ops[0]])}`); return; } for (const [name, child] of Object.entries(filter)) compilePayload([...path, name], child as Record<string, unknown>); }; if (payload.match === undefined) throw new Error("payload requires match"); compilePayload([], payload.match as Record<string, unknown>); continue; }
         if (key === "templateId") { const fields: Record<string, string> = { packageId: "contract_row.creation_package_id", moduleName: "contract_tpe_row.module_name", entityName: "contract_tpe_row.entity_name" }; for (const [name, filter] of Object.entries(value as Record<string, Record<string, unknown>>)) for (const [op, operand] of Object.entries(filter)) { const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string, string>)[op]; if (fields[name] === undefined || sql === undefined) throw new Error("invalid templateId filter"); parts.push(`${fields[name]} ${sql} ${addValue(operand)}`); } continue; }
+        if (key === "exercises") { parts.push(compileExercisesRelation(value, profile, addValue)); continue; }
         const column = columns[key]; if (column === undefined || value === null || typeof value !== "object") throw new Error(`${key} is not a supported contract filter`);
         for (const [op, operand] of Object.entries(value as Record<string, unknown>)) { const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as Record<string,string>)[op]; if (sql !== undefined) parts.push(`${column} ${sql} ${addValue(operand)}`); else if (op === "is" && operand === null) parts.push(`${column} is null`); else if (op === "isNot" && operand === null) parts.push(`${column} is not null`); else if (op === "in" && Array.isArray(operand)) parts.push(operand.length ? `${column} = any(${addValue(operand)})` : "false"); else throw new Error(`${op} is not supported for ${key}`); }
     }
     return parts.length === 0 ? "true" : parts.join(" and ");
+}
+
+function compileExercisesRelation(value: unknown, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): string {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("exercises must be a relation filter");
+    const filter = value as Record<string, unknown>;
+    const operators = ["some", "none", "every"].filter((name) => filter[name] !== undefined);
+    if (operators.length !== 1) throw new Error("exercises requires exactly one of some, none, or every");
+    const child = filter[operators[0]];
+    if (child === null || typeof child !== "object" || Array.isArray(child)) throw new Error("exercise relation predicate must be an expression");
+    const conditions: string[] = [];
+    for (const [field, predicate] of Object.entries(child as Record<string, unknown>)) {
+        if (field === "witnesses") {
+            const has = (predicate as { has?: unknown }).has;
+            if (typeof has !== "string") throw new Error("exercise witnesses requires has");
+            conditions.push(`${addValue(has)} = any(exercise_row.witnesses)`);
+        } else if (field === "contractId") {
+            const equals = (predicate as { equals?: unknown }).equals;
+            if (typeof equals !== "string") throw new Error("exercise contractId requires equals");
+            conditions.push(`exercise_row.contract_id = ${addValue(equals)}`);
+        } else throw new Error(`${field} is not supported in contract exercise relation filter`);
+    }
+    const condition = conditions.length === 0 ? "true" : conditions.join(" and ");
+    const base = `select 1 from ${profile.relation("__exercises")} exercise_row where exercise_row.contract_id = contract_row.contract_id and (${condition})`;
+    return operators[0] === "some" ? `exists (${base})` : operators[0] === "none" ? `not exists (${base})` : `not exists (select 1 from ${profile.relation("__exercises")} exercise_row where exercise_row.contract_id = contract_row.contract_id and not (${condition}))`;
 }
 
 function compileOrderBy(
