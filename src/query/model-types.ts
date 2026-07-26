@@ -39,7 +39,60 @@ export type RowWhere<TRow, TOrdered extends keyof TRow = never, TPattern extends
 
 export type RowSelect<TRow> = Partial<Record<keyof TRow, boolean>>;
 
-export type RowOrderBy<TRow> = Partial<Record<keyof TRow, QueryOrder>>;
+export type OneFieldOrderBy<TRow> = {
+    readonly [TField in keyof TRow]: Readonly<{
+        readonly [TKey in TField]: QueryOrder;
+    }> & Partial<Record<Exclude<keyof TRow, TField>, never>>;
+}[keyof TRow];
+
+export type RowOrderBy<TRow> = readonly [
+    OneFieldOrderBy<TRow>,
+    ...readonly OneFieldOrderBy<TRow>[],
+];
+
+export type TimeBucket = "hour" | "day" | "week" | "month";
+
+export interface JsonPath {
+    readonly path: readonly [string, ...readonly string[]];
+}
+
+export type JsonScalarType = "text" | "numeric" | "boolean" | "timestamp";
+
+export interface JsonProjection extends JsonPath {
+    readonly as: JsonScalarType;
+}
+
+export interface JsonGroupBy extends JsonProjection {
+    readonly name: string;
+}
+
+export type ToOneRelationArgs<TWhere, TSelect, TOrderBy, TInclude> = true | {
+    readonly where?: TWhere;
+    readonly select?: TSelect;
+    readonly orderBy?: TOrderBy;
+    readonly include?: TInclude;
+};
+
+export interface ToManyRelationArgs<TWhere, TSelect, TOrderBy, TInclude> extends QueryPageArgs {
+    readonly take: number;
+    readonly where?: TWhere;
+    readonly select?: TSelect;
+    readonly orderBy?: TOrderBy;
+    readonly include?: TInclude;
+}
+
+export interface GroupAggregateArgs<TNumericField extends string> {
+    readonly count?: true;
+    readonly min?: readonly TNumericField[];
+    readonly max?: readonly TNumericField[];
+    readonly sum?: readonly TNumericField[];
+}
+
+export interface GroupByArgs<TWhere, TKey, TNumericField extends string> {
+    readonly where?: TWhere;
+    readonly by: readonly [TKey, ...readonly TKey[]];
+    readonly aggregate: GroupAggregateArgs<TNumericField>;
+}
 
 export interface QueryPageArgs {
     readonly skip?: number;
@@ -99,7 +152,10 @@ export type ContractOrderField =
     | "archivedEventOffset"
     | "archivedAt";
 
-export type ContractOrderBy = Partial<Record<ContractOrderField, QueryOrder>>;
+export type ContractOrderBy = readonly [
+    OneFieldOrderBy<Pick<ContractRow, ContractOrderField>>,
+    ...readonly OneFieldOrderBy<Pick<ContractRow, ContractOrderField>>[],
+];
 
 export type ContractSelect = Partial<Record<keyof ContractRow, boolean>>;
 
@@ -108,11 +164,13 @@ export interface ContractFindManyArgs extends QueryPageArgs {
     readonly where?: ContractWhere;
     readonly orderBy?: ContractOrderBy;
     readonly select?: ContractSelect;
+    readonly include?: ContractInclude;
 }
 
 export interface ContractFindUniqueArgs {
     readonly where: { readonly contractId: string };
     readonly select?: ContractSelect;
+    readonly include?: ContractInclude;
 }
 
 export interface ContractCountArgs {
@@ -218,16 +276,67 @@ export type WatermarkSelect = RowSelect<WatermarkRow>;
 export type WatermarkOrderBy = RowOrderBy<WatermarkRow>;
 export type WatermarkUnique = { readonly singleton: boolean };
 
+export interface ContractInclude {
+    readonly contractType?: ToOneRelationArgs<ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeInclude>;
+    readonly createdTransaction?: ToOneRelationArgs<TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionInclude>;
+    readonly archivedTransaction?: ToOneRelationArgs<TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionInclude>;
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export interface ContractTypeInclude {
+    readonly contracts?: ToManyRelationArgs<ContractWhere, ContractSelect, ContractOrderBy, ContractInclude>;
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export interface EventInclude {
+    readonly transaction?: ToOneRelationArgs<TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionInclude>;
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export interface ExerciseInclude {
+    readonly exerciseType?: ToOneRelationArgs<ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeInclude>;
+    readonly contractType?: ToOneRelationArgs<ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeInclude>;
+    readonly event?: ToOneRelationArgs<EventWhere, EventSelect, EventOrderBy, EventInclude>;
+    readonly transaction?: ToOneRelationArgs<TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionInclude>;
+    readonly package?: ToOneRelationArgs<PackageWhere, PackageSelect, PackageOrderBy, PackageInclude>;
+    readonly contract?: ToOneRelationArgs<ContractWhere, ContractSelect, ContractOrderBy, ContractInclude>;
+}
+
+export interface ExerciseTypeInclude {
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export interface PackageInclude {
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export interface TransactionInclude {
+    readonly events?: ToManyRelationArgs<EventWhere, EventSelect, EventOrderBy, EventInclude>;
+    readonly createdContracts?: ToManyRelationArgs<ContractWhere, ContractSelect, ContractOrderBy, ContractInclude>;
+    readonly archivedContracts?: ToManyRelationArgs<ContractWhere, ContractSelect, ContractOrderBy, ContractInclude>;
+    readonly exercises?: ToManyRelationArgs<ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude>;
+}
+
+export type EventGroupByKey = keyof EventRow | {
+    readonly transaction: {
+        readonly effectiveAt: {
+            readonly bucket: TimeBucket;
+        };
+    };
+};
+
+export type EventGroupByArgs = GroupByArgs<EventWhere, EventGroupByKey, "pk" | "txIx">;
+
 export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.skip, "skip");
     assertPageValue(args.take, "take");
 }
 
 export function assertQueryOrderBy(
-    orderBy: Readonly<Record<string, QueryOrder>>,
+    orderBy: readonly Readonly<Record<string, QueryOrder>>[],
 ): void {
-    if (Object.keys(orderBy).length !== 1) {
-        throw new Error("orderBy must specify exactly one field");
+    if (orderBy.length === 0 || orderBy.some((entry) => Object.keys(entry).length !== 1)) {
+        throw new Error("orderBy must be a non-empty list of one-field entries");
     }
 }
 

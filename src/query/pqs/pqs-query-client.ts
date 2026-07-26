@@ -42,7 +42,7 @@ interface RuntimeWhere {
 type RuntimeFindManyArgs = {
     readonly where?: RuntimeWhere;
     readonly select?: Readonly<Record<string, boolean>>;
-    readonly orderBy?: Readonly<Record<string, "asc" | "desc">>;
+    readonly orderBy?: readonly Readonly<Record<string, "asc" | "desc">>[];
     readonly take?: number;
     readonly skip?: number;
 };
@@ -306,19 +306,13 @@ export class PqsQueryClient implements QueryClient {
             return "";
         }
 
-        const entries = Object.entries(orderBy);
+        const entries = orderBy.flatMap((entry) => Object.entries(entry));
 
-        if (entries.length !== 1) {
-            throw new Error("orderBy must specify exactly one field");
+        if (entries.length === 0 || entries.some(([, direction]) => direction !== "asc" && direction !== "desc")) {
+            throw new Error("orderBy must be a non-empty list of one-field entries");
         }
 
-        const [field, direction] = entries[0];
-
-        if (direction !== "asc" && direction !== "desc") {
-            throw new Error("orderBy direction must be asc or desc");
-        }
-
-        return ` order by "${this.field(relation, metadata, field)}" ${direction}`;
+        return ` order by ${entries.map(([field, direction]) => `"${this.field(relation, metadata, field)}" ${direction}`).join(", ")}`;
     }
 
     private assertUniqueWhere(relation: PqsRelation, metadata: PqsRelationMetadata, where: Readonly<Record<string, unknown>>): void {

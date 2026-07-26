@@ -11,7 +11,7 @@ describe("PQS SQL compiler", () => {
                     active: true,
                     witnesses: { has: "Alice" },
                 },
-                orderBy: { createdEventOffset: "desc" },
+                orderBy: [{ createdEventOffset: "desc" }],
                 take: 20,
                 skip: 10,
             },

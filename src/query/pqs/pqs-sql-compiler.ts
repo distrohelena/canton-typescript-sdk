@@ -1,7 +1,7 @@
 import {
     assertQueryPageArgs,
     ContractFindManyArgs,
-    ContractOrderField,
+    ContractOrderBy,
 } from "../model-types.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 
@@ -83,13 +83,13 @@ function compileWhere(where: Record<string, unknown>, addValue: (value: unknown)
 }
 
 function compileOrderBy(
-    orderBy: Partial<Record<ContractOrderField, "asc" | "desc">> | undefined,
+    orderBy: ContractOrderBy | undefined,
 ): string {
     if (orderBy === undefined) {
         return "order by contract_row.contract_id asc";
     }
 
-    const fields: Readonly<Record<ContractOrderField, string>> = {
+    const fields: Readonly<Record<string, string>> = {
         contractId: "contract_row.contract_id",
         createdEventOffset: "contract_row.created_at_ix",
         createdAt: "created_tx.effective_at",
@@ -97,13 +97,11 @@ function compileOrderBy(
         archivedAt: "archived_tx.effective_at",
     };
 
-    const entries = Object.entries(orderBy) as [ContractOrderField, "asc" | "desc"][];
+    const entries = orderBy.flatMap((entry) => Object.entries(entry));
 
-    if (entries.length !== 1) {
-        throw new Error("orderBy must specify exactly one field");
+    if (entries.some(([field, direction]) => fields[field] === undefined || (direction !== "asc" && direction !== "desc"))) {
+        throw new Error("orderBy must contain valid one-field entries");
     }
 
-    const [field, direction] = entries[0];
-
-    return `order by ${fields[field]} ${direction}`;
+    return `order by ${entries.map(([field, direction]) => `${fields[field]} ${direction}`).join(", ")}`;
 }

@@ -12,7 +12,7 @@ describe("query model types", () => {
                 templateId: { equals: "package-id:Module:Template" },
                 active: true,
             },
-            orderBy: { createdEventOffset: "desc" },
+            orderBy: [{ createdEventOffset: "desc" }],
             take: 25,
             select: { contractId: true, payload: true },
         };

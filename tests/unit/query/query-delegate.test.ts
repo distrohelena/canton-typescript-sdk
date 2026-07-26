@@ -26,9 +26,9 @@ void invalidBooleanRange;
 
 describe("generic query delegates", () => {
     it("requires exactly one ordering field", () => {
-        expect(() => assertQueryOrderBy({ id: "asc", name: "desc" })).toThrow(
-            "orderBy must specify exactly one field",
+        expect(() => assertQueryOrderBy([{ id: "asc", name: "desc" }])).toThrow(
+            "orderBy must be a non-empty list of one-field entries",
         );
-        expect(() => assertQueryOrderBy({ id: "asc" })).not.toThrow();
+        expect(() => assertQueryOrderBy([{ id: "asc" }, { name: "desc" }])).not.toThrow();
     });
 });

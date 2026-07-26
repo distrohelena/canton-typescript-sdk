@@ -6,10 +6,15 @@ import { QueryCapabilityError } from "../../../src/query/errors/query-capability
 describe("gRPC contract query client", () => {
     it("uses one all-party ACS snapshot for multiple filtered queries", async () => {
         const getActiveContractsPageAsync = vi.fn().mockResolvedValue({
-            contracts: [
+            activeContracts: [
                 {
-                    contractId: "cid",
-                    templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                    contractEntry: {
+                        oneofKind: "activeContract",
+                        activeContract: {
+                            contractId: "cid",
+                            templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                        },
+                    },
                 },
             ],
             activeAtOffset: "42",
@@ -45,7 +50,7 @@ describe("gRPC contract query client", () => {
 
         await expect(client.contracts.findMany({ where: { contractId: { in: ["cid"] } } })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.contracts.findMany({ select: { payload: true } })).rejects.toBeInstanceOf(QueryCapabilityError);
-        await expect(client.contracts.findMany({ orderBy: { contractId: "asc" } })).rejects.toBeInstanceOf(QueryCapabilityError);
+        await expect(client.contracts.findMany({ orderBy: [{ contractId: "asc" }] })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.contracts.findUnique({ where: { contractId: "cid" }, select: { contractId: true } })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.contracts.aggregate({ count: true })).rejects.toBeInstanceOf(QueryCapabilityError);
         await expect(client.packages.aggregate({ count: true })).rejects.toBeInstanceOf(QueryCapabilityError);

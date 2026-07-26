@@ -28,12 +28,18 @@ describe("PQS query client", () => {
 
         await expect(
             client.contracts.findMany({
-                where: { templateId: { equals: "pkg:Module:Template" } },
+                where: {
+                    templateId: {
+                        packageId: { equals: "pkg" },
+                        moduleName: { equals: "Module" },
+                        entityName: { equals: "Template" },
+                    },
+                },
             }),
         ).resolves.toEqual([
             expect.objectContaining({ contractId: "cid", active: true }),
         ]);
-        expect(query.mock.calls[0][1]).toEqual(["pkg:Module:Template"]);
+        expect(query.mock.calls[0][1]).toEqual(["pkg", "Module", "Template"]);
     });
 
     it("runs validated raw queries with separate values", async () => {
@@ -127,7 +133,7 @@ describe("PQS query client", () => {
 
         await client.transactions.findMany({
             where: { transactionId: { in: ["a", "b"], isNot: null } },
-            orderBy: { ix: "desc" },
+            orderBy: [{ ix: "desc" }],
         });
         expect(query.mock.calls[1][0]).toContain('"transaction_id" is not null');
         expect(query.mock.calls[1][0]).toContain('"transaction_id" = any($1)');
