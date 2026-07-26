@@ -58,7 +58,9 @@ export type RowWhere<TRow, TOrdered extends keyof TRow = never, TPattern extends
         : ScalarFilter<TRow[TField]>;
 }>>;
 
-export type RowSelect<TRow> = Partial<Record<keyof TRow, boolean>>;
+export type RowSelect<TRow> = Partial<Record<keyof TRow, boolean>> & {
+    readonly json?: Readonly<Record<string, JsonFieldProjection>>;
+};
 
 export type OneFieldOrderBy<TRow> = {
     readonly [TField in keyof TRow]: Readonly<{
@@ -82,6 +84,24 @@ export type JsonScalarType = "text" | "numeric" | "boolean" | "timestamp";
 export interface JsonProjection extends JsonPath {
     readonly as: JsonScalarType;
 }
+
+export interface JsonFieldProjection extends JsonProjection {
+    readonly field: string;
+}
+
+export type JsonProjectedValue<TProjection> = TProjection extends { readonly as: "numeric" }
+    ? string | null
+    : TProjection extends { readonly as: "boolean" }
+        ? boolean | null
+        : TProjection extends { readonly as: "timestamp" }
+            ? Date | null
+            : string | null;
+
+export type JsonProjectionResult<TArgs> = TArgs extends { readonly select?: { readonly json?: infer TSelections } }
+    ? TSelections extends Readonly<Record<string, JsonFieldProjection>>
+        ? { readonly [TName in keyof TSelections]: JsonProjectedValue<TSelections[TName]> }
+        : {}
+    : {};
 
 export interface JsonGroupBy extends JsonProjection {
     readonly name: string;
@@ -191,7 +211,7 @@ export type ContractOrderBy = readonly [
     ...readonly OneFieldOrderBy<Pick<ContractRow, ContractOrderField>>[],
 ];
 
-export type ContractSelect = Partial<Record<keyof ContractRow, boolean>>;
+export type ContractSelect = RowSelect<ContractRow>;
 
 export interface ContractFindManyArgs extends QueryPageArgs {
     readonly parties?: readonly string[];

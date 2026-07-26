@@ -57,6 +57,13 @@ left join lateral (
     limit ${addValue(include.exercises.take)}
   ) exercise_row
 ) exercise_rows on true`;
+    const jsonProjection = Object.entries(args.select?.json ?? {}).map(([name, projection]) => {
+        if (projection.field !== "payload") throw new Error(`${projection.field} is not a JSON field of contracts`);
+        if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
+        const text = `contract_row.payload #>> ${addValue(projection.path)}::text[]`;
+        const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+        return `${expression} as "${name}"`;
+    });
 
     return {
         text: `select
@@ -71,7 +78,7 @@ left join lateral (
   contract_row.archived_at_ix is null as active,
   contract_row.creation_package_id as template_package_id,
   contract_tpe_row.module_name as template_module_name,
-  contract_tpe_row.entity_name as template_entity_name${included.length === 0 ? "" : `,\n  ${included.join(",\n  ")}`}
+  contract_tpe_row.entity_name as template_entity_name${[...included, ...jsonProjection].length === 0 ? "" : `,\n  ${[...included, ...jsonProjection].join(",\n  ")}`}
 from ${profile.relation("__contracts")} contract_row
 join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix

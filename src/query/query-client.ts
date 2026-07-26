@@ -55,6 +55,7 @@ import {
     ExerciseTypeInclude,
     PackageInclude,
     TransactionInclude,
+    JsonProjectionResult,
 } from "./model-types.js";
 
 export interface FindManyArgs<TWhere, TSelect, TOrderBy, TInclude = never> {
@@ -67,8 +68,8 @@ export interface FindManyArgs<TWhere, TSelect, TOrderBy, TInclude = never> {
 }
 
 export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TInclude = never, TGroupBy = never, TGroupRow = never> {
-    findMany(args?: FindManyArgs<TWhere, TSelect, TOrderBy, TInclude>): Promise<readonly TRow[]>;
-    findUnique(args: { readonly where: TUnique; readonly select?: TSelect; readonly include?: TInclude }): Promise<TRow | undefined>;
+    findMany<TArgs extends FindManyArgs<TWhere, TSelect, TOrderBy, TInclude>>(args?: TArgs): Promise<readonly (TRow & JsonProjectionResult<TArgs>)[]>;
+    findUnique<TArgs extends { readonly where: TUnique; readonly select?: TSelect; readonly include?: TInclude }>(args: TArgs): Promise<(TRow & JsonProjectionResult<TArgs>) | undefined>;
     count(args?: { readonly where?: TWhere }): Promise<number>;
     aggregate(args: {
         readonly where?: TWhere;
@@ -94,8 +95,8 @@ export interface QueryClient {
     readonly source: QuerySource;
     $queryRaw<TRow>(sql: string, values?: readonly unknown[]): Promise<readonly TRow[]>;
     readonly contracts: {
-        findMany(args?: ContractFindManyArgs): Promise<readonly ContractResult[]>;
-        findUnique(args: ContractFindUniqueArgs): Promise<ContractResult | undefined>;
+        findMany<TArgs extends ContractFindManyArgs>(args?: TArgs): Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>;
+        findUnique<TArgs extends ContractFindUniqueArgs>(args: TArgs): Promise<(ContractResult & JsonProjectionResult<TArgs>) | undefined>;
         count(args?: ContractCountArgs): Promise<number>;
         aggregate(args: {
             readonly where?: ContractCountArgs["where"];

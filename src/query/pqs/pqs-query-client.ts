@@ -6,6 +6,7 @@ import {
     ContractGroupRow,
     ContractRow,
     ContractResult,
+    JsonProjectionResult,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
@@ -47,11 +48,15 @@ interface RuntimeWhere {
 }
 type RuntimeFindManyArgs = {
     readonly where?: RuntimeWhere;
-    readonly select?: Readonly<Record<string, boolean>>;
+    readonly select?: RuntimeSelect;
     readonly orderBy?: readonly Readonly<Record<string, "asc" | "desc">>[];
     readonly take?: number;
     readonly skip?: number;
     readonly include?: RuntimeInclude;
+};
+
+type RuntimeSelect = Readonly<Record<string, boolean | unknown>> & {
+    readonly json?: Readonly<Record<string, { readonly field: string; readonly path: readonly string[]; readonly as: "text" | "numeric" | "boolean" | "timestamp" }>>;
 };
 
 type RuntimeInclude = Readonly<Record<string, true | {
@@ -73,13 +78,14 @@ type RuntimeAggregateArgs = {
 export class PqsQueryClient implements QueryClient {
     public readonly source = QuerySource.pqs;
     public readonly contracts = {
-        findMany: (args: ContractFindManyArgs = {}) => this.findContractsAsync(args),
-        findUnique: (args: ContractFindUniqueArgs) =>
+        findMany: <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) => this.findContractsAsync(args) as Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>,
+        findUnique: <TArgs extends ContractFindUniqueArgs>(args: TArgs) =>
             this.findContractsAsync({
                 where: { contractId: { equals: args.where.contractId } },
                 select: args.select,
+                include: args.include,
                 take: 1,
-            }).then((rows) => rows[0]),
+            }).then((rows) => rows[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined),
         count: async (args: ContractCountArgs = {}) =>
             (await this.findContractsAsync(args)).length,
         aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),
@@ -137,7 +143,7 @@ export class PqsQueryClient implements QueryClient {
                 }
             },
             aggregate: async (args: RuntimeAggregateArgs) => this.aggregatePhysicalAsync(relation, metadata, args),
-            groupBy: async (args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } }) => this.groupPhysicalAsync(relation, args),
+            groupBy: async (args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true } }) => this.groupPhysicalAsync(relation, args),
         };
 
         if (!hasUnique) {
@@ -159,11 +165,14 @@ export class PqsQueryClient implements QueryClient {
         };
     }
 
-    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true } }): Promise<readonly Record<string, string | number | Date | null>[]> {
+    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true } }): Promise<readonly Record<string, string | number | Date | null>[]> {
         const compiled = compilePqsRelationGroupBy(relation, args, this.profile);
+        const root = relation === "__events" ? '"event"' : '"root"';
+        const filter = this.compileWhere(relation, pqsRelationMetadata[relation], args.where, undefined, root);
+        const text = filter.where.length === 0 ? compiled.text : compiled.text.replace(" group by ", `${filter.where} group by `);
         try {
             await this.ready;
-            return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value instanceof Date ? value : value === null ? null : String(value)])));
+            return (await this.executor.query(text, [...filter.values, ...compiled.values])).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value instanceof Date ? value : value === null ? null : String(value)])));
         } catch (cause) {
             throw this.wrap(`${relation}.groupBy`, cause);
         }
@@ -196,7 +205,8 @@ export class PqsQueryClient implements QueryClient {
 
         const selection = selected.map(([field, column]) => `"${column}" as "${field}"`).join(", ");
         const includes = this.compileIncludes(relation, args.include, add);
-        const fullSelection = [selection, ...includes.selection].filter((value) => value.length > 0).join(", ");
+        const json = this.compileJsonSelections(relation, args.select?.json, add);
+        const fullSelection = [selection, ...json.selection, ...includes.selection].filter((value) => value.length > 0).join(", ");
 
         try {
             await this.ready;
@@ -206,7 +216,7 @@ export class PqsQueryClient implements QueryClient {
                 parameters,
             );
 
-            return result.rows.map((row) => this.mapPhysicalRow(row, metadata, selected, includes.values));
+            return result.rows.map((row) => this.mapPhysicalRow(row, metadata, selected, includes.values, json.fields));
         } catch (cause) {
             throw this.wrap(`${relation}.findMany`, cause);
         }
@@ -360,9 +370,9 @@ export class PqsQueryClient implements QueryClient {
             return Object.entries(metadata.fields);
         }
 
-        const selected = Object.entries(select).filter(([, enabled]) => enabled).map(([field]) => [field, this.field(relation, metadata, field)] as const);
+        const selected = Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => [field, this.field(relation, metadata, field)] as const);
 
-        if (selected.length === 0) {
+        if (selected.length === 0 && Object.keys(select.json ?? {}).length === 0) {
             throw new Error("select must include at least one field");
         }
 
@@ -417,12 +427,13 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
-    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[], includes: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>): Record<string, unknown> {
+    private mapPhysicalRow(row: Record<string, unknown>, metadata: PqsRelationMetadata, fields: readonly (readonly [string, string])[], includes: Readonly<Record<string, { readonly target: PqsRelation; readonly include: RuntimeInclude | undefined }>>, json: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> = {}): Record<string, unknown> {
         const scalar = Object.fromEntries(fields
             .filter(([field]) => Object.hasOwn(row, field))
             .map(([field]) => [field, mapPhysicalValue(row[field], metadata, field)]));
         const related = Object.fromEntries(Object.entries(includes).map(([name, edge]) => [name, this.mapRelatedValue(row[name], edge.target, edge.include)]));
-        return { ...scalar, ...related };
+        const projected = Object.fromEntries(Object.entries(json).map(([name, as]) => [name, mapJsonValue(row[name], as)]));
+        return { ...scalar, ...projected, ...related };
     }
 
     private mapRelatedValue(value: unknown, relation: PqsRelation, include: RuntimeInclude | undefined): unknown {
@@ -458,6 +469,21 @@ export class PqsQueryClient implements QueryClient {
         return { selection: selections, values };
     }
 
+    private compileJsonSelections(relation: PqsRelation, selections: RuntimeSelect["json"] | undefined, add: (value: unknown) => string): { readonly selection: readonly string[]; readonly fields: Readonly<Record<string, "text" | "numeric" | "boolean" | "timestamp">> } {
+        const selection: string[] = [];
+        const fields: Record<string, "text" | "numeric" | "boolean" | "timestamp"> = {};
+        for (const [name, projection] of Object.entries(selections ?? {})) {
+            if (!PqsSchemaProfileV1.jsonField(relation, projection.field)) throw new Error(`${projection.field} is not a JSON field of ${relation}`);
+            if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
+            const column = this.field(relation, pqsRelationMetadata[relation], projection.field);
+            const text = `"${column}" #>> ${add(projection.path)}::text[]`;
+            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+            selection.push(`${expression} as "${name}"`);
+            fields[name] = projection.as;
+        }
+        return { selection, fields };
+    }
+
     private compileIncludedExpression(name: string, target: PqsRelation, sourceColumn: string, targetColumn: string, cardinality: "one" | "many", options: Exclude<RuntimeInclude[string], true>, add: (value: unknown) => string, parentExpression: string): string {
         const alias = `"${name}"`;
         const targetMetadata = pqsRelationMetadata[target];
@@ -480,7 +506,7 @@ export class PqsQueryClient implements QueryClient {
 
         try {
             const include = "include" in args ? args.include : undefined;
-            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, include));
+            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, include, "select" in args ? args.select?.json : undefined));
 
             const select = "select" in args ? args.select : undefined;
 
@@ -488,13 +514,14 @@ export class PqsQueryClient implements QueryClient {
                 return rows;
             }
 
-            const fields = Object.entries(select).filter(([, enabled]) => enabled).map(([field]) => field);
+            const fields = Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => field);
+            const json = Object.keys(select.json ?? {});
 
-            if (fields.length === 0) {
+            if (fields.length === 0 && json.length === 0) {
                 throw new Error("select must include at least one field");
             }
 
-            return rows.map((row) => ({ ...row, ...Object.fromEntries(fields.map((field) => [field, row[field as keyof ContractRow]])) }));
+            return rows.map((row) => Object.fromEntries([...fields.map((field) => [field, row[field as keyof ContractRow]]), ...json.map((field) => [field, row[field as keyof ContractResult]])]) as ContractResult);
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
         }
@@ -558,7 +585,14 @@ function mapPhysicalValue(value: unknown, metadata: PqsRelationMetadata, field: 
     return value;
 }
 
-function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined): ContractResult {
+function mapJsonValue(value: unknown, as: "text" | "numeric" | "boolean" | "timestamp"): string | boolean | Date | null {
+    if (value === null || value === undefined) return null;
+    if (as === "boolean") return value === true || value === "true";
+    if (as === "timestamp") return value instanceof Date ? value : new Date(String(value));
+    return String(value);
+}
+
+function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined, json: Readonly<Record<string, { readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> | undefined): ContractResult {
     const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
     const relations = {
         ...(include?.contractType === undefined ? {} : { contractType: row.contract_type as ContractResult["contractType"] }),
@@ -566,7 +600,8 @@ function mapContractRow(row: Record<string, unknown>, include: ContractFindManyA
         ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: row.archived_transaction as ContractResult["archivedTransaction"] }),
         ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises as ContractResult["exercises"] : [] }),
     };
-    return { ...base, ...relations };
+    const projections = Object.fromEntries(Object.entries(json ?? {}).map(([name, projection]) => [name, mapJsonValue(row[name], projection.as)]));
+    return { ...base, ...relations, ...projections };
 }
 
 function nullableString(value: unknown): string | null {

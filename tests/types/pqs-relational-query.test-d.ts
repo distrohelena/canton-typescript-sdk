@@ -50,3 +50,15 @@ void query.transactions.findMany({
 void query.exercises.findMany({
     where: { argument: { path: ["owner"], equals: "Alice" } },
 });
+
+const projectedExercises = await query.exercises.findMany({
+    select: { json: { owner: { field: "argument", path: ["owner"], as: "text" } } },
+});
+const projectedOwner: string | null = projectedExercises[0].owner;
+void projectedOwner;
+
+const projectedContracts = await query.contracts.findMany({
+    select: { json: { owner: { field: "payload", path: ["owner"], as: "text" } } },
+});
+const contractOwner: string | null = projectedContracts[0].owner;
+void contractOwner;

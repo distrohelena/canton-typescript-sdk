@@ -42,6 +42,19 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual(["pkg", "Module", "Template"]);
     });
 
+    it("projects contract payload JSON scalars", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{ contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template", owner: "Alice" }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.findMany({
+            select: { json: { owner: { field: "payload", path: ["owner"], as: "text" } } },
+        })).resolves.toEqual([{ owner: "Alice" }]);
+        expect(query.mock.calls[0][0]).toContain('contract_row.payload #>> $1::text[] as "owner"');
+        expect(query.mock.calls[0][1]).toEqual([["owner"]]);
+    });
+
     it("includes profiled to-one and bounded to-many contract relations", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{
@@ -161,6 +174,17 @@ describe("PQS query client", () => {
 
         expect(query.mock.calls[0][0]).toContain('"argument" #>> $1::text[] = $2');
         expect(query.mock.calls[0][1]).toEqual([["owner"], "Alice"]);
+    });
+
+    it("projects named typed JSON scalars", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ owner: "Alice" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.exercises.findMany({
+            select: { json: { owner: { field: "argument", path: ["owner"], as: "text" } } },
+        })).resolves.toEqual([{ owner: "Alice" }]);
+        expect(query.mock.calls[0][0]).toContain('"argument" #>> $1::text[] as "owner"');
+        expect(query.mock.calls[0][1]).toEqual([["owner"]]);
     });
 
     it("compiles physical logical, range, and pattern predicates", async () => {
@@ -287,9 +311,12 @@ describe("PQS query client", () => {
 
         await expect(client.events.groupBy({
             by: ["type", { transaction: { effectiveAt: { bucket: "day" } } }],
+            where: { exercises: { some: { witnesses: { has: "Alice" } } } },
             aggregate: { count: true },
         })).resolves.toEqual([{ type: "created", transaction_effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: 2 }]);
         expect(query.mock.calls[0][0]).toContain('date_trunc(\'day\', "transaction"."effective_at")');
         expect(query.mock.calls[0][0]).toContain('group by "event"."type", date_trunc(\'day\', "transaction"."effective_at")');
+        expect(query.mock.calls[0][0]).toContain('exists (select 1 from "public"."__exercises" "exercises"');
+        expect(query.mock.calls[0][1]).toEqual(["Alice"]);
     });
 });

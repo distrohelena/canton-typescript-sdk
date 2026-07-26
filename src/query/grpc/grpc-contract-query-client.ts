@@ -6,6 +6,8 @@ import {
     ContractFindManyArgs,
     ContractFindUniqueArgs,
     ContractRow,
+    ContractResult,
+    JsonProjectionResult,
 } from "../model-types.js";
 import { QueryCapabilityError } from "../errors/query-capability-error.js";
 import { QueryClient } from "../query-client.js";
@@ -19,14 +21,14 @@ type ActiveContractsReader = Pick<
 export class GrpcContractQueryClient implements QueryClient {
     public readonly source = QuerySource.grpc;
     public readonly contracts = {
-        findMany: (args: ContractFindManyArgs = {}) => this.findManyAsync(args),
-        findUnique: (args: ContractFindUniqueArgs) => {
-            if (args.select !== undefined) {
+        findMany: <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) => this.findManyAsync(args).then((rows) => rows as readonly (ContractResult & JsonProjectionResult<TArgs>)[]),
+        findUnique: <TArgs extends ContractFindUniqueArgs>(args: TArgs) => {
+            if (args.select !== undefined || args.include !== undefined) {
                 return Promise.reject(new QueryCapabilityError(QuerySource.grpc, "contracts.findUnique"));
             }
 
             return this.findManyAsync({ where: { contractId: { equals: args.where.contractId } } }).then(
-                (rows) => rows[0],
+                (rows) => rows[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined,
             );
         },
         count: async (args: ContractCountArgs = {}) =>
@@ -78,7 +80,7 @@ export class GrpcContractQueryClient implements QueryClient {
 
         const findArgs = args as ContractFindManyArgs;
 
-        if (findArgs.select !== undefined || findArgs.orderBy !== undefined || findArgs.skip !== undefined || findArgs.take !== undefined) {
+        if (findArgs.select !== undefined || findArgs.include !== undefined || findArgs.orderBy !== undefined || findArgs.skip !== undefined || findArgs.take !== undefined) {
             throw new QueryCapabilityError(QuerySource.grpc, "contracts.findMany");
         }
 
