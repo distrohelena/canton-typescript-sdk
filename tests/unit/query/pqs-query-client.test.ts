@@ -251,6 +251,49 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual([["owner"], 1]);
     });
 
+    it("materializes logical contracts reached from recent update relations", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                ix: "42", offset: "42", transaction_id: "tx", effective_at: null, workflow_id: null, domain_id: null, trace_context: null, external_transaction_hash: null, paid_traffic_cost: null,
+                events: [{
+                    pk: "7", txIx: "42", eventId: "event", type: "exercised",
+                    exercises: [{
+                        contract: {
+                            contractId: "cid", packageId: "pkg", payload: { owner: "Alice" }, witnesses: ["Alice"],
+                            createdEventOffset: "42", createdAt: null, archivedEventOffset: null, archivedAt: null,
+                            active: true, templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                        },
+                    }],
+                }],
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.transactions.findMany({
+            include: { events: { take: 10, include: { exercises: { take: 10, include: { contract: true } } } } },
+        })).resolves.toEqual([expect.objectContaining({
+            events: [expect.objectContaining({ exercises: [expect.objectContaining({ contract: expect.objectContaining({ contractId: "cid", templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" } }) })] })],
+        })]);
+        expect(query.mock.calls[0][0]).toContain("'contractId'");
+        expect(query.mock.calls[0][0]).toContain("'templateId'");
+    });
+
+    it("selects logical contract fields and JSON projections through a physical relation", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                tpe_pk: "1", contract_tpe_pk: "1", exercise_event_pk: null, exercised_at_ix: null, contract_id: "cid", argument: {}, result: {}, redaction_id: null, package_pk: "1", controllers: [], last_descendant_node_id: "0", witnesses: [],
+                contract: { contractId: "cid", owner: "Alice" },
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.exercises.findMany({
+            include: { contract: { select: { contractId: true, json: { owner: { field: "payload", path: ["owner"], as: "text" } } } } },
+        })).resolves.toEqual([expect.objectContaining({ contract: { contractId: "cid", owner: "Alice" } })]);
+        expect(query.mock.calls[0][0]).toContain('"contract"."payload" #>> $1::text[]');
+        expect(query.mock.calls[0][1]).toEqual([["owner"]]);
+    });
+
     it("binds physical relation filters and pagination", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
 

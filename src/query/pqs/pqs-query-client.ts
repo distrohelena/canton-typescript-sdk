@@ -79,6 +79,19 @@ type RuntimeAggregateArgs = {
     readonly sum?: readonly string[];
 };
 
+const logicalContractFields: readonly string[] = [
+    "contractId",
+    "templateId",
+    "packageId",
+    "payload",
+    "witnesses",
+    "createdEventOffset",
+    "createdAt",
+    "archivedEventOffset",
+    "archivedAt",
+    "active",
+];
+
 export class PqsQueryClient implements QueryClient {
     public readonly source = QuerySource.pqs;
     public readonly contracts = {
@@ -444,6 +457,7 @@ export class PqsQueryClient implements QueryClient {
         if (value === null || value === undefined) return value ?? null;
         if (Array.isArray(value)) return value.map((entry) => this.mapRelatedValue(entry, relation, options));
         if (typeof value !== "object") throw new Error(`Invalid included ${relation} row`);
+        if (relation === "__contracts") return this.mapLogicalContractValue(value as Record<string, unknown>, options);
         const metadata = pqsRelationMetadata[relation];
         const row = value as Record<string, unknown>;
         const fields = this.selectedFields(relation, metadata, options.select);
@@ -459,6 +473,23 @@ export class PqsQueryClient implements QueryClient {
         for (const name of Object.keys(nested)) normalized[name] = row[name];
         for (const name of Object.keys(json)) normalized[name] = row[name];
         return this.mapPhysicalRow(normalized, metadata, fields, nested, json);
+    }
+
+    private mapLogicalContractValue(row: Record<string, unknown>, options: Exclude<RuntimeInclude[string], true>): Record<string, unknown> {
+        const fields = options.select === undefined
+            ? logicalContractFields
+            : Object.entries(options.select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => {
+                if (!logicalContractFields.includes(field)) throw new Error(`${field} is not a field of __contracts`);
+                return field;
+            });
+        const scalar = Object.fromEntries(fields.filter((field) => Object.hasOwn(row, field)).map((field) => [field, row[field]]));
+        const relations = Object.fromEntries(Object.entries(options.include ?? {}).map(([name, option]) => {
+            const edge = pqsRelationEdges.__contracts?.[name];
+            if (edge === undefined) throw new Error(`${name} is not a relation of __contracts`);
+            return [name, this.mapRelatedValue(row[name], edge.target, option === true ? {} : option)];
+        }));
+        const json = Object.fromEntries(Object.entries(options.select?.json ?? {}).map(([name, projection]) => [name, mapJsonValue(row[name], projection.as)]));
+        return { ...scalar, ...json, ...relations };
     }
 
     private compileIncludes(relation: PqsRelation, include: RuntimeInclude | undefined, add: (value: unknown) => string, parentExpression = this.profile.relation(relation)): { readonly selection: readonly string[]; readonly values: Readonly<Record<string, { readonly target: PqsRelation; readonly options: Exclude<RuntimeInclude[string], true> }>>; } {
@@ -495,10 +526,15 @@ export class PqsQueryClient implements QueryClient {
     private compileIncludedExpression(name: string, target: PqsRelation, sourceColumn: string, targetColumn: string, cardinality: "one" | "many", options: Exclude<RuntimeInclude[string], true>, add: (value: unknown) => string, parentExpression: string): string {
         const alias = `"${name}"`;
         const targetMetadata = pqsRelationMetadata[target];
-        const fields = this.selectedFields(target, targetMetadata, options.select);
-        const json = this.compileJsonSelections(target, options.select?.json, add, alias).selection;
+        const fields = target === "__contracts" ? [] : this.selectedFields(target, targetMetadata, options.select);
+        const json = target === "__contracts"
+            ? this.compileLogicalContractJsonSelections(options.select?.json, add, alias)
+            : this.compileJsonSelections(target, options.select?.json, add, alias).selection;
         const nested = this.compileIncludes(target, options.include, add, alias).selection;
-        const object = `jsonb_build_object(${[...fields.map(([field, column]) => `'${field}', ${alias}."${column}"`), ...[...json, ...nested].flatMap((selection) => {
+        const scalarSelections = target === "__contracts"
+            ? this.compileLogicalContractSelections(alias, options.select)
+            : fields.map(([field, column]) => `'${field}', ${alias}."${column}"`);
+        const object = `jsonb_build_object(${[...scalarSelections, ...[...json, ...nested].flatMap((selection) => {
             const match = /^(.*) as "([^"]+)"$/.exec(selection);
             return match === null ? [] : [`'${match[2]}', ${match[1]}`];
         })].join(", ")})`;
@@ -508,6 +544,40 @@ export class PqsQueryClient implements QueryClient {
         if (cardinality === "one") return `(select ${object} from ${this.profile.relation(target)} ${alias}${childWhere})`;
         const orderBy = this.compileOrderBy(target, targetMetadata, options.orderBy);
         return `(select coalesce(jsonb_agg("${name}_limited".value), '[]'::jsonb) from (select ${object} as value from ${this.profile.relation(target)} ${alias}${childWhere}${orderBy} limit ${add(options.take!)}) "${name}_limited")`;
+    }
+
+    private compileLogicalContractSelections(alias: string, select: RuntimeSelect | undefined): readonly string[] {
+        const selected = select === undefined
+            ? logicalContractFields
+            : Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => field);
+        if (selected.length === 0 && Object.keys(select?.json ?? {}).length === 0) throw new Error("select must include at least one field");
+        const expressions: Readonly<Record<string, string>> = {
+            contractId: `${alias}."contract_id"`,
+            templateId: `jsonb_build_object('packageId', ${alias}."creation_package_id", 'moduleName', (select contract_type."module_name" from ${this.profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"), 'entityName', (select contract_type."entity_name" from ${this.profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"))`,
+            packageId: `${alias}."creation_package_id"`,
+            payload: `${alias}."payload"`,
+            witnesses: `${alias}."witnesses"`,
+            createdEventOffset: `${alias}."created_at_ix"::text`,
+            createdAt: `(select created_transaction."effective_at" from ${this.profile.relation("__transactions")} created_transaction where created_transaction."ix" = ${alias}."created_at_ix")`,
+            archivedEventOffset: `${alias}."archived_at_ix"::text`,
+            archivedAt: `(select archived_transaction."effective_at" from ${this.profile.relation("__transactions")} archived_transaction where archived_transaction."ix" = ${alias}."archived_at_ix")`,
+            active: `${alias}."archived_at_ix" is null`,
+        };
+        return selected.map((field) => {
+            const expression = expressions[field];
+            if (expression === undefined) throw new Error(`${field} is not a field of __contracts`);
+            return `'${field}', ${expression}`;
+        });
+    }
+
+    private compileLogicalContractJsonSelections(selections: RuntimeSelect["json"] | undefined, add: (value: unknown) => string, alias: string): readonly string[] {
+        return Object.entries(selections ?? {}).map(([name, projection]) => {
+            if (projection.field !== "payload") throw new Error(`${projection.field} is not a JSON field of __contracts`);
+            if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
+            const text = `${alias}."payload" #>> ${add(projection.path)}::text[]`;
+            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+            return `${expression} as "${name}"`;
+        });
     }
 
     private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractResult[]> {
