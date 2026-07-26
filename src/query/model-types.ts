@@ -447,6 +447,14 @@ export type TransactionGroupByKey = keyof TransactionRow | {
 };
 export type TransactionGroupByArgs = GroupByArgs<TransactionWhere, TransactionGroupByKey, "ix" | "offset" | "paidTrafficCost">;
 export type TransactionGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+export type ContractTypeGroupByArgs = GroupByArgs<ContractTypeWhere, keyof ContractTypeRow, "pk">;
+export type ContractTypeGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+export type ExerciseTypeGroupByArgs = GroupByArgs<ExerciseTypeWhere, keyof ExerciseTypeRow, "pk">;
+export type ExerciseTypeGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+export type PackageGroupByArgs = GroupByArgs<PackageWhere, keyof PackageRow, "pk">;
+export type PackageGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
+export type WatermarkGroupByArgs = GroupByArgs<WatermarkWhere, keyof WatermarkRow, "ix" | "offset">;
+export type WatermarkGroupRow = Readonly<Record<string, string | number | boolean | Date | null>>;
 
 export function assertQueryPageArgs(args: QueryPageArgs): void {
     assertPageValue(args.skip, "skip");

@@ -48,6 +48,11 @@ void query.transactions.groupBy({
     aggregate: { count: true, sum: ["paidTrafficCost"] },
 });
 
+void query.packages.groupBy({
+    by: ["name"],
+    aggregate: { count: true, sum: ["pk"] },
+});
+
 void query.transactions.findMany({
     where: { exercises: { some: { witnesses: { has: "Alice" } } } },
 });

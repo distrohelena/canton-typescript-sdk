@@ -6,6 +6,8 @@ import {
     ContractTypeSelect,
     ContractTypeUnique,
     ContractTypeWhere,
+    ContractTypeGroupByArgs,
+    ContractTypeGroupRow,
     ContractCountArgs,
     ContractFindManyArgs,
     ContractFindUniqueArgs,
@@ -31,6 +33,8 @@ import {
     ExerciseTypeSelect,
     ExerciseTypeUnique,
     ExerciseTypeWhere,
+    ExerciseTypeGroupByArgs,
+    ExerciseTypeGroupRow,
     ExerciseWhere,
     ExerciseGroupByArgs,
     ExerciseGroupRow,
@@ -40,6 +44,8 @@ import {
     PackageSelect,
     PackageUnique,
     PackageWhere,
+    PackageGroupByArgs,
+    PackageGroupRow,
     TransactionOrderBy,
     TransactionRow,
     TransactionResult,
@@ -53,6 +59,8 @@ import {
     WatermarkSelect,
     WatermarkUnique,
     WatermarkWhere,
+    WatermarkGroupByArgs,
+    WatermarkGroupRow,
     ContractTypeInclude,
     EventInclude,
     ExerciseInclude,
@@ -116,13 +124,13 @@ export interface QueryClient {
         }>;
         groupBy(args: ContractGroupByArgs): Promise<readonly ContractGroupRow[]>;
     };
-    readonly contractTypes: QueryDelegate<ContractTypeResult, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique, ContractTypeInclude>;
+    readonly contractTypes: QueryDelegate<ContractTypeResult, ContractTypeWhere, ContractTypeSelect, ContractTypeOrderBy, ContractTypeUnique, ContractTypeInclude, ContractTypeGroupByArgs, ContractTypeGroupRow>;
     readonly events: QueryDelegate<EventResult, EventWhere, EventSelect, EventOrderBy, EventUnique, EventInclude, EventGroupByArgs, EventGroupRow>;
     readonly exercises: QueryCollectionDelegate<ExerciseResult, ExerciseWhere, ExerciseSelect, ExerciseOrderBy, ExerciseInclude, ExerciseGroupByArgs, ExerciseGroupRow>;
-    readonly exerciseTypes: QueryDelegate<ExerciseTypeResult, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique, ExerciseTypeInclude>;
-    readonly packages: QueryDelegate<PackageResult, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique, PackageInclude>;
+    readonly exerciseTypes: QueryDelegate<ExerciseTypeResult, ExerciseTypeWhere, ExerciseTypeSelect, ExerciseTypeOrderBy, ExerciseTypeUnique, ExerciseTypeInclude, ExerciseTypeGroupByArgs, ExerciseTypeGroupRow>;
+    readonly packages: QueryDelegate<PackageResult, PackageWhere, PackageSelect, PackageOrderBy, PackageUnique, PackageInclude, PackageGroupByArgs, PackageGroupRow>;
     readonly transactions: QueryDelegate<TransactionResult, TransactionWhere, TransactionSelect, TransactionOrderBy, TransactionUnique, TransactionInclude, TransactionGroupByArgs, TransactionGroupRow>;
-    readonly watermark: QueryDelegate<WatermarkRow, WatermarkWhere, WatermarkSelect, WatermarkOrderBy, WatermarkUnique>;
+    readonly watermark: QueryDelegate<WatermarkRow, WatermarkWhere, WatermarkSelect, WatermarkOrderBy, WatermarkUnique, never, WatermarkGroupByArgs, WatermarkGroupRow>;
 }
 
 export type ContractNumericField = "createdEventOffset" | "archivedEventOffset";
