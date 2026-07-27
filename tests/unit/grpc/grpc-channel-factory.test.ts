@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { credentials } from "@grpc/grpc-js";
 import {
     CantonClientOptions,
     GrpcChannelSecurity,
@@ -221,6 +222,16 @@ describe("gRPC call-options factory", () => {
         );
 
         expect(credentials).toBeDefined();
+    });
+
+    it("creates TLS credentials with custom root certificates", () => {
+        const createSsl = vi.spyOn(credentials, "createSsl");
+        const roots = new Uint8Array([1, 2, 3]);
+
+        createGrpcChannelCredentials(GrpcChannelSecurity.tls, roots);
+
+        expect(createSsl).toHaveBeenCalledWith(Buffer.from(roots));
+        createSsl.mockRestore();
     });
 
     it("forwards all auth headers into metadata", async () => {

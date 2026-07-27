@@ -14,6 +14,7 @@ run_case() {
   local expected_output="$2"
   local auth_mode="${3:-shared-secret}"
   local docker_mode="${4:-compose-v2}"
+  local tls_enabled="${5:-0}"
   local quickstart_dir="$tmpdir/quickstart"
   local stubbin="$tmpdir/bin"
   local generated_dir="$tmpdir/generated-stop"
@@ -26,6 +27,10 @@ run_case() {
     "$quickstart_dir/docker/modules/keycloak" \
     "$stubbin" \
     "$generated_dir"
+  if [[ "$tls_enabled" == "1" ]]; then
+    mkdir -p "$tmpdir/tls"
+    printf 'services:\n' > "$tmpdir/tls/compose-localnet.yaml"
+  fi
 
   printf '%s\n' "$makefile_targets" > "$quickstart_dir/Makefile"
   printf 'DOCKER_NETWORK=quickstart\nSPLICE_VERSION=0.6.5\n' > "$quickstart_dir/.env"
@@ -95,6 +100,8 @@ EOF
     cd "$SCRIPT_DIR"
     CN_QUICKSTART_DIR="$quickstart_dir" \
       START_LOCAL_GENERATED_DIR="$generated_dir" \
+      START_LOCAL_TLS_RUNTIME_DIR="$tmpdir/tls" \
+      LOCALNET_TLS="$tls_enabled" \
       PATH="$stubbin:$PATH" \
       bash ./stop-local.sh
   )"
@@ -109,4 +116,4 @@ run_case $'.PHONY: stop-local-ledger\nstop-local-ledger:\n' 'stub make stop-loca
 run_case $'.PHONY: stop\nstop:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans'
 run_case $'.PHONY: stop\nstop:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.yaml --env-file '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.env --profile keycloak down -v --remove-orphans' oauth2
 run_case $'.PHONY: stop\nstop:\n' 'stub docker-compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans' shared-secret compose-v1
-
+run_case $'.PHONY: stop-local-ledger\nstop-local-ledger:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret compose-v2 1

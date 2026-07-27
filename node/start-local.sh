@@ -98,6 +98,167 @@ es256_runtime_dir() {
   printf '%s\n' "${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}"
 }
 
+resolve_tls_enabled() {
+  local value="${LOCALNET_TLS:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_TLS must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+resolve_tls_rotate() {
+  local value="${LOCALNET_TLS_ROTATE:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_TLS_ROTATE must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+tls_runtime_dir() {
+  printf '%s\n' "${START_LOCAL_TLS_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-tls}"
+}
+
+prepare_tls_runtime_files() {
+  local enabled
+  enabled="$(resolve_tls_enabled)"
+  if [[ "$enabled" != "1" ]]; then
+    return 0
+  fi
+
+  local runtime_dir
+  runtime_dir="$(tls_runtime_dir)"
+  local ca_key_path="$runtime_dir/ca.key"
+  local ca_certificate_path="$runtime_dir/ca.crt"
+  local server_key_path="$runtime_dir/server.key"
+  local server_certificate_path="$runtime_dir/server.crt"
+  local compose_file="$runtime_dir/compose-localnet.yaml"
+  local tls_fragment_file="$runtime_dir/canton-tls.conf"
+  local canton_config_file="$runtime_dir/canton-localnet.conf"
+  local supplied_count=0
+
+  [[ -n "${LOCALNET_TLS_CERT_CHAIN_PATH:-}" ]] && ((supplied_count += 1))
+  [[ -n "${LOCALNET_TLS_PRIVATE_KEY_PATH:-}" ]] && ((supplied_count += 1))
+  [[ -n "${LOCALNET_TLS_CA_CERT_PATH:-}" ]] && ((supplied_count += 1))
+
+  mkdir -p "$runtime_dir"
+  if (( supplied_count > 0 )); then
+    if (( supplied_count != 3 )); then
+      echo "LOCALNET_TLS_CERT_CHAIN_PATH, LOCALNET_TLS_PRIVATE_KEY_PATH, and LOCALNET_TLS_CA_CERT_PATH must be set together." >&2
+      return 1
+    fi
+    server_certificate_path="$LOCALNET_TLS_CERT_CHAIN_PATH"
+    server_key_path="$LOCALNET_TLS_PRIVATE_KEY_PATH"
+    ca_certificate_path="$LOCALNET_TLS_CA_CERT_PATH"
+    if [[ ! -r "$server_certificate_path" || ! -r "$server_key_path" || ! -r "$ca_certificate_path" ]]; then
+      echo "Supplied TLS certificate, private key, or CA certificate is not readable." >&2
+      return 1
+    fi
+    if ! openssl x509 -in "$server_certificate_path" -noout >/dev/null 2>&1 \
+      || ! openssl pkey -in "$server_key_path" -noout >/dev/null 2>&1 \
+      || ! openssl x509 -in "$ca_certificate_path" -noout >/dev/null 2>&1 \
+      || ! openssl verify -CAfile "$ca_certificate_path" "$server_certificate_path" >/dev/null 2>&1; then
+      echo "Supplied TLS material is not valid PEM certificate/key material." >&2
+      return 1
+    fi
+    local certificate_public_key private_public_key
+    if ! certificate_public_key="$(openssl x509 -in "$server_certificate_path" -pubkey -noout | openssl pkey -pubin -outform DER | sha256sum | awk '{print $1}')" \
+      || ! private_public_key="$(openssl pkey -in "$server_key_path" -pubout | openssl pkey -pubin -outform DER | sha256sum | awk '{print $1}')" \
+      || [[ "$certificate_public_key" != "$private_public_key" ]]; then
+      echo "Supplied TLS private key does not match the server certificate." >&2
+      return 1
+    fi
+  else
+    if [[ "$(resolve_tls_rotate)" == "1" ]]; then
+      rm -f "$ca_key_path" "$ca_certificate_path" "$server_key_path" "$server_certificate_path"
+    fi
+    if [[ ! -e "$ca_key_path" || ! -e "$ca_certificate_path" ]]; then
+      rm -f "$ca_key_path" "$ca_certificate_path"
+      openssl genrsa -out "$ca_key_path" 2048 >/dev/null 2>&1
+      chmod 600 "$ca_key_path"
+      openssl req -x509 -new -sha256 -days 3650 -key "$ca_key_path" \
+        -subj "/CN=localnet-tls-ca" -out "$ca_certificate_path" >/dev/null 2>&1
+    fi
+    if [[ ! -e "$server_key_path" || ! -e "$server_certificate_path" ]]; then
+      rm -f "$server_key_path" "$server_certificate_path"
+      local csr_path="$runtime_dir/server.csr"
+      local extensions_path="$runtime_dir/server-extensions.cnf"
+      openssl genrsa -out "$server_key_path" 2048 >/dev/null 2>&1
+      chmod 600 "$server_key_path"
+      openssl req -new -sha256 -key "$server_key_path" -subj "/CN=localhost" -out "$csr_path" >/dev/null 2>&1
+      cat > "$extensions_path" <<'EOF'
+[server_ext]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:localhost, DNS:canton, IP:127.0.0.1
+EOF
+      openssl x509 -req -sha256 -days 3650 -in "$csr_path" \
+        -CA "$ca_certificate_path" -CAkey "$ca_key_path" -CAcreateserial \
+        -out "$server_certificate_path" -extfile "$extensions_path" -extensions server_ext >/dev/null 2>&1
+      rm -f "$csr_path" "$extensions_path" "$ca_certificate_path.srl"
+    fi
+    if ! openssl x509 -in "$server_certificate_path" -noout >/dev/null 2>&1 \
+      || ! openssl pkey -in "$server_key_path" -noout >/dev/null 2>&1 \
+      || ! openssl x509 -in "$ca_certificate_path" -noout >/dev/null 2>&1; then
+      echo "Generated TLS material is invalid." >&2
+      return 1
+    fi
+  fi
+
+  cat > "$tls_fragment_file" <<'EOF'
+canton.participants.app-provider.ledger-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.app-provider.admin-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.app-user.ledger-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.app-user.admin-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.sv.ledger-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.sv.admin-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+EOF
+  cat > "$canton_config_file" <<'EOF'
+include file("/app/base-app.conf")
+include file("/app/localnet-tls.conf")
+EOF
+  cat > "$compose_file" <<EOF
+services:
+  canton:
+    volumes:
+      - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
+      - "$canton_config_file:/app/app.conf:ro"
+      - "$tls_fragment_file:/app/localnet-tls.conf:ro"
+      - "$server_certificate_path:/app/localnet-tls/server.crt:ro"
+      - "$server_key_path:/app/localnet-tls/server.key:ro"
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+EOF
+  export LOCALNET_TLS_COMPOSE_FILE="$compose_file"
+  export LOCALNET_TLS_FRAGMENT_FILE="$tls_fragment_file"
+  export LOCALNET_TLS_CA_CERT_PATH="$ca_certificate_path"
+}
+
 prepare_es256_runtime_files() {
   local runtime_dir
   runtime_dir="$(es256_runtime_dir)"
@@ -150,6 +311,8 @@ prepare_es256_runtime_files() {
   cat > "$canton_config_file" <<EOF
 include file("/app/base-app.conf")
 
+$(if [[ "$(resolve_tls_enabled)" == "1" ]]; then printf 'include file("/app/localnet-tls.conf")\n'; fi)
+
 EOF
   local participant profile
   for participant in app-provider app-user sv; do
@@ -192,6 +355,13 @@ append_es256_args() {
   local -n compose_args_ref="$1"
   if [[ "$(resolve_es256_enabled)" == "1" ]]; then
     compose_args_ref+=( -f "$LOCALNET_ES256_COMPOSE_FILE" )
+  fi
+}
+
+append_tls_args() {
+  local -n compose_args_ref="$1"
+  if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+    compose_args_ref+=( -f "$LOCALNET_TLS_COMPOSE_FILE" )
   fi
 }
 
@@ -413,6 +583,25 @@ canton.participants.extra-${index}.ledger-api.auth-services = [
     target-audience = "https://canton.network.global/es256"
   }
 ]
+
+EOF
+    done
+  fi
+
+  if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+    local index
+    for ((index = 1; index <= count; index++)); do
+      cat >> "$canton_config_file" <<EOF
+canton.participants.extra-${index}.ledger-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+canton.participants.extra-${index}.admin-api.tls {
+  cert-chain-file = "/app/localnet-tls/server.crt"
+  private-key-file = "/app/localnet-tls/server.key"
+  trust-collection-file = "/app/localnet-tls/ca.crt"
+}
 
 EOF
     done
@@ -808,6 +997,7 @@ start_ledger_stack() {
   export SV_PROFILE=on
   export PQS_SV_PROFILE=on
   load_localnet_common_env "$localnet_dir/env/common.env"
+  prepare_tls_runtime_files
   prepare_es256_runtime_files
   local extra_participants
   extra_participants="$(resolve_extra_participants)"
@@ -841,6 +1031,7 @@ start_ledger_stack() {
   fi
 
   append_extra_participant_args "$extra_participants" "$auth_mode" compose_args
+  append_tls_args compose_args
   append_es256_args compose_args
   docker_compose "${compose_args[@]}" down -v --remove-orphans
   mapfile -t startup_services < <(prerequisite_services "$auth_mode")
@@ -873,12 +1064,16 @@ if [[ ! -f .env.local ]]; then
   make setup
 fi
 
-if [[ "$(resolve_es256_enabled)" != "1" ]] && make_target_exists start-local-ledger; then
+if [[ "$(resolve_es256_enabled)" != "1" && "$(resolve_tls_enabled)" != "1" ]] && make_target_exists start-local-ledger; then
   make start-local-ledger
 else
   auth_mode="$(read_env_value AUTH_MODE || true)"
   auth_mode="${auth_mode:-shared-secret}"
-  echo "start-local-ledger target not found. Starting ledger-only compose stack directly."
+  if [[ "$(resolve_es256_enabled)" == "1" || "$(resolve_tls_enabled)" == "1" ]]; then
+    echo "Generated localnet transport overlay enabled. Starting ledger-only compose stack directly."
+  else
+    echo "start-local-ledger target not found. Starting ledger-only compose stack directly."
+  fi
   start_ledger_stack "$auth_mode"
   if [[ "$(resolve_es256_enabled)" == "1" ]]; then
     echo "ES256 bearer token written to $LOCALNET_ES256_TOKEN_PATH"

@@ -32,12 +32,17 @@ run_case() {
   local cn_quickstart_dir_override="${6:-}"
   local repo_root_env_contents="${7:-}"
   local es256_enabled="${8:-0}"
+  local tls_enabled="${9:-0}"
+  local tls_cert_chain_path="${10:-}"
+  local tls_private_key_path="${11:-}"
+  local tls_ca_cert_path="${12:-}"
+  local expected_status="${13:-0}"
   local quickstart_dir="$tmpdir/quickstart"
   local quickstart_root_dir="$tmpdir/cn-quickstart"
   local stubbin="$tmpdir/bin"
   local generated_dir="$tmpdir/generated"
 
-  rm -rf "$quickstart_dir" "$quickstart_root_dir" "$stubbin" "$generated_dir"
+  rm -rf "$quickstart_dir" "$quickstart_root_dir" "$stubbin" "$generated_dir" "$tmpdir/tls"
   mkdir -p \
     "$quickstart_root_dir" \
     "$quickstart_dir/docker/modules/localnet/env" \
@@ -145,6 +150,7 @@ EOF
   chmod +x "$stubbin/docker-compose"
 
   local output
+  local status=0
   output="$(
     if [[ -n "$repo_root_env_contents" ]]; then
       printf '%s\n' "$repo_root_env_contents" > "$REPO_ENV_FILE"
@@ -158,20 +164,39 @@ EOF
         TERM="${TERM:-dumb}" \
         START_LOCAL_GENERATED_DIR="$generated_dir" \
         START_LOCAL_ES256_RUNTIME_DIR="$tmpdir/es256" \
+        START_LOCAL_TLS_RUNTIME_DIR="$tmpdir/tls" \
         LOCALNET_ES256_JWT="$es256_enabled" \
+        LOCALNET_TLS="$tls_enabled" \
+        LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
+        LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
+        LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
-        bash ./start-local.sh
+        bash ./start-local.sh 2>&1
     else
       CN_QUICKSTART_DIR="${cn_quickstart_dir_override:-$quickstart_dir}" \
         START_LOCAL_GENERATED_DIR="$generated_dir" \
         START_LOCAL_ES256_RUNTIME_DIR="$tmpdir/es256" \
+        START_LOCAL_TLS_RUNTIME_DIR="$tmpdir/tls" \
         LOCALNET_ES256_JWT="$es256_enabled" \
+        LOCALNET_TLS="$tls_enabled" \
+        LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
+        LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
+        LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
-        bash ./start-local.sh
+        bash ./start-local.sh 2>&1
     fi
-  )"
+  )" || status=$?
+
+  if [[ "$expected_status" == "0" && "$status" != "0" ]]; then
+    printf 'expected successful start-local case, got status %s and output:\n%s\n' "$status" "$output" >&2
+    exit 1
+  fi
+  if [[ "$expected_status" != "0" && "$status" == "0" ]]; then
+    printf 'expected failing start-local case, got success and output:\n%s\n' "$output" >&2
+    exit 1
+  fi
 
   if ! grep -Fxq "$expected_output" <<<"$output"; then
     printf 'expected output line %q, got:\n%s\n' "$expected_output" "$output" >&2
@@ -186,6 +211,28 @@ assert_file_contains() {
   if ! grep -Fqx "$expected" "$path"; then
     printf 'expected file %s to contain line %q, got:\n' "$path" "$expected" >&2
     cat "$path" >&2
+    exit 1
+  fi
+}
+
+assert_file_contains_text() {
+  local path="$1"
+  local expected="$2"
+
+  if ! grep -Fq "$expected" "$path"; then
+    printf 'expected file %s to contain text %q, got:\n' "$path" "$expected" >&2
+    cat "$path" >&2
+    exit 1
+  fi
+}
+
+assert_file_mode() {
+  local path="$1"
+  local expected="$2"
+  local actual
+  actual="$(stat -c '%a' "$path")"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'expected file %s mode %s, got %s\n' "$path" "$expected" "$actual" >&2
     exit 1
   fi
 }
@@ -351,4 +398,54 @@ assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf"
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" '  validator-party-hint = "${EXTRA_VALIDATOR_1_PARTY_HINT}"'
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" '  domains.global.buy-extra-traffic {'
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" 'canton.sv-apps.sv.expected-validator-onboardings += { secret = "${EXTRA_VALIDATOR_3_ONBOARDING_SECRET}" }'
+run_case $'.PHONY: start-local-ledger\nstart-local-ledger:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 0 '' '' 0 1
+assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.ledger-api.tls {'
+assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.admin-api.tls {'
+assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-user.ledger-api.tls {'
+assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.sv.admin-api.tls {'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.key:ro'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/ca.crt:ro'
+assert_file_mode "$tmpdir/tls/server.key" 600
+assert_file_mode "$tmpdir/tls/ca.key" 600
+run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 2 '' '' 0 1
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-1.ledger-api.tls {'
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-2.admin-api.tls {'
+
+mkdir -p "$tmpdir/supplied"
+openssl genrsa -out "$tmpdir/supplied/ca.key" 2048 >/dev/null 2>&1
+openssl req -x509 -new -sha256 -days 3650 \
+  -key "$tmpdir/supplied/ca.key" \
+  -subj '/CN=supplied-localnet-ca' \
+  -addext 'basicConstraints=critical,CA:TRUE' \
+  -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+  -out "$tmpdir/supplied/ca.crt" >/dev/null 2>&1
+openssl genrsa -out "$tmpdir/supplied/server.key" 2048 >/dev/null 2>&1
+openssl req -new -sha256 -key "$tmpdir/supplied/server.key" \
+  -subj '/CN=localhost' -out "$tmpdir/supplied/server.csr" >/dev/null 2>&1
+printf '%s\n' \
+  '[server_ext]' \
+  'basicConstraints = CA:FALSE' \
+  'keyUsage = digitalSignature, keyEncipherment' \
+  'extendedKeyUsage = serverAuth' \
+  'subjectAltName = DNS:localhost, DNS:canton, IP:127.0.0.1' \
+  > "$tmpdir/supplied/server-extensions.cnf"
+openssl x509 -req -sha256 -days 3650 \
+  -in "$tmpdir/supplied/server.csr" \
+  -CA "$tmpdir/supplied/ca.crt" -CAkey "$tmpdir/supplied/ca.key" -CAcreateserial \
+  -out "$tmpdir/supplied/server.crt" \
+  -extfile "$tmpdir/supplied/server-extensions.cnf" -extensions server_ext >/dev/null 2>&1
+run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 0 '' '' 0 1 "$tmpdir/supplied/server.crt" "$tmpdir/supplied/server.key" "$tmpdir/supplied/ca.crt"
+if [[ -e "$tmpdir/tls/server.key" || -e "$tmpdir/tls/ca.key" ]]; then
+  echo 'supplied TLS mode unexpectedly generated private material' >&2
+  exit 1
+fi
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" "$tmpdir/supplied/server.key:/app/localnet-tls/server.key:ro"
+openssl genrsa -out "$tmpdir/supplied/mismatch.key" 2048 >/dev/null 2>&1
+run_case $'.PHONY: start\nstart:\n' 'Supplied TLS private key does not match the server certificate.' shared-secret default 0 '' '' 0 1 "$tmpdir/supplied/server.crt" "$tmpdir/supplied/mismatch.key" "$tmpdir/supplied/ca.crt" 1
+run_case $'.PHONY: start\nstart:\n' 'LOCALNET_TLS_CERT_CHAIN_PATH, LOCALNET_TLS_PRIVATE_KEY_PATH, and LOCALNET_TLS_CA_CERT_PATH must be set together.' shared-secret default 0 '' '' 0 1 "$tmpdir/supplied/server.crt" '' '' 1
+run_case $'.PHONY: start\nstart:\n' 'LOCALNET_TLS must be 0 or 1.' shared-secret default 0 '' '' 0 invalid '' '' '' 1
+run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/es256/ledger-api-user.token' shared-secret default 0 '' '' 1 1
+assert_file_contains_text "$tmpdir/es256/canton-es256.conf" 'include file("/app/localnet-tls.conf")'
+assert_file_contains_text "$tmpdir/es256/compose-es256.yaml" '/app/es256-certificate.pem:ro'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.crt:ro'
 run_repo_root_env_case

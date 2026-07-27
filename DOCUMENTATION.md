@@ -114,6 +114,7 @@ Fields:
 - `ledgerGrpcChannelSecurity?: GrpcChannelSecurity`
 - `ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity`
 - `participantAdminGrpcChannelSecurity?: GrpcChannelSecurity`
+- `grpcTlsRootCertificates?: Uint8Array`
 - `defaultRequestTimeoutMs?: number`
 - `grpcConnectTimeoutMs?: number`
 - `ledgerAuthProvider?: IAuthProvider`
@@ -130,6 +131,9 @@ Notes:
   `ledgerAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
 - participant admin gRPC security resolves with:
   `participantAdminGrpcChannelSecurity ?? grpcChannelSecurity ?? GrpcChannelSecurity.tls`
+- `grpcTlsRootCertificates` is passed to TLS gRPC channels as the trusted root
+  bundle. It is ignored for explicitly insecure channels and defaults to the
+  system trust roots when omitted.
 - `commandSigner` is valid on `grpc` only
 - client construction succeeds even if one endpoint is missing
 - a service only fails when its own surface endpoint is missing

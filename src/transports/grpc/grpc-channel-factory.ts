@@ -562,6 +562,7 @@ export function createGrpcOperations(
         host: normalizeGrpcHost(endpoint),
         channelCredentials: createGrpcChannelCredentials(
             grpcChannelSecurity,
+            options.grpcTlsRootCertificates,
         ),
         clientOptions:
             options.grpcConnectTimeoutMs === undefined

@@ -10,6 +10,7 @@ export class CantonClientOptions {
     public readonly ledgerAdminEndpoint?: string;
     public readonly participantAdminEndpoint?: string;
     public readonly grpcChannelSecurity: GrpcChannelSecurity;
+    public readonly grpcTlsRootCertificates?: Uint8Array;
     public readonly ledgerGrpcChannelSecurity?: GrpcChannelSecurity;
     public readonly ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity;
     public readonly participantAdminGrpcChannelSecurity?: GrpcChannelSecurity;
@@ -27,6 +28,7 @@ export class CantonClientOptions {
         ledgerAdminEndpoint?: string;
         participantAdminEndpoint?: string;
         grpcChannelSecurity?: GrpcChannelSecurity;
+        grpcTlsRootCertificates?: Uint8Array;
         ledgerGrpcChannelSecurity?: GrpcChannelSecurity;
         ledgerAdminGrpcChannelSecurity?: GrpcChannelSecurity;
         participantAdminGrpcChannelSecurity?: GrpcChannelSecurity;
@@ -44,6 +46,7 @@ export class CantonClientOptions {
         this.participantAdminEndpoint = init.participantAdminEndpoint;
         this.grpcChannelSecurity =
             init.grpcChannelSecurity ?? GrpcChannelSecurity.tls;
+        this.grpcTlsRootCertificates = init.grpcTlsRootCertificates;
         this.ledgerGrpcChannelSecurity = init.ledgerGrpcChannelSecurity;
         this.ledgerAdminGrpcChannelSecurity =
             init.ledgerAdminGrpcChannelSecurity;

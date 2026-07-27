@@ -34,6 +34,16 @@ describe("CantonClientOptions", () => {
         expect(options.grpcChannelSecurity).toBe(GrpcChannelSecurity.tls);
     });
 
+    it("stores optional grpc TLS root certificates", () => {
+        const roots = new Uint8Array([1, 2, 3]);
+        const options = new CantonClientOptions({
+            transportKind: TransportKind.grpc,
+            grpcTlsRootCertificates: roots,
+        });
+
+        expect(options.grpcTlsRootCertificates).toBe(roots);
+    });
+
     it("stores an explicit grpc channel security override", () => {
         const options = new CantonClientOptions({
             transportKind: TransportKind.grpc,

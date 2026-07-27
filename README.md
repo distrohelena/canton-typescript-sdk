@@ -127,6 +127,49 @@ already be a Ledger API user with the appropriate rights on each participant.
 Extra participants use the existing shared-secret onboarding flow; the current
 OAuth2-plus-extras limitation still applies.
 
+### Optional localnet TLS
+
+Set `LOCALNET_TLS=1` to enable TLS on every participant Ledger API and Admin API
+listener, including generated extra participants. TLS is disabled by default,
+so `LOCALNET_TLS=0` preserves the existing Quickstart behavior. The launcher
+uses direct Compose mode when TLS is enabled so it can apply the generated
+configuration overlay.
+
+By default, development-only material is generated in
+`.generated/localnet-tls`: `ca.crt`, `server.crt`, and `server.key`. Set
+`LOCALNET_TLS_ROTATE=1` to replace it. To provide your own material, set all
+three variables together:
+
+```bash
+LOCALNET_TLS=1 \
+LOCALNET_TLS_CERT_CHAIN_PATH=/path/to/server-chain.pem \
+LOCALNET_TLS_PRIVATE_KEY_PATH=/path/to/server-key.pem \
+LOCALNET_TLS_CA_CERT_PATH=/path/to/root-ca.pem \
+canton-localnet-start
+```
+
+The server certificate must cover the hostname used by the client, normally
+`localhost` for host-side SDK calls. Client certificate authentication is not
+enabled; authentication remains controlled by the existing Quickstart
+`AUTH_MODE` and optional ES256 settings.
+
+The SDK gRPC channels remain TLS by default. For generated localnet material,
+pass the generated CA to the client:
+
+```ts
+import { readFileSync } from "node:fs";
+
+const client = new CantonClient(new CantonClientOptions({
+    transportKind: TransportKind.grpc,
+    ledgerEndpoint: "localhost:3901",
+    ledgerAdminEndpoint: "localhost:3902",
+    participantAdminEndpoint: "localhost:3902",
+    grpcTlsRootCertificates: readFileSync(
+        ".generated/localnet-tls/ca.crt",
+    ),
+}));
+```
+
 The live suite runs single-worker with an extended timeout because it mutates and reads a shared localnet.
 
 Prerequisites:
