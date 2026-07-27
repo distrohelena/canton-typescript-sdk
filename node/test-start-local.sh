@@ -412,11 +412,22 @@ if grep -Fq 'canton.participants.app-user.ledger-api.tls {' "$tmpdir/tls/canton-
 fi
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.key:ro'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/ca.crt:ro'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'ADDITIONAL_CONFIG_LOCALNET_TLS='
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt'
+if grep -Fq 'canton.validator-apps.app-user-validator_backend.participant-client' "$tmpdir/tls/compose-localnet.yaml"; then
+  echo "unexpected client TLS configuration for inactive app-user participant" >&2
+  exit 1
+fi
 assert_file_mode "$tmpdir/tls/server.key" 600
 assert_file_mode "$tmpdir/tls/ca.key" 600
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 2 '' '' 0 1
 assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-1.ledger-api.tls {'
 assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-2.admin-api.tls {'
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-validators.conf" 'canton.validator-apps.extra-1-validator_backend.participant-client {'
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-validators.conf" 'admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"'
+assert_file_contains_text "$tmpdir/generated/compose-extra-participants.yaml" 'SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt'
 
 mkdir -p "$tmpdir/supplied"
 openssl genrsa -out "$tmpdir/supplied/ca.key" 2048 >/dev/null 2>&1

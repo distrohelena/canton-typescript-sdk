@@ -244,6 +244,62 @@ services:
       - "$server_certificate_path:/app/localnet-tls/server.crt:ro"
       - "$server_key_path:/app/localnet-tls/server.key:ro"
       - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+  splice:
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+    environment:
+      - |
+        ADDITIONAL_CONFIG_LOCALNET_TLS=
+EOF
+  for participant in app-provider app-user sv; do
+    case "$participant" in
+      app-provider) profile="$APP_PROVIDER_PROFILE" ;;
+      app-user) profile="$APP_USER_PROFILE" ;;
+      sv) profile="$SV_PROFILE" ;;
+    esac
+    if [[ "$profile" == "off" ]]; then
+      continue
+    fi
+    if [[ "$participant" == "sv" ]]; then
+      cat >> "$compose_file" <<'EOF'
+          canton.validator-apps.sv-validator_backend.participant-client {
+            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          }
+          canton.scan-apps.scan-app.participant-client {
+            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          }
+          canton.sv-apps.sv.participant-client {
+            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          }
+EOF
+    else
+      cat >> "$compose_file" <<EOF
+          canton.validator-apps.${participant}-validator_backend.participant-client {
+            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          }
+EOF
+    fi
+  done
+  cat >> "$compose_file" <<EOF
+  pqs-app-provider:
+    environment:
+      SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+  pqs-app-user:
+    environment:
+      SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+  pqs-sv:
+    environment:
+      SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
 EOF
   export LOCALNET_TLS_COMPOSE_FILE="$compose_file"
   export LOCALNET_TLS_FRAGMENT_FILE="$tls_fragment_file"
@@ -642,6 +698,19 @@ EOF
     done
   } > "$splice_config_file"
 
+  if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+    local index
+    for ((index = 1; index <= count; index++)); do
+      cat >> "$splice_config_file" <<EOF
+canton.validator-apps.extra-${index}-validator_backend.participant-client {
+  admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+  ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+}
+
+EOF
+    done
+  fi
+
   {
     cat <<'EOF'
 volumes:
@@ -731,8 +800,20 @@ EOF
       SCRIBE_TARGET_POSTGRES_USERNAME: \${DB_USER}
       SCRIBE_TARGET_POSTGRES_PASSWORD: \${DB_PASSWORD}
       SCRIBE_CONFIG: /onboarding/extra-${index}-pqs.conf
+EOF
+    if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+      cat <<'EOF'
+      SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt
+EOF
+    fi
+    cat <<EOF
     volumes:
       - onboarding:/onboarding
+EOF
+    if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+      printf '      - "%s:/app/localnet-tls/ca.crt:ro"\n' "${LOCALNET_TLS_CA_CERT_PATH}"
+    fi
+    cat <<'EOF'
     command:
       - pipeline
       - ledger
