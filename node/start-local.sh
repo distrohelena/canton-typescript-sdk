@@ -912,7 +912,7 @@ prerequisite_services() {
 }
 
 dependent_services() {
-  printf '%s\n' splice splice-onboarding pqs-app-provider pqs-sv
+  printf '%s\n' pqs-app-provider pqs-sv
 }
 
 extra_pqs_services() {
@@ -1147,6 +1147,11 @@ start_ledger_stack() {
   docker_compose "${compose_args[@]}" up -d --no-recreate "${startup_services[@]}"
   wait_for_canton_health "$extra_participants"
 
+  # SV initialization waits for onboarding contracts, while splice health waits
+  # for SV and scan initialization. Start onboarding without Compose dependency
+  # gating so its healthcheck can retry until those apps are ready; PQS still
+  # starts afterward and retains its onboarding health dependency.
+  docker_compose "${compose_args[@]}" up -d --no-recreate --no-deps splice splice-onboarding
   docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
 
   if (( extra_participants > 0 )); then

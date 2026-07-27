@@ -89,7 +89,13 @@ EOF
   : > "$quickstart_dir/docker/modules/localnet/env/common.env"
   : > "$quickstart_dir/docker/modules/pqs/compose.yaml"
   : > "$quickstart_dir/docker/modules/pqs/compose.env"
-  : > "$quickstart_dir/docker/modules/splice-onboarding/compose.yaml"
+  cat > "$quickstart_dir/docker/modules/splice-onboarding/compose.yaml" <<'EOF'
+services:
+  splice-onboarding:
+    depends_on:
+      splice:
+        condition: service_healthy
+EOF
   printf '%s\n' \
     'curl_check "http://$participant/v2/users"' \
     'curl_check "http://$validator/api/validator/v0/scan-proxy/dso-party-id"' \
@@ -161,7 +167,10 @@ printf 'stub docker %s\n' "$*"
   if [[ "${1:-}" == "compose" && "$*" == *" up -d --no-recreate postgres canton"* ]]; then
     exit 0
   fi
-  if [[ "$*" == *" up -d --no-recreate splice splice-onboarding pqs-app-provider pqs-sv"* ]]; then
+  if [[ "$*" == *" up -d --no-recreate --no-deps splice splice-onboarding"* ]]; then
+    exit 0
+  fi
+  if [[ "$*" == *" up -d --no-recreate pqs-app-provider pqs-sv"* ]]; then
     exit 0
   fi
   exit 1
@@ -203,6 +212,7 @@ EOF
         START_LOCAL_TLS_RUNTIME_DIR="$tmpdir/tls" \
         LOCALNET_ES256_JWT="$es256_enabled" \
         LOCALNET_TLS="$tls_enabled" \
+        LOCALNET_TLS_ROTATE=1 \
         LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
         LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
         LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
@@ -216,6 +226,7 @@ EOF
         START_LOCAL_TLS_RUNTIME_DIR="$tmpdir/tls" \
         LOCALNET_ES256_JWT="$es256_enabled" \
         LOCALNET_TLS="$tls_enabled" \
+        LOCALNET_TLS_ROTATE=1 \
         LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
         LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
         LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
@@ -373,7 +384,7 @@ run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$t
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv up -d --no-recreate postgres canton'
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.yaml --env-file '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.env --profile keycloak down -v --remove-orphans' oauth2
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.yaml --env-file '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.env --profile keycloak up -d --no-recreate keycloak nginx-keycloak postgres canton' oauth2
-run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv up -d --no-recreate splice splice-onboarding pqs-app-provider pqs-sv' shared-secret staged-start
+run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv up -d --no-recreate --no-deps splice splice-onboarding' shared-secret staged-start
 run_case $'.PHONY: start\nstart:\n' 'stub docker-compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans' shared-secret compose-v1
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env down -v --remove-orphans' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate pqs-extra-1 pqs-extra-2 pqs-extra-3' shared-secret default 3
@@ -536,4 +547,24 @@ run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/e
 assert_file_contains_text "$tmpdir/es256/canton-es256.conf" 'include file("/app/localnet-tls.conf")'
 assert_file_contains_text "$tmpdir/es256/compose-es256.yaml" '/app/es256-certificate.pem:ro'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.crt:ro'
+run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env -f '"$tmpdir"'/tls/compose-localnet.yaml -f '"$tmpdir"'/es256/compose-es256.yaml up -d --no-recreate --no-deps splice splice-onboarding' shared-secret default 3 '' '' 1 1
+exact_compose_config="$tmpdir/exact-compose.config"
+if [[ -n "$real_docker" ]] && "$real_docker" compose version >/dev/null 2>&1; then
+  if ! "$real_docker" compose \
+    -f "$tmpdir/quickstart/compose.yaml" \
+    -f "$tmpdir/quickstart/docker/modules/localnet/compose.yaml" \
+    -f "$tmpdir/quickstart/docker/modules/splice-onboarding/compose.yaml" \
+    -f "$tmpdir/quickstart/docker/modules/pqs/compose.yaml" \
+    -f "$tmpdir/generated/compose-extra-participants.yaml" \
+    -f "$tmpdir/tls/compose-localnet.yaml" \
+    -f "$tmpdir/es256/compose-es256.yaml" \
+    --env-file "$tmpdir/quickstart/.env" \
+    --env-file "$tmpdir/quickstart/.env.local" \
+    --env-file "$tmpdir/generated/extra-participants.env" \
+    config > "$exact_compose_config" 2>&1; then
+    echo 'three extra participants plus TLS and ES256 did not produce valid merged Compose configuration' >&2
+    cat "$exact_compose_config" >&2
+    exit 1
+  fi
+fi
 run_repo_root_env_case
