@@ -190,6 +190,11 @@ prepare_tls_runtime_files() {
       openssl req -x509 -new -sha256 -days 3650 -key "$ca_key_path" \
         -subj "/CN=localnet-tls-ca" -out "$ca_certificate_path" >/dev/null 2>&1
     fi
+    if [[ -e "$server_certificate_path" ]] \
+      && ! openssl x509 -in "$server_certificate_path" -noout -ext subjectAltName 2>/dev/null \
+        | grep -Fq 'IP Address:127.0.0.1, IP Address:0.0.0.0'; then
+      rm -f "$server_key_path" "$server_certificate_path"
+    fi
     if [[ ! -e "$server_key_path" || ! -e "$server_certificate_path" ]]; then
       rm -f "$server_key_path" "$server_certificate_path"
       local csr_path="$runtime_dir/server.csr"
@@ -202,7 +207,7 @@ prepare_tls_runtime_files() {
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
-subjectAltName = DNS:localhost, DNS:canton, IP:127.0.0.1
+subjectAltName = DNS:localhost, DNS:canton, IP:127.0.0.1, IP:0.0.0.0
 EOF
       openssl x509 -req -sha256 -days 3650 -in "$csr_path" \
         -CA "$ca_certificate_path" -CAkey "$ca_key_path" -CAcreateserial \
@@ -839,7 +844,7 @@ EOF
     if [[ "$(resolve_tls_enabled)" == "1" ]]; then
       printf '      - "%s:/app/localnet-tls/ca.crt:ro"\n' "${LOCALNET_TLS_CA_CERT_PATH}"
     fi
-    cat <<'EOF'
+    cat <<EOF
     command:
       - pipeline
       - ledger

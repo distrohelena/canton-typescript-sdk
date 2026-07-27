@@ -6,6 +6,7 @@ SCRIPT_DIR="$REPO_ROOT/node"
 REPO_ENV_FILE="$REPO_ROOT/.env"
 
 tmpdir="$(mktemp -d)"
+real_docker="$(command -v docker || true)"
 root_env_backup="$tmpdir/root-env.backup"
 root_env_exists=0
 if [[ -f "$REPO_ENV_FILE" ]]; then
@@ -53,9 +54,36 @@ run_case() {
     "$generated_dir"
   ln -s "$quickstart_dir" "$quickstart_root_dir/quickstart"
   printf '%s\n' "$makefile_targets" > "$quickstart_dir/Makefile"
-  printf 'DOCKER_NETWORK=quickstart\nSPLICE_VERSION=0.6.5\n' > "$quickstart_dir/.env"
+  printf '%s\n' \
+    'DOCKER_NETWORK=quickstart' \
+    'SPLICE_VERSION=0.6.5' \
+    'SCRIBE_IMAGE=scribe' \
+    'SCRIBE_VERSION=test' \
+    'POSTGRES_VERSION=16' \
+    'DB_USER=test' \
+    'DB_PASSWORD=test' \
+    > "$quickstart_dir/.env"
+  cat > "$quickstart_dir/compose.yaml" <<'EOF'
+volumes:
+  onboarding:
+
+services:
+  postgres:
+    image: postgres:16
+  canton:
+    image: canton:test
+  splice:
+    image: splice:test
+  splice-onboarding:
+    image: onboarding:test
+  pqs-app-provider:
+    image: pqs:test
+  pqs-app-user:
+    image: pqs:test
+  pqs-sv:
+    image: pqs:test
+EOF
   printf 'AUTH_MODE=%s\n' "$auth_mode" > "$quickstart_dir/.env.local"
-  : > "$quickstart_dir/compose.yaml"
   : > "$quickstart_dir/docker/modules/localnet/compose.yaml"
   : > "$quickstart_dir/docker/modules/localnet/compose.env"
   : > "$quickstart_dir/docker/modules/localnet/env/common.env"
@@ -408,6 +436,30 @@ assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf"
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" '  validator-party-hint = "${EXTRA_VALIDATOR_1_PARTY_HINT}"'
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" '  domains.global.buy-extra-traffic {'
 assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf" 'canton.sv-apps.sv.expected-validator-onboardings += { secret = "${EXTRA_VALIDATOR_3_ONBOARDING_SECRET}" }'
+run_case $'.PHONY: start\nstart:\n' 'stub env AUTH_MODE=shared-secret' shared-secret default 2 '' '' 0 1
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-1.ledger-api.tls {'
+assert_file_contains_text "$tmpdir/generated/additional-config.extra-validators.conf" 'canton.validator-apps.extra-1-validator_backend.participant-client {'
+compose_config="$tmpdir/extra-tls-compose.config"
+if [[ -n "$real_docker" ]] && "$real_docker" compose version >/dev/null 2>&1; then
+  if ! "$real_docker" compose \
+  -f "$tmpdir/quickstart/compose.yaml" \
+  -f "$tmpdir/quickstart/docker/modules/localnet/compose.yaml" \
+  -f "$tmpdir/quickstart/docker/modules/splice-onboarding/compose.yaml" \
+  -f "$tmpdir/quickstart/docker/modules/pqs/compose.yaml" \
+  -f "$tmpdir/generated/compose-extra-participants.yaml" \
+  -f "$tmpdir/tls/compose-localnet.yaml" \
+  --env-file "$tmpdir/quickstart/.env" \
+  --env-file "$tmpdir/quickstart/.env.local" \
+  --env-file "$tmpdir/generated/extra-participants.env" \
+  config > "$compose_config" 2>&1; then
+    echo 'extra participants plus TLS did not produce valid merged Compose configuration' >&2
+    cat "$compose_config" >&2
+    exit 1
+  fi
+else
+  assert_file_contains_text "$tmpdir/generated/compose-extra-participants.yaml" '  postgres-pqs-extra-1:'
+  assert_file_contains_text "$tmpdir/generated/compose-extra-participants.yaml" '      postgres-pqs-extra-1:'
+fi
 run_case $'.PHONY: start-local-ledger\nstart-local-ledger:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 0 '' '' 0 1
 assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.ledger-api.tls {'
 assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.admin-api.tls {'
@@ -434,6 +486,12 @@ if grep -Fq 'canton.validator-apps.app-user-validator_backend.participant-client
 fi
 assert_file_mode "$tmpdir/tls/server.key" 600
 assert_file_mode "$tmpdir/tls/ca.key" 600
+if ! openssl x509 -in "$tmpdir/tls/server.crt" -text -noout \
+  | grep -Fq 'IP Address:127.0.0.1, IP Address:0.0.0.0'; then
+  echo 'generated TLS certificate is missing the 0.0.0.0 subject alternative name' >&2
+  openssl x509 -in "$tmpdir/tls/server.crt" -text -noout >&2
+  exit 1
+fi
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 2 '' '' 0 1
 assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-1.ledger-api.tls {'
 assert_file_contains_text "$tmpdir/generated/additional-config.extra-participants.conf" 'canton.participants.extra-2.admin-api.tls {'
