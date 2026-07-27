@@ -89,6 +89,7 @@ printf 'stub env APP_PROVIDER_PROFILE=%s\n' "${APP_PROVIDER_PROFILE:-}"
 printf 'stub env APP_USER_PROFILE=%s\n' "${APP_USER_PROFILE:-}"
 printf 'stub env SV_PROFILE=%s\n' "${SV_PROFILE:-}"
 printf 'stub env PQS_SV_PROFILE=%s\n' "${PQS_SV_PROFILE:-}"
+printf 'stub env AUTH_MODE=%s\n' "${AUTH_MODE:-}"
 if [[ "${1:-}" == "inspect" ]]; then
   printf 'healthy\n'
   exit 0
@@ -294,6 +295,7 @@ printf 'stub env APP_PROVIDER_PROFILE=%s\n' "${APP_PROVIDER_PROFILE:-}"
 printf 'stub env APP_USER_PROFILE=%s\n' "${APP_USER_PROFILE:-}"
 printf 'stub env SV_PROFILE=%s\n' "${SV_PROFILE:-}"
 printf 'stub env PQS_SV_PROFILE=%s\n' "${PQS_SV_PROFILE:-}"
+printf 'stub env AUTH_MODE=%s\n' "${AUTH_MODE:-}"
 if [[ "${1:-}" == "inspect" ]]; then
   printf 'healthy\n'
   exit 0
@@ -331,6 +333,7 @@ run_case $'.PHONY: start\nstart:\n' 'stub env IMAGE_TAG=0.6.5'
 run_case $'.PHONY: start\nstart:\n' 'stub env APP_USER_PROFILE=off'
 run_case $'.PHONY: start\nstart:\n' 'stub env SV_PROFILE=on'
 run_case $'.PHONY: start\nstart:\n' 'stub env PQS_SV_PROFILE=on'
+run_case $'.PHONY: start\nstart:\n' 'stub env AUTH_MODE=oauth2' oauth2
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans'
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv up -d --no-recreate postgres canton'
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.yaml --env-file '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.env --profile keycloak down -v --remove-orphans' oauth2
@@ -401,8 +404,12 @@ assert_file_contains "$tmpdir/generated/additional-config.extra-validators.conf"
 run_case $'.PHONY: start-local-ledger\nstart-local-ledger:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/tls/compose-localnet.yaml down -v --remove-orphans' shared-secret default 0 '' '' 0 1
 assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.ledger-api.tls {'
 assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-provider.admin-api.tls {'
-assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.app-user.ledger-api.tls {'
 assert_file_contains_text "$tmpdir/tls/canton-tls.conf" 'canton.participants.sv.admin-api.tls {'
+if grep -Fq 'canton.participants.app-user.ledger-api.tls {' "$tmpdir/tls/canton-tls.conf" \
+  || grep -Fq 'canton.participants.app-user.admin-api.tls {' "$tmpdir/tls/canton-tls.conf"; then
+  echo "unexpected TLS configuration for inactive app-user participant" >&2
+  exit 1
+fi
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.key:ro'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/ca.crt:ro'
 assert_file_mode "$tmpdir/tls/server.key" 600

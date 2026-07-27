@@ -164,6 +164,7 @@ append_existing_extra_participant_args() {
 
 stop_ledger_stack() {
   local auth_mode="${1:-shared-secret}"
+  export AUTH_MODE="$auth_mode"
   local modules_dir="$QUICKSTART_DIR/docker/modules"
   local localnet_dir="$modules_dir/localnet"
   local splice_version

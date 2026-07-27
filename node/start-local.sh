@@ -207,38 +207,29 @@ EOF
     fi
   fi
 
-  cat > "$tls_fragment_file" <<'EOF'
-canton.participants.app-provider.ledger-api.tls {
+  : > "$tls_fragment_file"
+  local participant profile
+  for participant in app-provider app-user sv; do
+    case "$participant" in
+      app-provider) profile="$APP_PROVIDER_PROFILE" ;;
+      app-user) profile="$APP_USER_PROFILE" ;;
+      sv) profile="$SV_PROFILE" ;;
+    esac
+    if [[ "$profile" != "off" ]]; then
+      cat >> "$tls_fragment_file" <<EOF
+canton.participants.${participant}.ledger-api.tls {
   cert-chain-file = "/app/localnet-tls/server.crt"
   private-key-file = "/app/localnet-tls/server.key"
   trust-collection-file = "/app/localnet-tls/ca.crt"
 }
-canton.participants.app-provider.admin-api.tls {
-  cert-chain-file = "/app/localnet-tls/server.crt"
-  private-key-file = "/app/localnet-tls/server.key"
-  trust-collection-file = "/app/localnet-tls/ca.crt"
-}
-canton.participants.app-user.ledger-api.tls {
-  cert-chain-file = "/app/localnet-tls/server.crt"
-  private-key-file = "/app/localnet-tls/server.key"
-  trust-collection-file = "/app/localnet-tls/ca.crt"
-}
-canton.participants.app-user.admin-api.tls {
-  cert-chain-file = "/app/localnet-tls/server.crt"
-  private-key-file = "/app/localnet-tls/server.key"
-  trust-collection-file = "/app/localnet-tls/ca.crt"
-}
-canton.participants.sv.ledger-api.tls {
-  cert-chain-file = "/app/localnet-tls/server.crt"
-  private-key-file = "/app/localnet-tls/server.key"
-  trust-collection-file = "/app/localnet-tls/ca.crt"
-}
-canton.participants.sv.admin-api.tls {
+canton.participants.${participant}.admin-api.tls {
   cert-chain-file = "/app/localnet-tls/server.crt"
   private-key-file = "/app/localnet-tls/server.key"
   trust-collection-file = "/app/localnet-tls/ca.crt"
 }
 EOF
+    fi
+  done
   cat > "$canton_config_file" <<'EOF'
 include file("/app/base-app.conf")
 include file("/app/localnet-tls.conf")
@@ -984,6 +975,7 @@ grant_localnet_validator_read_rights() {
 
 start_ledger_stack() {
   local auth_mode="${1:-shared-secret}"
+  export AUTH_MODE="$auth_mode"
   local modules_dir="$QUICKSTART_DIR/docker/modules"
   local localnet_dir="$modules_dir/localnet"
   local splice_version
