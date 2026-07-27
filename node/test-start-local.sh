@@ -62,6 +62,13 @@ run_case() {
   : > "$quickstart_dir/docker/modules/pqs/compose.yaml"
   : > "$quickstart_dir/docker/modules/pqs/compose.env"
   : > "$quickstart_dir/docker/modules/splice-onboarding/compose.yaml"
+  printf '%s\n' \
+    'curl_check "http://$participant/v2/users"' \
+    'curl_check "http://$validator/api/validator/v0/scan-proxy/dso-party-id"' \
+    > "$quickstart_dir/docker/modules/splice-onboarding/docker-utils.sh"
+  mkdir -p "$quickstart_dir/docker/modules/splice-onboarding/docker"
+  mv "$quickstart_dir/docker/modules/splice-onboarding/docker-utils.sh" \
+    "$quickstart_dir/docker/modules/splice-onboarding/docker/utils.sh"
   : > "$quickstart_dir/docker/modules/keycloak/compose.yaml"
   : > "$quickstart_dir/docker/modules/keycloak/compose.env"
 
@@ -413,9 +420,14 @@ fi
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/server.key:ro'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" '/app/localnet-tls/ca.crt:ro'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'ADDITIONAL_CONFIG_LOCALNET_TLS='
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'LOCALNET_HTTP_SCHEME=https'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'CURL_CA_BUNDLE=/app/localnet-tls/ca.crt'
+assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" "$tmpdir/tls/splice-onboarding-utils.sh:/app/utils.sh:ro"
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"'
 assert_file_contains_text "$tmpdir/tls/compose-localnet.yaml" 'SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt'
+assert_file_contains_text "$tmpdir/tls/splice-onboarding-utils.sh" '${LOCALNET_HTTP_SCHEME:-http}://$participant/v2/users'
+assert_file_contains_text "$tmpdir/tls/splice-onboarding-utils.sh" '${LOCALNET_HTTP_SCHEME:-http}://$validator/api/validator/v0/scan-proxy/dso-party-id'
 if grep -Fq 'canton.validator-apps.app-user-validator_backend.participant-client' "$tmpdir/tls/compose-localnet.yaml"; then
   echo "unexpected client TLS configuration for inactive app-user participant" >&2
   exit 1

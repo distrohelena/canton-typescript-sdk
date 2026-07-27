@@ -107,6 +107,14 @@ resolve_tls_enabled() {
   printf '%s\n' "$value"
 }
 
+localnet_http_scheme() {
+  if [[ "$(resolve_tls_enabled)" == "1" ]]; then
+    printf 'https\n'
+  else
+    printf 'http\n'
+  fi
+}
+
 resolve_tls_rotate() {
   local value="${LOCALNET_TLS_ROTATE:-0}"
   if [[ "$value" != "0" && "$value" != "1" ]]; then
@@ -136,6 +144,8 @@ prepare_tls_runtime_files() {
   local compose_file="$runtime_dir/compose-localnet.yaml"
   local tls_fragment_file="$runtime_dir/canton-tls.conf"
   local canton_config_file="$runtime_dir/canton-localnet.conf"
+  local onboarding_utils_source="$MODULES_DIR/splice-onboarding/docker/utils.sh"
+  local onboarding_utils_file="$runtime_dir/splice-onboarding-utils.sh"
   local supplied_count=0
 
   [[ -n "${LOCALNET_TLS_CERT_CHAIN_PATH:-}" ]] && ((supplied_count += 1))
@@ -207,6 +217,15 @@ EOF
     fi
   fi
 
+  if [[ ! -r "$onboarding_utils_source" ]]; then
+    echo "Unable to read Splice onboarding utilities at $onboarding_utils_source." >&2
+    return 1
+  fi
+  sed \
+    -e 's#http://\$participant#${LOCALNET_HTTP_SCHEME:-http}://$participant#g' \
+    -e 's#http://\$validator#${LOCALNET_HTTP_SCHEME:-http}://$validator#g' \
+    "$onboarding_utils_source" > "$onboarding_utils_file"
+
   : > "$tls_fragment_file"
   local participant profile
   for participant in app-provider app-user sv; do
@@ -250,6 +269,13 @@ services:
     environment:
       - |
         ADDITIONAL_CONFIG_LOCALNET_TLS=
+  splice-onboarding:
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+      - "$onboarding_utils_file:/app/utils.sh:ro"
+    environment:
+      - LOCALNET_HTTP_SCHEME=https
+      - CURL_CA_BUNDLE=/app/localnet-tls/ca.crt
 EOF
   for participant in app-provider app-user sv; do
     case "$participant" in
@@ -946,6 +972,7 @@ provision_extra_pqs() {
       -e EXTRA_PARTICIPANT_PARTY_HINT="extra_${index}_${PARTY_HINT_BASE}" \
       -e EXTRA_PQS_USER_NAME="${name}-pqs-user" \
       -e EXTRA_PQS_CONFIG_FILE="${name}-pqs.conf" \
+      -e LOCALNET_HTTP_SCHEME="$(localnet_http_scheme)" \
       splice-onboarding \
       bash -lc '
 set -euo pipefail
@@ -979,6 +1006,7 @@ grant_validator_read_as_any_party_right() {
     -e VALIDATOR_USER_NAME="$validator_user_name" \
     -e VALIDATOR_AUTH_AUDIENCE="$auth_audience" \
     -e PARTICIPANT_JSON_API_PORT="$participant_json_port" \
+    -e LOCALNET_HTTP_SCHEME="$(localnet_http_scheme)" \
     splice-onboarding \
     bash -lc '
 set -euo pipefail
@@ -995,7 +1023,7 @@ payload="$(cat <<EOF
 }
 EOF
 )"
-curl_check "http://$participant/v2/users/$VALIDATOR_USER_NAME/rights" "$validator_token" "application/json" \
+curl_check "${LOCALNET_HTTP_SCHEME:-http}://$participant/v2/users/$VALIDATOR_USER_NAME/rights" "$validator_token" "application/json" \
   --data-raw "$payload" >/dev/null
 '
 }
@@ -1009,6 +1037,7 @@ grant_user_read_as_any_party_right() {
     -e TARGET_USER_NAME="$user_name" \
     -e TARGET_AUTH_AUDIENCE="$auth_audience" \
     -e PARTICIPANT_JSON_API_PORT="$participant_json_port" \
+    -e LOCALNET_HTTP_SCHEME="$(localnet_http_scheme)" \
     splice-onboarding \
     bash -lc '
 set -euo pipefail
@@ -1025,7 +1054,7 @@ payload="$(cat <<EOF
 }
 EOF
 )"
-curl_check "http://$participant/v2/users/$TARGET_USER_NAME/rights" "$admin_token" "application/json" \
+curl_check "${LOCALNET_HTTP_SCHEME:-http}://$participant/v2/users/$TARGET_USER_NAME/rights" "$admin_token" "application/json" \
   --data-raw "$payload" >/dev/null
 '
 }
