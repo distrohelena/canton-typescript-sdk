@@ -153,14 +153,18 @@ prepare_tls_runtime_files() {
   [[ -n "${LOCALNET_TLS_CA_CERT_PATH:-}" ]] && ((supplied_count += 1))
 
   mkdir -p "$runtime_dir"
+  chmod 700 "$runtime_dir"
   if (( supplied_count > 0 )); then
     if (( supplied_count != 3 )); then
       echo "LOCALNET_TLS_CERT_CHAIN_PATH, LOCALNET_TLS_PRIVATE_KEY_PATH, and LOCALNET_TLS_CA_CERT_PATH must be set together." >&2
       return 1
     fi
-    server_certificate_path="$LOCALNET_TLS_CERT_CHAIN_PATH"
-    server_key_path="$LOCALNET_TLS_PRIVATE_KEY_PATH"
-    ca_certificate_path="$LOCALNET_TLS_CA_CERT_PATH"
+    local supplied_server_certificate_path="$LOCALNET_TLS_CERT_CHAIN_PATH"
+    local supplied_server_key_path="$LOCALNET_TLS_PRIVATE_KEY_PATH"
+    local supplied_ca_certificate_path="$LOCALNET_TLS_CA_CERT_PATH"
+    server_certificate_path="$supplied_server_certificate_path"
+    server_key_path="$supplied_server_key_path"
+    ca_certificate_path="$supplied_ca_certificate_path"
     if [[ ! -r "$server_certificate_path" || ! -r "$server_key_path" || ! -r "$ca_certificate_path" ]]; then
       echo "Supplied TLS certificate, private key, or CA certificate is not readable." >&2
       return 1
@@ -179,6 +183,19 @@ prepare_tls_runtime_files() {
       echo "Supplied TLS private key does not match the server certificate." >&2
       return 1
     fi
+    if [[ "$supplied_server_certificate_path" != "$runtime_dir/server.crt" ]]; then
+      cp "$supplied_server_certificate_path" "$runtime_dir/server.crt"
+    fi
+    if [[ "$supplied_server_key_path" != "$runtime_dir/server.key" ]]; then
+      cp "$supplied_server_key_path" "$runtime_dir/server.key"
+    fi
+    if [[ "$supplied_ca_certificate_path" != "$runtime_dir/ca.crt" ]]; then
+      cp "$supplied_ca_certificate_path" "$runtime_dir/ca.crt"
+    fi
+    chmod 644 "$runtime_dir/server.crt" "$runtime_dir/server.key" "$runtime_dir/ca.crt"
+    server_certificate_path="$runtime_dir/server.crt"
+    server_key_path="$runtime_dir/server.key"
+    ca_certificate_path="$runtime_dir/ca.crt"
   else
     if [[ "$(resolve_tls_rotate)" == "1" ]]; then
       rm -f "$ca_key_path" "$ca_certificate_path" "$server_key_path" "$server_certificate_path"
@@ -214,6 +231,7 @@ EOF
         -out "$server_certificate_path" -extfile "$extensions_path" -extensions server_ext >/dev/null 2>&1
       rm -f "$csr_path" "$extensions_path" "$ca_certificate_path.srl"
     fi
+    chmod 644 "$server_key_path" "$server_certificate_path" "$ca_certificate_path"
     if ! openssl x509 -in "$server_certificate_path" -noout >/dev/null 2>&1 \
       || ! openssl pkey -in "$server_key_path" -noout >/dev/null 2>&1 \
       || ! openssl x509 -in "$ca_certificate_path" -noout >/dev/null 2>&1; then
@@ -272,15 +290,8 @@ services:
     volumes:
       - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
     environment:
-      - |
-        ADDITIONAL_CONFIG_LOCALNET_TLS=
-  splice-onboarding:
-    volumes:
-      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
-      - "$onboarding_utils_file:/app/utils.sh:ro"
-    environment:
-      - LOCALNET_HTTP_SCHEME=https
-      - CURL_CA_BUNDLE=/app/localnet-tls/ca.crt
+      ADDITIONAL_CONFIG_LOCALNET_TLS: |
+        # Trust the localnet CA for Splice's Canton clients.
 EOF
   for participant in app-provider app-user sv; do
     case "$participant" in
@@ -293,29 +304,36 @@ EOF
     fi
     if [[ "$participant" == "sv" ]]; then
       cat >> "$compose_file" <<'EOF'
-          canton.validator-apps.sv-validator_backend.participant-client {
-            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-          }
-          canton.scan-apps.scan-app.participant-client {
-            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-          }
-          canton.sv-apps.sv.participant-client {
-            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-          }
+        canton.validator-apps.sv-validator_backend.participant-client {
+          admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+        }
+        canton.scan-apps.scan-app.participant-client {
+          admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+        }
+        canton.sv-apps.sv.participant-client {
+          admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+        }
 EOF
     else
       cat >> "$compose_file" <<EOF
-          canton.validator-apps.${participant}-validator_backend.participant-client {
-            admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-            ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
-          }
+        canton.validator-apps.${participant}-validator_backend.participant-client {
+          admin-api.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+          ledger-api.client-config.tls.trust-collection-file = "/app/localnet-tls/ca.crt"
+        }
 EOF
     fi
   done
   cat >> "$compose_file" <<EOF
+  splice-onboarding:
+    volumes:
+      - "$ca_certificate_path:/app/localnet-tls/ca.crt:ro"
+      - "$onboarding_utils_file:/app/utils.sh:ro"
+    environment:
+      - LOCALNET_HTTP_SCHEME=https
+      - CURL_CA_BUNDLE=/app/localnet-tls/ca.crt
   pqs-app-provider:
     environment:
       SCRIBE_SOURCE_LEDGER_TLS_CAFILE: /app/localnet-tls/ca.crt
@@ -915,6 +933,23 @@ dependent_services() {
   printf '%s\n' pqs-app-provider pqs-sv
 }
 
+start_splice_services() {
+  local -n compose_args_ref="$1"
+  local onboarding_container
+
+  # Start the combined Splice process without waiting for its own healthcheck.
+  # Compose still applies splice-onboarding's service_healthy dependency even
+  # with --no-deps when both services are passed to the same `up` invocation.
+  docker_compose "${compose_args_ref[@]}" up -d --no-recreate --no-deps splice
+  docker_compose "${compose_args_ref[@]}" create splice-onboarding
+  onboarding_container="$(docker_compose "${compose_args_ref[@]}" ps -a -q splice-onboarding | tail -n 1)"
+  if [[ -z "$onboarding_container" ]]; then
+    echo "Unable to resolve the splice-onboarding container." >&2
+    return 1
+  fi
+  docker start "$onboarding_container" >/dev/null
+}
+
 extra_pqs_services() {
   local count="$1"
   local index
@@ -1151,7 +1186,7 @@ start_ledger_stack() {
   # for SV and scan initialization. Start onboarding without Compose dependency
   # gating so its healthcheck can retry until those apps are ready; PQS still
   # starts afterward and retains its onboarding health dependency.
-  docker_compose "${compose_args[@]}" up -d --no-recreate --no-deps splice splice-onboarding
+  start_splice_services compose_args
   docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
 
   if (( extra_participants > 0 )); then
