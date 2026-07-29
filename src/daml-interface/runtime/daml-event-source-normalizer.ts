@@ -1,6 +1,7 @@
-import type { GetContractResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
-import type { CreatedEvent, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
-import type { ActiveContract } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
+import { MESSAGE_TYPE } from "@protobuf-ts/runtime";
+import { GetContractResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import { CreatedEvent, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { ActiveContract } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import type { Record as DamlRecordValue, Value } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 import type { ContractResult, ExerciseResult } from "../../query/model-types.js";
 import { DamlMaterializationError } from "./daml-materialization-error.js";
@@ -56,6 +57,11 @@ export type DamlNormalizedExercisedEvent = {
     readonly metadata: DamlExercisedEventMetadata;
 };
 
+type RecognizedEvent = {
+    readonly event: DamlJsonEventRecord;
+    readonly encoding: "protobuf" | "json";
+};
+
 /**
  * Recognizes a Ledger API create event, a contract response/wrapper, or a
  * PQS/JSON contract record and produces one immutable runtime shape.
@@ -63,7 +69,9 @@ export type DamlNormalizedExercisedEvent = {
 export function normalizeDamlCreatedEventSource(
     source: DamlCreatedEventSource | unknown,
 ): DamlNormalizedCreatedEvent {
-    const event = findNestedEvent(source, "created");
+    const recognized = findNestedEvent(source, "created");
+
+    const { event } = recognized;
 
     const contractId = requiredString(event, ["contractId", "contract_id"], "contract ID", "created event source");
 
@@ -76,7 +84,7 @@ export function normalizeDamlCreatedEventSource(
     return Object.freeze({
         kind: "created" as const,
         contractId,
-        payload: freezeValueSource(payload, isProtobufCreatedPayload(payload) ? "protobuf-record" : "json"),
+        payload: freezeValueSource(payload, recognized.encoding === "protobuf" ? "protobuf-record" : "json"),
         metadata,
     });
 }
@@ -89,7 +97,9 @@ export function normalizeDamlCreatedEventSource(
 export function normalizeDamlExercisedEventSource(
     source: DamlExercisedEventSource | unknown,
 ): DamlNormalizedExercisedEvent {
-    const event = findNestedEvent(source, "exercised");
+    const recognized = findNestedEvent(source, "exercised");
+
+    const { event } = recognized;
 
     const contractId = requiredString(event, ["contractId", "contract_id"], "contract ID", "exercised event source");
 
@@ -109,27 +119,27 @@ export function normalizeDamlExercisedEventSource(
         kind: "exercised" as const,
         contractId,
         choice,
-        argument: freezeValueSource(argument, isProtobufValue(argument) ? "protobuf" : "json"),
-        result: freezeValueSource(result, isProtobufValue(result) ? "protobuf" : "json"),
+        argument: freezeValueSource(argument, recognized.encoding),
+        result: freezeValueSource(result, recognized.encoding),
         consuming,
         metadata,
     });
 }
 
-function findNestedEvent(source: unknown, kind: "created" | "exercised"): DamlJsonEventRecord {
+function findNestedEvent(source: unknown, kind: "created" | "exercised"): RecognizedEvent {
     const root = objectOrThrow(source, `${kind} event source`, "source must be an object");
 
-    const candidates: unknown[] = [];
+    const candidates: RecognizedEvent[] = [];
 
     const aliases = kind === "created" ? ["createdEvent", "created_event"] : ["exercisedEvent", "exercised_event"];
 
     if (looksLikeEvent(root, kind)) {
-        candidates.push(root);
+        candidates.push({ event: root, encoding: protobufEncoding(root, kind) });
     }
 
     for (const alias of aliases) {
         if (hasValue(root, alias)) {
-            candidates.push(root[alias]);
+            candidates.push({ event: objectOrThrow(root[alias], `${kind} event source`, "event must be an object"), encoding: protobufEncoding(root, kind) });
         }
     }
 
@@ -140,7 +150,7 @@ function findNestedEvent(source: unknown, kind: "created" | "exercised"): DamlJs
 
         for (const alias of nestedAliases) {
             if (hasValue(nested, alias)) {
-                candidates.push(nested[alias]);
+                candidates.push({ event: objectOrThrow(nested[alias], `${kind} event source`, "event must be an object"), encoding: protobufEncoding(nested[alias], kind) });
             }
         }
     }
@@ -151,7 +161,23 @@ function findNestedEvent(source: unknown, kind: "created" | "exercised"): DamlJs
         throw sourceError(`${kind} event source`, "ambiguous nested event");
     }
 
-    return objectOrThrow(candidates[0], `${kind} event source`, "event must be an object");
+    return candidates[0] as RecognizedEvent;
+}
+
+function protobufEncoding(value: unknown, kind: "created" | "exercised"): "protobuf" | "json" {
+    if (isGeneratedMessage(value, kind === "created" ? CreatedEvent : ExercisedEvent)) {
+        return "protobuf";
+    } else if (kind === "created" && (isGeneratedMessage(value, GetContractResponse) || isGeneratedMessage(value, ActiveContract))) {
+        return "protobuf";
+    }
+
+    return "json";
+}
+
+function isGeneratedMessage(value: unknown, type: unknown): boolean {
+    return value !== null
+        && typeof value === "object"
+        && (value as { readonly [MESSAGE_TYPE]?: unknown })[MESSAGE_TYPE] === type;
 }
 
 function looksLikeEvent(value: DamlJsonEventRecord, kind: "created" | "exercised"): boolean {
@@ -354,16 +380,6 @@ function freezeValueSource(value: unknown, encoding: "protobuf" | "protobuf-reco
     }
 
     return Object.freeze({ kind: "json" as const, value });
-}
-
-function isProtobufCreatedPayload(value: unknown): value is DamlRecordValue {
-    const record = asObject(value);
-
-    return Array.isArray(record?.fields) && record.fields.every((field) => isProtobufValue(asObject(field)?.value));
-}
-
-function isProtobufValue(value: unknown): value is Value {
-    return asObject(asObject(value)?.sum)?.oneofKind !== undefined;
 }
 
 function optionalString(event: DamlJsonEventRecord, names: readonly string[]): string | undefined {

@@ -205,6 +205,132 @@ describe("normalizeDamlExercisedEventSource", () => {
     });
 });
 
+describe("source envelope encoding", () => {
+    it("keeps the same logical events equivalent across gRPC, PQS, and JSON sources", () => {
+        const createdSources = [
+            normalizeDamlCreatedEventSource(createdEvent),
+            normalizeDamlCreatedEventSource(GetContractResponse.create({ createdEvent })),
+            normalizeDamlCreatedEventSource(ActiveContract.create({ createdEvent })),
+            normalizeDamlCreatedEventSource({
+                contractId: "#cid",
+                templateId,
+                payload: { owner: "Alice" },
+                witnesses: ["Alice", "Bob"],
+                createdEventOffset: "17",
+            }),
+            normalizeDamlCreatedEventSource({
+                contractId: "#cid",
+                templateId,
+                payload: { owner: "Alice" },
+                witnessParties: ["Alice", "Bob"],
+                offset: "17",
+            }),
+            normalizeDamlCreatedEventSource({
+                contract_id: "#cid",
+                template_id: { package_id: "pkg-id", module_name: "Main.Module", entity_name: "Iou" },
+                payload: { owner: "Alice" },
+                witness_parties: ["Alice", "Bob"],
+                offset: "17",
+            }),
+        ];
+
+        const exercisedSources = [
+            normalizeDamlExercisedEventSource(exercisedEvent),
+            normalizeDamlExercisedEventSource({
+                contractId: "#cid",
+                argument: "Bob",
+                result: "accepted",
+                controllers: ["Alice"],
+                witnesses: ["Alice", "Bob"],
+                lastDescendantNodeId: 5,
+                contract: { contractId: "#cid", templateId },
+                exerciseType: { choice: "Transfer", consuming: true },
+                transaction: { offset: "18" },
+            }),
+            normalizeDamlExercisedEventSource({
+                contractId: "#cid",
+                templateId,
+                choice: "Transfer",
+                argument: "Bob",
+                result: "accepted",
+                actingParties: ["Alice"],
+                consuming: true,
+                witnessParties: ["Alice", "Bob"],
+                lastDescendantNodeId: 5,
+                offset: "18",
+            }),
+            normalizeDamlExercisedEventSource({
+                contract_id: "#cid",
+                template_id: { package_id: "pkg-id", module_name: "Main.Module", entity_name: "Iou" },
+                choice: "Transfer",
+                argument: "Bob",
+                result: "accepted",
+                acting_parties: ["Alice"],
+                consuming: true,
+                witness_parties: ["Alice", "Bob"],
+                last_descendant_node_id: 5,
+                offset: "18",
+            }),
+        ];
+
+        expect(createdSources.map(createdIdentityAndMetadata)).toEqual(Array(6).fill({
+            contractId: "#cid",
+            templateId,
+            offset: "17",
+            witnessParties: ["Alice", "Bob"],
+        }));
+        expect(exercisedSources.map(exercisedIdentityAndMetadata)).toEqual(Array(4).fill({
+            contractId: "#cid",
+            templateId,
+            offset: "18",
+            actingParties: ["Alice"],
+            witnessParties: ["Alice", "Bob"],
+            lastDescendantNodeId: 5,
+        }));
+        expect(createdSources.slice(0, 3).every(({ payload }) => payload.kind === "protobuf")).toBe(true);
+        expect(createdSources.slice(3).every(({ payload }) => payload.kind === "json")).toBe(true);
+        expect(exercisedSources[0]?.argument.kind).toBe("protobuf");
+        expect(exercisedSources.slice(1).every(({ argument, result }) => argument.kind === "json" && result.kind === "json")).toBe(true);
+    });
+
+    it("uses the recognized envelope rather than nested value validity", () => {
+        const malformedCreated = CreatedEvent.create({
+            contractId: "#cid",
+            templateId,
+            createArguments: Record.create({ fields: [{ label: "owner" }] }),
+        });
+
+        const malformedExercised = ExercisedEvent.create({
+            contractId: "#cid",
+            templateId,
+            choice: "Transfer",
+            choiceArgument: Value.create({ sum: { oneofKind: undefined } }),
+            exerciseResult: Value.create({ sum: { oneofKind: undefined } }),
+            consuming: true,
+        });
+
+        const createdJsonLookalike = {
+            contractId: "#cid",
+            templateId,
+            payload: { fields: [{ value: { sum: { oneofKind: "text", text: "not protobuf" } } }] },
+        };
+
+        const exercisedJsonLookalike = {
+            contractId: "#cid",
+            templateId,
+            choice: "Transfer",
+            choiceArgument: { sum: { oneofKind: "text", text: "not protobuf" } },
+            exerciseResult: { sum: { oneofKind: "text", text: "not protobuf" } },
+            consuming: true,
+        };
+
+        expect(normalizeDamlCreatedEventSource(malformedCreated).payload.kind).toBe("protobuf");
+        expect(normalizeDamlExercisedEventSource(malformedExercised).argument.kind).toBe("protobuf");
+        expect(normalizeDamlCreatedEventSource(createdJsonLookalike).payload.kind).toBe("json");
+        expect(normalizeDamlExercisedEventSource(exercisedJsonLookalike).argument.kind).toBe("json");
+    });
+});
+
 describe("DAML event source validation", () => {
     it("rejects absent payloads, incomplete identities, contract IDs, exercise results, and ambiguous envelopes", () => {
         expect(() => normalizeDamlCreatedEventSource({})).toThrow(DamlMaterializationError);
@@ -218,3 +344,23 @@ describe("DAML event source validation", () => {
         })).toThrow(/created event source/);
     });
 });
+
+function createdIdentityAndMetadata(source: ReturnType<typeof normalizeDamlCreatedEventSource>): unknown {
+    return {
+        contractId: source.contractId,
+        templateId: source.metadata.templateId,
+        offset: source.metadata.offset,
+        witnessParties: source.metadata.witnessParties,
+    };
+}
+
+function exercisedIdentityAndMetadata(source: ReturnType<typeof normalizeDamlExercisedEventSource>): unknown {
+    return {
+        contractId: source.contractId,
+        templateId: source.metadata.templateId,
+        offset: source.metadata.offset,
+        actingParties: source.metadata.actingParties,
+        witnessParties: source.metadata.witnessParties,
+        lastDescendantNodeId: source.metadata.lastDescendantNodeId,
+    };
+}
