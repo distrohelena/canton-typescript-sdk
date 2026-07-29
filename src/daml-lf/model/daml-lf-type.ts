@@ -21,7 +21,7 @@ export class DamlLfType {
     public readonly builtinType: DamlLfBuiltinType;
     public readonly numericScale?: number;
     public readonly typeConReference?: TypeConReference;
-    public readonly typeVariableReference?: DamlLfTypeVariableReference;
+    public readonly typeVariable?: DamlLfTypeVariableReference;
     public readonly diagnosticForall?: DamlLfDiagnosticForall;
     public readonly typeArguments: readonly DamlLfType[];
 
@@ -29,7 +29,7 @@ export class DamlLfType {
         builtinType?: DamlLfBuiltinType;
         numericScale?: number;
         typeConReference?: TypeConReference;
-        typeVariableReference?: DamlLfTypeVariableReference;
+        typeVariable?: DamlLfTypeVariableReference;
         diagnosticForall?: DamlLfDiagnosticForall;
         typeArguments?: readonly DamlLfType[];
     }) {
@@ -40,9 +40,9 @@ export class DamlLfType {
         }
 
         this.typeConReference = init.typeConReference;
-        this.typeVariableReference = init.typeVariableReference === undefined
+        this.typeVariable = init.typeVariable === undefined
             ? undefined
-            : Object.freeze({ ...init.typeVariableReference });
+            : Object.freeze({ ...init.typeVariable });
         this.diagnosticForall = init.diagnosticForall === undefined
             ? undefined
             : Object.freeze({

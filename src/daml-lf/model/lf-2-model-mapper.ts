@@ -104,9 +104,9 @@ export class Lf2ModelMapper {
                 ...(lhs.typeConReference === undefined
                     ? {}
                     : { typeConReference: lhs.typeConReference }),
-                ...(lhs.typeVariableReference === undefined
+                ...(lhs.typeVariable === undefined
                     ? {}
-                    : { typeVariableReference: lhs.typeVariableReference }),
+                    : { typeVariable: lhs.typeVariable }),
                 ...(lhs.diagnosticForall === undefined
                     ? {}
                     : { diagnosticForall: lhs.diagnosticForall }),
@@ -140,7 +140,7 @@ export class Lf2ModelMapper {
 
         else if (rawType?.sum.oneofKind === "var") {
             return new DamlLfType({
-                typeVariableReference: Lf2ModelMapper.mapTypeVariableReference(
+                typeVariable: Lf2ModelMapper.mapTypeVariableReference(
                     rawPackage,
                     rawType.sum.var.varInternedStr,
                 ),
@@ -227,6 +227,7 @@ export class Lf2ModelMapper {
     private static mapTypeParameterKind(
         rawPackage: LfArchivePackage,
         rawKind: Kind | undefined,
+        visitedInternedKindIndices: ReadonlySet<number> = new Set(),
     ): DamlLfTypeParameterKind {
         if (rawKind?.sum.oneofKind === "star") {
             return { kind: "star" };
@@ -240,11 +241,16 @@ export class Lf2ModelMapper {
             return {
                 kind: "arrow",
                 parameters: rawKind.sum.arrow.params.map((parameter) =>
-                    Lf2ModelMapper.mapTypeParameterKind(rawPackage, parameter),
+                    Lf2ModelMapper.mapTypeParameterKind(
+                        rawPackage,
+                        parameter,
+                        visitedInternedKindIndices,
+                    ),
                 ),
                 result: Lf2ModelMapper.mapTypeParameterKind(
                     rawPackage,
                     rawKind.sum.arrow.result,
+                    visitedInternedKindIndices,
                 ),
             };
         }
@@ -253,14 +259,27 @@ export class Lf2ModelMapper {
             return { kind: "unknown" };
         }
 
-        const internedKind = rawPackage.internedKinds[rawKind.sum.internedKind];
+        const internedKindIndex = rawKind.sum.internedKind;
+
+        if (visitedInternedKindIndices.has(internedKindIndex)) {
+            return {
+                kind: "unknown",
+                internedKindIndex,
+            };
+        }
+
+        const internedKind = rawPackage.internedKinds[internedKindIndex];
 
         return internedKind === undefined
             ? {
                 kind: "unknown",
-                internedKindIndex: rawKind.sum.internedKind,
+                internedKindIndex,
             }
-            : Lf2ModelMapper.mapTypeParameterKind(rawPackage, internedKind);
+            : Lf2ModelMapper.mapTypeParameterKind(
+                rawPackage,
+                internedKind,
+                new Set([...visitedInternedKindIndices, internedKindIndex]),
+            );
     }
 
     private static mapBuiltinType(builtinType: BuiltinType): DamlLfBuiltinType {

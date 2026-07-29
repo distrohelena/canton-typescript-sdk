@@ -16,6 +16,7 @@ import {
     BuiltinType,
     Case,
     Expr,
+    Kind,
     Package,
     Type,
     TypeConId,
@@ -715,42 +716,19 @@ describe("LF 2.x model mapper", () => {
             createGenericDataTypesArchiveBytes(),
         );
 
-        const box = packageModel.modules[0]?.definitions[0] as DamlLfDataType & {
-            readonly typeParameters: readonly {
-                readonly name?: string;
-                readonly internedStringIndex: number;
-                readonly kind: unknown;
-            }[];
-        };
+        const box = packageModel.modules[0]?.definitions[0];
 
-        const fields = box.definition.kind === "record" ? box.definition.fields : [];
+        if (!(box instanceof DamlLfDataType) || box.definition.kind !== "record") {
+            throw new Error("expected generic Box record data type");
+        }
 
-        const value = fields.find((field) => field.name === "value")?.type as {
-            readonly typeVariableReference?: {
-                readonly name?: string;
-                readonly internedStringIndex: number;
-            };
-            readonly typeArguments: readonly unknown[];
-        };
+        const value = box.definition.fields.find((field) => field.name === "value")?.type;
 
-        const textBox = fields.find((field) => field.name === "textBox")?.type;
+        const textBox = box.definition.fields.find((field) => field.name === "textBox")?.type;
 
-        const polymorphic = fields.find((field) => field.name === "polymorphic")?.type as {
-            readonly diagnosticForall?: {
-                readonly typeParameters: readonly {
-                    readonly name?: string;
-                    readonly kind: unknown;
-                }[];
-                readonly body: {
-                    readonly typeVariableReference?: {
-                        readonly name?: string;
-                    };
-                    readonly typeArguments: readonly {
-                        readonly builtinType: DamlLfBuiltinType;
-                    }[];
-                };
-            };
-        };
+        const polymorphic = box.definition.fields.find(
+            (field) => field.name === "polymorphic",
+        )?.type;
 
         expect(box.typeParameters).toEqual([
             {
@@ -759,13 +737,11 @@ describe("LF 2.x model mapper", () => {
                 kind: { kind: "star" },
             },
         ]);
-        expect(value).toMatchObject({
-            typeVariableReference: {
-                name: "a",
-                internedStringIndex: 5,
-            },
-            typeArguments: [],
+        expect(value?.typeVariable).toEqual({
+            name: "a",
+            internedStringIndex: 5,
         });
+        expect(value?.typeArguments).toEqual([]);
         expect(textBox).toMatchObject({
             typeConReference: {
                 packageId: "sample-hash",
@@ -779,7 +755,7 @@ describe("LF 2.x model mapper", () => {
                 },
             ],
         });
-        expect(polymorphic.diagnosticForall).toEqual({
+        expect(polymorphic?.diagnosticForall).toEqual({
             typeParameters: [
                 {
                     name: "f",
@@ -792,7 +768,7 @@ describe("LF 2.x model mapper", () => {
                 },
             ],
             body: expect.objectContaining({
-                typeVariableReference: {
+                typeVariable: {
                     name: "f",
                     internedStringIndex: 9,
                 },
@@ -804,9 +780,43 @@ describe("LF 2.x model mapper", () => {
             }),
         });
     });
+
+    it("maps cyclic interned type-parameter kinds as unknown", () => {
+        const cyclicInternedKind: Kind = {
+            sum: {
+                oneofKind: "internedKind",
+                internedKind: 0,
+            },
+        };
+
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createGenericDataTypesArchiveBytes({
+                boxTypeParameterKind: cyclicInternedKind,
+                internedKinds: [cyclicInternedKind],
+            }),
+        );
+
+        const box = packageModel.modules[0]?.definitions[0];
+
+        if (!(box instanceof DamlLfDataType)) {
+            throw new Error("expected generic Box data type");
+        }
+
+        expect(box.typeParameters[0]).toEqual({
+            name: "a",
+            internedStringIndex: 5,
+            kind: {
+                kind: "unknown",
+                internedKindIndex: 0,
+            },
+        });
+    });
 });
 
-function createGenericDataTypesArchiveBytes(): Uint8Array {
+function createGenericDataTypesArchiveBytes(init: {
+    readonly boxTypeParameterKind?: Kind;
+    readonly internedKinds?: readonly Kind[];
+} = {}): Uint8Array {
     const typeVariable = (varInternedStr: number, args: readonly Type[] = []): Type => ({
         sum: {
             oneofKind: "var",
@@ -824,6 +834,13 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
                 builtin: BuiltinType.TEXT,
                 args: [],
             },
+        },
+    };
+
+    const boxTypeParameterKind = init.boxTypeParameterKind ?? {
+        sum: {
+            oneofKind: "star" as const,
+            star: {},
         },
     };
 
@@ -859,12 +876,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
                         params: [
                             {
                                 varInternedStr: 5,
-                                kind: {
-                                    sum: {
-                                        oneofKind: "star",
-                                        star: {},
-                                    },
-                                },
+                                kind: boxTypeParameterKind,
                             },
                         ],
                         serializable: true,
@@ -949,7 +961,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
             versionInternedStr: 1,
         },
         internedTypes: [],
-        internedKinds: [],
+        internedKinds: [...(init.internedKinds ?? [])],
         internedExprs: [],
         importsSum: {
             oneofKind: undefined,
