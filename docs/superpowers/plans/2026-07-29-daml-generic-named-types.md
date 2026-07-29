@@ -20,7 +20,7 @@
 
 - [ ] **Step 1: Write failing mapper tests**
 
-Create a minimal LF 2 package with `Box a` and a `Type.var` field, plus a concrete `Box Text` application. Assert that the mapped data type exposes `a`, that the field exposes a type-variable reference, and that the application preserves `Text` as its single type argument.
+Create a minimal LF 2 package with `Box a` and a `Type.var` field, plus a concrete `Box Text` application and a `Type.forall` field. Assert that the mapped data type exposes `a`, that the field exposes a type-variable reference, that the application preserves `Text` as its single type argument, and that the `forall` marker is retained rather than unwrapped.
 
 - [ ] **Step 2: Run the focused mapper test**
 
@@ -55,7 +55,7 @@ rtk git commit -m "feat: preserve LF generic type binders"
 
 - [ ] **Step 1: Write failing analyzer tests**
 
-Cover `Box<Text>` as a choice result, an unbound type variable failure, non-`*` parameter rejection, generic enum rejection, and an arity mismatch. Assert that `Box<Text>` produces a named reference containing one analyzed primitive type argument and that the resulting named declaration retains one safe generic parameter name.
+Cover `Box<Text>` as a choice result, an unbound type variable failure, a retained `forall` rejection with choice/field context, non-`*` parameter rejection, generic enum rejection, and an arity mismatch. Assert that `Box<Text>` produces a named reference containing one analyzed primitive type argument and that the resulting named declaration retains one safe generic parameter name.
 
 - [ ] **Step 2: Run the analyzer test**
 
@@ -160,7 +160,7 @@ rtk git commit -m "feat: materialize generic DAML descriptors"
 
 - [ ] **Step 1: Write failing integration tests**
 
-Add self-recursive `Node<T>`, mutually recursive `Left<T>`/`Right<T>`, and a generic variant fixture. Generate bindings, typecheck the NodeNext project, and materialize `Node<Text>` plus `Node<Int64>` independently. Add an integration test that generates `/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar` and asserts it contains `SplitUnderlying<...>` rather than failing.
+Add self-recursive `Node<T>`, mutually recursive `Left<T>`/`Right<T>`, and a generic variant fixture. Generate bindings, typecheck the NodeNext project, and materialize `Node<Text>` plus `Node<Int64>` independently and a nested `Left<Text> → Right<Text>` value. Add an integration test that generates `/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar` and asserts it contains `SplitUnderlying<...>` rather than failing.
 
 - [ ] **Step 2: Run the integration tests**
 
