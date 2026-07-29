@@ -117,10 +117,12 @@ describe("TemplateBindingEmitter", () => {
                 name: "Holding",
             }),
         });
+
         const contractId = new DamlLfType({
             builtinType: DamlLfBuiltinType.contractId,
             typeArguments: [externalHolding],
         });
+
         const template = new AnalyzedTemplate({
             templateId: new DamlLfTemplateId({
                 packageId: "sample-hash",

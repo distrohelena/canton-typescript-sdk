@@ -326,21 +326,17 @@ export class TemplateBindingEmitter {
     private normalizeType(type: AnalyzedDamlType | DamlLfType): AnalyzedDamlType {
         if ("kind" in type) {
             return type;
-        }
-
-        if (type.builtinType === DamlLfBuiltinType.contractId) {
+        } else if (type.builtinType === DamlLfBuiltinType.contractId) {
             if (type.typeArguments.length !== 1) {
                 throw new Error("DAML ContractId requires exactly one type argument");
             }
 
             return { kind: "contractId" };
+        } else if (type.typeConReference !== undefined) {
+            return { kind: "namedReference", identity: type.typeConReference };
         }
 
         const arguments_ = type.typeArguments.map((argument) => this.normalizeType(argument));
-
-        if (type.typeConReference !== undefined) {
-            return { kind: "namedReference", identity: type.typeConReference };
-        }
 
         switch (type.builtinType) {
             case DamlLfBuiltinType.optional:

@@ -307,6 +307,7 @@ export class SampleLfPackageFixture {
                 },
             },
         });
+
         const contractId = () => ({
             sum: {
                 oneofKind: "builtin" as const,
@@ -316,6 +317,7 @@ export class SampleLfPackageFixture {
                 },
             },
         });
+
         const packageBytes = Package.toBinary({
             modules: [{
                 nameInternedDname: 0,

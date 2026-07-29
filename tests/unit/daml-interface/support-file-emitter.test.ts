@@ -178,6 +178,7 @@ describe("SupportFileEmitter", () => {
             moduleName: "Main",
             name: "Settlement",
         });
+
         const descriptors = new SupportFileEmitter().emitSupportFiles(
             new DamlInterfaceAnalysisResult({
                 templates: [],

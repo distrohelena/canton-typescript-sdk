@@ -125,7 +125,9 @@ describe("generated DAML template materialization", () => {
 
         try {
             const file = temporaryProject.project.templateFiles[0]!;
+
             const grpc = await importGeneratedGrpcBindingsAsync();
+
             const generated = await import(pathToFileURL(
                 `${temporaryProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
             ).href) as GeneratedOpaqueModule;
@@ -137,6 +139,7 @@ describe("generated DAML template materialization", () => {
                     fields: [{ label: "holding", value: contractIdValue(grpc, "#holding-protobuf") }],
                 }),
             }));
+
             const jsonCreated = generated.Opaque.fromCreatedEvent({
                 contract_id: "#opaque-2",
                 template_id: {
@@ -146,6 +149,7 @@ describe("generated DAML template materialization", () => {
                 },
                 create_arguments: { holding: "#holding-json" },
             });
+
             const protobufExercise = generated.Opaque.fromExercisedEvent(grpc.ExercisedEvent.create({
                 contractId: "#opaque-1",
                 templateId: opaqueTemplateId(),
@@ -154,6 +158,7 @@ describe("generated DAML template materialization", () => {
                 exerciseResult: contractIdValue(grpc, "#result-protobuf"),
                 consuming: false,
             }));
+
             const jsonExercise = generated.Opaque.fromExercisedEvent({
                 contract_id: "#opaque-2",
                 template_id: {
