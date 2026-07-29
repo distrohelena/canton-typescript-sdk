@@ -171,6 +171,33 @@ describe("SupportFileEmitter", () => {
             descriptor.fields[0].type.element.identity.packageId = "mutated";
         }).toThrow(TypeError);
     });
+
+    it("emits target-free ContractId descriptors", () => {
+        const identity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "Settlement",
+        });
+        const descriptors = new SupportFileEmitter().emitSupportFiles(
+            new DamlInterfaceAnalysisResult({
+                templates: [],
+                typeDefinitions: [{
+                    identity,
+                    kind: "record",
+                    fields: [{
+                        damlLabel: "holding",
+                        propertyName: "holding",
+                        type: { kind: "contractId" },
+                    }],
+                }],
+            }),
+        ).find((file) => file.path === "generated/support/descriptors.ts");
+
+        expect(descriptors?.contents).toContain(
+            '{ damlLabel: "holding", propertyName: "holding", type: { kind: "contractId" } }',
+        );
+        expect(descriptors?.contents).not.toContain("contract:");
+    });
 });
 
 function createTemplateFile(init: {

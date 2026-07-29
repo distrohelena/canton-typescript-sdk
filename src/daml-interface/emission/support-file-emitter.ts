@@ -254,7 +254,7 @@ export class SupportFileEmitter {
             case "primitive":
                 return `{ kind: "primitive", primitive: ${JSON.stringify(type.builtinType)}${type.numericScale === undefined ? "" : `, numericScale: ${type.numericScale}`} }`;
             case "contractId":
-                return `{ kind: "contractId", contract: ${this.emitDescriptor(type.contract)} }`;
+                return '{ kind: "contractId" }';
             case "optional":
                 return `{ kind: "optional", element: ${this.emitDescriptor(type.element)} }`;
             case "list":

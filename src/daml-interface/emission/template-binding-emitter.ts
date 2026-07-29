@@ -260,7 +260,7 @@ export class TemplateBindingEmitter {
             case "primitive":
                 return `{ kind: "primitive", primitive: ${JSON.stringify(type.builtinType)}${type.numericScale === undefined ? "" : `, numericScale: ${type.numericScale}`} }`;
             case "contractId":
-                return `{ kind: "contractId", contract: ${this.emitDescriptor(type.contract)} }`;
+                return '{ kind: "contractId" }';
             case "optional":
                 return `{ kind: "optional", element: ${this.emitDescriptor(type.element)} }`;
             case "list":
@@ -328,6 +328,14 @@ export class TemplateBindingEmitter {
             return type;
         }
 
+        if (type.builtinType === DamlLfBuiltinType.contractId) {
+            if (type.typeArguments.length !== 1) {
+                throw new Error("DAML ContractId requires exactly one type argument");
+            }
+
+            return { kind: "contractId" };
+        }
+
         const arguments_ = type.typeArguments.map((argument) => this.normalizeType(argument));
 
         if (type.typeConReference !== undefined) {
@@ -335,8 +343,6 @@ export class TemplateBindingEmitter {
         }
 
         switch (type.builtinType) {
-            case DamlLfBuiltinType.contractId:
-                return { kind: "contractId", contract: arguments_[0] ?? { kind: "primitive", builtinType: DamlLfBuiltinType.text } };
             case DamlLfBuiltinType.optional:
                 return { kind: "optional", element: arguments_[0] ?? { kind: "primitive", builtinType: DamlLfBuiltinType.text } };
             case DamlLfBuiltinType.list:
@@ -447,9 +453,7 @@ export class TemplateBindingEmitter {
             case "namedReference": yield type;
 
             return;
-            case "contractId": yield* this.walkNamedReferences(type.contract);
-
-            return;
+            case "contractId": return;
             case "optional":
             case "list": yield* this.walkNamedReferences(type.element);
 

@@ -180,6 +180,25 @@ describe("NamedTypeEmitter", () => {
             await rm(outputDirectory, { recursive: true, force: true });
         }
     });
+
+    it("does not collect imports through opaque ContractId targets", () => {
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([{
+            identity: new TypeConReference({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                name: "Settlement",
+            }),
+            kind: "record",
+            fields: [{
+                damlLabel: "holding",
+                propertyName: "holding",
+                type: { kind: "contractId" },
+            }],
+        }])[0];
+
+        expect(file?.contents).toContain("readonly holding: string;");
+        expect(file?.contents).not.toContain("import type");
+    });
 });
 
 function definitions(): readonly AnalyzedDamlTypeDefinition[] {

@@ -267,10 +267,7 @@ export class NamedTypeEmitter {
                 yield type;
 
                 return;
-            case "contractId":
-                yield* this.getNamedReferences(type.contract);
-
-                return;
+            case "contractId": return;
             case "optional":
             case "list":
                 yield* this.getNamedReferences(type.element);
@@ -677,10 +674,7 @@ export class NamedTypeEmitter {
 
                 return;
             }
-            case "contractId":
-                yield* this.getRuntimePrimitiveTypes(type.contract);
-
-                return;
+            case "contractId": return;
             case "optional":
             case "list":
                 yield* this.getRuntimePrimitiveTypes(type.element);

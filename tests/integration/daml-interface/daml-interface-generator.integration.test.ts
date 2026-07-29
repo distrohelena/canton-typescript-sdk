@@ -19,4 +19,22 @@ describe("DamlInterfaceGenerator", () => {
         expect(project.registryFile?.path).toBe("generated/registry.ts");
         expect(project.indexFile?.path).toBe("generated/index.ts");
     });
+
+    it("generates one Dalf with an absent ContractId target as string-shaped bindings", async () => {
+        const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createOpaqueContractIdLf2ArchiveBytes(),
+        );
+
+        expect(project.templateFiles).toHaveLength(1);
+
+        const contents = project.templateFiles[0]!.contents;
+
+        expect(contents).toContain("readonly holding: string;");
+        expect(contents).toContain("public readonly argument: string;");
+        expect(contents).toContain("public readonly result: string;");
+        expect(contents.match(/\{ kind: \"contractId\" \}/g)).toHaveLength(3);
+        expect(contents).not.toContain("contract:");
+        expect(contents).not.toContain("Splice.Api.Token.HoldingV1");
+        expect(contents).not.toContain("missing");
+    });
 });

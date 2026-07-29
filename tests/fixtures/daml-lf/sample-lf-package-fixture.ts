@@ -285,6 +285,89 @@ export class SampleLfPackageFixture {
         return this.wrapLf2Package(packageBytes);
     }
 
+    /** One Dalf whose ContractId targets a deliberately absent external Holding package. */
+    public static createOpaqueContractIdLf2ArchiveBytes(): Uint8Array {
+        const externalHolding = () => ({
+            sum: {
+                oneofKind: "con" as const,
+                con: {
+                    tycon: {
+                        module: {
+                            packageId: {
+                                sum: {
+                                    oneofKind: "importedPackageIdInternedStr" as const,
+                                    importedPackageIdInternedStr: 10,
+                                },
+                            },
+                            moduleNameInternedDname: 2,
+                        },
+                        nameInternedDname: 3,
+                    },
+                    args: [],
+                },
+            },
+        });
+        const contractId = () => ({
+            sum: {
+                oneofKind: "builtin" as const,
+                builtin: {
+                    builtin: BuiltinType.CONTRACT_ID,
+                    args: [externalHolding()],
+                },
+            },
+        });
+        const packageBytes = Package.toBinary({
+            modules: [{
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [{
+                    nameInternedDname: 1,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [{ fieldInternedStr: 5, type: contractId() }],
+                        },
+                    },
+                }],
+                values: [],
+                templates: [{
+                    tyconInternedDname: 1,
+                    paramInternedStr: 6,
+                    choices: [{
+                        nameInternedStr: 7,
+                        consuming: false,
+                        argBinder: { varInternedStr: 8, type: contractId() },
+                        retType: contractId(),
+                        update: { sum: { oneofKind: undefined } },
+                        selfBinderInternedStr: 9,
+                    }],
+                    implements: [],
+                }],
+                exceptions: [],
+                interfaces: [],
+            }],
+            internedStrings: [
+                "Sample", "Opaque", "Splice", "Holding", "unused", "holding", "this",
+                "Transfer", "newHolding", "self", "missing", "Api", "Token", "HoldingV1",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [0, 1] },
+                { segmentsInternedStr: [1] },
+                { segmentsInternedStr: [2, 11, 12, 13] },
+                { segmentsInternedStr: [3] },
+            ],
+            metadata: { nameInternedStr: 4, versionInternedStr: 4 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes);
+    }
+
     /** Two same-named templates and generated-name reserved labels for compiler integration coverage. */
     public static createCollisionLf2ArchiveBytes(): Uint8Array {
         const text = () => ({

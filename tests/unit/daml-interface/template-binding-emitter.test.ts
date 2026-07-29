@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
+import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-choice.js";
 import {
     AnalyzedTemplate,
@@ -106,5 +107,61 @@ describe("TemplateBindingEmitter", () => {
 
         expect(contents).toContain('readonly payload: { readonly state: { readonly tag: "Open"; readonly value: "Ready" | "Done"; }; };');
         expect(contents).not.toContain("readonly payload: unknown;");
+    });
+
+    it("keeps legacy ContractId targets opaque while emitting string descriptors and types", () => {
+        const externalHolding = new DamlLfType({
+            typeConReference: new TypeConReference({
+                packageId: "missing",
+                moduleName: "Splice.Api.Token.HoldingV1",
+                name: "Holding",
+            }),
+        });
+        const contractId = new DamlLfType({
+            builtinType: DamlLfBuiltinType.contractId,
+            typeArguments: [externalHolding],
+        });
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Opaque",
+            }),
+            className: "Opaque",
+            fileName: "opaque.ts",
+            createFields: [new AnalyzedTemplateField({
+                name: "holding",
+                propertyName: "holding",
+                type: contractId,
+            })],
+            choices: [new AnalyzedChoice({
+                name: "Transfer",
+                methodName: "exerciseTransfer",
+                parameterName: "newHolding",
+                parameterType: contractId,
+                returnType: contractId,
+            })],
+        });
+
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template, [
+            {
+                packageId: "sample-hash",
+                moduleName: "Main",
+                path: "generated/packages/sample-hash/main/types.ts",
+                contents: "",
+                namespaceAlias: "SampleHashMain",
+                exportedTypeNames: [],
+                exportedTypeNamesByIdentity: new Map(),
+                fieldPropertyNames: new Map(),
+            },
+        ]);
+
+        expect(contents.contents).toContain("readonly holding: string;");
+        expect(contents.contents).toContain("public readonly argument: string;");
+        expect(contents.contents).toContain("public readonly result: string;");
+        expect(contents.contents.match(/\{ kind: \"contractId\" \}/g)).toHaveLength(3);
+        expect(contents.contents).not.toContain("contract:");
+        expect(contents.contents).not.toContain("Splice.Api.Token.HoldingV1");
+        expect(contents.contents).not.toContain("Holding as");
     });
 });

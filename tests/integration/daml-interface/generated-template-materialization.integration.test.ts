@@ -118,6 +118,75 @@ describe("generated DAML template materialization", () => {
         }
     });
 
+    it("materializes opaque external ContractId values from protobuf and JSON events", async () => {
+        const temporaryProject = await generateTemporaryProjectAsync(
+            SampleLfPackageFixture.createOpaqueContractIdLf2ArchiveBytes(),
+        );
+
+        try {
+            const file = temporaryProject.project.templateFiles[0]!;
+            const grpc = await importGeneratedGrpcBindingsAsync();
+            const generated = await import(pathToFileURL(
+                `${temporaryProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
+            ).href) as GeneratedOpaqueModule;
+
+            const protobufCreated = generated.Opaque.fromCreatedEvent(grpc.CreatedEvent.create({
+                contractId: "#opaque-1",
+                templateId: opaqueTemplateId(),
+                createArguments: grpc.Record.create({
+                    fields: [{ label: "holding", value: contractIdValue(grpc, "#holding-protobuf") }],
+                }),
+            }));
+            const jsonCreated = generated.Opaque.fromCreatedEvent({
+                contract_id: "#opaque-2",
+                template_id: {
+                    package_id: "sample-hash",
+                    module_name: "Sample.Opaque",
+                    entity_name: "Opaque",
+                },
+                create_arguments: { holding: "#holding-json" },
+            });
+            const protobufExercise = generated.Opaque.fromExercisedEvent(grpc.ExercisedEvent.create({
+                contractId: "#opaque-1",
+                templateId: opaqueTemplateId(),
+                choice: "Transfer",
+                choiceArgument: contractIdValue(grpc, "#argument-protobuf"),
+                exerciseResult: contractIdValue(grpc, "#result-protobuf"),
+                consuming: false,
+            }));
+            const jsonExercise = generated.Opaque.fromExercisedEvent({
+                contract_id: "#opaque-2",
+                template_id: {
+                    package_id: "sample-hash",
+                    module_name: "Sample.Opaque",
+                    entity_name: "Opaque",
+                },
+                choice: "Transfer",
+                choice_argument: "#argument-json",
+                exercise_result: "#result-json",
+                consuming: false,
+            });
+
+            expect([protobufCreated.holding, jsonCreated.holding]).toEqual([
+                "#holding-protobuf",
+                "#holding-json",
+            ]);
+            expect([
+                protobufExercise.argument,
+                protobufExercise.result,
+                jsonExercise.argument,
+                jsonExercise.result,
+            ]).toEqual([
+                "#argument-protobuf",
+                "#result-protobuf",
+                "#argument-json",
+                "#result-json",
+            ]);
+        } finally {
+            await temporaryProject.disposeAsync();
+        }
+    });
+
     it("materializes a PQS exercise reached through a nested contract include", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(
             SampleLfPackageFixture.createMaterializationLf2ArchiveBytes(),
@@ -228,8 +297,28 @@ interface GeneratedIou {
     readonly note: string | undefined;
 }
 
+interface GeneratedOpaqueModule {
+    readonly Opaque: {
+        fromCreatedEvent(source: unknown): GeneratedOpaque;
+        fromExercisedEvent(source: unknown): GeneratedOpaqueExercise;
+    };
+}
+
+interface GeneratedOpaque {
+    readonly holding: string;
+}
+
+interface GeneratedOpaqueExercise {
+    readonly argument: string;
+    readonly result: string;
+}
+
 function iouTemplateId() {
     return { packageId: "sample-hash", moduleName: "Sample.Module", entityName: "Iou" };
+}
+
+function opaqueTemplateId() {
+    return { packageId: "sample-hash", moduleName: "Sample.Opaque", entityName: "Opaque" };
 }
 
 function iouJsonPayload() {
@@ -285,6 +374,10 @@ function recordValue(grpc: GrpcBindings, fields: Readonly<Record<string, unknown
 
 function textValue(grpc: GrpcBindings, text: string): unknown {
     return grpc.Value.create({ sum: { oneofKind: "text", text } });
+}
+
+function contractIdValue(grpc: GrpcBindings, contractId: string): unknown {
+    return grpc.Value.create({ sum: { oneofKind: "contractId", contractId } });
 }
 
 interface MessageFactory {
