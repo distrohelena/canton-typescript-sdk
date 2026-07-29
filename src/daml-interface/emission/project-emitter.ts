@@ -1,5 +1,6 @@
 import { DamlInterfaceAnalysisResult } from "../analysis/daml-interface-analyzer.js";
 import { GeneratedDamlInterfaceProject } from "../emission-model/generated-daml-interface-project.js";
+import { NamedTypeEmitter } from "./named-type-emitter.js";
 import { RegistryEmitter } from "./registry-emitter.js";
 import { SupportFileEmitter } from "./support-file-emitter.js";
 import { TemplateBindingEmitter } from "./template-binding-emitter.js";
@@ -9,8 +10,10 @@ export class ProjectEmitter {
         private readonly templateBindingEmitter: TemplateBindingEmitter = new TemplateBindingEmitter(),
         private readonly supportFileEmitter: SupportFileEmitter = new SupportFileEmitter(),
         private readonly registryEmitter: RegistryEmitter = new RegistryEmitter(),
+        private readonly namedTypeEmitter: NamedTypeEmitter = new NamedTypeEmitter(),
     ) {
         void this.templateBindingEmitter;
+        void this.namedTypeEmitter;
         void this.supportFileEmitter;
         void this.registryEmitter;
     }
@@ -25,15 +28,20 @@ export class ProjectEmitter {
             this.templateBindingEmitter.emitTemplateFile(template),
         );
 
+        const namedTypeFiles = this.namedTypeEmitter.emitNamedTypeFiles(
+            analysis.typeDefinitions,
+        );
+
         const supportFiles = [
-            ...this.supportFileEmitter.emitSupportFiles(),
+            ...this.supportFileEmitter.emitSupportFiles(analysis),
             ...this.supportFileEmitter.emitNamespaceFiles(
-                new GeneratedDamlInterfaceProject({ templateFiles }),
+                new GeneratedDamlInterfaceProject({ templateFiles, namedTypeFiles }),
             ),
         ];
 
         const baseProject = new GeneratedDamlInterfaceProject({
             templateFiles,
+            namedTypeFiles,
             supportFiles,
         });
 
@@ -41,6 +49,7 @@ export class ProjectEmitter {
 
         const projectWithRegistry = new GeneratedDamlInterfaceProject({
             templateFiles,
+            namedTypeFiles,
             supportFiles,
             registryFile,
         });
@@ -51,6 +60,7 @@ export class ProjectEmitter {
 
         return new GeneratedDamlInterfaceProject({
             templateFiles,
+            namedTypeFiles,
             supportFiles,
             registryFile,
             indexFile,

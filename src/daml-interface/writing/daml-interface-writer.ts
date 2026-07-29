@@ -10,6 +10,7 @@ export class DamlInterfaceWriter {
     ): Promise<void> {
         const files = [
             ...project.templateFiles,
+            ...project.namedTypeFiles,
             ...project.supportFiles,
             project.registryFile,
             project.indexFile,
