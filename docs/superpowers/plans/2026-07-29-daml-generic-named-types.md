@@ -30,7 +30,7 @@ Expected: FAIL because mapper currently maps `Type.var` to `unknown` and drops `
 
 - [ ] **Step 3: Add immutable model fields and mapper support**
 
-Add data-type parameter metadata with the resolved binder name and kind. Add a `typeVariable` field to `DamlLfType`. Map `Type.var.varInternedStr` through `internedStrings`; preserve and map its arguments. Map `DefDataType.params` through the same resolver. Keep invalid interned indices and unknown kind shapes representable so analysis can issue contextual errors.
+Add data-type parameter metadata with the resolved binder name and kind. Add a `typeVariable` field and a diagnostic-only `forall` marker to `DamlLfType`; do not unwrap `Type.forall`. Map `Type.var.varInternedStr` through `internedStrings`; preserve and map its arguments. Map `DefDataType.params` through the same resolver. Keep invalid interned indices and unknown kind shapes representable so analysis can issue contextual errors.
 
 - [ ] **Step 4: Re-run the mapper test**
 
@@ -100,7 +100,7 @@ Expected: FAIL because current emitters only render bare named references and do
 
 - [ ] **Step 3: Render generic declarations and applications**
 
-Render generic parameter lists on record and variant aliases/interfaces. Render `typeVariable` references using their resolved safe names and append rendered type arguments to named imports. Keep direct imports when names do not collide; reuse existing readable namespace aliases only for collisions.
+Render generic parameter lists on record and variant aliases/interfaces. Render `typeVariable` references using their resolved safe names and render applications as `Box<Amount>` at use sites. Imports remain bare TypeScript symbols (`import type { Box, Amount }`); recursively collect named references inside application arguments. Keep direct imports when names do not collide; reuse existing readable namespace aliases only for collisions.
 
 - [ ] **Step 4: Re-run emitter tests**
 
@@ -126,7 +126,7 @@ rtk git commit -m "feat: emit generic DAML TypeScript types"
 
 - [ ] **Step 1: Write failing descriptor tests**
 
-Construct a generic `Box<T>` factory and a `Box<Text>` named-reference descriptor. Assert the converter resolves the argument descriptor, materializes a string-valued record, rejects missing/extra generic arguments, and independently handles two applications of the same identity with different arguments.
+Construct a generic `Box<T>` factory and a `Box<Text>` named-reference descriptor. Add self-recursive `Node<T>` and mutually recursive `Left<T>`/`Right<T>` descriptor cases. Assert the converter resolves argument descriptors, materializes a string-valued record, rejects missing/extra generic arguments, and independently handles two applications of the same identity with different arguments.
 
 - [ ] **Step 2: Run focused descriptor tests**
 
@@ -160,7 +160,7 @@ rtk git commit -m "feat: materialize generic DAML descriptors"
 
 - [ ] **Step 1: Write failing integration tests**
 
-Add a generic recursive `Node<T>` and a generic variant fixture. Generate bindings, typecheck the NodeNext project, and materialize `Node<Text>` plus `Node<Int64>` independently. Add an integration test that generates `/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar` and asserts it contains `SplitUnderlying<...>` rather than failing.
+Add self-recursive `Node<T>`, mutually recursive `Left<T>`/`Right<T>`, and a generic variant fixture. Generate bindings, typecheck the NodeNext project, and materialize `Node<Text>` plus `Node<Int64>` independently. Add an integration test that generates `/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar` and asserts it contains `SplitUnderlying<...>` rather than failing.
 
 - [ ] **Step 2: Run the integration tests**
 
