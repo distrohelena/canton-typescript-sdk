@@ -25,7 +25,12 @@ export class ProjectEmitter {
             this.templateBindingEmitter.emitTemplateFile(template),
         );
 
-        const supportFiles = this.supportFileEmitter.emitSupportFiles();
+        const supportFiles = [
+            ...this.supportFileEmitter.emitSupportFiles(),
+            ...this.supportFileEmitter.emitNamespaceFiles(
+                new GeneratedDamlInterfaceProject({ templateFiles }),
+            ),
+        ];
 
         const baseProject = new GeneratedDamlInterfaceProject({
             templateFiles,

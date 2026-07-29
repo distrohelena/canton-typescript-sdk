@@ -4,9 +4,13 @@ import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
 import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-choice.js";
 import {
+    DamlInterfaceAnalysisResult,
+} from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
+import {
     AnalyzedTemplate,
     AnalyzedTemplateField,
 } from "../../../src/daml-interface/analysis/analyzed-template.js";
+import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
 import { TemplateBindingEmitter } from "../../../src/daml-interface/emission/template-binding-emitter.js";
 import { TypeScriptNameResolver } from "../../../src/daml-interface/emission/type-script-name-resolver.js";
 
@@ -129,6 +133,35 @@ describe("TypeScriptNameResolver", () => {
             "SampleHashMain",
             "SampleHashMain",
         ]);
+    });
+
+    it("resets allocated names when emitting independent projects", () => {
+        const emitter = new ProjectEmitter();
+
+        const firstTemplate = createTemplate({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            templateName: "Iou",
+        });
+
+        const secondTemplate = createTemplate({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            templateName: "Iou",
+        });
+
+        emitter.emitProject(new DamlInterfaceAnalysisResult({
+            templates: [firstTemplate],
+            typeDefinitions: [],
+        }));
+
+        const secondProject = emitter.emitProject(new DamlInterfaceAnalysisResult({
+            templates: [secondTemplate],
+            typeDefinitions: [],
+        }));
+
+        expect(secondProject.templateFiles[0].path)
+            .toBe("generated/packages/sample-hash/main/iou.ts");
     });
 });
 

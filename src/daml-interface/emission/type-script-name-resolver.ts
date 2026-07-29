@@ -63,6 +63,9 @@ export class TypeScriptNameResolver {
 
     /** Prepares a project-wide name table and rejects irreconcilable output collisions. */
     public prepareTemplatesOrThrow(templates: readonly AnalyzedTemplate[]): void {
+        this.templatesByIdentity.clear();
+        this.resolvedTemplates.clear();
+
         for (const template of templates) {
             const identityKey = this.getTemplateIdentityKey(template);
 
