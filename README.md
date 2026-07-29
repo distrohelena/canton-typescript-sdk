@@ -3,9 +3,13 @@
 TypeScript SDK for Canton with:
 
 - a shared `CantonClient`
-- `grpc` and `json` transports
-- `grpc`-only external signing
-- gRPC Ledger API service boundaries as the public SDK shape
+- gRPC and JSON transports
+- gRPC Ledger API-shaped service boundaries
+- PQS-backed relational queries
+- external-party lifecycle and signing
+- authenticated and TLS-secured channels
+- experimental tooling for invariant testing, DAML-LF inspection, interface
+  generation, and replay debugging
 
 ## Install
 
