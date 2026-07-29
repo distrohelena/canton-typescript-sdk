@@ -113,7 +113,7 @@ export class TemplateBindingEmitter {
             `        this.${field.propertyName} = ${field.constructorParameterName};`);
 
         const orderedArguments = binding.createFields.map((field) =>
-            `            fields.fields.${field.propertyName},`);
+            `            fields.${field.propertyName},`);
 
         const exercisedReturnType = binding.choices.length === 0
             ? "never"

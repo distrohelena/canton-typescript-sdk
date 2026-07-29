@@ -69,6 +69,8 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).toContain("public readonly consuming: boolean;");
         expect(file.contents).toContain("public readonly metadata: DamlExercisedEventMetadata;");
         expect(file.contents).toContain("materializeDamlValue<IouFields>(decodeDamlValue(");
+        expect(file.contents).toContain("fields.issuer,");
+        expect(file.contents).toContain("fields.owner,");
         expect(file.contents).toContain("throw new DamlMaterializationError(\"choice\"");
         expect(file.contents).toContain('private static readonly descriptor: DamlTypeDescriptor = { kind: "record", fields: [{ damlLabel: "issuer", propertyName: "issuer", type: { kind: "primitive", primitive: "text" } }, { damlLabel: "owner", propertyName: "owner", type: { kind: "primitive", primitive: "text" } }] };');
         expect(file.contents).not.toContain("public static create(");
@@ -76,5 +78,6 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).not.toContain("public static decodeCreatedEvent(");
         expect(file.contents).not.toContain("public static decodeExercisedEvent(");
         expect(file.contents).not.toContain("as IouFields");
+        expect(file.contents).not.toContain("fields.fields");
     });
 });

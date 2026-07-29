@@ -63,7 +63,11 @@ describe("ProjectEmitter", () => {
             }),
             className: "Iou",
             fileName: "iou.ts",
-            createFields: [],
+            createFields: [{
+                name: "issuer",
+                propertyName: "issuer",
+                type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+            }],
             choices: [],
         });
 
@@ -134,7 +138,11 @@ describe("ProjectEmitter", () => {
             }),
             className: "Node",
             fileName: "node.ts",
-            createFields: [],
+            createFields: [{
+                name: "issuer",
+                propertyName: "issuer",
+                type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+            }],
             choices: [new AnalyzedChoice({
                 name: "Archive",
                 methodName: "exerciseArchive",
