@@ -11,3 +11,40 @@ export { DamlInterfaceGenerationException } from "./errors/daml-interface-genera
 export { DamlInterfaceUnsupportedShapeException } from "./errors/daml-interface-unsupported-shape.exception.js";
 export { DamlInterfaceWriteException } from "./errors/daml-interface-write.exception.js";
 export { DamlInterfaceWriter } from "./writing/daml-interface-writer.js";
+export { DamlTemplate } from "./runtime/daml-template.js";
+export { DamlMaterializationError } from "./runtime/daml-materialization-error.js";
+export { decodeDamlValue } from "./runtime/daml-value-converter.js";
+export { DamlNumeric } from "../core/types/daml-numeric.js";
+export { DamlParty } from "../core/types/daml-party.js";
+export {
+    DamlDate,
+    DamlEnum,
+    DamlGenMap,
+    DamlRecord,
+    DamlTextMap,
+    DamlTimestamp,
+    DamlUnit,
+    DamlVariant,
+} from "../core/types/daml-values.js";
+export type {
+    DamlDecodedValue,
+} from "./runtime/daml-value-converter.js";
+export type {
+    DamlContractIdDescriptor,
+    DamlEnumDescriptor,
+    DamlGenMapDescriptor,
+    DamlListDescriptor,
+    DamlNamedReferenceDescriptor,
+    DamlOptionalDescriptor,
+    DamlPrimitiveDescriptor,
+    DamlPrimitiveType,
+    DamlRecordDescriptor,
+    DamlRecordFieldDescriptor,
+    DamlTextMapDescriptor,
+    DamlTypeDescriptor,
+    DamlTypeDescriptorRegistry,
+    DamlTypeIdentity,
+    DamlValueSource,
+    DamlVariantConstructorDescriptor,
+    DamlVariantDescriptor,
+} from "./runtime/daml-type-descriptor.js";
