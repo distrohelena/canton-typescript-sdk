@@ -206,9 +206,7 @@ export class DamlLfCompilation {
                     }
 
                     if (definition instanceof DamlLfDataType) {
-                        for (const field of definition.fields) {
-                            this.validateTypeOrThrow(field.type);
-                        }
+                        this.validateDataTypeOrThrow(definition);
                     }
 
                     if (definition instanceof DamlLfTemplate) {
@@ -231,6 +229,10 @@ export class DamlLfCompilation {
     }
 
     private validateTypeOrThrow(type: DamlLfType): void {
+        for (const typeArgument of type.typeArguments) {
+            this.validateTypeOrThrow(typeArgument);
+        }
+
         const reference = type.typeConReference;
 
         if (reference === undefined) {
@@ -238,6 +240,20 @@ export class DamlLfCompilation {
         }
 
         this.getTypeSymbolOrThrow(reference);
+    }
+
+    private validateDataTypeOrThrow(definition: DamlLfDataType): void {
+        if (definition.definition.kind === "record") {
+            for (const field of definition.definition.fields) {
+                this.validateTypeOrThrow(field.type);
+            }
+
+            return;
+        } else if (definition.definition.kind === "variant") {
+            for (const constructor of definition.definition.constructors) {
+                this.validateTypeOrThrow(constructor.type);
+            }
+        }
     }
 
     private static createModuleKey(packageId: string, moduleName: string): string {

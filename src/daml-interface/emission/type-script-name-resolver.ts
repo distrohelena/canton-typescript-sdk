@@ -1,6 +1,6 @@
 import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
-import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
 import { AnalyzedChoice } from "../analysis/analyzed-choice.js";
+import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 import { AnalyzedTemplate } from "../analysis/analyzed-template.js";
 
 export class TypeScriptNameResolver {
@@ -36,8 +36,10 @@ export class TypeScriptNameResolver {
     }
 
     /** Resolves the TypeScript type name for a supported DAML-LF type. */
-    public getTypeName(type: DamlLfType): string {
-        return type.builtinType === DamlLfBuiltinType.text ? "string" : "unknown";
+    public getTypeName(type: AnalyzedDamlType): string {
+        return type.kind === "primitive" && type.builtinType === DamlLfBuiltinType.text
+            ? "string"
+            : "unknown";
     }
 
     /** Resolves the literal template identifier used by generated helpers. */

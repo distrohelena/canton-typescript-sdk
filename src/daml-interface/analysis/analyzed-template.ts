@@ -1,16 +1,16 @@
 import { DamlLfTemplateId } from "../../daml-lf/model/daml-lf-template-id.js";
-import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
 import { AnalyzedChoice } from "./analyzed-choice.js";
+import { AnalyzedDamlType } from "./analyzed-daml-type.js";
 
 export class AnalyzedTemplateField {
     public readonly name: string;
     public readonly propertyName: string;
-    public readonly type: DamlLfType;
+    public readonly type: AnalyzedDamlType;
 
     public constructor(init: {
         name: string;
         propertyName: string;
-        type: DamlLfType;
+        type: AnalyzedDamlType;
     }) {
         this.name = init.name;
         this.propertyName = init.propertyName;

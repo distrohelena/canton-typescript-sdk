@@ -1,5 +1,6 @@
 import { DamlLfChoice } from "../model/daml-lf-choice.js";
 import { DamlLfCompilation } from "../daml-lf-compilation.js";
+import { DamlLfDataType } from "../model/daml-lf-data-type.js";
 import { DamlLfField } from "../model/daml-lf-field.js";
 import { DamlLfTemplate } from "../model/daml-lf-template.js";
 import { DamlLfTemplateId } from "../model/daml-lf-template-id.js";
@@ -26,6 +27,11 @@ export class DamlLfSemanticModel {
     public getRecordFieldsOrThrow(
         reference: TypeConReference,
     ): readonly DamlLfField[] {
-        return this.compilation.getTypeSymbolOrThrow(reference).definition.fields;
+        return this.getDataTypeOrThrow(reference).fields;
+    }
+
+    /** Returns the complete resolved data type for a type constructor reference. */
+    public getDataTypeOrThrow(reference: TypeConReference): DamlLfDataType {
+        return this.compilation.getTypeSymbolOrThrow(reference).definition;
     }
 }

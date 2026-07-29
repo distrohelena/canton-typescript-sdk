@@ -11,6 +11,7 @@ import { DamlLfPackage } from "../../../src/daml-lf/model/daml-lf-package.js";
 import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
 import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
+import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { DamlInterfaceAnalyzer } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { DamlInterfaceGeneratorOptions } from "../../../src/daml-interface/daml-interface-generator-options.js";
@@ -63,6 +64,162 @@ describe("DamlInterfaceAnalyzer", () => {
         expect(() => analyzer.analyzeOrThrow(compilation)).toThrow(
             DamlInterfaceUnsupportedShapeException,
         );
+    });
+
+    it("resolves recursive serializable DAML types into generator descriptors", () => {
+        const compilation = createRichCompilation();
+
+        const result = new DamlInterfaceAnalyzer().analyzeOrThrow(compilation);
+
+        const template = result.templates[0];
+
+        expect(template.createFields.map((field) => field.type.kind)).toEqual([
+            "optional",
+            "list",
+            "namedReference",
+            "namedReference",
+            "namedReference",
+            "namedReference",
+            "namedReference",
+        ]);
+        expect(template.createFields[0].type).toEqual({
+            kind: "optional",
+            element: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+        });
+        expect(template.createFields[1].type).toEqual({
+            kind: "list",
+            element: {
+                kind: "contractId",
+                contract: {
+                    kind: "namedReference",
+                    identity: new TypeConReference({
+                        packageId: "sample-hash",
+                        moduleName: "Main",
+                        name: "TradeOrder",
+                    }),
+                },
+            },
+        });
+
+        const settlement = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "Settlement",
+        );
+
+        const instruction = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "Instruction",
+        );
+
+        const status = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "Status",
+        );
+
+        const node = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "Node",
+        );
+
+        const mutualA = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "MutualA",
+        );
+
+        const mutualB = result.typeDefinitions.find(
+            (definition) => definition.identity.name === "MutualB",
+        );
+
+        expect(settlement).toMatchObject({
+            identity: {
+                packageId: "sample-hash",
+                moduleName: "Main",
+                name: "Settlement",
+            },
+            kind: "record",
+            fields: [
+                {
+                    damlLabel: "settlement-owner",
+                    propertyName: "settlementOwner",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                },
+            ],
+        });
+        expect(instruction).toMatchObject({
+            kind: "variant",
+            constructors: [
+                {
+                    constructor: "Deliver",
+                    payload: {
+                        kind: "namedReference",
+                        identity: { name: "Settlement" },
+                    },
+                },
+                {
+                    constructor: "Cancel",
+                    payload: {
+                        kind: "primitive",
+                        builtinType: DamlLfBuiltinType.text,
+                    },
+                },
+            ],
+        });
+        expect(status).toEqual({
+            identity: new TypeConReference({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                name: "Status",
+            }),
+            kind: "enum",
+            constructors: ["Pending", "Settled"],
+        });
+        expect(node).toMatchObject({
+            kind: "record",
+            fields: [
+                {
+                    damlLabel: "next",
+                    type: {
+                        kind: "optional",
+                        element: {
+                            kind: "namedReference",
+                            identity: { name: "Node" },
+                        },
+                    },
+                },
+            ],
+        });
+        expect(mutualA).toMatchObject({
+            kind: "record",
+            fields: [
+                {
+                    damlLabel: "right",
+                    type: {
+                        kind: "namedReference",
+                        identity: { name: "MutualB" },
+                    },
+                },
+            ],
+        });
+        expect(mutualB).toMatchObject({
+            kind: "record",
+            fields: [
+                {
+                    damlLabel: "left",
+                    type: {
+                        kind: "namedReference",
+                        identity: { name: "MutualA" },
+                    },
+                },
+            ],
+        });
+        expect(result.typeDefinitions.map((definition) => definition.identity.name).sort())
+            .toEqual([
+                "TradeOrder",
+                "Settlement",
+                "Instruction",
+                "Status",
+                "Node",
+                "MutualA",
+                "MutualB",
+            ].sort());
+        expect(new Set(result.typeDefinitions.map((definition) =>
+            `${definition.identity.packageId}:${definition.identity.moduleName}:${definition.identity.name}`,
+        )).size).toBe(result.typeDefinitions.length);
     });
 });
 
@@ -132,6 +289,170 @@ function createCompilation(init: {
                             new DamlLfDataType({
                                 name: init.templateName,
                                 fields,
+                            }),
+                            template,
+                        ],
+                    }),
+                ],
+            }),
+        ]),
+    );
+}
+
+function createRichCompilation(): DamlLfCompilation {
+    const packageId = "sample-hash";
+
+    const moduleName = "Main";
+
+    const reference = (name: string): TypeConReference =>
+        new TypeConReference({ packageId, moduleName, name });
+
+    const namedType = (name: string): DamlLfType =>
+        new DamlLfType({ typeConReference: reference(name) });
+
+    const text = (): DamlLfType =>
+        new DamlLfType({ builtinType: DamlLfBuiltinType.text });
+
+    const templateFields = [
+        new DamlLfField({
+            name: "memo",
+            type: new DamlLfType({
+                builtinType: DamlLfBuiltinType.optional,
+                typeArguments: [text()],
+            }),
+        }),
+        new DamlLfField({
+            name: "trade-ids",
+            type: new DamlLfType({
+                builtinType: DamlLfBuiltinType.list,
+                typeArguments: [
+                    new DamlLfType({
+                        builtinType: DamlLfBuiltinType.contractId,
+                        typeArguments: [namedType("TradeOrder")],
+                    }),
+                ],
+            }),
+        }),
+        new DamlLfField({ name: "settlement", type: namedType("Settlement") }),
+        new DamlLfField({ name: "instruction", type: namedType("Instruction") }),
+        new DamlLfField({ name: "status", type: namedType("Status") }),
+        new DamlLfField({ name: "mutual", type: namedType("MutualA") }),
+        new DamlLfField({ name: "node", type: namedType("Node") }),
+    ];
+
+    const templateId = new DamlLfTemplateId({
+        packageId,
+        moduleName,
+        templateName: "TradeOrder",
+    });
+
+    const template = new DamlLfTemplate({
+        templateId,
+        name: "TradeOrder",
+        parameterName: "self",
+        fields: templateFields,
+        choices: [
+            new DamlLfChoice({
+                name: "Archive",
+                selfBinderName: "self",
+                parameter: new DamlLfChoiceParameter({
+                    name: "replacement",
+                    type: new DamlLfType({
+                        builtinType: DamlLfBuiltinType.optional,
+                        typeArguments: [namedType("Settlement")],
+                    }),
+                }),
+                returnType: new DamlLfType({
+                    builtinType: DamlLfBuiltinType.list,
+                    typeArguments: [
+                        new DamlLfType({
+                            builtinType: DamlLfBuiltinType.contractId,
+                            typeArguments: [namedType("TradeOrder")],
+                        }),
+                    ],
+                }),
+            }),
+        ],
+    });
+
+    return DamlLfCompilation.createOrThrow(
+        new DamlLfWorkspace([
+            new DamlLfPackage({
+                packageId,
+                packageName: "sample-package",
+                packageVersion: "1.0.0",
+                languageVersion: {
+                    major: 2,
+                    minor: "1",
+                    patch: 0,
+                    toString: () => "2.1",
+                },
+                modules: [
+                    new DamlLfModule({
+                        name: moduleName,
+                        definitions: [
+                            new DamlLfDataType({
+                                name: "TradeOrder",
+                                fields: templateFields,
+                            }),
+                            new DamlLfDataType({
+                                name: "Settlement",
+                                fields: [
+                                    new DamlLfField({
+                                        name: "settlement-owner",
+                                        type: text(),
+                                    }),
+                                ],
+                            }),
+                            new DamlLfDataType({
+                                name: "Instruction",
+                                definition: {
+                                    kind: "variant",
+                                    constructors: [
+                                        {
+                                            name: "Deliver",
+                                            type: namedType("Settlement"),
+                                        },
+                                        { name: "Cancel", type: text() },
+                                    ],
+                                },
+                            }),
+                            new DamlLfDataType({
+                                name: "Status",
+                                definition: {
+                                    kind: "enum",
+                                    constructors: ["Pending", "Settled"],
+                                },
+                            }),
+                            new DamlLfDataType({
+                                name: "Node",
+                                fields: [
+                                    new DamlLfField({
+                                        name: "next",
+                                        type: new DamlLfType({
+                                            builtinType: DamlLfBuiltinType.optional,
+                                            typeArguments: [namedType("Node")],
+                                        }),
+                                    }),
+                                ],
+                            }),
+                            new DamlLfDataType({
+                                name: "MutualA",
+                                fields: [
+                                    new DamlLfField({
+                                        name: "right",
+                                        type: namedType("MutualB"),
+                                    }),
+                                ],
+                            }),
+                            new DamlLfDataType({
+                                name: "MutualB",
+                                fields: [
+                                    new DamlLfField({
+                                        name: "left",
+                                        type: namedType("MutualA"),
+                                    }),
+                                ],
                             }),
                             template,
                         ],
