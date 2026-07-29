@@ -177,7 +177,18 @@ describe("TemplateBindingEmitter", () => {
             }),
             className: "Holding",
             fileName: "holding.ts",
-            createFields: [],
+            createFields: [new AnalyzedTemplateField({
+                name: "archive",
+                propertyName: "archive",
+                type: {
+                    kind: "namedReference",
+                    identity: new TypeConReference({
+                        packageId: "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69",
+                        moduleName: "DA.Internal.Template",
+                        name: "Archive",
+                    }),
+                },
+            })],
             choices: [new AnalyzedChoice({
                 name: "Burn",
                 methodName: "exerciseBurn",
@@ -205,10 +216,23 @@ describe("TemplateBindingEmitter", () => {
                 "Burn",
             ]]),
         });
+        const externalTypeFile = new GeneratedNamedTypeFile({
+            path: "generated/packages/ghc-stdlib-da-internal-template_1.0.0/da/internal/template/types.ts",
+            contents: "",
+            packageId: "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69",
+            moduleName: "DA.Internal.Template",
+            namespaceAlias: "GhcStdlibDAInternalTemplateDAInternalTemplate",
+            exportedTypeNames: ["Archive"],
+            exportedTypeNamesByIdentity: new Map([[
+                "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69\u0000DA.Internal.Template\u0000Archive",
+                "Archive",
+            ]]),
+        });
 
-        const contents = new TemplateBindingEmitter().emitTemplateFile(template, [typeFile]).contents;
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template, [typeFile, externalTypeFile]).contents;
 
         expect(contents).toContain("import type { Burn } from");
+        expect(contents).toContain("import type { Archive } from");
         expect(contents).not.toContain("426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3cOzTokenKernelBurn");
     });
 });

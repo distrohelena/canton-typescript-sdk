@@ -17,7 +17,7 @@ describe("NamedTypeEmitter", () => {
 
         const main = files.find((file) => file.path.includes("sample-hash/main/types.ts"));
 
-        expect(main?.contents).toContain('import type { External as OtherPackageOtherModuleExternal } from "../../other-package/other/module/types.js";');
+        expect(main?.contents).toContain('import type { External } from "../../other-package/other/module/types.js";');
         expect(main?.contents).toContain("export interface Settlement {");
         expect(main?.contents).toContain("    readonly settlementOwner: string;");
         expect(main?.contents).toContain("export type Instruction =");
@@ -26,7 +26,7 @@ describe("NamedTypeEmitter", () => {
         expect(main?.contents).toContain('export type Status = "Pending" | "Settled";');
         expect(main?.contents).toContain("readonly next: Node | undefined;");
         expect(main?.contents).toContain("readonly right: MutualB;");
-        expect(main?.contents).toContain("readonly foreign: OtherPackageOtherModuleExternal;");
+        expect(main?.contents).toContain("readonly foreign: External;");
     });
 
     it("emits valid, collision-safe TypeScript identifiers and runtime primitive imports", () => {

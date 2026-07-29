@@ -385,6 +385,22 @@ export class TemplateBindingEmitter {
 
         const usedAliases = new Set<string>();
 
+        const exportedNameCounts = new Map<string, number>();
+
+        for (const [key, reference] of identities) {
+            const file = namedTypeFiles.find((candidate) =>
+                candidate.packageId === reference.identity.packageId
+                && candidate.moduleName === reference.identity.moduleName);
+            const exportedName = file?.exportedTypeNamesByIdentity.get(key);
+
+            if (exportedName !== undefined) {
+                exportedNameCounts.set(
+                    exportedName,
+                    (exportedNameCounts.get(exportedName) ?? 0) + 1,
+                );
+            }
+        }
+
         for (const [key, reference] of [...identities.entries()].sort(([, left], [, right]) => {
             const leftIsLocal = left.identity.packageId === template.templateId.packageId
                 && left.identity.moduleName === template.templateId.moduleName;
@@ -414,8 +430,9 @@ export class TemplateBindingEmitter {
                 continue;
             }
 
-            const baseAlias = reference.identity.packageId === template.templateId.packageId
-                && reference.identity.moduleName === template.templateId.moduleName
+            const isLocal = reference.identity.packageId === template.templateId.packageId
+                && reference.identity.moduleName === template.templateId.moduleName;
+            const baseAlias = exportedNameCounts.get(exportedName) === 1 || isLocal
                 ? exportedName
                 : this.toTypeName(`${file.namespaceAlias} ${exportedName}`);
 

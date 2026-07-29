@@ -190,7 +190,9 @@ export class NamedTypeEmitter {
             .map(([path, importedNames]) =>
                 `import type { ${[...importedNames.entries()]
                     .sort(([left], [right]) => left.localeCompare(right))
-                    .map(([exportedName, alias]) => `${exportedName} as ${alias}`)
+                    .map(([exportedName, alias]) => exportedName === alias
+                        ? exportedName
+                        : `${exportedName} as ${alias}`)
                     .join(", ")} } from ${JSON.stringify(path)};`),
         ];
     }
@@ -237,16 +239,18 @@ export class NamedTypeEmitter {
                 throw new Error(`Cannot emit unresolved named DAML type '${identity.name}'`);
             }
 
+            const exportedName = this.getNamedReferenceTypeName(identity, names);
+
             const baseName = this.safeTypeName(
-                `${referencedModule.namespaceAlias} ${identity.name}`,
+                `${referencedModule.namespaceAlias} ${exportedName}`,
             );
 
-            let alias = baseName;
+            let alias = exportedName;
 
             let escalation = 2;
 
             if (usedNames.has(alias)) {
-                alias = `${baseName}_${this.shortHash(key)}`;
+                alias = baseName;
             }
 
             while (usedNames.has(alias)) {
