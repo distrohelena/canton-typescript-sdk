@@ -16,6 +16,8 @@ type ResolvedModule = ModuleIdentity & {
     readonly namespaceAlias: string;
 };
 
+type ExternalTypeAliases = ReadonlyMap<string, string>;
+
 /** Emits TypeScript declarations for reachable named DAML records, variants, and enums. */
 export class NamedTypeEmitter {
     public constructor(
@@ -58,11 +60,18 @@ export class NamedTypeEmitter {
                 definition.identity.packageId === module.packageId
                 && definition.identity.moduleName === module.moduleName);
 
+            const externalTypeAliases = this.resolveExternalTypeAliases(
+                module,
+                moduleDefinitions,
+                names,
+            );
+
             const imports = this.emitImports(
                 module,
                 moduleDefinitions,
                 modules,
                 names,
+                externalTypeAliases,
             );
 
             return new GeneratedNamedTypeFile({
@@ -71,7 +80,7 @@ export class NamedTypeEmitter {
                     ...imports,
                     ...(imports.length === 0 ? [] : [""]),
                     ...moduleDefinitions.map((definition) =>
-                        this.emitDefinition(definition, names)),
+                        this.emitDefinition(definition, names, externalTypeAliases)),
                     "",
                 ].join("\n"),
                 packageId: module.packageId,
@@ -86,6 +95,7 @@ export class NamedTypeEmitter {
     private emitDefinition(
         definition: AnalyzedDamlTypeDefinition,
         names: ReadonlyMap<string, string>,
+        externalTypeAliases: ExternalTypeAliases,
     ): string {
         const name = this.getDefinitionName(definition, names);
 
@@ -93,14 +103,14 @@ export class NamedTypeEmitter {
             return [
                 `export interface ${name} {`,
                 ...definition.fields.map((field) =>
-                    `    readonly ${field.propertyName}: ${this.getTypeName(field.type, names)};`),
+                    `    readonly ${field.propertyName}: ${this.getTypeName(field.type, names, externalTypeAliases)};`),
                 "}",
             ].join("\n");
         } else if (definition.kind === "variant") {
             return [
                 `export type ${name} =`,
                 ...definition.constructors.map((constructor) =>
-                    `    | { readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, names)}; }`),
+                    `    | { readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, names, externalTypeAliases)}; }`),
             ].map((line, index, lines) => index === lines.length - 1 ? `${line};` : line).join("\n");
         }
 
@@ -112,8 +122,9 @@ export class NamedTypeEmitter {
         definitions: readonly AnalyzedDamlTypeDefinition[],
         modules: ReadonlyMap<string, ResolvedModule>,
         names: ReadonlyMap<string, string>,
+        externalTypeAliases: ExternalTypeAliases,
     ): readonly string[] {
-        const imports = new Map<string, Set<string>>();
+        const imports = new Map<string, Map<string, string>>();
 
         const runtimeTypes = new Set<string>();
 
@@ -137,9 +148,12 @@ export class NamedTypeEmitter {
 
                 const importPath = this.relativeFilePath(module.path, referencedModule.path);
 
-                const importedNames = imports.get(importPath) ?? new Set<string>();
+                const importedNames = imports.get(importPath) ?? new Map<string, string>();
 
-                importedNames.add(this.getNamedReferenceTypeName(reference.identity, names));
+                importedNames.set(
+                    this.getNamedReferenceTypeName(reference.identity, names),
+                    this.getExternalTypeAlias(reference.identity, externalTypeAliases),
+                );
                 imports.set(importPath, importedNames);
             }
         }
@@ -151,8 +165,84 @@ export class NamedTypeEmitter {
             ...[...imports.entries()]
             .sort(([left], [right]) => left.localeCompare(right))
             .map(([path, importedNames]) =>
-                `import type { ${[...importedNames].sort().join(", ")} } from ${JSON.stringify(path)};`),
+                `import type { ${[...importedNames.entries()]
+                    .sort(([left], [right]) => left.localeCompare(right))
+                    .map(([exportedName, alias]) => `${exportedName} as ${alias}`)
+                    .join(", ")} } from ${JSON.stringify(path)};`),
         ];
+    }
+
+    private resolveExternalTypeAliases(
+        module: ResolvedModule,
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+        names: ReadonlyMap<string, string>,
+    ): ExternalTypeAliases {
+        const references = new Map<string, { packageId: string; moduleName: string; name: string }>();
+
+        for (const definition of definitions) {
+            for (const reference of this.getNamedReferences(definition)) {
+                const moduleKey = this.getModuleKey(
+                    reference.identity.packageId,
+                    reference.identity.moduleName,
+                );
+
+                if (moduleKey !== module.key) {
+                    const key = this.getDefinitionKey(
+                        reference.identity.packageId,
+                        reference.identity.moduleName,
+                        reference.identity.name,
+                    );
+
+                    references.set(key, reference.identity);
+                }
+            }
+        }
+
+        const aliases = new Map<string, string>();
+
+        const usedNames = new Set(definitions.map((definition) =>
+            this.getDefinitionName(definition, names)));
+
+        for (const [key, identity] of [...references.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+            const baseName = this.safeTypeName(
+                `${identity.packageId} ${identity.moduleName} ${identity.name}`,
+            );
+
+            let alias = baseName;
+
+            let escalation = 2;
+
+            if (usedNames.has(alias)) {
+                alias = `${baseName}_${this.shortHash(key)}`;
+            }
+
+            while (usedNames.has(alias)) {
+                alias = `${baseName}_${this.shortHash(key)}_${escalation}`;
+                escalation += 1;
+            }
+
+            usedNames.add(alias);
+            aliases.set(key, alias);
+        }
+
+        return aliases;
+    }
+
+    private getExternalTypeAlias(
+        identity: { readonly packageId: string; readonly moduleName: string; readonly name: string },
+        aliases: ExternalTypeAliases,
+    ): string {
+        const alias = aliases.get(this.getDefinitionKey(
+            identity.packageId,
+            identity.moduleName,
+            identity.name,
+        ));
+
+        if (alias === undefined) {
+            throw new Error(`Cannot resolve external named DAML type '${identity.name}'`);
+        }
+
+        return alias;
     }
 
     private *getNamedReferences(type: AnalyzedDamlType): Iterable<Extract<AnalyzedDamlType, { readonly kind: "namedReference" }>> {
@@ -197,26 +287,34 @@ export class NamedTypeEmitter {
         }
     }
 
-    private getTypeName(type: AnalyzedDamlType, names: ReadonlyMap<string, string>): string {
+    private getTypeName(
+        type: AnalyzedDamlType,
+        names: ReadonlyMap<string, string>,
+        externalTypeAliases: ExternalTypeAliases,
+    ): string {
         switch (type.kind) {
             case "primitive":
                 return this.getPrimitiveTypeName(type.builtinType);
             case "contractId":
                 return "string";
             case "optional":
-                return `${this.getTypeName(type.element, names)} | undefined`;
+                return `${this.getTypeName(type.element, names, externalTypeAliases)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, names)}[]`;
+                return `readonly ${this.getTypeName(type.element, names, externalTypeAliases)}[]`;
             case "textMap":
-                return `ReadonlyMap<string, ${this.getTypeName(type.value, names)}>`;
+                return `ReadonlyMap<string, ${this.getTypeName(type.value, names, externalTypeAliases)}>`;
             case "genMap":
-                return `ReadonlyMap<${this.getTypeName(type.key, names)}, ${this.getTypeName(type.value, names)}>`;
+                return `ReadonlyMap<${this.getTypeName(type.key, names, externalTypeAliases)}, ${this.getTypeName(type.value, names, externalTypeAliases)}>`;
             case "record":
             case "variant":
             case "enum":
                 throw new Error("Named DAML declarations must not contain anonymous record, variant, or enum shapes");
             case "namedReference":
-                return this.getNamedReferenceTypeName(type.identity, names);
+                return externalTypeAliases.get(this.getDefinitionKey(
+                    type.identity.packageId,
+                    type.identity.moduleName,
+                    type.identity.name,
+                )) ?? this.getNamedReferenceTypeName(type.identity, names);
         }
     }
 

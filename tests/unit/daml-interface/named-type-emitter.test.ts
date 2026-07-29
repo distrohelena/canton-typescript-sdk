@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
@@ -13,7 +17,7 @@ describe("NamedTypeEmitter", () => {
 
         const main = files.find((file) => file.path.includes("sample-hash/main/types.ts"));
 
-        expect(main?.contents).toContain('import type { External } from "../../other-package/other/module/types.js";');
+        expect(main?.contents).toContain('import type { External as OtherPackageOtherModuleExternal } from "../../other-package/other/module/types.js";');
         expect(main?.contents).toContain("export interface Settlement {");
         expect(main?.contents).toContain("    readonly settlementOwner: string;");
         expect(main?.contents).toContain("export type Instruction =");
@@ -22,7 +26,7 @@ describe("NamedTypeEmitter", () => {
         expect(main?.contents).toContain('export type Status = "Pending" | "Settled";');
         expect(main?.contents).toContain("readonly next: Node | undefined;");
         expect(main?.contents).toContain("readonly right: MutualB;");
-        expect(main?.contents).toContain("readonly foreign: External;");
+        expect(main?.contents).toContain("readonly foreign: OtherPackageOtherModuleExternal;");
     });
 
     it("emits valid, collision-safe TypeScript identifiers and runtime primitive imports", () => {
@@ -71,6 +75,59 @@ describe("NamedTypeEmitter", () => {
         expect(file.contents).toContain("readonly amount: DamlNumeric;");
         expect(file.contents).toContain("readonly owner: DamlParty;");
         expect(file.contents).toContain("readonly marker: DamlUnit;");
+    });
+
+    it("aliases every external named reference by full identity so A.Foo resolves B.Foo", async () => {
+        const reference = (moduleName: string) => new TypeConReference({
+            packageId: "sample-hash",
+            moduleName,
+            name: "Foo",
+        });
+
+        const files = new NamedTypeEmitter().emitNamedTypeFiles([
+            {
+                identity: reference("A"),
+                kind: "record",
+                fields: [{
+                    damlLabel: "foreign",
+                    propertyName: "foreign",
+                    type: { kind: "namedReference", identity: reference("B") },
+                }],
+            },
+            { identity: reference("B"), kind: "record", fields: [] },
+        ]);
+
+        const a = files.find((file) => file.path.endsWith("/a/types.ts"));
+
+        expect(a?.contents).toContain('import type { Foo as SampleHashBFoo } from "../b/types.js";');
+        expect(a?.contents).toContain("readonly foreign: SampleHashBFoo;");
+
+        const outputDirectory = await mkdtemp(join(tmpdir(), "daml-named-types-"));
+
+        try {
+            for (const file of files) {
+                const path = join(outputDirectory, file.path);
+
+                await mkdir(dirname(path), { recursive: true });
+                await writeFile(path, file.contents, "utf8");
+            }
+
+            execFileSync(
+                process.execPath,
+                [
+                    "./node_modules/typescript/bin/tsc",
+                    "--noEmit",
+                    "--module",
+                    "NodeNext",
+                    "--moduleResolution",
+                    "NodeNext",
+                    join(outputDirectory, a!.path),
+                ],
+                { cwd: process.cwd(), stdio: "inherit" },
+            );
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
     });
 });
 
