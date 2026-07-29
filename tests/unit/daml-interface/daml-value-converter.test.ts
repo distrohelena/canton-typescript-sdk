@@ -89,6 +89,15 @@ describe("decodeDamlValue primitive representations", () => {
         expect(() => decodeDamlValue(json("+-12.30"), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
     });
 
+    it("canonicalizes documented Ledger Numeric leading zeros and trailing dots for protobuf and JSON values", () => {
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "0001" } })), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+        expect(decodeDamlValue(json("0001"), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "+0001" } })), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+        expect(decodeDamlValue(json("+0001"), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "1." } })), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+        expect(decodeDamlValue(json("1."), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("1"));
+    });
+
     it("enforces signed Int64 bounds for protobuf and JSON values", () => {
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "int64", int64: "-9223372036854775808" } })), descriptors.int64, emptyRegistry, "Iou.amount")).toBe(-9223372036854775808n);
         expect(decodeDamlValue(json("9223372036854775807"), descriptors.int64, emptyRegistry, "Iou.amount")).toBe(9223372036854775807n);

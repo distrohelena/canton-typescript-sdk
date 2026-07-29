@@ -473,17 +473,15 @@ function decodeTimestamp(value: unknown, path: string): DamlTimestamp {
 }
 
 function decodeNumeric(value: string, numericScale: number | undefined, path: string): DamlNumeric {
-    if (!/^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) {
+    if (!/^[+-]?\d+(?:\.\d*)?$/.test(value)) {
         throw materializationError(path, "invalid numeric");
     }
 
-    const normalized = value.startsWith("+") ? value.slice(1) : value;
+    const decimalSeparator = value.indexOf(".");
 
-    const decimalSeparator = normalized.indexOf(".");
+    const fractionLength = decimalSeparator === -1 ? 0 : value.length - decimalSeparator - 1;
 
-    const fractionLength = decimalSeparator === -1 ? 0 : normalized.length - decimalSeparator - 1;
-
-    const precision = normalized.replace(/[-.]/g, "").length;
+    const precision = value.replace(/[+-.]/g, "").length;
 
     const maxScale = numericScale ?? 37;
 
@@ -496,10 +494,30 @@ function decodeNumeric(value: string, numericScale: number | undefined, path: st
     }
 
     try {
-        return new DamlNumeric(normalized);
+        return new DamlNumeric(canonicalizeLedgerNumeric(value));
     } catch {
         throw materializationError(path, "invalid numeric");
     }
+}
+
+function canonicalizeLedgerNumeric(value: string): string {
+    const negative = value.startsWith("-");
+
+    const unsigned = value.startsWith("+") || negative ? value.slice(1) : value;
+
+    const decimalSeparator = unsigned.indexOf(".");
+
+    const integerPart = decimalSeparator === -1 ? unsigned : unsigned.slice(0, decimalSeparator);
+
+    const fractionPart = decimalSeparator === -1 ? "" : unsigned.slice(decimalSeparator + 1);
+
+    const canonicalIntegerPart = integerPart.replace(/^0+/, "") || "0";
+
+    const sign = negative ? "-" : "";
+
+    return fractionPart.length === 0
+        ? `${sign}${canonicalIntegerPart}`
+        : `${sign}${canonicalIntegerPart}.${fractionPart}`;
 }
 
 function decodeParty(value: string, path: string): DamlParty {
