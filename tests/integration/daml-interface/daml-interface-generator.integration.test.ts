@@ -37,4 +37,67 @@ describe("DamlInterfaceGenerator", () => {
         expect(contents).not.toContain("Splice.Api.Token.HoldingV1");
         expect(contents).not.toContain("missing");
     });
+
+    it("generates a Dalf while skipping unused unresolved external references", async () => {
+        const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+        );
+
+        expect(project.templateFiles.map((file) => file.path)).toEqual([
+            "generated/packages/sample-hash/sample/lazy/iou.ts",
+        ]);
+        expectProjectToExcludeExternalHolding(project);
+    });
+
+    it("generates every template from a multi-entry DAR while skipping unused unresolved external references", async () => {
+        const project = await new DamlInterfaceGenerator().generateFromDarOrThrowAsync(
+            SampleLfPackageFixture.createTemplateGenerationDarBytes(
+                SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+            ),
+        );
+
+        expect(project.templateFiles.map((file) => file.path)).toEqual([
+            "generated/packages/sample-hash/sample/lazy/iou.ts",
+            "generated/packages/second-template-package-id/sample/second/note.ts",
+        ]);
+        expectProjectToExcludeExternalHolding(project);
+    });
+
+    it("rejects a Dalf when a template field reaches an unresolved external named type", async () => {
+        await expect(new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createExternalReferenceInTemplateFieldLf2ArchiveBytes(),
+        )).rejects.toThrow(
+            "missing-package-id:Splice.Api.Token.HoldingV1:Holding",
+        );
+    });
+
+    it("rejects a DAR when a template choice reaches an unresolved external named type", async () => {
+        await expect(new DamlInterfaceGenerator().generateFromDarOrThrowAsync(
+            SampleLfPackageFixture.createTemplateGenerationDarBytes(
+                SampleLfPackageFixture.createExternalReferenceInTemplateChoiceLf2ArchiveBytes(),
+            ),
+        )).rejects.toThrow(
+            "missing-package-id:Splice.Api.Token.HoldingV1:Holding",
+        );
+    });
 });
+
+function expectProjectToExcludeExternalHolding(project: {
+    readonly templateFiles: readonly { readonly contents: string }[];
+    readonly namedTypeFiles: readonly { readonly contents: string }[];
+    readonly supportFiles: readonly { readonly contents: string }[];
+    readonly registryFile?: { readonly contents: string };
+    readonly indexFile?: { readonly contents: string };
+}): void {
+    for (const file of [
+        ...project.templateFiles,
+        ...project.namedTypeFiles,
+        ...project.supportFiles,
+        project.registryFile,
+        project.indexFile,
+    ]) {
+        expect(file?.contents).not.toContain("missing-package-id");
+        expect(file?.contents).not.toContain("Splice.Api.Token.HoldingV1");
+        expect(file?.contents).not.toContain("Holding");
+    }
+}

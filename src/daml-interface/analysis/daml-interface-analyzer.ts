@@ -295,10 +295,10 @@ class AnalyzedDamlTypeBuilder {
 
         try {
             dataType = this.semanticModel.getDataTypeOrThrow(reference);
-        } catch (error) {
+        } catch {
             throw this.unsupported(
                 context,
-                `could not resolve named type '${reference.name}'`,
+                `could not resolve named type '${reference.packageId}:${reference.moduleName}:${reference.name}'`,
             );
         }
 

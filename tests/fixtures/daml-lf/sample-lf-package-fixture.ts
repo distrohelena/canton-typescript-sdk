@@ -5,6 +5,7 @@ import {
     HashFunction,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
 import { Package } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
+import { strToU8, zipSync } from "fflate";
 
 export class SampleLfPackageFixture {
     public static createLf2ArchiveBytes(): Uint8Array {
@@ -370,6 +371,32 @@ export class SampleLfPackageFixture {
         return this.wrapLf2Package(packageBytes);
     }
 
+    /** A package with unresolved external references that no emitted template reaches. */
+    public static createUnusedExternalReferencesLf2ArchiveBytes(): Uint8Array {
+        return this.createExternalReferencesLf2ArchiveBytes("unused");
+    }
+
+    /** A package whose template field directly references an unavailable external type. */
+    public static createExternalReferenceInTemplateFieldLf2ArchiveBytes(): Uint8Array {
+        return this.createExternalReferencesLf2ArchiveBytes("field");
+    }
+
+    /** A package whose template choice directly references an unavailable external type. */
+    public static createExternalReferenceInTemplateChoiceLf2ArchiveBytes(): Uint8Array {
+        return this.createExternalReferencesLf2ArchiveBytes("choice");
+    }
+
+    /** A manifest-backed, multi-entry DAR containing the supplied main Dalf and a second template Dalf. */
+    public static createTemplateGenerationDarBytes(mainDalfBytes: Uint8Array): Uint8Array {
+        return zipSync({
+            "META-INF/MANIFEST.MF": strToU8(
+                "Manifest-Version: 1.0\nMain-Dalf: lazy-main.dalf\n",
+            ),
+            "lazy-main.dalf": mainDalfBytes,
+            "second-template.dalf": this.createSecondTemplateLf2ArchiveBytes(),
+        });
+    }
+
     /** Two same-named templates and generated-name reserved labels for compiler integration coverage. */
     public static createCollisionLf2ArchiveBytes(): Uint8Array {
         const text = () => ({
@@ -426,7 +453,170 @@ export class SampleLfPackageFixture {
         return this.wrapLf2Package(packageBytes);
     }
 
-    private static wrapLf2Package(packageBytes: Uint8Array): Uint8Array {
+    private static createExternalReferencesLf2ArchiveBytes(
+        reachableReference: "unused" | "field" | "choice",
+    ): Uint8Array {
+        const text = () => ({
+            sum: {
+                oneofKind: "builtin" as const,
+                builtin: { builtin: BuiltinType.TEXT, args: [] },
+            },
+        });
+
+        const externalHolding = () => ({
+            sum: {
+                oneofKind: "con" as const,
+                con: {
+                    tycon: {
+                        module: {
+                            packageId: {
+                                sum: {
+                                    oneofKind: "importedPackageIdInternedStr" as const,
+                                    importedPackageIdInternedStr: 12,
+                                },
+                            },
+                            moduleNameInternedDname: 4,
+                        },
+                        nameInternedDname: 5,
+                    },
+                    args: [],
+                },
+            },
+        });
+
+        const packageBytes = Package.toBinary({
+            modules: [{
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [{
+                    nameInternedDname: 1,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [{
+                                fieldInternedStr: 7,
+                                type: reachableReference === "field"
+                                    ? externalHolding()
+                                    : text(),
+                            }],
+                        },
+                    },
+                }, {
+                    nameInternedDname: 2,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [{ fieldInternedStr: 7, type: externalHolding() }],
+                        },
+                    },
+                }],
+                values: [{
+                    nameWithType: {
+                        nameInternedDname: 3,
+                        type: externalHolding(),
+                    },
+                    expr: { sum: { oneofKind: undefined } },
+                }],
+                templates: [{
+                    tyconInternedDname: 1,
+                    paramInternedStr: 8,
+                    choices: [{
+                        nameInternedStr: 9,
+                        consuming: false,
+                        argBinder: {
+                            varInternedStr: 10,
+                            type: reachableReference === "choice"
+                                ? externalHolding()
+                                : text(),
+                        },
+                        retType: text(),
+                        update: { sum: { oneofKind: undefined } },
+                        selfBinderInternedStr: 11,
+                    }],
+                    implements: [],
+                }],
+                exceptions: [],
+                interfaces: [],
+            }],
+            internedStrings: [
+                "Sample", "Lazy", "Iou", "UnusedExternalType", "unusedExternalValue", "Holding",
+                "sample-package", "issuer", "this", "Transfer", "newIssuer", "self",
+                "missing-package-id", "Splice", "Api", "Token", "HoldingV1", "1.0.0",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [0, 1] },
+                { segmentsInternedStr: [2] },
+                { segmentsInternedStr: [3] },
+                { segmentsInternedStr: [4] },
+                { segmentsInternedStr: [13, 14, 15, 16] },
+                { segmentsInternedStr: [5] },
+            ],
+            metadata: { nameInternedStr: 6, versionInternedStr: 17 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes);
+    }
+
+    private static createSecondTemplateLf2ArchiveBytes(): Uint8Array {
+        const text = () => ({
+            sum: {
+                oneofKind: "builtin" as const,
+                builtin: { builtin: BuiltinType.TEXT, args: [] },
+            },
+        });
+
+        const packageBytes = Package.toBinary({
+            modules: [{
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [{
+                    nameInternedDname: 1,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: { fields: [{ fieldInternedStr: 5, type: text() }] },
+                    },
+                }],
+                values: [],
+                templates: [{
+                    tyconInternedDname: 1,
+                    paramInternedStr: 6,
+                    choices: [],
+                    implements: [],
+                }],
+                exceptions: [],
+                interfaces: [],
+            }],
+            internedStrings: [
+                "Sample", "Second", "Note", "second-package", "1.0.0", "body", "this",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [0, 1] },
+                { segmentsInternedStr: [2] },
+            ],
+            metadata: { nameInternedStr: 3, versionInternedStr: 4 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes, "second-template-package-id");
+    }
+
+    private static wrapLf2Package(
+        packageBytes: Uint8Array,
+        hash = "sample-hash",
+    ): Uint8Array {
         const payloadBytes = ArchivePayload.toBinary({
             minor: "1",
             patch: 0,
@@ -436,7 +626,7 @@ export class SampleLfPackageFixture {
         return Archive.toBinary({
             hashFunction: HashFunction.SHA256,
             payload: payloadBytes,
-            hash: "sample-hash",
+            hash,
         });
     }
 }

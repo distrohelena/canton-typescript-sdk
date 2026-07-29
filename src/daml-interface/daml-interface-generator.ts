@@ -41,7 +41,7 @@ export class DamlInterfaceGenerator {
     ): Promise<GeneratedDamlInterfaceProject> {
         const pkg = this.packageLoader.loadPackageOrThrow(archiveBytes);
 
-        const compilation = DamlLfCompilation.createOrThrow(
+        const compilation = DamlLfCompilation.createForTemplateGeneration(
             new DamlLfWorkspace([pkg]),
         );
 
@@ -62,7 +62,7 @@ export class DamlInterfaceGenerator {
             this.packageLoader.loadPackageOrThrow(entry.bytes),
         );
 
-        const compilation = DamlLfCompilation.createOrThrow(
+        const compilation = DamlLfCompilation.createForTemplateGeneration(
             new DamlLfWorkspace(packages),
         );
 

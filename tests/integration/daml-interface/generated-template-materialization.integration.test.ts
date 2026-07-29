@@ -192,6 +192,33 @@ describe("generated DAML template materialization", () => {
         }
     });
 
+    it("materializes a template while unrelated unresolved external types are skipped", async () => {
+        const temporaryProject = await generateTemporaryProjectAsync(
+            SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+        );
+
+        try {
+            const file = temporaryProject.project.templateFiles[0]!;
+
+            const generated = await import(pathToFileURL(
+                `${temporaryProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
+            ).href) as GeneratedLazyModule;
+
+            const materialized = generated.Iou.fromCreatedEvent({
+                contract_id: "#lazy-1",
+                template_id: lazyTemplateId(),
+                create_arguments: { issuer: "Alice" },
+            });
+
+            expect(materialized).toMatchObject({
+                contractId: "#lazy-1",
+                issuer: "Alice",
+            });
+        } finally {
+            await temporaryProject.disposeAsync();
+        }
+    });
+
     it("materializes a PQS exercise reached through a nested contract include", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(
             SampleLfPackageFixture.createMaterializationLf2ArchiveBytes(),
@@ -318,12 +345,27 @@ interface GeneratedOpaqueExercise {
     readonly result: string;
 }
 
+interface GeneratedLazyModule {
+    readonly Iou: {
+        fromCreatedEvent(source: unknown): GeneratedLazyIou;
+    };
+}
+
+interface GeneratedLazyIou {
+    readonly contractId: string;
+    readonly issuer: string;
+}
+
 function iouTemplateId() {
     return { packageId: "sample-hash", moduleName: "Sample.Module", entityName: "Iou" };
 }
 
 function opaqueTemplateId() {
     return { packageId: "sample-hash", moduleName: "Sample.Opaque", entityName: "Opaque" };
+}
+
+function lazyTemplateId() {
+    return { packageId: "sample-hash", moduleName: "Sample.Lazy", entityName: "Iou" };
 }
 
 function iouJsonPayload() {
