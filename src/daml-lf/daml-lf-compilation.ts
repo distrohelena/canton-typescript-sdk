@@ -4,6 +4,7 @@ import { DamlLfChoice } from "./model/daml-lf-choice.js";
 import { DamlLfBuiltinType } from "./model/daml-lf-builtin-type.js";
 import { DamlLfDataType } from "./model/daml-lf-data-type.js";
 import { DamlLfModule } from "./model/daml-lf-module.js";
+import { DamlLfPackage } from "./model/daml-lf-package.js";
 import { DamlLfTemplate } from "./model/daml-lf-template.js";
 import { DamlLfTemplateId } from "./model/daml-lf-template-id.js";
 import { DamlLfType } from "./model/daml-lf-type.js";
@@ -140,6 +141,11 @@ export class DamlLfCompilation {
 
     public getTemplates(): readonly DamlLfTemplate[] {
         return [...this.templates.values()];
+    }
+
+    /** Returns the packages available to this compilation. */
+    public getPackages(): readonly DamlLfPackage[] {
+        return this.workspace.packages;
     }
 
     public getTemplateChoicesOrThrow(

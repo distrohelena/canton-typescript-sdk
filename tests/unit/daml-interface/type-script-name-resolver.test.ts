@@ -139,6 +139,25 @@ describe("TypeScriptNameResolver", () => {
         ]);
     });
 
+    it("uses package names and versions for directories while resolving collisions", () => {
+        const templates = [
+            createTemplate({ packageId: "hash-one", moduleName: "Main", templateName: "First" }),
+            createTemplate({ packageId: "hash-two", moduleName: "Main", templateName: "Second" }),
+        ];
+        const resolver = new TypeScriptNameResolver(templates, new Map([
+            ["hash-one", { packageName: "OZ Common", packageVersion: "1.2.3" }],
+            ["hash-two", { packageName: "OZ Common", packageVersion: "1.2.3" }],
+        ]));
+
+        const files = templates.map((template) =>
+            new TemplateBindingEmitter(resolver).emitTemplateFile(template));
+
+        expect(new Set(files.map((file) => file.path)).size).toBe(2);
+        expect(files.map((file) => file.path)).toEqual(expect.arrayContaining([
+            expect.stringContaining("generated/packages/oz-common_1.2.3-"),
+        ]));
+    });
+
     it("resets allocated names when emitting independent projects", () => {
         const emitter = new ProjectEmitter();
 

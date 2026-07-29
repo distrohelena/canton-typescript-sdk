@@ -28,6 +28,7 @@ export class ProjectEmitter {
         this.namedTypeEmitter.prepareProjectOrThrow(
             analysis.templates,
             analysis.typeDefinitions,
+            analysis.packageMetadata,
         );
 
         const templateBindingFiles = analysis.templates.map((template) =>

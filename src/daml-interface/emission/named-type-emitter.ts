@@ -1,6 +1,7 @@
 import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-definition.js";
+import { DamlInterfacePackageMetadata } from "../analysis/daml-interface-analyzer.js";
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
@@ -30,8 +31,13 @@ export class NamedTypeEmitter {
     public prepareProjectOrThrow(
         templates: readonly import("../analysis/analyzed-template.js").AnalyzedTemplate[],
         definitions: readonly AnalyzedDamlTypeDefinition[],
+        packageMetadata: ReadonlyMap<string, DamlInterfacePackageMetadata> = new Map(),
     ): void {
-        this.nameResolver.prepareProjectOrThrow(templates, definitions);
+        this.nameResolver.prepareProjectOrThrow(
+            templates,
+            definitions,
+            packageMetadata,
+        );
     }
 
     /** Emits one `types.ts` module for every reachable DAML package/module identity. */

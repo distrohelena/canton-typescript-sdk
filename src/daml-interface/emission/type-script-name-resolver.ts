@@ -6,6 +6,7 @@ import {
     AnalyzedTemplate,
     AnalyzedTemplateField,
 } from "../analysis/analyzed-template.js";
+import { DamlInterfacePackageMetadata } from "../analysis/daml-interface-analyzer.js";
 
 interface ResolvedTemplateNames {
     readonly template: AnalyzedTemplate;
@@ -67,24 +68,30 @@ export class TypeScriptNameResolver {
     private readonly templatesByIdentity = new Map<string, AnalyzedTemplate>();
     private resolvedTemplates = new Map<string, ResolvedTemplateNames>();
     private resolvedModules = new Map<string, ResolvedModuleNames>();
+    private packageMetadata = new Map<string, DamlInterfacePackageMetadata>();
 
-    public constructor(templates: readonly AnalyzedTemplate[] = []) {
-        this.prepareTemplatesOrThrow(templates);
+    public constructor(
+        templates: readonly AnalyzedTemplate[] = [],
+        packageMetadata: ReadonlyMap<string, DamlInterfacePackageMetadata> = new Map(),
+    ) {
+        this.prepareProjectOrThrow(templates, [], packageMetadata);
     }
 
     /** Prepares a project-wide name table and rejects irreconcilable output collisions. */
     public prepareTemplatesOrThrow(templates: readonly AnalyzedTemplate[]): void {
-        this.prepareProjectOrThrow(templates, []);
+        this.prepareProjectOrThrow(templates, [], this.packageMetadata);
     }
 
     /** Prepares shared package/module paths for template and named DAML type output. */
     public prepareProjectOrThrow(
         templates: readonly AnalyzedTemplate[],
         typeDefinitions: readonly AnalyzedDamlTypeDefinition[],
+        packageMetadata: ReadonlyMap<string, DamlInterfacePackageMetadata> = new Map(),
     ): void {
         this.templatesByIdentity.clear();
         this.resolvedTemplates.clear();
         this.resolvedModules.clear();
+        this.packageMetadata = new Map(packageMetadata);
 
         for (const template of templates) {
             const identityKey = this.getTemplateIdentityKey(template);
@@ -131,7 +138,7 @@ export class TypeScriptNameResolver {
             packageIds.map((packageId) => ({
                 value: packageId,
                 key: `package\u0000${packageId}`,
-                baseName: this.toKebabCase(packageId),
+                baseName: this.getPackageDirectoryBaseName(packageId),
                 scope: "packages",
             })),
         );
@@ -550,6 +557,42 @@ export class TypeScriptNameResolver {
             .split(".")
             .map((segment) => this.toKebabCase(segment))
             .join("/");
+    }
+
+    private getPackageDirectoryBaseName(packageId: string): string {
+        const metadata = this.packageMetadata.get(packageId);
+
+        if (
+            metadata === undefined
+            || metadata.packageName.trim().length === 0
+            || metadata.packageVersion.trim().length === 0
+        ) {
+            return this.toKebabCase(packageId);
+        }
+
+        return `${this.toPackageNameSegment(metadata.packageName)}_${this.toPackageVersionSegment(metadata.packageVersion)}`;
+    }
+
+    private toPackageNameSegment(value: string): string {
+        const segment = value
+            .trim()
+            .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+            .replace(/[^A-Za-z0-9]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            .toLowerCase();
+
+        return segment.length === 0 ? "package" : segment;
+    }
+
+    private toPackageVersionSegment(value: string): string {
+        const segment = value
+            .trim()
+            .replace(/[^A-Za-z0-9._-]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "");
+
+        return segment.length === 0 ? "unknown" : segment;
     }
 
     private getTemplateFileBaseName(template: AnalyzedTemplate): string {

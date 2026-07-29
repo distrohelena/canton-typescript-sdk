@@ -14,7 +14,7 @@ describe("DamlInterfaceGenerator", () => {
 
         expect(project.templateFiles).toHaveLength(1);
         expect(project.templateFiles[0].path).toBe(
-            "generated/packages/sample-hash/sample/module/iou.ts",
+            "generated/packages/sample-package_1.0.0/sample/module/iou.ts",
         );
         expect(project.registryFile?.path).toBe("generated/registry.ts");
         expect(project.indexFile?.path).toBe("generated/index.ts");
@@ -44,7 +44,7 @@ describe("DamlInterfaceGenerator", () => {
         );
 
         expect(project.templateFiles.map((file) => file.path)).toEqual([
-            "generated/packages/sample-hash/sample/lazy/iou.ts",
+            "generated/packages/sample-package_1.0.0/sample/lazy/iou.ts",
         ]);
         expectProjectToExcludeExternalHolding(project);
     });
@@ -57,8 +57,8 @@ describe("DamlInterfaceGenerator", () => {
         );
 
         expect(project.templateFiles.map((file) => file.path)).toEqual([
-            "generated/packages/sample-hash/sample/lazy/iou.ts",
-            "generated/packages/second-template-package-id/sample/second/note.ts",
+            "generated/packages/sample-package_1.0.0/sample/lazy/iou.ts",
+            "generated/packages/second-package_1.0.0/sample/second/note.ts",
         ]);
         expectProjectToExcludeExternalHolding(project);
     });

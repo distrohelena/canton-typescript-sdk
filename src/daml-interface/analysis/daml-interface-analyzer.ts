@@ -15,16 +15,24 @@ import {
 import { AnalyzedDamlTypeDefinition } from "./analyzed-daml-type-definition.js";
 import { AnalyzedTemplate, AnalyzedTemplateField } from "./analyzed-template.js";
 
+export type DamlInterfacePackageMetadata = {
+    readonly packageName: string;
+    readonly packageVersion: string;
+};
+
 export class DamlInterfaceAnalysisResult {
     public readonly templates: readonly AnalyzedTemplate[];
     public readonly typeDefinitions: readonly AnalyzedDamlTypeDefinition[];
+    public readonly packageMetadata: ReadonlyMap<string, DamlInterfacePackageMetadata>;
 
     public constructor(init: {
         templates: readonly AnalyzedTemplate[];
         typeDefinitions: readonly AnalyzedDamlTypeDefinition[];
+        packageMetadata?: ReadonlyMap<string, DamlInterfacePackageMetadata>;
     }) {
         this.templates = Object.freeze([...init.templates]);
         this.typeDefinitions = Object.freeze([...init.typeDefinitions]);
+        this.packageMetadata = new Map(init.packageMetadata);
     }
 }
 
@@ -46,6 +54,13 @@ export class DamlInterfaceAnalyzer {
         return new DamlInterfaceAnalysisResult({
             templates,
             typeDefinitions: typeBuilder.getTypeDefinitions(),
+            packageMetadata: new Map(compilation.getPackages().map((pkg) => [
+                pkg.packageId,
+                {
+                    packageName: pkg.packageName,
+                    packageVersion: pkg.packageVersion,
+                },
+            ])),
         });
     }
 
