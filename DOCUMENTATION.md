@@ -405,10 +405,16 @@ The `canton-typescript-sdk/daml-interface` subpath generates an in-memory TypeSc
 
 Current generated project shape:
 
-- one file per template
-- shared support files
-- a registry file
-- an index file
+- package/module namespace barrels, so templates with the same short name do
+  not collide
+- typed classes for templates, their fields, and every exercise result
+- descriptor and runtime support files plus a full-identity registry
+- a root index file exporting each package/module namespace
+
+Generated projects use the published
+`@distrohelena/canton-typescript-sdk/daml-interface` runtime subpath. Keep the
+SDK package as a dependency of the generated project; generated source imports
+that subpath directly.
 
 Important limits:
 
@@ -462,6 +468,42 @@ const writer = new DamlInterfaceWriter();
 const project = await generator.generateFromDalfOrThrowAsync(dalfBytes);
 
 await writer.writeProjectAsync(project, "./generated-sdk");
+```
+
+### Materializing generated templates
+
+The generated root index exports one namespace for every package/module pair.
+Use the generated template class to materialize a contract from the Ledger API,
+PQS, or an equivalent JSON event envelope. `get()` returns the contract ID.
+
+```ts
+import { GeneratedRegistry, MyPackageMain } from "./generated/index.js";
+
+const iou = MyPackageMain.Iou.fromCreatedEvent(
+    await client.contractService.getContractAsync({ contractId: "#iou" }),
+);
+
+console.log(iou.get());
+console.log(iou.owner);
+```
+
+`GeneratedRegistry` chooses a binding by the full
+`packageId:moduleName:entityName` identity, rather than a short template name.
+This keeps same-named templates from different packages or modules distinct.
+
+```ts
+const materialized = GeneratedRegistry.fromCreatedEvent(createdEvent);
+```
+
+Exercise materialization is typed per choice. For example, the `Transfer`
+choice returns its own generated class with the exact argument, result,
+metadata, consuming flag, and contract ID.
+
+```ts
+const transfer: MyPackageMain.IouTransferExercisedEvent =
+    MyPackageMain.IouTransferExercisedEvent.fromExercisedEvent(exercisedEvent);
+
+console.log(transfer.choiceName, transfer.argument, transfer.result);
 ```
 
 ### `GeneratedDamlInterfaceProject`

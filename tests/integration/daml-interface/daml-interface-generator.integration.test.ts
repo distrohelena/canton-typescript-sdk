@@ -13,7 +13,9 @@ describe("DamlInterfaceGenerator", () => {
         );
 
         expect(project.templateFiles).toHaveLength(1);
-        expect(project.templateFiles[0].path).toBe("generated/sample/module/iou.ts");
+        expect(project.templateFiles[0].path).toBe(
+            "generated/packages/sample-hash/sample/module/iou.ts",
+        );
         expect(project.registryFile?.path).toBe("generated/registry.ts");
         expect(project.indexFile?.path).toBe("generated/index.ts");
     });

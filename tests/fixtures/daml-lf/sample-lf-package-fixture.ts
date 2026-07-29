@@ -181,4 +181,177 @@ export class SampleLfPackageFixture {
             hash: "sample-hash",
         });
     }
+
+    /** A materialization fixture with nested values and two independently typed choices. */
+    public static createMaterializationLf2ArchiveBytes(): Uint8Array {
+        const builtin = (builtinType: BuiltinType, args: readonly unknown[] = []) => ({
+            sum: { oneofKind: "builtin" as const, builtin: { builtin: builtinType, args } },
+        });
+
+        const apply = (lhs: ReturnType<typeof builtin>, rhs: ReturnType<typeof builtin>) => ({
+            sum: { oneofKind: "tapp" as const, tapp: { lhs, rhs } },
+        });
+
+        const typeCon = (nameInternedDname: number) => ({
+            sum: {
+                oneofKind: "con" as const,
+                con: {
+                    tycon: {
+                        module: {
+                            packageId: { sum: { oneofKind: "selfPackageId" as const, selfPackageId: {} } },
+                            moduleNameInternedDname: 0,
+                        },
+                        nameInternedDname,
+                    },
+                    args: [],
+                },
+            },
+        });
+
+        const packageBytes = Package.toBinary({
+            modules: [{
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [{
+                    nameInternedDname: 1,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [
+                                { fieldInternedStr: 6, type: builtin(BuiltinType.TEXT) },
+                                { fieldInternedStr: 7, type: typeCon(2) },
+                                { fieldInternedStr: 8, type: apply(builtin(BuiltinType.LIST), builtin(BuiltinType.TEXT)) },
+                                { fieldInternedStr: 9, type: apply(builtin(BuiltinType.OPTIONAL), builtin(BuiltinType.TEXT)) },
+                            ],
+                        },
+                    },
+                }, {
+                    nameInternedDname: 2,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [
+                                { fieldInternedStr: 10, type: builtin(BuiltinType.TEXT) },
+                                { fieldInternedStr: 11, type: builtin(BuiltinType.TEXT) },
+                            ],
+                        },
+                    },
+                }],
+                values: [],
+                templates: [{
+                    tyconInternedDname: 1,
+                    paramInternedStr: 12,
+                    choices: [{
+                        nameInternedStr: 13,
+                        consuming: false,
+                        argBinder: { varInternedStr: 14, type: builtin(BuiltinType.TEXT) },
+                        retType: builtin(BuiltinType.TEXT),
+                        update: { sum: { oneofKind: undefined } },
+                        selfBinderInternedStr: 15,
+                    }, {
+                        nameInternedStr: 16,
+                        consuming: true,
+                        argBinder: { varInternedStr: 17, type: builtin(BuiltinType.UNIT) },
+                        retType: builtin(BuiltinType.UNIT),
+                        update: { sum: { oneofKind: undefined } },
+                        selfBinderInternedStr: 15,
+                    }],
+                    implements: [],
+                }],
+                exceptions: [],
+                interfaces: [],
+            }],
+            internedStrings: [
+                "sample-package", "1.0.0", "Sample", "Module", "Iou", "Details",
+                "issuer", "details", "tags", "note", "owner", "reference", "this",
+                "Transfer", "newOwner", "self", "Archive", "unit",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [2, 3] },
+                { segmentsInternedStr: [4] },
+                { segmentsInternedStr: [5] },
+            ],
+            metadata: { nameInternedStr: 0, versionInternedStr: 1 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes);
+    }
+
+    /** Two same-named templates and generated-name reserved labels for compiler integration coverage. */
+    public static createCollisionLf2ArchiveBytes(): Uint8Array {
+        const text = () => ({
+            sum: { oneofKind: "builtin" as const, builtin: { builtin: BuiltinType.TEXT, args: [] } },
+        });
+
+        const module = (nameInternedDname: number, templateInternedDname: number) => ({
+            nameInternedDname,
+            synonyms: [],
+            dataTypes: [{
+                nameInternedDname: templateInternedDname,
+                params: [],
+                serializable: true,
+                dataCons: {
+                    oneofKind: "record" as const,
+                    record: {
+                        fields: [
+                            { fieldInternedStr: 8, type: text() },
+                            { fieldInternedStr: 9, type: text() },
+                            { fieldInternedStr: 10, type: text() },
+                        ],
+                    },
+                },
+            }],
+            values: [],
+            templates: [{
+                tyconInternedDname: templateInternedDname,
+                paramInternedStr: 11,
+                choices: [],
+                implements: [],
+            }],
+            exceptions: [],
+            interfaces: [],
+        });
+
+        const packageBytes = Package.toBinary({
+            modules: [module(0, 2), module(1, 2)],
+            internedStrings: [
+                "First", "Second", "Iou", "sample-package", "1.0.0", "Sample",
+                "Module", "unused", "get", "contractId", "constructor", "this",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [5, 0] },
+                { segmentsInternedStr: [5, 1] },
+                { segmentsInternedStr: [2] },
+            ],
+            metadata: { nameInternedStr: 3, versionInternedStr: 4 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes);
+    }
+
+    private static wrapLf2Package(packageBytes: Uint8Array): Uint8Array {
+        const payloadBytes = ArchivePayload.toBinary({
+            minor: "1",
+            patch: 0,
+            sum: { oneofKind: "damlLf2", damlLf2: packageBytes },
+        });
+
+        return Archive.toBinary({
+            hashFunction: HashFunction.SHA256,
+            payload: payloadBytes,
+            hash: "sample-hash",
+        });
+    }
 }
