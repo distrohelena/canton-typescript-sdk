@@ -40,7 +40,7 @@ export class ProjectEmitter {
         );
 
         const supportFiles = [
-            ...this.supportFileEmitter.emitSupportFiles(analysis),
+            ...this.supportFileEmitter.emitSupportFiles(analysis, namedTypeFiles),
             ...this.supportFileEmitter.emitNamespaceFiles(
                 new GeneratedDamlInterfaceProject({ templateFiles, namedTypeFiles }),
             ),

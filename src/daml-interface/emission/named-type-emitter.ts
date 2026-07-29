@@ -52,8 +52,13 @@ export class NamedTypeEmitter {
 
         const names = this.resolveDefinitionNamesOrThrow(
             definitions,
-            this.getReservedModuleExports(templateFiles),
+            this.mergeReservedNames(
+                this.getReservedModuleExports(templateFiles),
+                this.getReservedRuntimeBindings(definitions),
+            ),
         );
+
+        const fieldPropertyNames = this.resolveFieldPropertyNames(definitions);
 
         return [...modules.values()].map((module) => {
             const moduleDefinitions = definitions.filter((definition) =>
@@ -80,7 +85,7 @@ export class NamedTypeEmitter {
                     ...imports,
                     ...(imports.length === 0 ? [] : [""]),
                     ...moduleDefinitions.map((definition) =>
-                        this.emitDefinition(definition, names, externalTypeAliases)),
+                        this.emitDefinition(definition, names, externalTypeAliases, fieldPropertyNames)),
                     "",
                 ].join("\n"),
                 packageId: module.packageId,
@@ -88,6 +93,8 @@ export class NamedTypeEmitter {
                 namespaceAlias: module.namespaceAlias,
                 exportedTypeNames: moduleDefinitions.map((definition) =>
                     this.getDefinitionName(definition, names)),
+                fieldPropertyNames: new Map([...fieldPropertyNames.entries()].filter(([key]) =>
+                    key.startsWith(`${module.key}\u0000`))),
             });
         });
     }
@@ -96,14 +103,15 @@ export class NamedTypeEmitter {
         definition: AnalyzedDamlTypeDefinition,
         names: ReadonlyMap<string, string>,
         externalTypeAliases: ExternalTypeAliases,
+        fieldPropertyNames: ReadonlyMap<string, string>,
     ): string {
         const name = this.getDefinitionName(definition, names);
 
         if (definition.kind === "record") {
             return [
                 `export interface ${name} {`,
-                ...definition.fields.map((field) =>
-                    `    readonly ${field.propertyName}: ${this.getTypeName(field.type, names, externalTypeAliases)};`),
+                ...definition.fields.map((field, index) =>
+                    `    readonly ${this.getFieldPropertyName(definition, index, fieldPropertyNames)}: ${this.getTypeName(field.type, names, externalTypeAliases)};`),
                 "}",
             ].join("\n");
         } else if (definition.kind === "variant") {
@@ -473,6 +481,123 @@ export class NamedTypeEmitter {
         }
 
         return exportsByModule;
+    }
+
+    private getReservedRuntimeBindings(
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+    ): ReadonlyMap<string, ReadonlySet<string>> {
+        const bindings = new Set([
+            "DamlDate",
+            "DamlNumeric",
+            "DamlParty",
+            "DamlTimestamp",
+            "DamlUnit",
+        ]);
+
+        return new Map([...new Set(definitions.map((definition) =>
+            this.getModuleKey(definition.identity.packageId, definition.identity.moduleName)))].map((moduleKey) => [
+            moduleKey,
+            bindings,
+        ]));
+    }
+
+    private mergeReservedNames(
+        ...reservations: readonly ReadonlyMap<string, ReadonlySet<string>>[]
+    ): ReadonlyMap<string, ReadonlySet<string>> {
+        const merged = new Map<string, Set<string>>();
+
+        for (const reservation of reservations) {
+            for (const [moduleKey, names] of reservation) {
+                const mergedNames = merged.get(moduleKey) ?? new Set<string>();
+
+                for (const name of names) {
+                    mergedNames.add(name);
+                }
+
+                merged.set(moduleKey, mergedNames);
+            }
+        }
+
+        return merged;
+    }
+
+    private resolveFieldPropertyNames(
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+    ): ReadonlyMap<string, string> {
+        const fields = definitions.flatMap((definition) => definition.kind === "record"
+            ? definition.fields.map((field, index) => ({ definition, field, index }))
+            : []);
+
+        const counts = new Map<string, number>();
+
+        for (const item of fields) {
+            const baseName = this.safePropertyName(item.field.propertyName);
+
+            const groupKey = `${this.getDefinitionKey(
+                item.definition.identity.packageId,
+                item.definition.identity.moduleName,
+                item.definition.identity.name,
+            )}\u0000${baseName}`;
+
+            counts.set(groupKey, (counts.get(groupKey) ?? 0) + 1);
+        }
+
+        const names = new Map<string, string>();
+
+        for (const item of [...fields].sort((left, right) =>
+            this.getFieldKey(left.definition, left.index).localeCompare(
+                this.getFieldKey(right.definition, right.index),
+            ))) {
+            const baseName = this.safePropertyName(item.field.propertyName);
+
+            const definitionKey = this.getDefinitionKey(
+                item.definition.identity.packageId,
+                item.definition.identity.moduleName,
+                item.definition.identity.name,
+            );
+
+            const groupKey = `${definitionKey}\u0000${baseName}`;
+
+            const name = counts.get(groupKey) === 1
+                ? baseName
+                : `${baseName}_${this.shortHash(this.getFieldKey(item.definition, item.index))}`;
+
+            names.set(this.getFieldKey(item.definition, item.index), name);
+        }
+
+        return names;
+    }
+
+    private getFieldPropertyName(
+        definition: AnalyzedDamlTypeDefinition,
+        index: number,
+        names: ReadonlyMap<string, string>,
+    ): string {
+        const name = names.get(this.getFieldKey(definition, index));
+
+        if (name === undefined) {
+            throw new Error(`Cannot resolve property name for named DAML type '${definition.identity.name}'`);
+        }
+
+        return name;
+    }
+
+    private getFieldKey(definition: AnalyzedDamlTypeDefinition, index: number): string {
+        return `${this.getDefinitionKey(
+            definition.identity.packageId,
+            definition.identity.moduleName,
+            definition.identity.name,
+        )}\u0000field\u0000${index}`;
+    }
+
+    private safePropertyName(value: string): string {
+        const name = value.replace(/[^A-Za-z0-9_$]/g, "_");
+
+        if (name.length === 0) {
+            return "field";
+        }
+
+        return /^[0-9]/.test(name) ? `_${name}` : name;
     }
 
     private getModuleKeyFromTemplateIdentity(identityKey: string): string {

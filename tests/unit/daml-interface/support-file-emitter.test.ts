@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
+import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
+import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
+import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
 import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
 import { GeneratedNamedTypeFile } from "../../../src/daml-interface/emission-model/generated-named-type-file.js";
 import { GeneratedTemplateBinding } from "../../../src/daml-interface/emission-model/generated-template-binding.js";
@@ -89,6 +93,70 @@ describe("SupportFileEmitter", () => {
                 namedTypeFiles: [namedTypeFile],
             }),
         )).toThrow(/Node.*sample-hash:Main:Node.*types\.ts/);
+    });
+
+    it("deep freezes generated descriptor graphs", async () => {
+        const identity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "Node",
+        });
+
+        const analysis = new DamlInterfaceAnalysisResult({
+            templates: [],
+            typeDefinitions: [{
+                identity,
+                kind: "record",
+                fields: [{
+                    damlLabel: "next",
+                    propertyName: "next",
+                    type: {
+                        kind: "optional",
+                        element: { kind: "namedReference", identity },
+                    },
+                }, {
+                    damlLabel: "label",
+                    propertyName: "label",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                }],
+            }],
+        });
+
+        const descriptors = new SupportFileEmitter().emitSupportFiles(analysis)
+            .find((file) => file.path === "generated/support/descriptors.ts");
+
+        const module = await import(`data:text/javascript;base64,${Buffer.from(
+            transpileModule(descriptors!.contents, {
+                compilerOptions: {
+                    module: ModuleKind.ESNext,
+                    target: ScriptTarget.ES2022,
+                },
+            }).outputText,
+        ).toString("base64")}`) as {
+            generatedDamlTypeDescriptorRegistry: {
+                resolve(identity: { packageId: string; moduleName: string; entityName: string }): (() => unknown) | undefined;
+            };
+        };
+
+        const descriptor = module.generatedDamlTypeDescriptorRegistry.resolve({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            entityName: "Node",
+        })!() as {
+            fields: Array<{
+                type: { element: { identity: { packageId: string } } };
+            }>;
+        };
+
+        expect(Object.isFrozen(descriptor)).toBe(true);
+        expect(Object.isFrozen(descriptor.fields)).toBe(true);
+        expect(Object.isFrozen(descriptor.fields[0])).toBe(true);
+        expect(Object.isFrozen(descriptor.fields[0].type)).toBe(true);
+        expect(Object.isFrozen(descriptor.fields[0].type.element.identity)).toBe(true);
+        expect(() => descriptor.fields.push(descriptor.fields[0])).toThrow(TypeError);
+        expect(() => {
+            descriptor.fields[0].type.element.identity.packageId = "mutated";
+        }).toThrow(TypeError);
     });
 });
 

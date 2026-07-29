@@ -129,6 +129,57 @@ describe("NamedTypeEmitter", () => {
             await rm(outputDirectory, { recursive: true, force: true });
         }
     });
+
+    it("reserves runtime type bindings when a named declaration has the same name", async () => {
+        const identity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "DamlDate",
+        });
+
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([{
+            identity,
+            kind: "record",
+            fields: [{
+                damlLabel: "date",
+                propertyName: "date",
+                type: { kind: "primitive", builtinType: DamlLfBuiltinType.date },
+            }],
+        }])[0];
+
+        expect(file.exportedTypeNames).toEqual(["DamlDateType"]);
+        expect(file.contents).toContain("export interface DamlDateType {");
+        expect(file.contents).toContain("readonly date: DamlDate;");
+
+        const outputDirectory = await mkdtemp(join(tmpdir(), "daml-runtime-name-"));
+
+        try {
+            const runtimePath = join(outputDirectory, "generated/support/runtime.ts");
+
+            const typePath = join(outputDirectory, file.path);
+
+            await mkdir(dirname(runtimePath), { recursive: true });
+            await writeFile(runtimePath, "export type DamlDate = { readonly daysSinceEpoch: number };\n", "utf8");
+            await mkdir(dirname(typePath), { recursive: true });
+            await writeFile(typePath, file.contents, "utf8");
+
+            execFileSync(
+                process.execPath,
+                [
+                    "./node_modules/typescript/bin/tsc",
+                    "--noEmit",
+                    "--module",
+                    "NodeNext",
+                    "--moduleResolution",
+                    "NodeNext",
+                    typePath,
+                ],
+                { cwd: process.cwd(), stdio: "inherit" },
+            );
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
+    });
 });
 
 function definitions(): readonly AnalyzedDamlTypeDefinition[] {

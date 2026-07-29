@@ -1,5 +1,6 @@
 import { DamlInterfaceAnalysisResult } from "../analysis/daml-interface-analyzer.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
+import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-definition.js";
 import { GeneratedDamlInterfaceProject } from "../emission-model/generated-daml-interface-project.js";
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import { GeneratedSupportFile } from "../emission-model/generated-support-file.js";
@@ -9,6 +10,7 @@ export class SupportFileEmitter {
     /** Emits shared support files for the generated DAML interface project. */
     public emitSupportFiles(
         analysis: DamlInterfaceAnalysisResult,
+        namedTypeFiles: readonly GeneratedNamedTypeFile[] = [],
     ): readonly GeneratedSupportFile[] {
         return [
             new GeneratedSupportFile({
@@ -27,7 +29,7 @@ export class SupportFileEmitter {
                     "",
                 ].join("\n"),
             }),
-            this.emitDescriptorRegistry(analysis),
+            this.emitDescriptorRegistry(analysis, namedTypeFiles),
         ];
     }
 
@@ -195,8 +197,17 @@ export class SupportFileEmitter {
 
     private emitDescriptorRegistry(
         analysis: DamlInterfaceAnalysisResult,
+        namedTypeFiles: readonly GeneratedNamedTypeFile[],
     ): GeneratedSupportFile {
         const identities = new Set<string>();
+
+        const fieldPropertyNames = new Map<string, string>();
+
+        for (const file of namedTypeFiles) {
+            for (const [key, propertyName] of file.fieldPropertyNames) {
+                fieldPropertyNames.set(key, propertyName);
+            }
+        }
 
         const factories = analysis.typeDefinitions.map((definition) => {
             const identityKey = this.getIdentityKey(definition.identity.packageId, definition.identity.moduleName, definition.identity.name);
@@ -208,7 +219,7 @@ export class SupportFileEmitter {
             identities.add(identityKey);
 
             return [
-                `    ${JSON.stringify(identityKey)}: () => Object.freeze(${this.emitDescriptor(definition)}),`,
+                `    ${JSON.stringify(identityKey)}: () => deepFreeze(${this.emitDefinitionDescriptor(definition, fieldPropertyNames)}),`,
             ].join("");
         });
 
@@ -216,6 +227,18 @@ export class SupportFileEmitter {
             path: "generated/support/descriptors.ts",
             contents: [
                 'import type { DamlTypeDescriptor, DamlTypeDescriptorRegistry } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+                "",
+                "function deepFreeze<T>(value: T): T {",
+                "    if (value !== null && typeof value === \"object\") {",
+                "        for (const child of Object.values(value)) {",
+                "            deepFreeze(child);",
+                "        }",
+                "",
+                "        Object.freeze(value);",
+                "    }",
+                "",
+                "    return value;",
+                "}",
                 "",
                 "const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({",
                 ...factories,
@@ -254,6 +277,38 @@ export class SupportFileEmitter {
             case "namedReference":
                 return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} } }`;
         }
+    }
+
+    private emitDefinitionDescriptor(
+        definition: AnalyzedDamlTypeDefinition,
+        fieldPropertyNames: ReadonlyMap<string, string>,
+    ): string {
+        if (definition.kind !== "record") {
+            return this.emitDescriptor(definition);
+        }
+
+        return `{ kind: "record", fields: [${definition.fields.map((field, index) =>
+            `{ damlLabel: ${JSON.stringify(field.damlLabel)}, propertyName: ${JSON.stringify(this.getFieldPropertyName(definition, index, fieldPropertyNames))}, type: ${this.emitDescriptor(field.type)} }`).join(", ")}] }`;
+    }
+
+    private getFieldPropertyName(
+        definition: AnalyzedDamlTypeDefinition,
+        index: number,
+        names: ReadonlyMap<string, string>,
+    ): string {
+        const name = names.get(this.getFieldKey(definition, index));
+
+        if (name !== undefined) {
+            return name;
+        } else if (definition.kind !== "record") {
+            throw new Error(`Cannot resolve fields for non-record named DAML type '${definition.identity.name}'`);
+        }
+
+        return definition.fields[index].propertyName;
+    }
+
+    private getFieldKey(definition: AnalyzedDamlTypeDefinition, index: number): string {
+        return `${definition.identity.packageId}\u0000${definition.identity.moduleName}\u0000${definition.identity.name}\u0000field\u0000${index}`;
     }
 
     private getIdentityKey(packageId: string, moduleName: string, entityName: string): string {

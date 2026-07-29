@@ -47,7 +47,7 @@ describe("ProjectEmitter", () => {
         expect(descriptors?.contents).toContain('"sample-hash:Main:Node"');
         expect(descriptors?.contents).toContain("const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({");
         expect(descriptors?.contents).toContain("Object.freeze({");
-        expect(descriptors?.contents).toContain("() => Object.freeze({");
+        expect(descriptors?.contents).toContain("() => deepFreeze({");
         expect(descriptors?.contents).toContain("`${identity.packageId}:${identity.moduleName}:${identity.entityName}`");
         expect(descriptors?.contents).toContain('kind: "namedReference"');
         expect(descriptors?.contents).not.toContain("\\u0000");
@@ -190,6 +190,42 @@ describe("ProjectEmitter", () => {
             );
         } finally {
             await rm(outputDirectory, { recursive: true, force: true });
+        }
+    });
+
+    it("uses deterministic distinct record field aliases in declarations and descriptors", () => {
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [],
+            typeDefinitions: [{
+                identity: new TypeConReference({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    name: "CollisionRecord",
+                }),
+                kind: "record",
+                fields: [{
+                    damlLabel: "first-value",
+                    propertyName: "value",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                }, {
+                    damlLabel: "second-value",
+                    propertyName: "value",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                }],
+            }],
+        }));
+
+        const declarations = project.namedTypeFiles[0].contents;
+
+        const descriptors = project.supportFiles.find((file) => file.path === "generated/support/descriptors.ts")?.contents;
+
+        const aliases = [...declarations.matchAll(/readonly (value(?:_[a-z0-9]+)?): string;/g)]
+            .map((match) => match[1]);
+
+        expect(new Set(aliases).size).toBe(2);
+
+        for (const alias of aliases) {
+            expect(descriptors).toContain(`propertyName: ${JSON.stringify(alias)}`);
         }
     });
 });

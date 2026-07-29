@@ -6,6 +6,8 @@ export class GeneratedNamedTypeFile {
     public readonly moduleName: string;
     public readonly namespaceAlias: string;
     public readonly exportedTypeNames: readonly string[];
+    /** Resolved record property names keyed by named type identity, field label, and position. */
+    public readonly fieldPropertyNames: ReadonlyMap<string, string>;
 
     public constructor(init: {
         path: string;
@@ -14,6 +16,7 @@ export class GeneratedNamedTypeFile {
         moduleName: string;
         namespaceAlias: string;
         exportedTypeNames: readonly string[];
+        fieldPropertyNames?: ReadonlyMap<string, string>;
     }) {
         this.path = init.path;
         this.contents = init.contents;
@@ -21,5 +24,6 @@ export class GeneratedNamedTypeFile {
         this.moduleName = init.moduleName;
         this.namespaceAlias = init.namespaceAlias;
         this.exportedTypeNames = init.exportedTypeNames;
+        this.fieldPropertyNames = init.fieldPropertyNames ?? new Map();
     }
 }
