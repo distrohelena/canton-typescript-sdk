@@ -1,6 +1,7 @@
 import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
 import { AnalyzedChoice } from "../analysis/analyzed-choice.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
+import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-definition.js";
 import {
     AnalyzedTemplate,
     AnalyzedTemplateField,
@@ -14,6 +15,13 @@ interface ResolvedTemplateNames {
     readonly className: string;
     readonly fieldNames: ReadonlyMap<AnalyzedTemplateField, ResolvedFieldNames>;
     readonly choiceNames: ReadonlyMap<AnalyzedChoice, ResolvedChoiceNames>;
+}
+
+interface ResolvedModuleNames {
+    readonly packageId: string;
+    readonly moduleName: string;
+    readonly directoryPath: string;
+    readonly namespaceAlias: string;
 }
 
 interface ResolvedFieldNames {
@@ -58,6 +66,7 @@ const reservedNamespaceAliases = new Set(["GeneratedRegistry"]);
 export class TypeScriptNameResolver {
     private readonly templatesByIdentity = new Map<string, AnalyzedTemplate>();
     private resolvedTemplates = new Map<string, ResolvedTemplateNames>();
+    private resolvedModules = new Map<string, ResolvedModuleNames>();
 
     public constructor(templates: readonly AnalyzedTemplate[] = []) {
         this.prepareTemplatesOrThrow(templates);
@@ -65,8 +74,17 @@ export class TypeScriptNameResolver {
 
     /** Prepares a project-wide name table and rejects irreconcilable output collisions. */
     public prepareTemplatesOrThrow(templates: readonly AnalyzedTemplate[]): void {
+        this.prepareProjectOrThrow(templates, []);
+    }
+
+    /** Prepares shared package/module paths for template and named DAML type output. */
+    public prepareProjectOrThrow(
+        templates: readonly AnalyzedTemplate[],
+        typeDefinitions: readonly AnalyzedDamlTypeDefinition[],
+    ): void {
         this.templatesByIdentity.clear();
         this.resolvedTemplates.clear();
+        this.resolvedModules.clear();
 
         for (const template of templates) {
             const identityKey = this.getTemplateIdentityKey(template);
@@ -85,16 +103,29 @@ export class TypeScriptNameResolver {
 
         const allTemplates = [...this.templatesByIdentity.values()];
 
-        const packageIds = [...new Set(allTemplates.map((template) =>
-            template.templateId.packageId,
-        ))];
+        const modulesByIdentity = new Map<string, { packageId: string; moduleName: string }>();
 
-        const modulesByIdentity = new Map(
-            allTemplates.map((template) => [
-                this.getPackageModuleIdentityKey(template),
-                template,
-            ]),
-        );
+        for (const template of allTemplates) {
+            modulesByIdentity.set(this.getPackageModuleIdentityKey(template), {
+                packageId: template.templateId.packageId,
+                moduleName: template.templateId.moduleName,
+            });
+        }
+
+        for (const definition of typeDefinitions) {
+            modulesByIdentity.set(
+                this.getPackageModuleIdentityKeyFromParts(
+                    definition.identity.packageId,
+                    definition.identity.moduleName,
+                ),
+                {
+                    packageId: definition.identity.packageId,
+                    moduleName: definition.identity.moduleName,
+                },
+            );
+        }
+
+        const packageIds = [...new Set([...modulesByIdentity.values()].map((module) => module.packageId))];
 
         const packageDirectories = this.resolveNames(
             packageIds.map((packageId) => ({
@@ -106,11 +137,11 @@ export class TypeScriptNameResolver {
         );
 
         const moduleDirectories = this.resolveNames(
-            [...modulesByIdentity.entries()].map(([identityKey, template]) => ({
+            [...modulesByIdentity.entries()].map(([identityKey, module]) => ({
                 value: identityKey,
                 key: `module\u0000${identityKey}`,
-                baseName: this.getModuleDirectory(template),
-                scope: template.templateId.packageId,
+                baseName: this.getModuleDirectory(module.moduleName),
+                scope: module.packageId,
             })),
         );
 
@@ -124,11 +155,11 @@ export class TypeScriptNameResolver {
         );
 
         const namespaceAliases = this.resolveNames(
-            [...modulesByIdentity.entries()].map(([identityKey, template]) => ({
+            [...modulesByIdentity.entries()].map(([identityKey, module]) => ({
                 value: identityKey,
                 key: `namespace\u0000${identityKey}`,
                 baseName: this.safeNamespaceAlias(
-                    `${template.templateId.packageId} ${template.templateId.moduleName}`,
+                    `${module.packageId} ${module.moduleName}`,
                 ),
                 collisionSeparator: "_",
             })),
@@ -143,6 +174,27 @@ export class TypeScriptNameResolver {
             })),
         );
 
+        this.resolvedModules = new Map([...modulesByIdentity.entries()].map(([identityKey, module]) => {
+            const packageDirectory = packageDirectories.get(module.packageId);
+
+            const moduleDirectory = moduleDirectories.get(identityKey);
+
+            const namespaceAlias = namespaceAliases.get(identityKey);
+
+            if (packageDirectory === undefined || moduleDirectory === undefined || namespaceAlias === undefined) {
+                throw new Error(`Could not resolve generated path for '${module.packageId}:${module.moduleName}'`);
+            }
+
+            return [
+                identityKey,
+                {
+                    ...module,
+                    directoryPath: `generated/packages/${packageDirectory}/${moduleDirectory}`,
+                    namespaceAlias,
+                },
+            ];
+        }));
+
         this.resolvedTemplates = new Map(allTemplates.map((template) => {
             const identityKey = this.getTemplateIdentityKey(template);
 
@@ -152,23 +204,13 @@ export class TypeScriptNameResolver {
                 throw new Error(`Could not resolve generated class name for '${this.describeTemplate(template)}'`);
             }
 
-            const packageDirectory = packageDirectories.get(template.templateId.packageId);
-
-            const moduleDirectory = moduleDirectories.get(
-                this.getPackageModuleIdentityKey(template),
-            );
-
             const fileName = fileNames.get(template);
 
-            const namespaceAlias = namespaceAliases.get(
-                this.getPackageModuleIdentityKey(template),
-            );
+            const module = this.resolvedModules.get(this.getPackageModuleIdentityKey(template));
 
             if (
-                packageDirectory === undefined ||
-                moduleDirectory === undefined ||
                 fileName === undefined ||
-                namespaceAlias === undefined
+                module === undefined
             ) {
                 throw new Error(`Could not resolve generated path for '${this.describeTemplate(template)}'`);
             }
@@ -178,8 +220,8 @@ export class TypeScriptNameResolver {
                 {
                     template,
                     identityKey,
-                    namespaceAlias,
-                    filePath: `generated/packages/${packageDirectory}/${moduleDirectory}/${fileName}.ts`,
+                    namespaceAlias: module.namespaceAlias,
+                    filePath: `${module.directoryPath}/${fileName}.ts`,
                     className,
                     fieldNames: this.resolveFieldNames(template),
                     choiceNames: this.resolveChoiceNames(template, className, identityKey),
@@ -214,6 +256,16 @@ export class TypeScriptNameResolver {
     /** Resolves the generated class name for a template binding. */
     public getTemplateClassName(template: AnalyzedTemplate): string {
         return this.getResolvedTemplate(template).className;
+    }
+
+    /** Resolves the output directory shared by a named DAML type package/module. */
+    public getNamedTypeModuleDirectoryPath(packageId: string, moduleName: string): string {
+        return this.getResolvedModule(packageId, moduleName).directoryPath;
+    }
+
+    /** Resolves the generated namespace alias shared by templates and named DAML types. */
+    public getNamedTypeModuleNamespaceAlias(packageId: string, moduleName: string): string {
+        return this.getResolvedModule(packageId, moduleName).namespaceAlias;
     }
 
     /** Resolves the generated create-fields type name for a template. */
@@ -308,6 +360,18 @@ export class TypeScriptNameResolver {
         }
 
         return resolved;
+    }
+
+    private getResolvedModule(packageId: string, moduleName: string): ResolvedModuleNames {
+        const module = this.resolvedModules.get(
+            this.getPackageModuleIdentityKeyFromParts(packageId, moduleName),
+        );
+
+        if (module === undefined) {
+            throw new Error(`Could not resolve DAML module '${packageId}:${moduleName}'`);
+        }
+
+        return module;
     }
 
     private getResolvedField(
@@ -481,8 +545,8 @@ export class TypeScriptNameResolver {
         }
     }
 
-    private getModuleDirectory(template: AnalyzedTemplate): string {
-        return template.templateId.moduleName
+    private getModuleDirectory(moduleName: string): string {
+        return moduleName
             .split(".")
             .map((segment) => this.toKebabCase(segment))
             .join("/");
@@ -495,7 +559,14 @@ export class TypeScriptNameResolver {
     }
 
     private getPackageModuleIdentityKey(template: AnalyzedTemplate): string {
-        return [template.templateId.packageId, template.templateId.moduleName].join("\u0000");
+        return this.getPackageModuleIdentityKeyFromParts(
+            template.templateId.packageId,
+            template.templateId.moduleName,
+        );
+    }
+
+    private getPackageModuleIdentityKeyFromParts(packageId: string, moduleName: string): string {
+        return [packageId, moduleName].join("\u0000");
     }
 
     private safeTypeName(value: string): string {

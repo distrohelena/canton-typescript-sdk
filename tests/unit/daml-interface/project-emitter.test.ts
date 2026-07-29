@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
+import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
 import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
+import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-template.js";
 import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
 
 describe("ProjectEmitter", () => {
@@ -36,9 +38,52 @@ describe("ProjectEmitter", () => {
         const descriptors = project.supportFiles.find((file) => file.path === "generated/support/descriptors.ts");
 
         expect(descriptors?.contents).toContain("export const generatedDamlTypeDescriptorRegistry");
-        expect(descriptors?.contents).toContain('case "sample-hash\\u0000Main\\u0000Node":');
-        expect(descriptors?.contents).toContain("return () => ({");
+        expect(descriptors?.contents).toContain('"sample-hash:Main:Node"');
+        expect(descriptors?.contents).toContain("const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({");
+        expect(descriptors?.contents).toContain("Object.freeze({");
+        expect(descriptors?.contents).toContain("() => Object.freeze({");
+        expect(descriptors?.contents).toContain("`${identity.packageId}:${identity.moduleName}:${identity.entityName}`");
         expect(descriptors?.contents).toContain('kind: "namedReference"');
-        expect((descriptors?.contents.match(/case "sample-hash\\u0000Main\\u0000Node":/g) ?? [])).toHaveLength(1);
+        expect(descriptors?.contents).not.toContain("\\u0000");
+        expect((descriptors?.contents.match(/"sample-hash:Main:Node"/g) ?? [])).toHaveLength(1);
+    });
+
+    it("uses the template resolver package and module mapping for named declaration files", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "package-one",
+                moduleName: "Main",
+                templateName: "Iou",
+            }),
+            className: "Iou",
+            fileName: "iou.ts",
+            createFields: [],
+            choices: [],
+        });
+
+        const node = new TypeConReference({
+            packageId: "package-one",
+            moduleName: "Main",
+            name: "Node",
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [template],
+            typeDefinitions: [{ identity: node, kind: "record", fields: [] }, {
+                identity: new TypeConReference({
+                    packageId: "package_one",
+                    moduleName: "Main",
+                    name: "Other",
+                }),
+                kind: "record",
+                fields: [],
+            }],
+        }));
+
+        const templateDirectory = project.templateFiles[0].path.replace(/\/[^/]+$/, "");
+
+        const nodeTypes = project.namedTypeFiles.find((file) => file.path.endsWith("/main/types.ts"));
+
+        expect(nodeTypes?.path.replace(/\/types\.ts$/, "")).toBe(templateDirectory);
     });
 });

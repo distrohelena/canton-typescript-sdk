@@ -2,6 +2,7 @@ import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-definition.js";
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
+import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
 
 type ModuleIdentity = {
     readonly packageId: string;
@@ -16,8 +17,31 @@ type ResolvedModule = ModuleIdentity & {
 
 /** Emits TypeScript declarations for reachable named DAML records, variants, and enums. */
 export class NamedTypeEmitter {
+    public constructor(
+        private readonly nameResolver: TypeScriptNameResolver = new TypeScriptNameResolver(),
+    ) {
+        void this.nameResolver;
+    }
+
+    /** Prepares shared package/module output mappings with template emission. */
+    public prepareProjectOrThrow(
+        templates: readonly import("../analysis/analyzed-template.js").AnalyzedTemplate[],
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+    ): void {
+        this.nameResolver.prepareProjectOrThrow(templates, definitions);
+    }
+
     /** Emits one `types.ts` module for every reachable DAML package/module identity. */
     public emitNamedTypeFiles(
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+    ): readonly GeneratedNamedTypeFile[] {
+        this.nameResolver.prepareProjectOrThrow([], definitions);
+
+        return this.emitPreparedNamedTypeFiles(definitions);
+    }
+
+    /** Emits named type files from an already prepared shared name resolver. */
+    public emitPreparedNamedTypeFiles(
         definitions: readonly AnalyzedDamlTypeDefinition[],
     ): readonly GeneratedNamedTypeFile[] {
         const modules = this.resolveModulesOrThrow(definitions);
@@ -29,7 +53,7 @@ export class NamedTypeEmitter {
                 definition.identity.packageId === module.packageId
                 && definition.identity.moduleName === module.moduleName);
 
-            const imports = this.emitReferencedTypeImports(
+            const imports = this.emitImports(
                 module,
                 moduleDefinitions,
                 modules,
@@ -78,7 +102,7 @@ export class NamedTypeEmitter {
         return `export type ${name} = ${definition.constructors.map((constructor) => JSON.stringify(constructor)).join(" | ")};`;
     }
 
-    private emitReferencedTypeImports(
+    private emitImports(
         module: ResolvedModule,
         definitions: readonly AnalyzedDamlTypeDefinition[],
         modules: ReadonlyMap<string, ResolvedModule>,
@@ -86,7 +110,13 @@ export class NamedTypeEmitter {
     ): readonly string[] {
         const imports = new Map<string, Set<string>>();
 
+        const runtimeTypes = new Set<string>();
+
         for (const definition of definitions) {
+            for (const primitive of this.getRuntimePrimitiveTypes(definition)) {
+                runtimeTypes.add(primitive);
+            }
+
             for (const reference of this.getNamedReferences(definition)) {
                 const referencedModuleKey = this.getModuleKey(reference.identity.packageId, reference.identity.moduleName);
 
@@ -100,7 +130,7 @@ export class NamedTypeEmitter {
                     throw new Error(`Cannot emit unresolved named DAML type '${reference.identity.name}'`);
                 }
 
-                const importPath = this.relativeModulePath(module.path, referencedModule.path);
+                const importPath = this.relativeFilePath(module.path, referencedModule.path);
 
                 const importedNames = imports.get(importPath) ?? new Set<string>();
 
@@ -109,10 +139,15 @@ export class NamedTypeEmitter {
             }
         }
 
-        return [...imports.entries()]
+        return [
+            ...(runtimeTypes.size === 0 ? [] : [
+                `import type { ${[...runtimeTypes].sort().join(", ")} } from ${JSON.stringify(this.relativeFilePath(module.path, "generated/support/runtime.ts"))};`,
+            ]),
+            ...[...imports.entries()]
             .sort(([left], [right]) => left.localeCompare(right))
             .map(([path, importedNames]) =>
-                `import type { ${[...importedNames].sort().join(", ")} } from ${JSON.stringify(path)};`);
+                `import type { ${[...importedNames].sort().join(", ")} } from ${JSON.stringify(path)};`),
+        ];
     }
 
     private *getNamedReferences(type: AnalyzedDamlType): Iterable<Extract<AnalyzedDamlType, { readonly kind: "namedReference" }>> {
@@ -189,9 +224,13 @@ export class NamedTypeEmitter {
             case DamlLfBuiltinType.int64:
                 return "bigint";
             case DamlLfBuiltinType.date:
+                return "DamlDate";
             case DamlLfBuiltinType.timestamp:
+                return "DamlTimestamp";
             case DamlLfBuiltinType.numeric:
+                return "DamlNumeric";
             case DamlLfBuiltinType.party:
+                return "DamlParty";
             case DamlLfBuiltinType.text:
                 return "string";
             default:
@@ -213,33 +252,13 @@ export class NamedTypeEmitter {
             });
         }
 
-        const packageDirectories = this.resolveCollisionSafeNames(
-            [...new Set([...identities.values()].map((identity) => identity.packageId))],
-            (packageId) => this.toKebabCase(packageId),
-            () => "packages",
-        );
-
-        const moduleIdentities = [...identities.values()];
-
-        const moduleDirectories = this.resolveCollisionSafeNames(
-            moduleIdentities,
-            (identity) => this.getModuleDirectory(identity),
-            (identity) => identity.packageId,
-        );
-
-        const aliases = this.resolveCollisionSafeNames(
-            moduleIdentities,
-            (identity) => this.toPascalCase(`${identity.packageId} ${identity.moduleName}`),
-            () => "",
-        );
-
         return new Map([...identities.entries()].map(([key, identity]) => [
             key,
             {
                 ...identity,
                 key,
-                path: `generated/packages/${packageDirectories.get(identity.packageId)!}/${moduleDirectories.get(identity)!}/types.ts`,
-                namespaceAlias: aliases.get(identity)!,
+                path: `${this.nameResolver.getNamedTypeModuleDirectoryPath(identity.packageId, identity.moduleName)}/types.ts`,
+                namespaceAlias: this.nameResolver.getNamedTypeModuleNamespaceAlias(identity.packageId, identity.moduleName),
             },
         ]));
     }
@@ -264,8 +283,9 @@ export class NamedTypeEmitter {
 
         const resolvedNames = this.resolveCollisionSafeNames(
             values,
-            ([, definition]) => this.toPascalCase(definition.identity.name),
+            ([, definition]) => this.safeTypeName(definition.identity.name),
             ([, definition]) => this.getModuleKey(definition.identity.packageId, definition.identity.moduleName),
+            "_",
         );
 
         return new Map(values.map((value) => [
@@ -278,6 +298,7 @@ export class NamedTypeEmitter {
         values: readonly T[],
         getBaseName: (value: T) => string,
         getScope: (value: T) => string,
+        collisionSeparator = "_",
     ): ReadonlyMap<T, string> {
         const counts = new Map<string, number>();
 
@@ -298,7 +319,7 @@ export class NamedTypeEmitter {
 
             const groupKey = `${scope}\u0000${baseName}`;
 
-            const suffix = counts.get(groupKey) === 1 ? "" : `-${this.shortHash(JSON.stringify(value))}`;
+            const suffix = counts.get(groupKey) === 1 ? "" : `${collisionSeparator}${this.shortHash(JSON.stringify(value))}`;
 
             const baseCandidate = `${baseName}${suffix}`;
 
@@ -321,17 +342,19 @@ export class NamedTypeEmitter {
         return names;
     }
 
-    private relativeModulePath(fromPath: string, toPath: string): string {
+    private relativeFilePath(fromPath: string, toPath: string): string {
         const from = fromPath.split("/").slice(0, -1);
 
-        const to = toPath.split("/").slice(0, -1);
+        const to = toPath.split("/");
 
         while (from[0] === to[0] && from.length > 0) {
             from.shift();
             to.shift();
         }
 
-        return `${from.map(() => "..").concat(to).join("/") || "."}/types.js`.replace(/\/types\.js\/types\.js$/, "/types.js");
+        const relativePath = from.map(() => "..").concat(to).join("/") || ".";
+
+        return `${relativePath.startsWith(".") ? relativePath : `./${relativePath}`}`.replace(/\.ts$/, ".js");
     }
 
     private getDefinitionName(definition: AnalyzedDamlTypeDefinition, names: ReadonlyMap<string, string>): string {
@@ -359,22 +382,63 @@ export class NamedTypeEmitter {
         return `${this.getModuleKey(packageId, moduleName)}\u0000${name}`;
     }
 
-    private getModuleDirectory(identity: ModuleIdentity): string {
-        return identity.moduleName.split(".").map((segment) => this.toKebabCase(segment)).join("/");
-    }
-
-    private toPascalCase(value: string): string {
+    private safeTypeName(value: string): string {
         const normalized = value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[^A-Za-z0-9]+/g, " ").trim();
 
         if (normalized.length === 0) {
             throw new Error("Cannot normalize an empty DAML identifier");
         }
 
-        return normalized.split(/\s+/).map((segment) => `${segment[0].toUpperCase()}${segment.slice(1)}`).join("");
+        const name = normalized.split(/\s+/).map((segment) => `${segment[0].toUpperCase()}${segment.slice(1)}`).join("");
+
+        return /^[0-9]/.test(name) ? `_${name}` : name;
     }
 
-    private toKebabCase(value: string): string {
-        return this.toPascalCase(value).replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    private *getRuntimePrimitiveTypes(type: AnalyzedDamlType): Iterable<string> {
+        switch (type.kind) {
+            case "primitive": {
+                const name = this.getPrimitiveTypeName(type.builtinType);
+
+                if (name.startsWith("Daml")) {
+                    yield name;
+                }
+
+                return;
+            }
+            case "contractId":
+                yield* this.getRuntimePrimitiveTypes(type.contract);
+
+                return;
+            case "optional":
+            case "list":
+                yield* this.getRuntimePrimitiveTypes(type.element);
+
+                return;
+            case "textMap":
+                yield* this.getRuntimePrimitiveTypes(type.value);
+
+                return;
+            case "genMap":
+                yield* this.getRuntimePrimitiveTypes(type.key);
+                yield* this.getRuntimePrimitiveTypes(type.value);
+
+                return;
+            case "record":
+                for (const field of type.fields) {
+                    yield* this.getRuntimePrimitiveTypes(field.type);
+                }
+
+                return;
+            case "variant":
+                for (const constructor of type.constructors) {
+                    yield* this.getRuntimePrimitiveTypes(constructor.payload);
+                }
+
+                return;
+            case "enum":
+            case "namedReference":
+                return;
+        }
     }
 
     private shortHash(value: string): string {

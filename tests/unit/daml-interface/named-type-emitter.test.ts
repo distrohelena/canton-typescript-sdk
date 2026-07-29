@@ -24,6 +24,49 @@ describe("NamedTypeEmitter", () => {
         expect(main?.contents).toContain("readonly right: MutualB;");
         expect(main?.contents).toContain("readonly foreign: External;");
     });
+
+    it("emits valid, collision-safe TypeScript identifiers and runtime primitive imports", () => {
+        const identity = (name: string) => new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name,
+        });
+
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([
+            {
+                identity: identity("9-value"),
+                kind: "record",
+                fields: [{
+                    damlLabel: "values",
+                    propertyName: "values",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.date },
+                }, {
+                    damlLabel: "time",
+                    propertyName: "time",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.timestamp },
+                }, {
+                    damlLabel: "amount",
+                    propertyName: "amount",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.numeric, numericScale: 2 },
+                }, {
+                    damlLabel: "owner",
+                    propertyName: "owner",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.party },
+                }],
+            },
+            { identity: identity("same-value"), kind: "record", fields: [] },
+            { identity: identity("same_value"), kind: "record", fields: [] },
+        ])[0];
+
+        expect(file.contents).toContain('import type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp } from "../../../support/runtime.js";');
+        expect(file.contents).toContain("export interface _9Value {");
+        expect(file.contents).toMatch(/export interface SameValue_[a-z0-9]+/);
+        expect(file.contents).not.toMatch(/export interface SameValue-[a-z0-9]+/);
+        expect(file.contents).toContain("readonly values: DamlDate;");
+        expect(file.contents).toContain("readonly time: DamlTimestamp;");
+        expect(file.contents).toContain("readonly amount: DamlNumeric;");
+        expect(file.contents).toContain("readonly owner: DamlParty;");
+    });
 });
 
 function definitions(): readonly AnalyzedDamlTypeDefinition[] {

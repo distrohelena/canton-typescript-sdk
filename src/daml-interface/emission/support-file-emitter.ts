@@ -20,6 +20,13 @@ export class SupportFileEmitter {
                 contents:
                     "export function castGeneratedEvent<T>(event: unknown): T {\n    return event as T;\n}\n",
             }),
+            new GeneratedSupportFile({
+                path: "generated/support/runtime.ts",
+                contents: [
+                    'export type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+                    "",
+                ].join("\n"),
+            }),
             this.emitDescriptorRegistry(analysis),
         ];
     }
@@ -176,19 +183,18 @@ export class SupportFileEmitter {
     ): GeneratedSupportFile {
         const identities = new Set<string>();
 
-        const cases = analysis.typeDefinitions.map((definition) => {
+        const factories = analysis.typeDefinitions.map((definition) => {
             const identityKey = this.getIdentityKey(definition.identity.packageId, definition.identity.moduleName, definition.identity.name);
 
             if (identities.has(identityKey)) {
-                throw new Error(`Cannot emit duplicate named DAML type descriptor '${identityKey.replaceAll("\u0000", ":")}'`);
+                throw new Error(`Cannot emit duplicate named DAML type descriptor '${identityKey}'`);
             }
 
             identities.add(identityKey);
 
             return [
-                `            case ${JSON.stringify(identityKey)}:`,
-                `                return () => (${this.emitDescriptor(definition)});`,
-            ].join("\n");
+                `    ${JSON.stringify(identityKey)}: () => Object.freeze(${this.emitDescriptor(definition)}),`,
+            ].join("");
         });
 
         return new GeneratedSupportFile({
@@ -196,13 +202,13 @@ export class SupportFileEmitter {
             contents: [
                 'import type { DamlTypeDescriptor, DamlTypeDescriptorRegistry } from "@distrohelena/canton-typescript-sdk/daml-interface";',
                 "",
-                "export const generatedDamlTypeDescriptorRegistry: DamlTypeDescriptorRegistry = {",
+                "const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({",
+                ...factories,
+                "});",
+                "",
+                "export const generatedDamlTypeDescriptorRegistry: DamlTypeDescriptorRegistry = Object.freeze({",
                 "    resolve(identity) {",
-                "        switch (`${identity.packageId}\\u0000${identity.moduleName}\\u0000${identity.entityName}`) {",
-                ...cases,
-                "            default:",
-                "                return undefined;",
-                "        }",
+                "        return generatedDamlTypeDescriptorFactories[`${identity.packageId}:${identity.moduleName}:${identity.entityName}`];",
                 "    },",
                 "};",
                 "",
@@ -236,7 +242,7 @@ export class SupportFileEmitter {
     }
 
     private getIdentityKey(packageId: string, moduleName: string, entityName: string): string {
-        return `${packageId}\u0000${moduleName}\u0000${entityName}`;
+        return `${packageId}:${moduleName}:${entityName}`;
     }
 }
 

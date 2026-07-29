@@ -4,14 +4,17 @@ import { NamedTypeEmitter } from "./named-type-emitter.js";
 import { RegistryEmitter } from "./registry-emitter.js";
 import { SupportFileEmitter } from "./support-file-emitter.js";
 import { TemplateBindingEmitter } from "./template-binding-emitter.js";
+import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
 
 export class ProjectEmitter {
     public constructor(
-        private readonly templateBindingEmitter: TemplateBindingEmitter = new TemplateBindingEmitter(),
+        private readonly nameResolver: TypeScriptNameResolver = new TypeScriptNameResolver(),
+        private readonly templateBindingEmitter: TemplateBindingEmitter = new TemplateBindingEmitter(nameResolver),
         private readonly supportFileEmitter: SupportFileEmitter = new SupportFileEmitter(),
         private readonly registryEmitter: RegistryEmitter = new RegistryEmitter(),
-        private readonly namedTypeEmitter: NamedTypeEmitter = new NamedTypeEmitter(),
+        private readonly namedTypeEmitter: NamedTypeEmitter = new NamedTypeEmitter(nameResolver),
     ) {
+        void this.nameResolver;
         void this.templateBindingEmitter;
         void this.namedTypeEmitter;
         void this.supportFileEmitter;
@@ -22,13 +25,16 @@ export class ProjectEmitter {
     public emitProject(
         analysis: DamlInterfaceAnalysisResult,
     ): GeneratedDamlInterfaceProject {
-        this.templateBindingEmitter.prepareTemplatesOrThrow(analysis.templates);
+        this.namedTypeEmitter.prepareProjectOrThrow(
+            analysis.templates,
+            analysis.typeDefinitions,
+        );
 
         const templateFiles = analysis.templates.map((template) =>
             this.templateBindingEmitter.emitTemplateFile(template),
         );
 
-        const namedTypeFiles = this.namedTypeEmitter.emitNamedTypeFiles(
+        const namedTypeFiles = this.namedTypeEmitter.emitPreparedNamedTypeFiles(
             analysis.typeDefinitions,
         );
 
