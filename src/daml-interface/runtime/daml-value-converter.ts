@@ -35,6 +35,14 @@ export type DamlDecodedValue =
     | DamlVariant
     | DamlEnum;
 
+const DAML_MIN_DATE_DAYS_SINCE_EPOCH = -719162;
+
+const DAML_MAX_DATE_DAYS_SINCE_EPOCH = 2932896;
+
+const DAML_MIN_TIMESTAMP_MICROSECONDS = -62135596800000000n;
+
+const DAML_MAX_TIMESTAMP_MICROSECONDS = 253402300799999999n;
+
 /** Decodes a protobuf or JSON/PQS DAML value according to its generated descriptor. */
 export function decodeDamlValue(
     source: DamlValueSource,
@@ -81,15 +89,15 @@ function decodeProtobufValue(
         case "date":
             requirePrimitiveDescriptor(descriptor, "date", path);
 
-            return new DamlDate(value.sum.date);
+            return decodeDate(value.sum.date, path);
         case "timestamp":
             requirePrimitiveDescriptor(descriptor, "timestamp", path);
 
-            return new DamlTimestamp(requireIntegerString(value.sum.timestamp, path, "timestamp"));
+            return decodeTimestamp(value.sum.timestamp, path);
         case "numeric":
             requirePrimitiveDescriptor(descriptor, "numeric", path);
 
-            return decodeNumeric(value.sum.numeric, path);
+            return decodeNumeric(value.sum.numeric, descriptor.numericScale, path);
         case "party":
             requirePrimitiveDescriptor(descriptor, "party", path);
 
@@ -218,7 +226,7 @@ function decodeJsonValue(
 ): DamlDecodedValue {
     switch (descriptor.kind) {
         case "primitive":
-            return decodeJsonPrimitive(value, descriptor.primitive, path);
+            return decodeJsonPrimitive(value, descriptor, path);
         case "contractId":
             return requireString(value, path, "contract ID");
         case "optional":
@@ -256,8 +264,12 @@ function decodeJsonValue(
     }
 }
 
-function decodeJsonPrimitive(value: unknown, primitive: "unit" | "bool" | "int64" | "date" | "timestamp" | "numeric" | "party" | "text", path: string): DamlDecodedValue {
-    switch (primitive) {
+function decodeJsonPrimitive(
+    value: unknown,
+    descriptor: Extract<DamlTypeDescriptor, { readonly kind: "primitive" }>,
+    path: string,
+): DamlDecodedValue {
+    switch (descriptor.primitive) {
         case "unit": {
             const record = requireObject(value, path, "unit");
 
@@ -276,15 +288,11 @@ function decodeJsonPrimitive(value: unknown, primitive: "unit" | "bool" | "int64
         case "int64":
             return decodeInt64(requireString(value, path, "int64"), path);
         case "date":
-            if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-                throw materializationError(path, "expected integer date");
-            }
-
-            return new DamlDate(value);
+            return decodeDate(value, path);
         case "timestamp":
-            return new DamlTimestamp(requireIntegerString(value, path, "timestamp"));
+            return decodeTimestamp(value, path);
         case "numeric":
-            return decodeNumeric(requireString(value, path, "numeric"), path);
+            return decodeNumeric(requireString(value, path, "numeric"), descriptor.numericScale, path);
         case "party":
             return decodeParty(requireString(value, path, "party"), path);
         case "text":
@@ -430,7 +438,45 @@ function decodeInt64(value: string, path: string): bigint {
     }
 }
 
-function decodeNumeric(value: string, path: string): DamlNumeric {
+function decodeDate(value: unknown, path: string): DamlDate {
+    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+        throw materializationError(path, "expected integer date");
+    } else if (value < DAML_MIN_DATE_DAYS_SINCE_EPOCH || value > DAML_MAX_DATE_DAYS_SINCE_EPOCH) {
+        throw materializationError(path, "date is outside the DAML ledger range");
+    }
+
+    return new DamlDate(value);
+}
+
+function decodeTimestamp(value: unknown, path: string): DamlTimestamp {
+    const microseconds = requireIntegerString(value, path, "timestamp");
+
+    const timestamp = BigInt(microseconds);
+
+    if (timestamp < DAML_MIN_TIMESTAMP_MICROSECONDS || timestamp > DAML_MAX_TIMESTAMP_MICROSECONDS) {
+        throw materializationError(path, "timestamp is outside the DAML ledger range");
+    }
+
+    return new DamlTimestamp(microseconds);
+}
+
+function decodeNumeric(value: string, numericScale: number | undefined, path: string): DamlNumeric {
+    const decimalSeparator = value.indexOf(".");
+
+    const fractionLength = decimalSeparator === -1 ? 0 : value.length - decimalSeparator - 1;
+
+    const precision = value.replace(/[-.]/g, "").length;
+
+    const maxScale = numericScale ?? 37;
+
+    if (!Number.isInteger(maxScale) || maxScale < 0 || maxScale > 37) {
+        throw materializationError(path, "numeric descriptor has an invalid scale");
+    } else if (precision > 38) {
+        throw materializationError(path, "numeric exceeds DAML ledger precision");
+    } else if (fractionLength > maxScale) {
+        throw materializationError(path, "numeric exceeds its DAML scale");
+    }
+
     try {
         return new DamlNumeric(value);
     } catch {

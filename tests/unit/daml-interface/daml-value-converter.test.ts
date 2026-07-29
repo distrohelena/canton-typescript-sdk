@@ -69,6 +69,30 @@ describe("decodeDamlValue primitive representations", () => {
         expect(decodeDamlValue(json("1000000"), descriptors.timestamp, emptyRegistry, "Iou.time")).toEqual(new DamlTimestamp("1000000"));
         expect(decodeDamlValue(json({}), descriptors.unit, emptyRegistry, "Iou.unit")).toBeInstanceOf(DamlUnit);
     });
+
+    it("enforces DAML Numeric scale and ledger precision for protobuf and JSON values", () => {
+        const scaleTwo = { kind: "primitive", primitive: "numeric", numericScale: 2 } as const satisfies DamlTypeDescriptor;
+
+        const overPrecision = "123456789012345678901234567890123456789";
+
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "12.30" } })), scaleTwo, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("12.30"));
+        expect(decodeDamlValue(json("12.30"), scaleTwo, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("12.30"));
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "12.300" } })), scaleTwo, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+        expect(() => decodeDamlValue(json("12.300"), scaleTwo, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: overPrecision } })), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+        expect(() => decodeDamlValue(json(overPrecision), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+    });
+
+    it("enforces ledger Date and Timestamp bounds for protobuf and JSON values", () => {
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "date", date: -719162 } })), descriptors.date, emptyRegistry, "Iou.date")).toEqual(new DamlDate(-719162));
+        expect(decodeDamlValue(json(2932896), descriptors.date, emptyRegistry, "Iou.date")).toEqual(new DamlDate(2932896));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "timestamp", timestamp: "-62135596800000000" } })), descriptors.timestamp, emptyRegistry, "Iou.time")).toEqual(new DamlTimestamp("-62135596800000000"));
+        expect(decodeDamlValue(json("253402300799999999"), descriptors.timestamp, emptyRegistry, "Iou.time")).toEqual(new DamlTimestamp("253402300799999999"));
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "date", date: -719163 } })), descriptors.date, emptyRegistry, "Iou.date")).toThrow(/Iou\.date/);
+        expect(() => decodeDamlValue(json(2932897), descriptors.date, emptyRegistry, "Iou.date")).toThrow(/Iou\.date/);
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "timestamp", timestamp: "-62135596800000001" } })), descriptors.timestamp, emptyRegistry, "Iou.time")).toThrow(/Iou\.time/);
+        expect(() => decodeDamlValue(json("253402300800000000"), descriptors.timestamp, emptyRegistry, "Iou.time")).toThrow(/Iou\.time/);
+    });
 });
 
 describe("decodeDamlValue nested values and validation", () => {
@@ -111,6 +135,29 @@ describe("decodeDamlValue nested values and validation", () => {
         expect(decodeDamlValue(json({ tag: "Owner", value: "Alice" }), variant, emptyRegistry, "Trade.role")).toEqual(new DamlVariant("Owner", new DamlParty("Alice")));
         expect(decodeDamlValue(json("Open"), enumeration, emptyRegistry, "Trade.status")).toEqual(new DamlEnum("Open"));
         expect(decodeDamlValue(json("#contract"), contractId, emptyRegistry, "Trade.id")).toBe("#contract");
+    });
+
+    it("converts protobuf optionals, maps, labelled and positional records, variants, enums, and contract IDs", () => {
+        const optional = { kind: "optional", element: descriptors.text } as const satisfies DamlTypeDescriptor;
+
+        const textMap = { kind: "textMap", value: descriptors.party } as const satisfies DamlTypeDescriptor;
+
+        const genMap = { kind: "genMap", key: descriptors.text, value: descriptors.int64 } as const satisfies DamlTypeDescriptor;
+
+        const variant = { kind: "variant", constructors: [{ constructor: "Owner", payload: descriptors.party }] } as const satisfies DamlTypeDescriptor;
+
+        const enumeration = { kind: "enum", constructors: ["Open"] } as const satisfies DamlTypeDescriptor;
+
+        const contractId = { kind: "contractId", contract: tradeDescriptor } as const satisfies DamlTypeDescriptor;
+
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "optional", optional: { value: Value.create({ sum: { oneofKind: "text", text: "memo" } }) } } })), optional, emptyRegistry, "Iou.memo")).toBe("memo");
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "textMap", textMap: { entries: [{ key: "Alice", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } })), textMap, emptyRegistry, "Iou.owners")).toEqual(new DamlTextMap([["Alice", new DamlParty("Alice")]]));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "genMap", genMap: { entries: [{ key: Value.create({ sum: { oneofKind: "text", text: "one" } }), value: Value.create({ sum: { oneofKind: "int64", int64: "1" } }) }] } } })), genMap, emptyRegistry, "Iou.entries")).toEqual(new DamlGenMap([["one", 1n]]));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "record", record: { fields: [{ label: "amount", value: Value.create({ sum: { oneofKind: "numeric", numeric: "12.30" } }) }, { label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } })), tradeDescriptor, emptyRegistry, "Trade")).toEqual(new DamlRecord({ amount: new DamlNumeric("12.30"), owner: new DamlParty("Alice") }));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "record", record: { fields: [{ label: "", value: Value.create({ sum: { oneofKind: "numeric", numeric: "12.30" } }) }, { label: "", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } })), tradeDescriptor, emptyRegistry, "Trade")).toEqual(new DamlRecord({ amount: new DamlNumeric("12.30"), owner: new DamlParty("Alice") }));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "variant", variant: { constructor: "Owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) } } })), variant, emptyRegistry, "Trade.role")).toEqual(new DamlVariant("Owner", new DamlParty("Alice")));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "enum", enum: { constructor: "Open" } } })), enumeration, emptyRegistry, "Trade.status")).toEqual(new DamlEnum("Open"));
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "contractId", contractId: "#contract" } })), contractId, emptyRegistry, "Trade.id")).toBe("#contract");
     });
 
     it("resolves named references lazily and supports self-recursive records", () => {
