@@ -88,11 +88,56 @@ export class SupportFileEmitter {
             }
         }
 
-        return [...groupsByDirectory.values()];
+        const groups = [...groupsByDirectory.values()];
+
+        for (const group of groups) {
+            this.assertDistinctModuleExportedSymbols(group);
+        }
+
+        return groups;
     }
 
     private getFileNameWithoutExtension(path: string): string {
         return path.slice(path.lastIndexOf("/") + 1).replace(/\.ts$/, "");
+    }
+
+    private assertDistinctModuleExportedSymbols(
+        group: GeneratedNamespaceGroup,
+    ): void {
+        const filesBySymbol = new Map<string, GeneratedTemplateBindingFile>();
+
+        for (const file of group.templateFiles) {
+            for (const symbol of this.getExportedSymbols(file)) {
+                const existing = filesBySymbol.get(symbol);
+
+                if (existing !== undefined && existing !== file) {
+                    throw new Error(
+                        `Cannot emit generated module symbol '${symbol}' for `
+                        + `'${this.describeTemplate(existing)}' and '${this.describeTemplate(file)}'`,
+                    );
+                }
+
+                filesBySymbol.set(symbol, file);
+            }
+        }
+    }
+
+    private getExportedSymbols(
+        file: GeneratedTemplateBindingFile,
+    ): readonly string[] {
+        return [
+            file.binding.className,
+            file.binding.createFieldsTypeName,
+            file.binding.createdEventTypeName,
+            ...file.binding.choices.flatMap((choice) => [
+                choice.choiceTypeName,
+                choice.exercisedEventTypeName,
+            ]),
+        ];
+    }
+
+    private describeTemplate(file: GeneratedTemplateBindingFile): string {
+        return file.binding.templateIdentityKey.replaceAll("\u0000", ":");
     }
 }
 

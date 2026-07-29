@@ -53,6 +53,8 @@ const damlTemplateMemberNames = new Set([
 
 const reservedTypeNames = new Set(["DamlTemplate"]);
 
+const reservedNamespaceAliases = new Set(["GeneratedRegistry"]);
+
 export class TypeScriptNameResolver {
     private readonly templatesByIdentity = new Map<string, AnalyzedTemplate>();
     private resolvedTemplates = new Map<string, ResolvedTemplateNames>();
@@ -71,7 +73,7 @@ export class TypeScriptNameResolver {
 
             const existing = this.templatesByIdentity.get(identityKey);
 
-            if (existing !== undefined && existing !== template) {
+            if (existing !== undefined) {
                 throw new Error(
                     `Cannot generate duplicate DAML template identity '${this.describeTemplate(template)}' `
                     + `and '${this.describeTemplate(existing)}'`,
@@ -125,7 +127,7 @@ export class TypeScriptNameResolver {
             [...modulesByIdentity.entries()].map(([identityKey, template]) => ({
                 value: identityKey,
                 key: `namespace\u0000${identityKey}`,
-                baseName: this.safeTypeName(
+                baseName: this.safeNamespaceAlias(
                     `${template.templateId.packageId} ${template.templateId.moduleName}`,
                 ),
                 collisionSeparator: "_",
@@ -388,28 +390,50 @@ export class TypeScriptNameResolver {
     }
 
     private resolveNames<T>(values: readonly NamedValue<T>[]): ReadonlyMap<T, string> {
-        const groups = new Map<string, NamedValue<T>[]>();
+        const groups = new Map<string, number>();
 
         for (const value of values) {
             const groupKey = `${value.scope ?? ""}\u0000${value.baseName}`;
 
-            const group = groups.get(groupKey) ?? [];
-
-            group.push(value);
-            groups.set(groupKey, group);
+            groups.set(groupKey, (groups.get(groupKey) ?? 0) + 1);
         }
 
         const names = new Map<T, string>();
 
-        for (const group of groups.values()) {
-            for (const value of group) {
-                names.set(
-                    value.value,
-                    group.length === 1
-                        ? value.baseName
-                        : `${value.baseName}${value.collisionSeparator ?? "-"}${this.shortHash(value.key)}`,
-                );
+        const allocatedNamesByScope = new Map<string, Set<string>>();
+
+        for (const value of [...values].sort((left, right) =>
+            left.key.localeCompare(right.key))) {
+            const scope = value.scope ?? "";
+
+            const groupKey = `${scope}\u0000${value.baseName}`;
+
+            const groupSize = groups.get(groupKey);
+
+            if (groupSize === undefined) {
+                throw new Error(`Could not resolve generated name '${value.baseName}'`);
             }
+
+            const collisionSuffix = `${value.collisionSeparator ?? "-"}${this.shortHash(value.key)}`;
+
+            const baseCandidate = groupSize === 1
+                ? value.baseName
+                : `${value.baseName}${collisionSuffix}`;
+
+            const allocatedNames = allocatedNamesByScope.get(scope) ?? new Set<string>();
+
+            let candidate = baseCandidate;
+
+            let escalation = 2;
+
+            while (allocatedNames.has(candidate)) {
+                candidate = `${baseCandidate}_${escalation}`;
+                escalation += 1;
+            }
+
+            allocatedNames.add(candidate);
+            allocatedNamesByScope.set(scope, allocatedNames);
+            names.set(value.value, candidate);
         }
 
         return names;
@@ -482,6 +506,14 @@ export class TypeScriptNameResolver {
         return reservedTypeNames.has(safeIdentifier)
             ? `${safeIdentifier}Binding`
             : safeIdentifier;
+    }
+
+    private safeNamespaceAlias(value: string): string {
+        const alias = this.safeTypeName(value);
+
+        return reservedNamespaceAliases.has(alias)
+            ? `${alias}Namespace`
+            : alias;
     }
 
     private safeMemberName(value: string): string {

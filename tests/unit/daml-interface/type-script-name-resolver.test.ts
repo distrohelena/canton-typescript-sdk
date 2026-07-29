@@ -189,6 +189,59 @@ describe("TypeScriptNameResolver", () => {
             .toContain("generated/packages/sample-hash/main/index.ts");
         expect(new Set(outputPaths).size).toBe(outputPaths.length);
     });
+
+    it("rejects duplicate template identities even when the source object is repeated", () => {
+        const template = createTemplate({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            templateName: "Iou",
+        });
+
+        expect(() => new TypeScriptNameResolver([template, template]))
+            .toThrow("Cannot generate duplicate DAML template identity");
+    });
+
+    it("reserves the root GeneratedRegistry export name", () => {
+        const template = createTemplate({
+            packageId: "Generated",
+            moduleName: "Registry",
+            templateName: "Iou",
+        });
+
+        const file = new TemplateBindingEmitter(
+            new TypeScriptNameResolver([template]),
+        ).emitTemplateFile(template);
+
+        expect(file.binding.namespaceAlias).toBe("GeneratedRegistryNamespace");
+    });
+
+    it("escalates colliding field and choice hash suffixes deterministically", () => {
+        const template = createTemplate({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            templateName: "Iou",
+        });
+
+        const resolver = new TypeScriptNameResolver();
+
+        const resolverWithForcedHash = resolver as unknown as {
+            shortHash(value: string): string;
+        };
+
+        resolverWithForcedHash.shortHash = () => "same";
+
+        const binding = new TemplateBindingEmitter(resolver)
+            .emitTemplateFile(template).binding;
+
+        expect(new Set(binding.createFields.map((field) => field.propertyName)).size)
+            .toBe(binding.createFields.length);
+        expect(binding.createFields.map((field) => field.propertyName))
+            .toContain("tradeOwner_same_2");
+        expect(new Set(binding.choices.map((choice) => choice.choiceTypeName)).size)
+            .toBe(binding.choices.length);
+        expect(new Set(binding.choices.map((choice) => choice.methodName)).size)
+            .toBe(binding.choices.length);
+    });
 });
 
 function createTemplate(init: {

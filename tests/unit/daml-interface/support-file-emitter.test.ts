@@ -39,25 +39,56 @@ describe("SupportFileEmitter", () => {
         );
         expect(index.contents).not.toContain('export * from "./packages/');
     });
+
+    it("rejects colliding exported symbols from templates in the same module", () => {
+        const project = new GeneratedDamlInterfaceProject({
+            templateFiles: [
+                createTemplateFile({
+                    packageId: "sample-hash",
+                    namespaceAlias: "SampleHashMain",
+                    className: "Foo",
+                    templateName: "Foo",
+                    contents: "export class Foo {}\n",
+                }),
+                createTemplateFile({
+                    packageId: "sample-hash",
+                    namespaceAlias: "SampleHashMain",
+                    className: "FooCreateFields",
+                    templateName: "FooCreateFields",
+                    contents: "export class FooCreateFields {}\n",
+                }),
+            ],
+        });
+
+        expect(() => new SupportFileEmitter().emitNamespaceFiles(project))
+            .toThrow(/FooCreateFields.*sample-hash:Main:Foo/);
+    });
 });
 
 function createTemplateFile(init: {
     packageId: string;
     namespaceAlias: string;
+    className?: string;
+    templateName?: string;
     contents: string;
 }): GeneratedTemplateBindingFile {
-    const path = `generated/packages/${init.packageId}/main/foo.ts`;
+    const templateName = init.templateName ?? "Foo";
+
+    const path = `generated/packages/${init.packageId}/main/${templateName.toLowerCase()}.ts`;
+
+    const className = init.className ?? "Foo";
 
     return new GeneratedTemplateBindingFile({
         path,
         contents: init.contents,
         binding: new GeneratedTemplateBinding({
             namespaceAlias: init.namespaceAlias,
-            className: "Foo",
-            templateIdLiteral: `${init.packageId}:Main:Foo`,
+            className,
+            templateIdentityKey: `${init.packageId}\u0000Main\u0000${templateName}`,
+            templateIdLiteral: `${init.packageId}:Main:${templateName}`,
             path,
-            createFieldsTypeName: "FooCreateFields",
-            createdEventTypeName: "FooCreatedEvent",
+            createFieldsTypeName: `${className}CreateFields`,
+            createdEventTypeName: `${className}CreatedEvent`,
             createFields: [],
             choices: [],
         }),
