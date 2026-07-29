@@ -19,6 +19,8 @@ export class ProjectEmitter {
     public emitProject(
         analysis: DamlInterfaceAnalysisResult,
     ): GeneratedDamlInterfaceProject {
+        this.templateBindingEmitter.prepareTemplatesOrThrow(analysis.templates);
+
         const templateFiles = analysis.templates.map((template) =>
             this.templateBindingEmitter.emitTemplateFile(template),
         );

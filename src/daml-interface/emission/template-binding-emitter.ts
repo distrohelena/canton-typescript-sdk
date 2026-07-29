@@ -14,6 +14,11 @@ export class TemplateBindingEmitter {
         void this.nameResolver;
     }
 
+    /** Prepares stable collision-safe names before emitting a complete project. */
+    public prepareTemplatesOrThrow(templates: readonly AnalyzedTemplate[]): void {
+        this.nameResolver.prepareTemplatesOrThrow(templates);
+    }
+
     /** Emits a generated TypeScript file for one analyzed DAML template. */
     public emitTemplateFile(
         template: AnalyzedTemplate,
@@ -31,7 +36,9 @@ export class TemplateBindingEmitter {
 
     private createBinding(template: AnalyzedTemplate): GeneratedTemplateBinding {
         return new GeneratedTemplateBinding({
-            className: template.className,
+            templateIdentityKey: this.nameResolver.getTemplateIdentityKey(template),
+            namespaceAlias: this.nameResolver.getNamespaceAlias(template),
+            className: this.nameResolver.getTemplateClassName(template),
             templateIdLiteral: this.nameResolver.getTemplateIdLiteral(template),
             path: this.nameResolver.getTemplateFilePath(template),
             createFieldsTypeName:
@@ -42,15 +49,18 @@ export class TemplateBindingEmitter {
                 (field) =>
                     new GeneratedTemplateBindingField({
                         name: field.name,
-                        propertyName: field.propertyName,
+                        propertyName: this.nameResolver.getFieldPropertyName(template, field),
+                        constructorParameterName:
+                            this.nameResolver.getFieldConstructorParameterName(template, field),
                         typeName: this.nameResolver.getTypeName(field.type),
                     }),
             ),
             choices: template.choices.map(
                 (choice) =>
                     new GeneratedChoiceBinding({
+                        choiceIdentityKey: this.nameResolver.getChoiceIdentityKey(template, choice),
                         name: choice.name,
-                        methodName: choice.methodName,
+                        methodName: this.nameResolver.getChoiceMethodName(template, choice),
                         choiceTypeName: this.nameResolver.getChoiceTypeName(
                             template,
                             choice,
@@ -60,7 +70,7 @@ export class TemplateBindingEmitter {
                                 template,
                                 choice,
                             ),
-                        parameterName: choice.parameterName,
+                        parameterName: this.nameResolver.getChoiceParameterName(template, choice),
                         parameterTypeName:
                             this.nameResolver.getTypeName(choice.parameterType),
                         returnTypeName:

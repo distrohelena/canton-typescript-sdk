@@ -3,20 +3,25 @@ import { GeneratedChoiceBinding } from "./generated-choice-binding.js";
 export class GeneratedTemplateBindingField {
     public readonly name: string;
     public readonly propertyName: string;
+    public readonly constructorParameterName: string;
     public readonly typeName: string;
 
     public constructor(init: {
         name: string;
         propertyName: string;
+        constructorParameterName?: string;
         typeName: string;
     }) {
         this.name = init.name;
         this.propertyName = init.propertyName;
+        this.constructorParameterName = init.constructorParameterName ?? init.propertyName;
         this.typeName = init.typeName;
     }
 }
 
 export class GeneratedTemplateBinding {
+    public readonly templateIdentityKey: string;
+    public readonly namespaceAlias: string;
     public readonly className: string;
     public readonly templateIdLiteral: string;
     public readonly path: string;
@@ -26,6 +31,8 @@ export class GeneratedTemplateBinding {
     public readonly choices: readonly GeneratedChoiceBinding[];
 
     public constructor(init: {
+        templateIdentityKey?: string;
+        namespaceAlias?: string;
         className: string;
         templateIdLiteral: string;
         path: string;
@@ -34,6 +41,8 @@ export class GeneratedTemplateBinding {
         createFields: readonly GeneratedTemplateBindingField[];
         choices: readonly GeneratedChoiceBinding[];
     }) {
+        this.templateIdentityKey = init.templateIdentityKey ?? init.templateIdLiteral;
+        this.namespaceAlias = init.namespaceAlias ?? init.className;
         this.className = init.className;
         this.templateIdLiteral = init.templateIdLiteral;
         this.path = init.path;

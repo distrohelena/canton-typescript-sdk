@@ -1,4 +1,5 @@
 export class GeneratedChoiceBinding {
+    public readonly choiceIdentityKey: string;
     public readonly name: string;
     public readonly methodName: string;
     public readonly choiceTypeName: string;
@@ -8,6 +9,7 @@ export class GeneratedChoiceBinding {
     public readonly returnTypeName: string;
 
     public constructor(init: {
+        choiceIdentityKey?: string;
         name: string;
         methodName: string;
         choiceTypeName: string;
@@ -16,6 +18,7 @@ export class GeneratedChoiceBinding {
         parameterTypeName: string;
         returnTypeName: string;
     }) {
+        this.choiceIdentityKey = init.choiceIdentityKey ?? init.name;
         this.name = init.name;
         this.methodName = init.methodName;
         this.choiceTypeName = init.choiceTypeName;

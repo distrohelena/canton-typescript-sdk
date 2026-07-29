@@ -52,7 +52,7 @@ describe("TemplateBindingEmitter", () => {
 
         const file = new TemplateBindingEmitter().emitTemplateFile(template);
 
-        expect(file.path).toBe("generated/main/iou.ts");
+        expect(file.path).toBe("generated/packages/sample-hash/main/iou.ts");
         expect(file.contents).toContain("export class Iou");
         expect(file.contents).toContain('public static readonly templateId = "Main:Iou";');
         expect(file.contents).toContain("public static create(");
