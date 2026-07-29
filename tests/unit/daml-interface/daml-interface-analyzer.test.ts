@@ -79,6 +79,23 @@ describe("DamlInterfaceAnalyzer", () => {
             .toThrow(/template field 'issuer'.*numeric.*scale/);
     });
 
+    it.each([-1, 38])(
+        "rejects numeric fields with out-of-range scale %i in their field context",
+        (numericScale) => {
+            const compilation = createCompilation({
+                templateName: "TradeOrder",
+                fieldTypeFactory: () =>
+                    new DamlLfType({
+                        builtinType: DamlLfBuiltinType.numeric,
+                        numericScale,
+                    }),
+            });
+
+            expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+                .toThrow(/template field 'issuer'.*numeric.*scale/);
+        },
+    );
+
     it("resolves recursive serializable DAML types into generator descriptors", () => {
         const compilation = createRichCompilation();
 

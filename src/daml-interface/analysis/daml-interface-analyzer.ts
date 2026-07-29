@@ -188,10 +188,15 @@ class AnalyzedDamlTypeBuilder {
             case DamlLfBuiltinType.numeric:
                 this.assertArgumentCountOrThrow(type, 0, context);
 
-                if (type.numericScale === undefined) {
+                if (
+                    type.numericScale === undefined ||
+                    !Number.isInteger(type.numericScale) ||
+                    type.numericScale < 0 ||
+                    type.numericScale > 37
+                ) {
                     throw this.unsupported(
                         context,
-                        "numeric values require a scale",
+                        "numeric values require an integer scale from 0 through 37",
                     );
                 }
 
