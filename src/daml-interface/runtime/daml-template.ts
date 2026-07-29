@@ -6,7 +6,7 @@ export class DamlTemplate {
         this.#contractId = contractId;
     }
 
-    public get(): string {
+    public get contractId(): string {
         return this.#contractId;
     }
 }

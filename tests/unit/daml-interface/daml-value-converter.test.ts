@@ -42,12 +42,12 @@ function json(value: unknown): { readonly kind: "json"; readonly value: unknown 
 }
 
 describe("DamlTemplate", () => {
-    it("keeps the contract ID private and returns it through get", () => {
+    it("exposes the contract ID through a read-only property", () => {
         const template = new DamlTemplate("cid-1");
 
-        expect(template.get()).toBe("cid-1");
+        expect(template.contractId).toBe("cid-1");
         expect(Object.keys(template)).toEqual([]);
-        expect("contractId" in template).toBe(false);
+        expect("get" in template).toBe(false);
     });
 });
 
