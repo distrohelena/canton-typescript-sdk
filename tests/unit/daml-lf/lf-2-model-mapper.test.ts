@@ -5,6 +5,7 @@ import { DamlLfPackageLoader } from "../../../src/daml-lf/daml-lf-package-loader
 import { DamlLfWorkspace } from "../../../src/daml-lf/daml-lf-workspace.js";
 import { Lf2ModelMapper } from "../../../src/daml-lf/model/lf-2-model-mapper.js";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
+import { DamlLfDataType } from "../../../src/daml-lf/model/daml-lf-data-type.js";
 import { DamlLfNodeKind } from "../../../src/daml-lf/model/daml-lf-node-kind.js";
 import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
 import { Archive, ArchivePayload, HashFunction } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
@@ -16,9 +17,64 @@ import {
     Case,
     Expr,
     Package,
+    Type,
     TypeConId,
     VarWithType,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
+
+interface SerializableMappedType {
+    readonly builtinType: DamlLfBuiltinType;
+    readonly numericScale?: number;
+    readonly typeArguments: readonly SerializableMappedType[];
+    readonly typeConReference?: {
+        readonly packageId: string;
+        readonly moduleName: string;
+        readonly name: string;
+    };
+}
+
+interface SerializableDataType {
+    readonly definition:
+        | {
+            readonly kind: "record";
+            readonly fields: readonly {
+                readonly name: string;
+                readonly type: SerializableMappedType;
+            }[];
+        }
+        | {
+            readonly kind: "variant";
+            readonly constructors: readonly {
+                readonly name: string;
+                readonly type: SerializableMappedType;
+            }[];
+        }
+        | {
+            readonly kind: "enum";
+            readonly constructors: readonly string[];
+        };
+}
+
+function getSerializableField(
+    definition: {
+        readonly definition: {
+            readonly kind: "record";
+            readonly fields: readonly {
+                readonly name: string;
+                readonly type: SerializableMappedType;
+            }[];
+        };
+    },
+    name: string,
+): SerializableMappedType {
+    const field = definition.definition.fields.find((item) => item.name === name);
+
+    if (field === undefined) {
+        throw new Error(`missing serializable test field '${name}'`);
+    }
+
+    return field.type;
+}
 
 describe("LF 2.x model mapper", () => {
     it("maps a decoded LF package into the public immutable model", () => {
@@ -81,6 +137,192 @@ describe("LF 2.x model mapper", () => {
         expect(type).toMatchObject({
             builtinType: DamlLfBuiltinType.numeric,
             numericScale: 10,
+        });
+    });
+
+    it("retains every serializable Ledger API type shape", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createSerializableTypeShapesArchiveBytes(),
+        );
+        const definitions = packageModel.modules[0]?.definitions ?? [];
+        const shapes = definitions.find(
+            (definition) => definition.name === "Shapes",
+        ) as DamlLfDataType;
+        const address = definitions.find(
+            (definition) => definition.name === "Address",
+        ) as DamlLfDataType;
+        const action = definitions.find(
+            (definition) => definition.name === "Action",
+        ) as DamlLfDataType;
+        const state = definitions.find(
+            (definition) => definition.name === "State",
+        ) as DamlLfDataType;
+
+        const shapesDefinition = shapes as unknown as {
+            readonly definition: {
+                readonly kind: "record";
+                readonly fields: readonly {
+                    readonly name: string;
+                    readonly type: SerializableMappedType;
+                }[];
+            };
+        };
+
+        expect(shapesDefinition.definition.kind).toBe("record");
+        expect(getSerializableField(shapesDefinition, "unit")).toMatchObject({
+            builtinType: DamlLfBuiltinType.unit,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "bool")).toMatchObject({
+            builtinType: DamlLfBuiltinType.bool,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "int64")).toMatchObject({
+            builtinType: DamlLfBuiltinType.int64,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "date")).toMatchObject({
+            builtinType: DamlLfBuiltinType.date,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "timestamp")).toMatchObject({
+            builtinType: DamlLfBuiltinType.timestamp,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "numeric")).toMatchObject({
+            builtinType: DamlLfBuiltinType.numeric,
+            numericScale: 10,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "party")).toMatchObject({
+            builtinType: DamlLfBuiltinType.party,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "text")).toMatchObject({
+            builtinType: DamlLfBuiltinType.text,
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "contractId")).toMatchObject({
+            builtinType: DamlLfBuiltinType.contractId,
+            typeArguments: [
+                {
+                    typeConReference: {
+                        packageId: "sample-hash",
+                        moduleName: "Sample.Module",
+                        name: "Address",
+                    },
+                    typeArguments: [],
+                },
+            ],
+        });
+        expect(getSerializableField(shapesDefinition, "optionalText")).toMatchObject({
+            builtinType: DamlLfBuiltinType.optional,
+            typeArguments: [
+                {
+                    builtinType: DamlLfBuiltinType.text,
+                    typeArguments: [],
+                },
+            ],
+        });
+        expect(getSerializableField(shapesDefinition, "listContractId")).toMatchObject({
+            builtinType: DamlLfBuiltinType.list,
+            typeArguments: [
+                {
+                    builtinType: DamlLfBuiltinType.contractId,
+                    typeArguments: [
+                        {
+                            typeConReference: {
+                                packageId: "sample-hash",
+                                moduleName: "Sample.Module",
+                                name: "Address",
+                            },
+                            typeArguments: [],
+                        },
+                    ],
+                },
+            ],
+        });
+        expect(getSerializableField(shapesDefinition, "textMap")).toMatchObject({
+            builtinType: DamlLfBuiltinType.textMap,
+            typeArguments: [
+                {
+                    builtinType: DamlLfBuiltinType.bool,
+                    typeArguments: [],
+                },
+            ],
+        });
+        expect(getSerializableField(shapesDefinition, "genMap")).toMatchObject({
+            builtinType: DamlLfBuiltinType.genMap,
+            typeArguments: [
+                {
+                    builtinType: DamlLfBuiltinType.text,
+                    typeArguments: [],
+                },
+                {
+                    builtinType: DamlLfBuiltinType.bool,
+                    typeArguments: [],
+                },
+            ],
+        });
+        expect(getSerializableField(shapesDefinition, "record")).toMatchObject({
+            typeConReference: {
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                name: "Address",
+            },
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "variant")).toMatchObject({
+            typeConReference: {
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                name: "Action",
+            },
+            typeArguments: [],
+        });
+        expect(getSerializableField(shapesDefinition, "enum")).toMatchObject({
+            typeConReference: {
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                name: "State",
+            },
+            typeArguments: [],
+        });
+
+        expect((address as unknown as SerializableDataType).definition).toEqual({
+            kind: "record",
+            fields: [
+                expect.objectContaining({
+                    name: "owner",
+                    type: expect.objectContaining({
+                        builtinType: DamlLfBuiltinType.party,
+                        typeArguments: [],
+                    }),
+                }),
+            ],
+        });
+        expect((action as unknown as SerializableDataType).definition).toEqual({
+            kind: "variant",
+            constructors: [
+                expect.objectContaining({
+                    name: "Approve",
+                    type: expect.objectContaining({
+                        builtinType: DamlLfBuiltinType.party,
+                        typeArguments: [],
+                    }),
+                }),
+                expect.objectContaining({
+                    name: "Archive",
+                    type: expect.objectContaining({
+                        builtinType: DamlLfBuiltinType.unit,
+                        typeArguments: [],
+                    }),
+                }),
+            ],
+        });
+        expect((state as unknown as SerializableDataType).definition).toEqual({
+            kind: "enum",
+            constructors: ["Open", "Closed"],
         });
     });
 
@@ -2674,4 +2916,210 @@ function createTextBinder(varInternedStr: number): VarWithType {
             },
         },
     };
+}
+
+function createSerializableTypeShapesArchiveBytes(): Uint8Array {
+    const builtin = (builtinType: BuiltinType, args: readonly Type[] = []): Type => ({
+        sum: {
+            oneofKind: "builtin",
+            builtin: {
+                builtin: builtinType,
+                args: [...args],
+            },
+        },
+    });
+    const apply = (lhs: Type, rhs: Type): Type => ({
+        sum: {
+            oneofKind: "tapp",
+            tapp: { lhs, rhs },
+        },
+    });
+    const typeCon = (nameInternedDname: number): Type => ({
+        sum: {
+            oneofKind: "con",
+            con: {
+                tycon: {
+                    module: {
+                        packageId: {
+                            sum: {
+                                oneofKind: "selfPackageId",
+                                selfPackageId: {},
+                            },
+                        },
+                        moduleNameInternedDname: 0,
+                    },
+                    nameInternedDname,
+                },
+                args: [],
+            },
+        },
+    });
+    const field = (fieldInternedStr: number, type: Type) => ({
+        fieldInternedStr,
+        type,
+    });
+
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [
+                    {
+                        nameInternedDname: 1,
+                        params: [],
+                        serializable: true,
+                        dataCons: {
+                            oneofKind: "record",
+                            record: {
+                                fields: [
+                                    field(8, builtin(BuiltinType.UNIT)),
+                                    field(9, builtin(BuiltinType.BOOL)),
+                                    field(10, builtin(BuiltinType.INT64)),
+                                    field(11, builtin(BuiltinType.DATE)),
+                                    field(12, builtin(BuiltinType.TIMESTAMP)),
+                                    field(13, builtin(BuiltinType.NUMERIC, [{
+                                        sum: { oneofKind: "nat", nat: "10" },
+                                    }])),
+                                    field(14, builtin(BuiltinType.PARTY)),
+                                    field(15, builtin(BuiltinType.TEXT)),
+                                    field(16, apply(
+                                        builtin(BuiltinType.CONTRACT_ID),
+                                        typeCon(2),
+                                    )),
+                                    field(17, apply(
+                                        builtin(BuiltinType.OPTIONAL),
+                                        builtin(BuiltinType.TEXT),
+                                    )),
+                                    field(18, apply(
+                                        builtin(BuiltinType.LIST),
+                                        apply(
+                                            builtin(BuiltinType.CONTRACT_ID),
+                                            typeCon(2),
+                                        ),
+                                    )),
+                                    field(19, apply(
+                                        builtin(BuiltinType.TEXTMAP),
+                                        builtin(BuiltinType.BOOL),
+                                    )),
+                                    field(20, apply(
+                                        apply(
+                                            builtin(BuiltinType.GENMAP),
+                                            builtin(BuiltinType.TEXT),
+                                        ),
+                                        builtin(BuiltinType.BOOL),
+                                    )),
+                                    field(21, typeCon(2)),
+                                    field(22, typeCon(3)),
+                                    field(23, typeCon(4)),
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        nameInternedDname: 2,
+                        params: [],
+                        serializable: true,
+                        dataCons: {
+                            oneofKind: "record",
+                            record: {
+                                fields: [field(24, builtin(BuiltinType.PARTY))],
+                            },
+                        },
+                    },
+                    {
+                        nameInternedDname: 3,
+                        params: [],
+                        serializable: true,
+                        dataCons: {
+                            oneofKind: "variant",
+                            variant: {
+                                fields: [
+                                    field(25, builtin(BuiltinType.PARTY)),
+                                    field(26, builtin(BuiltinType.UNIT)),
+                                ],
+                            },
+                        },
+                    },
+                    {
+                        nameInternedDname: 4,
+                        params: [],
+                        serializable: true,
+                        dataCons: {
+                            oneofKind: "enum",
+                            enum: {
+                                constructorsInternedStr: [27, 28],
+                            },
+                        },
+                    },
+                ],
+                values: [],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "Shapes",
+            "Address",
+            "Action",
+            "State",
+            "unit",
+            "bool",
+            "int64",
+            "date",
+            "timestamp",
+            "numeric",
+            "party",
+            "text",
+            "contractId",
+            "optionalText",
+            "listContractId",
+            "textMap",
+            "genMap",
+            "record",
+            "variant",
+            "enum",
+            "owner",
+            "Approve",
+            "Archive",
+            "Open",
+            "Closed",
+        ],
+        internedDottedNames: [
+            { segmentsInternedStr: [2, 3] },
+            { segmentsInternedStr: [4] },
+            { segmentsInternedStr: [5] },
+            { segmentsInternedStr: [6] },
+            { segmentsInternedStr: [7] },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
 }

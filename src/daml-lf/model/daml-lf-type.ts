@@ -7,11 +7,13 @@ export class DamlLfType {
     public readonly builtinType: DamlLfBuiltinType;
     public readonly numericScale?: number;
     public readonly typeConReference?: TypeConReference;
+    public readonly typeArguments: readonly DamlLfType[];
 
     public constructor(init: {
         builtinType?: DamlLfBuiltinType;
         numericScale?: number;
         typeConReference?: TypeConReference;
+        typeArguments?: readonly DamlLfType[];
     }) {
         this.builtinType = init.builtinType ?? DamlLfBuiltinType.unknown;
 
@@ -20,5 +22,6 @@ export class DamlLfType {
         }
 
         this.typeConReference = init.typeConReference;
+        this.typeArguments = Object.freeze([...(init.typeArguments ?? [])]);
     }
 }

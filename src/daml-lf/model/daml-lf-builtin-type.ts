@@ -1,7 +1,16 @@
 export enum DamlLfBuiltinType {
+    unit = "unit",
+    bool = "bool",
     int64 = "int64",
+    date = "date",
+    timestamp = "timestamp",
     numeric = "numeric",
     party = "party",
     text = "text",
+    contractId = "contractId",
+    optional = "optional",
+    list = "list",
+    textMap = "textMap",
+    genMap = "genMap",
     unknown = "unknown",
 }

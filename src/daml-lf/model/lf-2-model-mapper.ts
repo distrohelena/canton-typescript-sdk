@@ -85,15 +85,27 @@ export class Lf2ModelMapper {
                 ? Lf2ModelMapper.readNumericScale(rawType.sum.tapp.rhs)
                 : undefined;
 
-            return numericScale === undefined
-                ? lhs
-                : new DamlLfType({
-                    builtinType: lhs.builtinType,
-                    numericScale,
-                    ...(lhs.typeConReference === undefined
+            return new DamlLfType({
+                builtinType: lhs.builtinType,
+                ...(numericScale === undefined
+                    ? lhs.numericScale === undefined
                         ? {}
-                        : { typeConReference: lhs.typeConReference }),
-                });
+                        : { numericScale: lhs.numericScale }
+                    : { numericScale }),
+                ...(lhs.typeConReference === undefined
+                    ? {}
+                    : { typeConReference: lhs.typeConReference }),
+                typeArguments: numericScale === undefined
+                    ? [
+                        ...lhs.typeArguments,
+                        Lf2ModelMapper.mapType(
+                            currentPackageId,
+                            rawPackage,
+                            rawType.sum.tapp.rhs,
+                        ),
+                    ]
+                    : lhs.typeArguments,
+            });
         }
 
         if (rawType?.sum.oneofKind === "forall") {
@@ -112,35 +124,69 @@ export class Lf2ModelMapper {
                     rawType.sum.con.tycon,
                     rawType,
                 ),
+                typeArguments: rawType.sum.con.args.map((item) =>
+                    Lf2ModelMapper.mapType(currentPackageId, rawPackage, item),
+                ),
             });
         }
 
         else if (rawType?.sum.oneofKind === "builtin") {
-            const builtinType = rawType.sum.builtin.builtin === BuiltinType.INT64
-                ? DamlLfBuiltinType.int64
-                : rawType.sum.builtin.builtin === BuiltinType.NUMERIC
-                ? DamlLfBuiltinType.numeric
-                : rawType.sum.builtin.builtin === BuiltinType.PARTY
-                ? DamlLfBuiltinType.party
-                : rawType.sum.builtin.builtin === BuiltinType.TEXT
-                ? DamlLfBuiltinType.text
-                : DamlLfBuiltinType.unknown;
+            const builtinType = Lf2ModelMapper.mapBuiltinType(
+                rawType.sum.builtin.builtin,
+            );
+            const numericScale = builtinType === DamlLfBuiltinType.numeric
+                ? Lf2ModelMapper.readNumericScale(rawType.sum.builtin.args[0])
+                : undefined;
 
             return new DamlLfType({
                 builtinType,
-                ...(builtinType !== DamlLfBuiltinType.numeric
+                ...(numericScale === undefined
                     ? {}
-                    : {
-                        numericScale: Lf2ModelMapper.readNumericScale(
-                            rawType.sum.builtin.args[0],
-                        ),
-                    }),
+                    : { numericScale }),
+                typeArguments: rawType.sum.builtin.args
+                    .slice(numericScale === undefined ? 0 : 1)
+                    .map((item) =>
+                        Lf2ModelMapper.mapType(currentPackageId, rawPackage, item),
+                    ),
             });
         }
 
         return new DamlLfType({
             builtinType: DamlLfBuiltinType.unknown,
         });
+    }
+
+    private static mapBuiltinType(builtinType: BuiltinType): DamlLfBuiltinType {
+        switch (builtinType) {
+            case BuiltinType.UNIT:
+                return DamlLfBuiltinType.unit;
+            case BuiltinType.BOOL:
+                return DamlLfBuiltinType.bool;
+            case BuiltinType.INT64:
+                return DamlLfBuiltinType.int64;
+            case BuiltinType.DATE:
+                return DamlLfBuiltinType.date;
+            case BuiltinType.TIMESTAMP:
+                return DamlLfBuiltinType.timestamp;
+            case BuiltinType.NUMERIC:
+                return DamlLfBuiltinType.numeric;
+            case BuiltinType.PARTY:
+                return DamlLfBuiltinType.party;
+            case BuiltinType.TEXT:
+                return DamlLfBuiltinType.text;
+            case BuiltinType.CONTRACT_ID:
+                return DamlLfBuiltinType.contractId;
+            case BuiltinType.OPTIONAL:
+                return DamlLfBuiltinType.optional;
+            case BuiltinType.LIST:
+                return DamlLfBuiltinType.list;
+            case BuiltinType.TEXTMAP:
+                return DamlLfBuiltinType.textMap;
+            case BuiltinType.GENMAP:
+                return DamlLfBuiltinType.genMap;
+            default:
+                return DamlLfBuiltinType.unknown;
+        }
     }
 
     private static readNumericScale(rawType: Type | undefined): number | undefined {
@@ -216,17 +262,49 @@ export class Lf2ModelMapper {
         rawDataType: DefDataType,
         rawPackage: LfArchivePackage,
     ): DamlLfDataType | undefined {
-        const fields =
-            rawDataType.dataCons.oneofKind === "record"
-                ? rawDataType.dataCons.record.fields.map((item) =>
+        const definition = rawDataType.dataCons.oneofKind === "record"
+            ? {
+                kind: "record" as const,
+                fields: rawDataType.dataCons.record.fields.map((item) =>
                     Lf2ModelMapper.mapField(
                         packageId,
                         item.fieldInternedStr,
                         item.type,
                         rawPackage,
                     ),
-                )
-                : [];
+                ),
+            }
+            : rawDataType.dataCons.oneofKind === "variant"
+            ? {
+                kind: "variant" as const,
+                constructors: rawDataType.dataCons.variant.fields.map((item) => ({
+                    name: Lf2ModelMapper.resolveInternedString(
+                        rawPackage.internedStrings,
+                        item.fieldInternedStr,
+                    ),
+                    type: Lf2ModelMapper.mapType(
+                        packageId,
+                        rawPackage,
+                        item.type,
+                    ),
+                })),
+            }
+            : rawDataType.dataCons.oneofKind === "enum"
+            ? {
+                kind: "enum" as const,
+                constructors:
+                    rawDataType.dataCons.enum.constructorsInternedStr.map((item) =>
+                        Lf2ModelMapper.resolveInternedString(
+                            rawPackage.internedStrings,
+                            item,
+                        ),
+                    ),
+            }
+            : undefined;
+
+        if (definition === undefined) {
+            return undefined;
+        }
 
         return new DamlLfDataType({
             name: Lf2ModelMapper.resolveInternedDottedName(
@@ -234,7 +312,7 @@ export class Lf2ModelMapper {
                 rawPackage.internedDottedNames,
                 rawDataType.nameInternedDname,
             ),
-            fields,
+            definition,
         });
     }
 
