@@ -207,9 +207,10 @@ class AnalyzedDamlTypeBuilder {
                     numericScale: type.numericScale,
                 });
             case DamlLfBuiltinType.contractId:
+                this.assertArgumentCountOrThrow(type, 1, context);
+
                 return Object.freeze({
                     kind: "contractId" as const,
-                    contract: this.buildUnaryArgumentOrThrow(type, context),
                 });
             case DamlLfBuiltinType.optional:
                 return Object.freeze({

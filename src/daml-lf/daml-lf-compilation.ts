@@ -1,6 +1,7 @@
 import { DamlLfResolutionException } from "./errors/daml-lf-resolution.exception.js";
 import { DamlLfSemanticException } from "./errors/daml-lf-semantic.exception.js";
 import { DamlLfChoice } from "./model/daml-lf-choice.js";
+import { DamlLfBuiltinType } from "./model/daml-lf-builtin-type.js";
 import { DamlLfDataType } from "./model/daml-lf-data-type.js";
 import { DamlLfModule } from "./model/daml-lf-module.js";
 import { DamlLfTemplate } from "./model/daml-lf-template.js";
@@ -229,6 +230,16 @@ export class DamlLfCompilation {
     }
 
     private validateTypeOrThrow(type: DamlLfType): void {
+        if (type.builtinType === DamlLfBuiltinType.contractId) {
+            if (type.typeArguments.length !== 1) {
+                throw new DamlLfSemanticException(
+                    "builtin 'contractId' requires 1 type argument",
+                );
+            }
+
+            return;
+        }
+
         for (const typeArgument of type.typeArguments) {
             this.validateTypeOrThrow(typeArgument);
         }

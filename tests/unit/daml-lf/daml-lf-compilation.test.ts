@@ -6,6 +6,8 @@ import { DamlLfExpression } from "../../../src/daml-lf/model/daml-lf-expression.
 import { DamlLfField } from "../../../src/daml-lf/model/daml-lf-field.js";
 import { DamlLfModule } from "../../../src/daml-lf/model/daml-lf-module.js";
 import { DamlLfPackage } from "../../../src/daml-lf/model/daml-lf-package.js";
+import { DamlLfTemplate } from "../../../src/daml-lf/model/daml-lf-template.js";
+import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "../../../src/daml-lf/model/daml-lf-value-definition.js";
 import { ModuleReference } from "../../../src/daml-lf/model/module-reference.js";
@@ -134,4 +136,89 @@ describe("DamlLfCompilation", () => {
             DamlLfResolutionException,
         );
     });
+
+    it("keeps an unresolved ContractId target opaque during compilation", () => {
+        expect(() => DamlLfCompilation.createOrThrow(
+            createContractIdTemplateWorkspace([
+                new DamlLfType({
+                    typeConReference: new TypeConReference({
+                        packageId: "missing-hash",
+                        moduleName: "Holding",
+                        name: "Holding",
+                    }),
+                }),
+            ]),
+        )).not.toThrow();
+    });
+
+    it.each([
+        { argumentCount: 0, typeArguments: [] },
+        {
+            argumentCount: 2,
+            typeArguments: [
+                new DamlLfType({
+                    typeConReference: new TypeConReference({
+                        packageId: "missing-hash",
+                        moduleName: "Holding",
+                        name: "Holding",
+                    }),
+                }),
+                new DamlLfType({ builtinType: DamlLfBuiltinType.text }),
+            ],
+        },
+    ])("rejects ContractId with $argumentCount type arguments", ({ typeArguments }) => {
+        expect(() => DamlLfCompilation.createOrThrow(
+            createContractIdTemplateWorkspace(typeArguments),
+        )).toThrow(/builtin 'contractId' requires 1 type argument/);
+    });
 });
+
+function createContractIdTemplateWorkspace(
+    typeArguments: readonly DamlLfType[],
+): DamlLfWorkspace {
+    const packageId = "consumer-hash";
+    const moduleName = "Consumer.Module";
+    const templateName = "Consumer";
+    const fields = [
+        new DamlLfField({
+            name: "holding",
+            type: new DamlLfType({
+                builtinType: DamlLfBuiltinType.contractId,
+                typeArguments,
+            }),
+        }),
+    ];
+
+    return new DamlLfWorkspace([
+        new DamlLfPackage({
+            packageId,
+            packageName: "consumer-package",
+            packageVersion: "1.0.0",
+            languageVersion: {
+                major: 2,
+                minor: "1",
+                patch: 0,
+                toString: () => "2.1",
+            },
+            modules: [
+                new DamlLfModule({
+                    name: moduleName,
+                    definitions: [
+                        new DamlLfDataType({ name: templateName, fields }),
+                        new DamlLfTemplate({
+                            templateId: new DamlLfTemplateId({
+                                packageId,
+                                moduleName,
+                                templateName,
+                            }),
+                            name: templateName,
+                            parameterName: "self",
+                            fields,
+                            choices: [],
+                        }),
+                    ],
+                }),
+            ],
+        }),
+    ]);
+}

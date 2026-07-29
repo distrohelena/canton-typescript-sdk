@@ -66,6 +66,32 @@ describe("DamlInterfaceAnalyzer", () => {
         );
     });
 
+    it("keeps unresolved ContractId targets opaque in analyzed templates", () => {
+        const compilation = createCompilation({
+            templateName: "TradeOrder",
+            fieldTypeFactory: () =>
+                new DamlLfType({
+                    builtinType: DamlLfBuiltinType.contractId,
+                    typeArguments: [
+                        new DamlLfType({
+                            typeConReference: new TypeConReference({
+                                packageId: "missing-hash",
+                                moduleName: "Holding",
+                                name: "Holding",
+                            }),
+                        }),
+                    ],
+                }),
+        });
+
+        const result = new DamlInterfaceAnalyzer().analyzeOrThrow(compilation);
+
+        expect(result.templates[0].createFields[0].type).toEqual({
+            kind: "contractId",
+        });
+        expect(result.typeDefinitions).toEqual([]);
+    });
+
     it("rejects numeric fields without a scale in their field context", () => {
         const compilation = createCompilation({
             templateName: "TradeOrder",
@@ -194,14 +220,6 @@ describe("DamlInterfaceAnalyzer", () => {
             kind: "list",
             element: {
                 kind: "contractId",
-                contract: {
-                    kind: "namedReference",
-                    identity: new TypeConReference({
-                        packageId: "sample-hash",
-                        moduleName: "Main",
-                        name: "TradeOrder",
-                    }),
-                },
             },
         });
         expect(template.createFields[7].type).toMatchObject({
@@ -331,7 +349,6 @@ describe("DamlInterfaceAnalyzer", () => {
         });
         expect(result.typeDefinitions.map((definition) => definition.identity.name).sort())
             .toEqual([
-                "TradeOrder",
                 "Settlement",
                 "Instruction",
                 "Status",

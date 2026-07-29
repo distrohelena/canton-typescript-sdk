@@ -152,11 +152,14 @@ describe("decodeDamlValue nested values and validation", () => {
 
         const enumeration = { kind: "enum", constructors: ["Open", "Closed"] } as const satisfies DamlTypeDescriptor;
 
-        const contractId = { kind: "contractId", contract: tradeDescriptor } as const satisfies DamlTypeDescriptor;
+        const contractId = { kind: "contractId" } as const satisfies DamlTypeDescriptor;
+
+        const legacyContractId = { kind: "contractId", contract: tradeDescriptor } as const satisfies DamlTypeDescriptor;
 
         expect(decodeDamlValue(json({ tag: "Owner", value: "Alice" }), variant, emptyRegistry, "Trade.role")).toEqual(new DamlVariant("Owner", new DamlParty("Alice")));
         expect(decodeDamlValue(json("Open"), enumeration, emptyRegistry, "Trade.status")).toEqual(new DamlEnum("Open"));
         expect(decodeDamlValue(json("#contract"), contractId, emptyRegistry, "Trade.id")).toBe("#contract");
+        expect(decodeDamlValue(json("#legacy-contract"), legacyContractId, emptyRegistry, "Trade.id")).toBe("#legacy-contract");
     });
 
     it("converts protobuf optionals, maps, labelled and positional records, variants, enums, and contract IDs", () => {
@@ -172,7 +175,7 @@ describe("decodeDamlValue nested values and validation", () => {
 
         const enumeration = { kind: "enum", constructors: ["Open"] } as const satisfies DamlTypeDescriptor;
 
-        const contractId = { kind: "contractId", contract: tradeDescriptor } as const satisfies DamlTypeDescriptor;
+        const contractId = { kind: "contractId" } as const satisfies DamlTypeDescriptor;
 
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "optional", optional: { value: Value.create({ sum: { oneofKind: "text", text: "memo" } }) } } })), optional, emptyRegistry, "Iou.memo")).toBe("memo");
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "optional", optional: {} } })), optional, emptyRegistry, "Iou.memo")).toBeUndefined();

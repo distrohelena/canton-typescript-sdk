@@ -17,7 +17,6 @@ export type AnalyzedDamlPrimitiveType = {
 
 export type AnalyzedDamlContractIdType = {
     readonly kind: "contractId";
-    readonly contract: AnalyzedDamlType;
 };
 
 export type AnalyzedDamlOptionalType = {

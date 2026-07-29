@@ -24,7 +24,7 @@ export type DamlPrimitiveDescriptor = {
 
 export type DamlContractIdDescriptor = {
     readonly kind: "contractId";
-    readonly contract: DamlTypeDescriptor;
+    readonly contract?: DamlTypeDescriptor;
 };
 
 export type DamlOptionalDescriptor = {
