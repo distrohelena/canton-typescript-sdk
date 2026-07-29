@@ -65,6 +65,10 @@ type RecognizedEvent = {
     readonly encoding: "protobuf" | "json";
 };
 
+const DAML_MIN_TIMESTAMP_SECONDS = -62135596800n;
+
+const DAML_MAX_TIMESTAMP_SECONDS = 253402300799n;
+
 /**
  * Recognizes a Ledger API create event, a contract response/wrapper, or a
  * PQS/JSON contract record and produces one immutable runtime shape.
@@ -448,11 +452,7 @@ function optionalCreatedAt(event: DamlJsonEventRecord, names: readonly string[],
     if (!property.found || property.value === null) {
         return undefined;
     } else if (property.value instanceof Date) {
-        if (Number.isNaN(property.value.getTime())) {
-            throw sourceError(path, "created at must be a valid timestamp");
-        }
-
-        return property.value.toISOString();
+        return canonicalDateTimestamp(property.value, path);
     } else if (typeof property.value === "string") {
         return canonicalIsoTimestamp(property.value, path);
     }
@@ -475,7 +475,9 @@ function canonicalIsoTimestamp(value: string, path: string): string {
         throw sourceError(path, "created at must be a valid timestamp");
     }
 
-    return `${match[1]}${match[2] === undefined ? "" : `.${match[2]}`}Z`;
+    requireLedgerTimestampSeconds(BigInt(Math.floor(date.getTime() / 1000)), path);
+
+    return `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z`;
 }
 
 function canonicalProtobufTimestamp(value: unknown, path: string): string {
@@ -489,13 +491,11 @@ function canonicalProtobufTimestamp(value: unknown, path: string): string {
         throw sourceError(path, "created at must be a valid timestamp");
     }
 
-    const milliseconds = BigInt(seconds) * 1000n;
+    const secondsValue = BigInt(seconds);
 
-    if (milliseconds < BigInt(-8640000000000000) || milliseconds > BigInt(8640000000000000)) {
-        throw sourceError(path, "created at must be a valid timestamp");
-    }
+    requireLedgerTimestampSeconds(secondsValue, path);
 
-    const date = new Date(Number(milliseconds));
+    const date = new Date(Number(secondsValue * 1000n));
 
     if (Number.isNaN(date.getTime())) {
         throw sourceError(path, "created at must be a valid timestamp");
@@ -503,9 +503,25 @@ function canonicalProtobufTimestamp(value: unknown, path: string): string {
 
     const base = date.toISOString().replace(".000Z", "");
 
-    const fraction = nanos.toString().padStart(9, "0").replace(/0+$/, "");
+    return `${base}.${nanos.toString().padStart(9, "0")}Z`;
+}
 
-    return `${base}${fraction.length === 0 ? "" : `.${fraction}`}Z`;
+function canonicalDateTimestamp(value: Date, path: string): string {
+    const milliseconds = value.getTime();
+
+    if (Number.isNaN(milliseconds)) {
+        throw sourceError(path, "created at must be a valid timestamp");
+    }
+
+    requireLedgerTimestampSeconds(BigInt(Math.floor(milliseconds / 1000)), path);
+
+    return value.toISOString().replace(/\.(\d{3})Z$/, (_match, milliseconds: string) => `.${milliseconds}000000Z`);
+}
+
+function requireLedgerTimestampSeconds(seconds: bigint, path: string): void {
+    if (seconds < DAML_MIN_TIMESTAMP_SECONDS || seconds > DAML_MAX_TIMESTAMP_SECONDS) {
+        throw sourceError(path, "created at must be within DAML timestamp bounds");
+    }
 }
 
 function readProperty(object: DamlJsonEventRecord, names: readonly string[]): { readonly found: boolean; readonly value?: unknown } {

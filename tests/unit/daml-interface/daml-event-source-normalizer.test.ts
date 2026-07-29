@@ -435,7 +435,7 @@ describe("canonical source isolation", () => {
 
         expect(canonicalPayload.nested.items[0]?.owner).toBe("Alice");
         expect(normalized.metadata.witnessParties).toEqual(["Alice"]);
-        expect(normalized.metadata.createdAt).toBe("2026-01-02T03:04:05.000Z");
+        expect(normalized.metadata.createdAt).toBe("2026-01-02T03:04:05.000000000Z");
         expect(Object.isFrozen(canonicalPayload)).toBe(true);
         expect(Object.isFrozen(canonicalPayload.nested)).toBe(true);
         expect(Object.isFrozen(canonicalPayload.nested.items)).toBe(true);
@@ -466,6 +466,71 @@ describe("canonical source isolation", () => {
         expect(Object.isFrozen(value.sum.record)).toBe(true);
         expect(Object.isFrozen(value.sum.record.fields)).toBe(true);
         expect(Object.isFrozen(value.sum.record.fields[0]?.value)).toBe(true);
+    });
+});
+
+describe("created-at canonicalization", () => {
+    it("uses one nine-digit UTC ISO representation for Date, JSON, and protobuf timestamps", () => {
+        const date = normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            createdAt: new Date("2026-01-02T03:04:05.123Z"),
+        });
+
+        const json = normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            createdAt: "2026-01-02T03:04:05.123Z",
+        });
+
+        const protobuf = normalizeDamlCreatedEventSource(CreatedEvent.create({
+            contractId: "#cid",
+            templateId,
+            createArguments: Record.create({ fields: [] }),
+            createdAt: { seconds: "1767323045", nanos: 123000000 },
+        }));
+
+        expect([date.metadata.createdAt, json.metadata.createdAt, protobuf.metadata.createdAt]).toEqual([
+            "2026-01-02T03:04:05.123000000Z",
+            "2026-01-02T03:04:05.123000000Z",
+            "2026-01-02T03:04:05.123000000Z",
+        ]);
+    });
+
+    it("accepts only ledger timestamp bounds across Date, JSON, and protobuf sources", () => {
+        expect(normalizeDamlCreatedEventSource({
+            contractId: "#min",
+            templateId,
+            payload: {},
+            createdAt: new Date(-62135596800000),
+        }).metadata.createdAt).toBe("0001-01-01T00:00:00.000000000Z");
+        expect(normalizeDamlCreatedEventSource({
+            contractId: "#max",
+            templateId,
+            payload: {},
+            createdAt: "9999-12-31T23:59:59.999999999Z",
+        }).metadata.createdAt).toBe("9999-12-31T23:59:59.999999999Z");
+        expect(normalizeDamlCreatedEventSource(CreatedEvent.create({
+            contractId: "#max",
+            templateId,
+            createArguments: Record.create({ fields: [] }),
+            createdAt: { seconds: "253402300799", nanos: 999999999 },
+        })).metadata.createdAt).toBe("9999-12-31T23:59:59.999999999Z");
+
+        for (const createdAt of [new Date(-62135596800001), new Date(253402300800000), "0000-01-01T00:00:00Z", "10000-01-01T00:00:00Z"]) {
+            expect(() => normalizeDamlCreatedEventSource({ contractId: "#invalid", templateId, payload: {}, createdAt })).toThrow(/created at/);
+        }
+
+        for (const seconds of ["-62135596801", "253402300800"]) {
+            expect(() => normalizeDamlCreatedEventSource(CreatedEvent.create({
+                contractId: "#invalid",
+                templateId,
+                createArguments: Record.create({ fields: [] }),
+                createdAt: { seconds, nanos: 0 },
+            }))).toThrow(/created at/);
+        }
     });
 });
 
