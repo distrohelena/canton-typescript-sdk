@@ -86,4 +86,36 @@ describe("ProjectEmitter", () => {
 
         expect(nodeTypes?.path.replace(/\/types\.ts$/, "")).toBe(templateDirectory);
     });
+
+    it("reserves types.ts for named declarations when a template is named Types", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Types",
+            }),
+            className: "Types",
+            fileName: "types.ts",
+            createFields: [],
+            choices: [],
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [template],
+            typeDefinitions: [{
+                identity: new TypeConReference({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    name: "Node",
+                }),
+                kind: "record",
+                fields: [],
+            }],
+        }));
+
+        expect(project.templateFiles[0].path).toBe("generated/packages/sample-hash/main/types-template.ts");
+        expect(project.namedTypeFiles[0].path).toBe("generated/packages/sample-hash/main/types.ts");
+        expect(project.supportFiles.find((file) => file.path === "generated/support/runtime.ts")?.contents)
+            .toContain("DamlUnit");
+    });
 });

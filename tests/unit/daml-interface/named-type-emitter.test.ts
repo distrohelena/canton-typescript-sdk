@@ -52,13 +52,17 @@ describe("NamedTypeEmitter", () => {
                     damlLabel: "owner",
                     propertyName: "owner",
                     type: { kind: "primitive", builtinType: DamlLfBuiltinType.party },
+                }, {
+                    damlLabel: "marker",
+                    propertyName: "marker",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.unit },
                 }],
             },
             { identity: identity("same-value"), kind: "record", fields: [] },
             { identity: identity("same_value"), kind: "record", fields: [] },
         ])[0];
 
-        expect(file.contents).toContain('import type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp } from "../../../support/runtime.js";');
+        expect(file.contents).toContain('import type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit } from "../../../support/runtime.js";');
         expect(file.contents).toContain("export interface _9Value {");
         expect(file.contents).toMatch(/export interface SameValue_[a-z0-9]+/);
         expect(file.contents).not.toMatch(/export interface SameValue-[a-z0-9]+/);
@@ -66,6 +70,7 @@ describe("NamedTypeEmitter", () => {
         expect(file.contents).toContain("readonly time: DamlTimestamp;");
         expect(file.contents).toContain("readonly amount: DamlNumeric;");
         expect(file.contents).toContain("readonly owner: DamlParty;");
+        expect(file.contents).toContain("readonly marker: DamlUnit;");
     });
 });
 

@@ -555,7 +555,9 @@ export class TypeScriptNameResolver {
     private getTemplateFileBaseName(template: AnalyzedTemplate): string {
         const fileName = this.toKebabCase(template.templateId.templateName);
 
-        return fileName === "index" ? "index-template" : fileName;
+        return fileName === "index" || fileName === "types"
+            ? `${fileName}-template`
+            : fileName;
     }
 
     private getPackageModuleIdentityKey(template: AnalyzedTemplate): string {

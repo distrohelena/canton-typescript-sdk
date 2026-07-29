@@ -23,7 +23,7 @@ export class SupportFileEmitter {
             new GeneratedSupportFile({
                 path: "generated/support/runtime.ts",
                 contents: [
-                    'export type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+                    'export type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',
                     "",
                 ].join("\n"),
             }),

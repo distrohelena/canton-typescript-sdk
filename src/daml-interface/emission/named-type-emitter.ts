@@ -218,7 +218,7 @@ export class NamedTypeEmitter {
     private getPrimitiveTypeName(type: DamlLfBuiltinType): string {
         switch (type) {
             case DamlLfBuiltinType.unit:
-                return "undefined";
+                return "DamlUnit";
             case DamlLfBuiltinType.bool:
                 return "boolean";
             case DamlLfBuiltinType.int64:
