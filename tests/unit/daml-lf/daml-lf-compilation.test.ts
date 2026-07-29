@@ -137,6 +137,64 @@ describe("DamlLfCompilation", () => {
         );
     });
 
+    it("indexes an unused data type with a missing external direct reference for template generation", () => {
+        const packageId = "consumer-hash";
+
+        const moduleName = "Consumer.Module";
+
+        const typeName = "UnusedExternalReference";
+
+        const workspace = createWorkspaceWithUnusedDefinition(
+            new DamlLfDataType({
+                name: typeName,
+                fields: [
+                    new DamlLfField({
+                        name: "missing",
+                        type: createMissingExternalType(),
+                    }),
+                ],
+            }),
+        );
+
+        expect(() => DamlLfCompilation.createOrThrow(workspace)).toThrow(
+            DamlLfResolutionException,
+        );
+
+        const compilation = DamlLfCompilation.createForTemplateGeneration(
+            workspace,
+        );
+
+        expect(compilation.getTypeSymbolOrThrow(new TypeConReference({
+            packageId,
+            moduleName,
+            name: typeName,
+        })).definition.name).toBe(typeName);
+    });
+
+    it("indexes an unused value definition with a missing external direct reference for template generation", () => {
+        const workspace = createWorkspaceWithUnusedDefinition(
+            new DamlLfValueDefinition({
+                name: "unusedExternalReference",
+                type: createMissingExternalType(),
+                expression: new DamlLfExpression({}),
+            }),
+        );
+
+        expect(() => DamlLfCompilation.createOrThrow(workspace)).toThrow(
+            DamlLfResolutionException,
+        );
+
+        const compilation = DamlLfCompilation.createForTemplateGeneration(
+            workspace,
+        );
+
+        expect(compilation.getValueDefinitionOrThrow(
+            "consumer-hash",
+            "Consumer.Module",
+            "unusedExternalReference",
+        ).name).toBe("unusedExternalReference");
+    });
+
     it("keeps an unresolved ContractId target opaque during compilation", () => {
         expect(() => DamlLfCompilation.createOrThrow(
             createContractIdTemplateWorkspace([
@@ -224,4 +282,38 @@ function createContractIdTemplateWorkspace(
             ],
         }),
     ]);
+}
+
+function createWorkspaceWithUnusedDefinition(
+    definition: DamlLfDataType | DamlLfValueDefinition,
+): DamlLfWorkspace {
+    return new DamlLfWorkspace([
+        new DamlLfPackage({
+            packageId: "consumer-hash",
+            packageName: "consumer-package",
+            packageVersion: "1.0.0",
+            languageVersion: {
+                major: 2,
+                minor: "1",
+                patch: 0,
+                toString: () => "2.1",
+            },
+            modules: [
+                new DamlLfModule({
+                    name: "Consumer.Module",
+                    definitions: [definition],
+                }),
+            ],
+        }),
+    ]);
+}
+
+function createMissingExternalType(): DamlLfType {
+    return new DamlLfType({
+        typeConReference: new TypeConReference({
+            packageId: "missing-hash",
+            moduleName: "Missing.Module",
+            name: "MissingType",
+        }),
+    });
 }

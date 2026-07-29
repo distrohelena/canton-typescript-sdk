@@ -42,6 +42,16 @@ export class DamlLfCompilation {
         return compilation;
     }
 
+    public static createForTemplateGeneration(
+        workspace: DamlLfWorkspace,
+    ): DamlLfCompilation {
+        const compilation = new DamlLfCompilation(workspace);
+
+        compilation.buildIndexes();
+
+        return compilation;
+    }
+
     public getModuleSymbolOrThrow(reference: ModuleReference): ModuleSymbol {
         const symbol = this.moduleSymbols.get(
             DamlLfCompilation.createModuleKey(
