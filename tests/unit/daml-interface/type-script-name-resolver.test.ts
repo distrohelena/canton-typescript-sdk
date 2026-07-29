@@ -58,7 +58,7 @@ describe("TypeScriptNameResolver", () => {
                 "trade_owner",
             ]);
             expect(file.binding.createFields.map((field) => field.propertyName))
-                .not.toContain("get");
+                .toContain("get");
             expect(file.binding.createFields.map((field) => field.propertyName))
                 .not.toContain("contractId");
             expect(file.binding.createFields.map((field) => field.propertyName))
@@ -84,6 +84,10 @@ describe("TypeScriptNameResolver", () => {
                 .toBe(file.binding.choices.length);
             expect(new Set(file.binding.choices.map((choice) => choice.exercisedEventTypeName)).size)
                 .toBe(file.binding.choices.length);
+            expect(file.binding.choices.find((choice) => choice.name === "get")?.parameterName)
+                .toBe("get");
+            expect(file.binding.choices.map((choice) => choice.parameterName))
+                .not.toContain("contractId");
             expect(file.binding.choices.map((choice) => choice.parameterName))
                 .not.toContain("constructor");
             expect(file.binding.choices.map((choice) => choice.parameterName))

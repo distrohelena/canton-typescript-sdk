@@ -474,7 +474,7 @@ await writer.writeProjectAsync(project, "./generated-sdk");
 
 The generated root index exports one namespace for every package/module pair.
 Use the generated template class to materialize a contract from the Ledger API,
-PQS, or an equivalent JSON event envelope. `get()` returns the contract ID.
+PQS, or an equivalent JSON event envelope. `contractId` returns the contract ID.
 
 ```ts
 import { GeneratedRegistry, MyPackageMain } from "./generated/index.js";
@@ -483,7 +483,7 @@ const iou = MyPackageMain.Iou.fromCreatedEvent(
     await client.contractService.getContractAsync({ contractId: "#iou" }),
 );
 
-console.log(iou.get());
+console.log(iou.contractId);
 console.log(iou.owner);
 ```
 

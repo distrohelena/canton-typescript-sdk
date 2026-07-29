@@ -130,7 +130,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 1: Write failing unit tests for the base class and primitive conversion from both value encodings.**
 
-  Assert `new DamlTemplate("cid").get()` returns `cid` without exposing a mutable contract-ID field. For both protobuf `Value` and equivalent already-decoded JSON/PQS payloads, assert: `int64` becomes `bigint`; `numeric` becomes `new DamlNumeric(value)`; `party` becomes `new DamlParty(value)`; dates become `DamlDate`; timestamps become `DamlTimestamp`; and unit becomes `DamlUnit` according to the descriptor.
+  Assert `new DamlTemplate("cid").contractId` returns `cid` without exposing a mutable contract-ID field. For both protobuf `Value` and equivalent already-decoded JSON/PQS payloads, assert: `int64` becomes `bigint`; `numeric` becomes `new DamlNumeric(value)`; `party` becomes `new DamlParty(value)`; dates become `DamlDate`; timestamps become `DamlTimestamp`; and unit becomes `DamlUnit` according to the descriptor.
 
 - [ ] **Step 2: Add failing nested conversion and mismatch cases.**
 
@@ -144,7 +144,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 4: Implement descriptor types and `DamlTemplate`.**
 
-  `DamlTemplate` must have only `#contractId`, a constructor receiving it, and `get(): string`. Export descriptor and materialization-error types from the `daml-interface` subpath. Reuse the existing root SDK value classes: `DamlNumeric`, `DamlParty`, `DamlDate`, `DamlTimestamp`, `DamlUnit`, `DamlRecord`, `DamlVariant`, `DamlEnum`, `DamlTextMap`, and `DamlGenMap`; do not introduce duplicate parallel values.
+  `DamlTemplate` must have only `#contractId`, a constructor receiving it, and a readonly `contractId: string` property. Export descriptor and materialization-error types from the `daml-interface` subpath. Reuse the existing root SDK value classes: `DamlNumeric`, `DamlParty`, `DamlDate`, `DamlTimestamp`, `DamlUnit`, `DamlRecord`, `DamlVariant`, `DamlEnum`, `DamlTextMap`, and `DamlGenMap`; do not introduce duplicate parallel values.
 
 - [ ] **Step 5: Implement recursive protobuf and JSON/PQS value decoding.**
 
@@ -372,7 +372,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 1: Expand the archive fixture and write materialization tests.**
 
-  Use a template with nested record/list/optional values and multiple choices. Generate its project into a temporary directory, then import the generated ESM module. Materialize the same contract from raw gRPC `CreatedEvent`, `GetContractResponse`, PQS `ContractResult`, and a JSON envelope; assert equal generated fields and `get()` contract ID. Materialize each exercise form and assert the exact generated choice-event class.
+  Use a template with nested record/list/optional values and multiple choices. Generate its project into a temporary directory, then import the generated ESM module. Materialize the same contract from raw gRPC `CreatedEvent`, `GetContractResponse`, PQS `ContractResult`, and a JSON envelope; assert equal generated fields and `contractId`. Materialize each exercise form and assert the exact generated choice-event class.
 
 - [ ] **Step 2: Write collision-project and typecheck tests.**
 
@@ -390,7 +390,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 5: Update user documentation.**
 
-  Replace static-helper examples with a generated-class example showing `Template.fromCreatedEvent(await client.contractService.getContractAsync(...))`, `get()`, the full-identity registry, and a typed exercised-event result. State that generated projects depend on the SDK `./daml-interface` runtime subpath.
+  Replace static-helper examples with a generated-class example showing `Template.fromCreatedEvent(await client.contractService.getContractAsync(...))`, `contractId`, the full-identity registry, and a typed exercised-event result. State that generated projects depend on the SDK `./daml-interface` runtime subpath.
 
 - [ ] **Step 6: Run integration tests.**
 

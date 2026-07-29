@@ -15,7 +15,7 @@ The generated project contains a small support runtime plus one module per
 DAML template.
 
 `DamlTemplate` owns only a private contract ID. Its constructor receives the
-ID and `get(): string` returns it.
+ID and exposes it through `readonly contractId: string`.
 
 For every DAML template, the generator emits:
 
@@ -102,8 +102,8 @@ Collision prevention is a correctness requirement.
   flat `export *` re-exports, so two `Iou` templates can coexist.
 - DAML field and choice labels remain the ledger-decoding keys. Their generated
   TypeScript property names are escaped or deterministically suffixed when
-  they conflict with a keyword, `DamlTemplate` member (`get` or `contractId`),
-  or a previously normalized sibling name.
+  they conflict with a keyword, the `DamlTemplate` `contractId` member, or a
+  previously normalized sibling name.
 - Before emitting files, the generator validates every generated path,
   namespace, class name, interface name, choice event class, constructor
   parameter, and property name across the full analysis set. Any unresolved

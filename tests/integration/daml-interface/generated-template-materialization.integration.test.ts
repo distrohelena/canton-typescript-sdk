@@ -54,7 +54,7 @@ describe("generated DAML template materialization", () => {
             ];
 
             expect(materialized.map((iou) => ({
-                contractId: iou.get(),
+                contractId: iou.contractId,
                 issuer: iou.issuer,
                 details: iou.details,
                 tags: iou.tags,
@@ -221,7 +221,7 @@ interface GeneratedIouModule {
 }
 
 interface GeneratedIou {
-    get(): string;
+    readonly contractId: string;
     readonly issuer: string;
     readonly details: { readonly owner: string; readonly reference: string };
     readonly tags: readonly string[];

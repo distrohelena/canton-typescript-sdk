@@ -27,8 +27,10 @@ describe("generated DAML project NodeNext compilation", () => {
                 "    templateId: { packageId: \"sample-hash\", moduleName: \"Sample.Second\", entityName: \"Iou\" },",
                 "    payload: { get: \"second\", contractId: \"second-id\", constructor: \"second-constructor\" },",
                 "});",
-                "void first.get();",
-                "void second.get();",
+                "void first.get;",
+                "void second.get;",
+                "void first.contractId;",
+                "void second.contractId;",
                 "",
             ].join("\n");
 
@@ -41,8 +43,13 @@ describe("generated DAML project NodeNext compilation", () => {
                 expect(compiledProject.project.indexFile?.contents).toContain(
                     `export * as ${first!.binding.namespaceAlias}`,
                 );
-                expect(compiledProject.project.templateFiles.map((file) => file.contents).join("\n"))
-                    .not.toMatch(/readonly (get|contractId|constructor):/);
+
+                const emittedSource = compiledProject.project.templateFiles
+                    .map((file) => file.contents)
+                    .join("\n");
+
+                expect(emittedSource).toContain("readonly get: string;");
+                expect(emittedSource).not.toMatch(/readonly (contractId|constructor):/);
             } finally {
                 await compiledProject.disposeAsync();
             }
