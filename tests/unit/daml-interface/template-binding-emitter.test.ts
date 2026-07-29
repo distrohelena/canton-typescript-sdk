@@ -53,7 +53,7 @@ describe("TemplateBindingEmitter", () => {
         const file = new TemplateBindingEmitter().emitTemplateFile(template);
 
         expect(file.path).toBe("generated/packages/sample-hash/main/iou.ts");
-        expect(file.contents).toContain('import { DamlTemplate, decodeDamlValue, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";');
+        expect(file.contents).toContain('import { DamlMaterializationError, DamlTemplate, decodeDamlValue, materializeDamlValue, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";');
         expect(file.contents).toContain('import { generatedDamlTypeDescriptorRegistry } from "../../../support/descriptors.js";');
         expect(file.contents).toContain("export interface IouFields");
         expect(file.contents).toContain("export class Iou extends DamlTemplate implements IouFields");
@@ -68,10 +68,13 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).toContain("public readonly result: string;");
         expect(file.contents).toContain("public readonly consuming: boolean;");
         expect(file.contents).toContain("public readonly metadata: DamlExercisedEventMetadata;");
+        expect(file.contents).toContain("materializeDamlValue<IouFields>(decodeDamlValue(");
+        expect(file.contents).toContain("throw new DamlMaterializationError(\"choice\"");
         expect(file.contents).toContain('private static readonly descriptor: DamlTypeDescriptor = { kind: "record", fields: [{ damlLabel: "issuer", propertyName: "issuer", type: { kind: "primitive", primitive: "text" } }, { damlLabel: "owner", propertyName: "owner", type: { kind: "primitive", primitive: "text" } }] };');
         expect(file.contents).not.toContain("public static create(");
         expect(file.contents).not.toContain("public static exerciseTransfer(");
         expect(file.contents).not.toContain("public static decodeCreatedEvent(");
         expect(file.contents).not.toContain("public static decodeExercisedEvent(");
+        expect(file.contents).not.toContain("as IouFields");
     });
 });

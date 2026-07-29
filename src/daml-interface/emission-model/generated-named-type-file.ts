@@ -6,6 +6,8 @@ export class GeneratedNamedTypeFile {
     public readonly moduleName: string;
     public readonly namespaceAlias: string;
     public readonly exportedTypeNames: readonly string[];
+    /** Resolved exported type names keyed by package, module, and DAML entity name. */
+    public readonly exportedTypeNamesByIdentity: ReadonlyMap<string, string>;
     /** Resolved record property names keyed by named type identity, field label, and position. */
     public readonly fieldPropertyNames: ReadonlyMap<string, string>;
 
@@ -16,6 +18,7 @@ export class GeneratedNamedTypeFile {
         moduleName: string;
         namespaceAlias: string;
         exportedTypeNames: readonly string[];
+        exportedTypeNamesByIdentity?: ReadonlyMap<string, string>;
         fieldPropertyNames?: ReadonlyMap<string, string>;
     }) {
         this.path = init.path;
@@ -24,6 +27,7 @@ export class GeneratedNamedTypeFile {
         this.moduleName = init.moduleName;
         this.namespaceAlias = init.namespaceAlias;
         this.exportedTypeNames = init.exportedTypeNames;
+        this.exportedTypeNamesByIdentity = init.exportedTypeNamesByIdentity ?? new Map();
         this.fieldPropertyNames = init.fieldPropertyNames ?? new Map();
     }
 }

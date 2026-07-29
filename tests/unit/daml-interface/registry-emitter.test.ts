@@ -5,7 +5,7 @@ import { GeneratedTemplateBindingFile } from "../../../src/daml-interface/emissi
 import { RegistryEmitter } from "../../../src/daml-interface/emission/registry-emitter.js";
 
 describe("RegistryEmitter", () => {
-    it("emits a registry file that can dispatch created and exercised events", () => {
+    it("emits a canonical registry that dispatches event sources by their full identity", () => {
         const templateFile = new GeneratedTemplateBindingFile({
             path: "generated/main/iou.ts",
             contents: "export class Iou {}",
@@ -27,10 +27,16 @@ describe("RegistryEmitter", () => {
         const registryFile = new RegistryEmitter().emitRegistry(project);
 
         expect(registryFile.path).toBe("generated/registry.ts");
-        expect(registryFile.contents).toContain("decodeCreatedEvent");
-        expect(registryFile.contents).toContain("decodeExercisedEvent");
-        expect(registryFile.contents).toContain("templateId");
+        expect(registryFile.contents).toContain("fromCreatedEvent(event: DamlCreatedEventSource)");
+        expect(registryFile.contents).toContain("fromExercisedEvent(event: DamlExercisedEventSource)");
+        expect(registryFile.contents).toContain("normalizeDamlCreatedEventSource(event)");
+        expect(registryFile.contents).toContain("normalizeDamlExercisedEventSource(event)");
+        expect(registryFile.contents).toContain("DamlMaterializationError");
         expect(registryFile.contents).toContain('sample-hash:Main:Iou');
+        expect(registryFile.contents).not.toContain("decodeCreatedEvent");
+        expect(registryFile.contents).not.toContain("decodeExercisedEvent");
+        expect(registryFile.contents).not.toContain("templateId: string");
+        expect(registryFile.contents).not.toContain("return event;");
     });
 
     it("dispatches same module/entity templates from separate packages by full identity", () => {

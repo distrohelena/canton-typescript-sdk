@@ -15,6 +15,7 @@ export { DamlInterfaceWriter } from "./writing/daml-interface-writer.js";
 export { DamlTemplate } from "./runtime/daml-template.js";
 export { DamlMaterializationError } from "./runtime/daml-materialization-error.js";
 export { decodeDamlValue } from "./runtime/daml-value-converter.js";
+export { materializeDamlValue } from "./runtime/daml-value-materializer.js";
 export {
     normalizeDamlCreatedEventSource,
     normalizeDamlExercisedEventSource,

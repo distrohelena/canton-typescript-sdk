@@ -14,40 +14,48 @@ export class RegistryEmitter {
             return `import { ${file.binding.className} } from "${modulePath}";`;
         });
 
-        const createdCases = project.templateFiles.map(
-            (file) =>
-                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.fromCreatedEvent(event as never);`,
-        );
+        const createdCases = this.emitCases(project, "fromCreatedEvent");
 
-        const exercisedCases = project.templateFiles.map(
-            (file) =>
-                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.fromExercisedEvent(event as never);`,
-        );
+        const exercisedCases = this.emitCases(project, "fromExercisedEvent");
 
         return new GeneratedRegistryFile({
             path: "generated/registry.ts",
             contents: [
+                'import { DamlMaterializationError, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+                'import type { DamlCreatedEventSource, DamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";',
                 ...importLines,
                 "",
                 "export class GeneratedRegistry {",
-                "    public static decodeCreatedEvent(templateId: string, event: unknown): unknown {",
-                "        switch (templateId) {",
+                "    public static fromCreatedEvent(event: DamlCreatedEventSource): unknown {",
+                "        const normalized = normalizeDamlCreatedEventSource(event);",
+                "        switch (`${normalized.metadata.templateId.packageId}:${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
                 ...createdCases,
                 "            default:",
-                "                return event;",
+                "                throw new DamlMaterializationError(\"template ID\", \"no generated template binding matches the created event\");",
                 "        }",
                 "    }",
                 "",
-                "    public static decodeExercisedEvent(templateId: string, event: unknown): unknown {",
-                "        switch (templateId) {",
+                "    public static fromExercisedEvent(event: DamlExercisedEventSource): unknown {",
+                "        const normalized = normalizeDamlExercisedEventSource(event);",
+                "        switch (`${normalized.metadata.templateId.packageId}:${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
                 ...exercisedCases,
                 "            default:",
-                "                return event;",
+                "                throw new DamlMaterializationError(\"template ID\", \"no generated template binding matches the exercised event\");",
                 "        }",
                 "    }",
                 "}",
                 "",
             ].join("\n"),
         });
+    }
+
+    private emitCases(
+        project: GeneratedDamlInterfaceProject,
+        methodName: "fromCreatedEvent" | "fromExercisedEvent",
+    ): readonly string[] {
+        return project.templateFiles.map(
+            (file) =>
+                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.${methodName}(event);`,
+        );
     }
 }

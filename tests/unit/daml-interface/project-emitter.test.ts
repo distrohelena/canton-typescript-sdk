@@ -194,6 +194,41 @@ describe("ProjectEmitter", () => {
         }
     });
 
+    it("imports named declarations by their resolved export name and a collision-safe alias", () => {
+        const identity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "Node",
+        });
+
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Node",
+            }),
+            className: "Node",
+            fileName: "node.ts",
+            createFields: [{
+                name: "next",
+                propertyName: "next",
+                type: { kind: "namedReference", identity },
+            }],
+            choices: [],
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [template],
+            typeDefinitions: [{ identity, kind: "record", fields: [] }],
+        }));
+
+        const binding = project.templateFiles[0].contents;
+
+        expect(binding).toContain('import type { NodeType as SampleHashMainNodeType } from "./types.js";');
+        expect(binding).toContain("readonly next: SampleHashMainNodeType;");
+        expect(binding).not.toContain("readonly next: Node;");
+    });
+
     it("uses deterministic distinct record field aliases in declarations and descriptors", () => {
         const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
             templates: [],
@@ -242,6 +277,7 @@ async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void>
     }));
     await writeFile(join(packageDirectory, "daml-interface.d.ts"), [
         "export declare class DamlTemplate { constructor(contractId: string); }",
+        "export declare class DamlMaterializationError extends Error { constructor(path: string, detail: string); }",
         "export declare class DamlUnit {}",
         "export type DamlDate = unknown;",
         "export type DamlNumeric = unknown;",
@@ -255,6 +291,7 @@ async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void>
         "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string; };",
         "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined; };",
         "export declare function decodeDamlValue(...args: readonly unknown[]): unknown;",
+        "export declare function materializeDamlValue<T>(value: unknown): T;",
         "export declare function normalizeDamlCreatedEventSource(source: unknown): any;",
         "export declare function normalizeDamlExercisedEventSource(source: unknown): any;",
         "",

@@ -93,6 +93,14 @@ export class NamedTypeEmitter {
                 namespaceAlias: module.namespaceAlias,
                 exportedTypeNames: moduleDefinitions.map((definition) =>
                     this.getDefinitionName(definition, names)),
+                exportedTypeNamesByIdentity: new Map(moduleDefinitions.map((definition) => [
+                    this.getDefinitionKey(
+                        definition.identity.packageId,
+                        definition.identity.moduleName,
+                        definition.identity.name,
+                    ),
+                    this.getDefinitionName(definition, names),
+                ])),
                 fieldPropertyNames: new Map([...fieldPropertyNames.entries()].filter(([key]) =>
                     key.startsWith(`${module.key}\u0000`))),
             });

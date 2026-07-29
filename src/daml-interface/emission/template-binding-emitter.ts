@@ -3,6 +3,7 @@ import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 import { AnalyzedTemplate } from "../analysis/analyzed-template.js";
 import { GeneratedChoiceBinding } from "../emission-model/generated-choice-binding.js";
+import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import {
     GeneratedTemplateBinding,
     GeneratedTemplateBindingField,
@@ -11,6 +12,12 @@ import { GeneratedTemplateBindingFile } from "../emission-model/generated-templa
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
 
 type NamedReference = Extract<AnalyzedDamlType, { readonly kind: "namedReference" }>;
+
+type ResolvedNamedReference = {
+    readonly path: string;
+    readonly exportedName: string;
+    readonly alias: string;
+};
 
 /** Emits typed contract and exercise-event bindings for analyzed DAML templates. */
 export class TemplateBindingEmitter {
@@ -26,17 +33,38 @@ export class TemplateBindingEmitter {
     }
 
     /** Emits a generated TypeScript file for one analyzed DAML template. */
-    public emitTemplateFile(template: AnalyzedTemplate): GeneratedTemplateBindingFile {
-        const binding = this.createBinding(template);
+    public emitTemplateFile(
+        template: AnalyzedTemplate,
+        namedTypeFiles: readonly GeneratedNamedTypeFile[] = [],
+    ): GeneratedTemplateBindingFile {
+        const namedReferences = this.resolveNamedReferences(template, namedTypeFiles);
+
+        const binding = this.createBinding(template, namedReferences);
 
         return new GeneratedTemplateBindingFile({
             path: binding.path,
-            contents: this.emitContents(binding),
+            contents: this.emitContents(binding, namedReferences),
             binding,
         });
     }
 
-    private createBinding(template: AnalyzedTemplate): GeneratedTemplateBinding {
+    /** Emits binding metadata without source, for resolving named declaration exports first. */
+    public emitTemplateBindingFile(template: AnalyzedTemplate): GeneratedTemplateBindingFile {
+        const namedReferences = this.resolveNamedReferences(template, []);
+
+        const binding = this.createBinding(template, namedReferences);
+
+        return new GeneratedTemplateBindingFile({
+            path: binding.path,
+            contents: "",
+            binding,
+        });
+    }
+
+    private createBinding(
+        template: AnalyzedTemplate,
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+    ): GeneratedTemplateBinding {
         return new GeneratedTemplateBinding({
             templateIdentityKey: this.nameResolver.getTemplateIdentityKey(template),
             namespaceAlias: this.nameResolver.getNamespaceAlias(template),
@@ -51,7 +79,7 @@ export class TemplateBindingEmitter {
                     propertyName: this.nameResolver.getFieldPropertyName(template, field),
                     constructorParameterName: this.nameResolver.getFieldConstructorParameterName(template, field),
                     type: this.normalizeType(field.type),
-                    typeName: this.getTypeName(this.normalizeType(field.type), template),
+                    typeName: this.getTypeName(this.normalizeType(field.type), namedReferences),
                 })),
             choices: template.choices.map((choice) =>
                 new GeneratedChoiceBinding({
@@ -62,17 +90,18 @@ export class TemplateBindingEmitter {
                     exercisedEventTypeName: this.nameResolver.getExercisedEventTypeName(template, choice),
                     parameterName: this.nameResolver.getChoiceParameterName(template, choice),
                     parameterType: this.normalizeType(choice.parameterType),
-                    parameterTypeName: this.getTypeName(this.normalizeType(choice.parameterType), template),
+                    parameterTypeName: this.getTypeName(this.normalizeType(choice.parameterType), namedReferences),
                     returnType: this.normalizeType(choice.returnType),
-                    returnTypeName: this.getTypeName(this.normalizeType(choice.returnType), template),
+                    returnTypeName: this.getTypeName(this.normalizeType(choice.returnType), namedReferences),
                 })),
         });
     }
 
-    private emitContents(binding: GeneratedTemplateBinding): string {
-        const references = [...this.getNamedReferences(binding)];
-
-        const imports = this.emitImports(binding, references);
+    private emitContents(
+        binding: GeneratedTemplateBinding,
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+    ): string {
+        const imports = this.emitImports(binding, namedReferences);
 
         const fields = binding.createFields.map((field) =>
             `    readonly ${field.propertyName}: ${field.typeName};`);
@@ -107,26 +136,19 @@ export class TemplateBindingEmitter {
 
     private emitImports(
         binding: GeneratedTemplateBinding,
-        references: readonly NamedReference[],
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
     ): readonly string[] {
         const namedImports = new Map<string, Map<string, string>>();
 
-        for (const reference of references) {
-            const identity = reference.identity;
+        for (const reference of namedReferences.values()) {
+            const imported = namedImports.get(reference.path) ?? new Map<string, string>();
 
-            const path = this.relativeFilePath(
-                binding.path,
-                `${this.nameResolver.getNamedTypeModuleDirectoryPath(identity.packageId, identity.moduleName)}/types.ts`,
-            );
-
-            const imported = namedImports.get(path) ?? new Map<string, string>();
-
-            imported.set(identity.name, this.namedReferenceAlias(identity));
-            namedImports.set(path, imported);
+            imported.set(reference.exportedName, reference.alias);
+            namedImports.set(reference.path, imported);
         }
 
         return [
-            'import { DamlTemplate, decodeDamlValue, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+            'import { DamlMaterializationError, DamlTemplate, decodeDamlValue, materializeDamlValue, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";',
             'import type { DamlCreatedEventSource, DamlDate, DamlExercisedEventMetadata, DamlExercisedEventSource, DamlNormalizedExercisedEvent, DamlNumeric, DamlParty, DamlTimestamp, DamlTypeDescriptor, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',
             `import { generatedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
@@ -156,7 +178,7 @@ export class TemplateBindingEmitter {
             `    public static fromCreatedEvent(event: DamlCreatedEventSource): ${binding.className} {`,
             "        const normalized = normalizeDamlCreatedEventSource(event);",
             `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
-            `        const fields = decodeDamlValue(normalized.payload, ${binding.className}.descriptor, generatedDamlTypeDescriptorRegistry, "create arguments") as { readonly fields: ${binding.createFieldsTypeName} };`,
+            `        const fields = materializeDamlValue<${binding.createFieldsTypeName}>(decodeDamlValue(normalized.payload, ${binding.className}.descriptor, generatedDamlTypeDescriptorRegistry, "create arguments"));`,
             `        return new ${binding.className}(`,
             "            normalized.contractId,",
             ...orderedArguments,
@@ -169,7 +191,7 @@ export class TemplateBindingEmitter {
             "        switch (normalized.choice) {",
             ...binding.choices.map((choice) => `            case ${JSON.stringify(choice.name)}:\n                return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`),
             "            default:",
-            `                throw new Error(\`Unexpected choice '\${normalized.choice}' for template '${binding.templateIdLiteral}'\`);`,
+            `                throw new DamlMaterializationError("choice", \`Unexpected choice '\${normalized.choice}' for template '${binding.templateIdLiteral}'\`);`,
             "        }",
             "    }",
             "",
@@ -210,10 +232,10 @@ export class TemplateBindingEmitter {
             "",
             `    public static fromNormalizedEvent(event: DamlNormalizedExercisedEvent): ${choice.exercisedEventTypeName} {`,
             `        if (event.choice !== ${JSON.stringify(choice.name)}) {`,
-            `            throw new Error(\`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
+            `            throw new DamlMaterializationError("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
             "        }",
-            `        const argument = decodeDamlValue(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, generatedDamlTypeDescriptorRegistry, "choice argument") as ${choice.parameterTypeName};`,
-            `        const result = decodeDamlValue(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, generatedDamlTypeDescriptorRegistry, "exercise result") as ${choice.returnTypeName};`,
+            `        const argument = materializeDamlValue<${choice.parameterTypeName}>(decodeDamlValue(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, generatedDamlTypeDescriptorRegistry, "choice argument"));`,
+            `        const result = materializeDamlValue<${choice.returnTypeName}>(decodeDamlValue(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, generatedDamlTypeDescriptorRegistry, "exercise result"));`,
             `        return new ${choice.exercisedEventTypeName}(event.contractId, argument, result, event.consuming, event.metadata);`,
             "    }",
             "}",
@@ -250,28 +272,29 @@ export class TemplateBindingEmitter {
         }
     }
 
-    private getTypeName(type: AnalyzedDamlType, template: AnalyzedTemplate): string {
+    private getTypeName(
+        type: AnalyzedDamlType,
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+    ): string {
         switch (type.kind) {
             case "primitive":
                 return this.getPrimitiveTypeName(type.builtinType);
             case "contractId":
                 return "string";
             case "optional":
-                return `${this.getTypeName(type.element, template)} | undefined`;
+                return `${this.getTypeName(type.element, namedReferences)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, template)}[]`;
+                return `readonly ${this.getTypeName(type.element, namedReferences)}[]`;
             case "textMap":
-                return `ReadonlyMap<string, ${this.getTypeName(type.value, template)}>`;
+                return `ReadonlyMap<string, ${this.getTypeName(type.value, namedReferences)}>`;
             case "genMap":
-                return `ReadonlyMap<${this.getTypeName(type.key, template)}, ${this.getTypeName(type.value, template)}>`;
+                return `ReadonlyMap<${this.getTypeName(type.key, namedReferences)}, ${this.getTypeName(type.value, namedReferences)}>`;
             case "record":
             case "variant":
             case "enum":
                 return "unknown";
             case "namedReference":
-                return type.identity.packageId === template.templateId.packageId && type.identity.moduleName === template.templateId.moduleName
-                    ? type.identity.name
-                    : this.namedReferenceAlias(type.identity);
+                return this.getNamedReference(type.identity, namedReferences).alias;
         }
     }
 
@@ -327,24 +350,85 @@ export class TemplateBindingEmitter {
         }
     }
 
-    private *getNamedReferences(binding: GeneratedTemplateBinding): Iterable<NamedReference> {
-        const seen = new Set<string>();
+    private resolveNamedReferences(
+        template: AnalyzedTemplate,
+        namedTypeFiles: readonly GeneratedNamedTypeFile[],
+    ): ReadonlyMap<string, ResolvedNamedReference> {
+        const identities = new Map<string, NamedReference>();
 
-        const types = [
-            ...binding.createFields.map((field) => field.type),
-            ...binding.choices.flatMap((choice) => [choice.parameterType, choice.returnType]),
-        ];
-
-        for (const type of types) {
+        for (const type of [
+            ...template.createFields.map((field) => this.normalizeType(field.type)),
+            ...template.choices.flatMap((choice) => [
+                this.normalizeType(choice.parameterType),
+                this.normalizeType(choice.returnType),
+            ]),
+        ]) {
             for (const reference of this.walkNamedReferences(type)) {
-                const key = `${reference.identity.packageId}\u0000${reference.identity.moduleName}\u0000${reference.identity.name}`;
-
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    yield reference;
-                }
+                identities.set(this.getNamedReferenceKey(reference.identity), reference);
             }
         }
+
+        const aliases = new Map<string, string>();
+
+        const usedAliases = new Set<string>();
+
+        for (const [key, reference] of [...identities.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+            const file = namedTypeFiles.find((candidate) =>
+                candidate.packageId === reference.identity.packageId
+                && candidate.moduleName === reference.identity.moduleName);
+
+            const exportedName = file?.exportedTypeNamesByIdentity.get(key);
+
+            if (file === undefined || exportedName === undefined) {
+                if (namedTypeFiles.length !== 0) {
+                    throw new Error(`Cannot emit unresolved named DAML type '${reference.identity.name}'`);
+                }
+
+                aliases.set(key, reference.identity.name);
+
+                continue;
+            }
+
+            const baseAlias = this.toTypeName(
+                `${reference.identity.packageId} ${reference.identity.moduleName} ${exportedName}`,
+            );
+
+            let alias = baseAlias;
+
+            let escalation = 2;
+
+            while (usedAliases.has(alias)) {
+                alias = `${baseAlias}_${this.shortHash(key)}_${escalation}`;
+                escalation += 1;
+            }
+
+            usedAliases.add(alias);
+            aliases.set(key, alias);
+        }
+
+        return new Map([...identities.entries()].map(([key, reference]) => {
+            const file = namedTypeFiles.find((candidate) =>
+                candidate.packageId === reference.identity.packageId
+                && candidate.moduleName === reference.identity.moduleName);
+
+            const exportedName = file?.exportedTypeNamesByIdentity.get(key);
+
+            const alias = aliases.get(key);
+
+            if (file === undefined || exportedName === undefined) {
+                return [key, {
+                    path: "",
+                    exportedName: reference.identity.name,
+                    alias: alias ?? reference.identity.name,
+                }];
+            }
+
+            return [key, {
+                path: this.relativeFilePath(this.nameResolver.getTemplateFilePath(template), file.path),
+                exportedName,
+                alias: alias!,
+            }];
+        }));
     }
 
     private *walkNamedReferences(type: AnalyzedDamlType): Iterable<NamedReference> {
@@ -380,8 +464,21 @@ export class TemplateBindingEmitter {
         }
     }
 
-    private namedReferenceAlias(identity: { readonly packageId: string; readonly moduleName: string; readonly name: string }): string {
-        return this.toTypeName(`${identity.packageId} ${identity.moduleName} ${identity.name}`);
+    private getNamedReference(
+        identity: { readonly packageId: string; readonly moduleName: string; readonly name: string },
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+    ): ResolvedNamedReference {
+        const reference = namedReferences.get(this.getNamedReferenceKey(identity));
+
+        if (reference === undefined) {
+            throw new Error(`Cannot resolve named DAML type '${identity.name}'`);
+        }
+
+        return reference;
+    }
+
+    private getNamedReferenceKey(identity: { readonly packageId: string; readonly moduleName: string; readonly name: string }): string {
+        return `${identity.packageId}\u0000${identity.moduleName}\u0000${identity.name}`;
     }
 
     private toTypeName(value: string): string {
@@ -390,6 +487,17 @@ export class TemplateBindingEmitter {
         const name = normalized.split(/\s+/).map((part) => `${part[0]?.toUpperCase()}${part.slice(1)}`).join("");
 
         return /^[0-9]/.test(name) ? `_${name}` : name;
+    }
+
+    private shortHash(value: string): string {
+        let hash = 0x811c9dc5;
+
+        for (const character of value) {
+            hash ^= character.charCodeAt(0);
+            hash = Math.imul(hash, 0x01000193);
+        }
+
+        return (hash >>> 0).toString(36).padStart(6, "0").slice(-6);
     }
 
     private packageId(binding: GeneratedTemplateBinding): string {

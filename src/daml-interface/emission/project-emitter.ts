@@ -30,13 +30,17 @@ export class ProjectEmitter {
             analysis.typeDefinitions,
         );
 
-        const templateFiles = analysis.templates.map((template) =>
-            this.templateBindingEmitter.emitTemplateFile(template),
+        const templateBindingFiles = analysis.templates.map((template) =>
+            this.templateBindingEmitter.emitTemplateBindingFile(template),
         );
 
         const namedTypeFiles = this.namedTypeEmitter.emitPreparedNamedTypeFiles(
             analysis.typeDefinitions,
-            templateFiles,
+            templateBindingFiles,
+        );
+
+        const templateFiles = analysis.templates.map((template) =>
+            this.templateBindingEmitter.emitTemplateFile(template, namedTypeFiles),
         );
 
         const supportFiles = [
