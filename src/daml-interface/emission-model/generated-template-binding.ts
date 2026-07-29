@@ -1,20 +1,24 @@
 import { GeneratedChoiceBinding } from "./generated-choice-binding.js";
+import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 
 export class GeneratedTemplateBindingField {
     public readonly name: string;
     public readonly propertyName: string;
     public readonly constructorParameterName: string;
+    public readonly type: AnalyzedDamlType;
     public readonly typeName: string;
 
     public constructor(init: {
         name: string;
         propertyName: string;
         constructorParameterName?: string;
+        type: AnalyzedDamlType;
         typeName: string;
     }) {
         this.name = init.name;
         this.propertyName = init.propertyName;
         this.constructorParameterName = init.constructorParameterName ?? init.propertyName;
+        this.type = init.type;
         this.typeName = init.typeName;
     }
 }

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -174,6 +174,7 @@ describe("ProjectEmitter", () => {
 
         try {
             await new DamlInterfaceWriter().writeProjectAsync(project, outputDirectory);
+            await writeGeneratedSdkTypeStub(outputDirectory);
 
             execFileSync(
                 process.execPath,
@@ -229,3 +230,33 @@ describe("ProjectEmitter", () => {
         }
     });
 });
+
+async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void> {
+    const packageDirectory = join(outputDirectory, "node_modules", "@distrohelena", "canton-typescript-sdk");
+
+    await mkdir(packageDirectory, { recursive: true });
+    await writeFile(join(packageDirectory, "package.json"), JSON.stringify({
+        name: "@distrohelena/canton-typescript-sdk",
+        type: "module",
+        exports: { "./daml-interface": "./daml-interface.d.ts" },
+    }));
+    await writeFile(join(packageDirectory, "daml-interface.d.ts"), [
+        "export declare class DamlTemplate { constructor(contractId: string); }",
+        "export declare class DamlUnit {}",
+        "export type DamlDate = unknown;",
+        "export type DamlNumeric = unknown;",
+        "export type DamlParty = unknown;",
+        "export type DamlTimestamp = unknown;",
+        "export type DamlCreatedEventSource = unknown;",
+        "export type DamlExercisedEventSource = unknown;",
+        "export type DamlExercisedEventMetadata = unknown;",
+        "export type DamlNormalizedExercisedEvent = any;",
+        "export type DamlTypeDescriptor = unknown;",
+        "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string; };",
+        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined; };",
+        "export declare function decodeDamlValue(...args: readonly unknown[]): unknown;",
+        "export declare function normalizeDamlCreatedEventSource(source: unknown): any;",
+        "export declare function normalizeDamlExercisedEventSource(source: unknown): any;",
+        "",
+    ].join("\n"));
+}

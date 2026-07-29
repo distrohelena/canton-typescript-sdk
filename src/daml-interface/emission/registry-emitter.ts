@@ -16,12 +16,12 @@ export class RegistryEmitter {
 
         const createdCases = project.templateFiles.map(
             (file) =>
-                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.decodeCreatedEvent(event);`,
+                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.fromCreatedEvent(event as never);`,
         );
 
         const exercisedCases = project.templateFiles.map(
             (file) =>
-                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.decodeExercisedEvent(event);`,
+                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.fromExercisedEvent(event as never);`,
         );
 
         return new GeneratedRegistryFile({

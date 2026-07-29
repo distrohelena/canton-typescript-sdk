@@ -248,7 +248,7 @@ export class SupportFileEmitter {
                 "    resolve(identity) {",
                 "        return generatedDamlTypeDescriptorFactories[`${identity.packageId}:${identity.moduleName}:${identity.entityName}`];",
                 "    },",
-                "};",
+                "});",
                 "",
             ].join("\n"),
         });

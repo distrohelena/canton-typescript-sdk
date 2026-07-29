@@ -270,7 +270,7 @@ export class TypeScriptNameResolver {
 
     /** Resolves the generated create-fields type name for a template. */
     public getCreateFieldsTypeName(template: AnalyzedTemplate): string {
-        return `${this.getTemplateClassName(template)}CreateFields`;
+        return `${this.getTemplateClassName(template)}Fields`;
     }
 
     /** Resolves the generated created-event type name for a template. */
