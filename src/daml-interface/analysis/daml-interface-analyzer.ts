@@ -174,7 +174,6 @@ class AnalyzedDamlTypeBuilder {
             case DamlLfBuiltinType.int64:
             case DamlLfBuiltinType.date:
             case DamlLfBuiltinType.timestamp:
-            case DamlLfBuiltinType.numeric:
             case DamlLfBuiltinType.party:
             case DamlLfBuiltinType.text:
                 this.assertArgumentCountOrThrow(type, 0, context);
@@ -185,6 +184,21 @@ class AnalyzedDamlTypeBuilder {
                     ...(type.numericScale === undefined
                         ? {}
                         : { numericScale: type.numericScale }),
+                });
+            case DamlLfBuiltinType.numeric:
+                this.assertArgumentCountOrThrow(type, 0, context);
+
+                if (type.numericScale === undefined) {
+                    throw this.unsupported(
+                        context,
+                        "numeric values require a scale",
+                    );
+                }
+
+                return Object.freeze({
+                    kind: "primitive" as const,
+                    builtinType: type.builtinType,
+                    numericScale: type.numericScale,
                 });
             case DamlLfBuiltinType.contractId:
                 return Object.freeze({
