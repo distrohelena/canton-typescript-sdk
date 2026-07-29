@@ -11,7 +11,7 @@ describe("RegistryEmitter", () => {
             contents: "export class Iou {}",
             binding: new GeneratedTemplateBinding({
                 className: "Iou",
-                templateIdLiteral: "Main:Iou",
+                templateIdLiteral: "sample-hash:Main:Iou",
                 path: "generated/main/iou.ts",
                 createFieldsTypeName: "IouCreateFields",
                 createdEventTypeName: "IouCreatedEvent",
@@ -30,6 +30,39 @@ describe("RegistryEmitter", () => {
         expect(registryFile.contents).toContain("decodeCreatedEvent");
         expect(registryFile.contents).toContain("decodeExercisedEvent");
         expect(registryFile.contents).toContain("templateId");
-        expect(registryFile.contents).toContain('Main:Iou');
+        expect(registryFile.contents).toContain('sample-hash:Main:Iou');
+    });
+
+    it("dispatches same module/entity templates from separate packages by full identity", () => {
+        const project = new GeneratedDamlInterfaceProject({
+            templateFiles: [
+                createTemplateFile("package-one", "IouOne"),
+                createTemplateFile("package-two", "IouTwo"),
+            ],
+        });
+
+        const contents = new RegistryEmitter().emitRegistry(project).contents;
+
+        expect(contents).toContain('case "package-one:Main:Iou"');
+        expect(contents).toContain('case "package-two:Main:Iou"');
     });
 });
+
+function createTemplateFile(
+    packageId: string,
+    className: string,
+): GeneratedTemplateBindingFile {
+    return new GeneratedTemplateBindingFile({
+        path: `generated/packages/${packageId}/main/iou.ts`,
+        contents: `export class ${className} {}`,
+        binding: new GeneratedTemplateBinding({
+            className,
+            templateIdLiteral: `${packageId}:Main:Iou`,
+            path: `generated/packages/${packageId}/main/iou.ts`,
+            createFieldsTypeName: `${className}CreateFields`,
+            createdEventTypeName: `${className}CreatedEvent`,
+            createFields: [],
+            choices: [],
+        }),
+    });
+}

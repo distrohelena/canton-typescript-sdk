@@ -80,19 +80,30 @@ export class TypeScriptNameResolver {
 
         const allTemplates = [...this.templatesByIdentity.values()];
 
+        const packageIds = [...new Set(allTemplates.map((template) =>
+            template.templateId.packageId,
+        ))];
+
+        const modulesByIdentity = new Map(
+            allTemplates.map((template) => [
+                this.getPackageModuleIdentityKey(template),
+                template,
+            ]),
+        );
+
         const packageDirectories = this.resolveNames(
-            allTemplates.map((template) => ({
-                value: template,
-                key: `package\u0000${template.templateId.packageId}`,
-                baseName: this.toKebabCase(template.templateId.packageId),
+            packageIds.map((packageId) => ({
+                value: packageId,
+                key: `package\u0000${packageId}`,
+                baseName: this.toKebabCase(packageId),
                 scope: "packages",
             })),
         );
 
         const moduleDirectories = this.resolveNames(
-            allTemplates.map((template) => ({
-                value: template,
-                key: `module\u0000${template.templateId.packageId}\u0000${template.templateId.moduleName}`,
+            [...modulesByIdentity.entries()].map(([identityKey, template]) => ({
+                value: identityKey,
+                key: `module\u0000${identityKey}`,
                 baseName: this.getModuleDirectory(template),
                 scope: template.templateId.packageId,
             })),
@@ -108,9 +119,9 @@ export class TypeScriptNameResolver {
         );
 
         const namespaceAliases = this.resolveNames(
-            allTemplates.map((template) => ({
-                value: template,
-                key: this.getTemplateIdentityKey(template),
+            [...modulesByIdentity.entries()].map(([identityKey, template]) => ({
+                value: identityKey,
+                key: `namespace\u0000${identityKey}`,
                 baseName: this.safeTypeName(
                     `${template.templateId.packageId} ${template.templateId.moduleName}`,
                 ),
@@ -136,13 +147,17 @@ export class TypeScriptNameResolver {
                 throw new Error(`Could not resolve generated class name for '${this.describeTemplate(template)}'`);
             }
 
-            const packageDirectory = packageDirectories.get(template);
+            const packageDirectory = packageDirectories.get(template.templateId.packageId);
 
-            const moduleDirectory = moduleDirectories.get(template);
+            const moduleDirectory = moduleDirectories.get(
+                this.getPackageModuleIdentityKey(template),
+            );
 
             const fileName = fileNames.get(template);
 
-            const namespaceAlias = namespaceAliases.get(template);
+            const namespaceAlias = namespaceAliases.get(
+                this.getPackageModuleIdentityKey(template),
+            );
 
             if (
                 packageDirectory === undefined ||
@@ -168,7 +183,7 @@ export class TypeScriptNameResolver {
         }));
 
         this.assertDistinctTemplateOutput("file path", (resolved) => resolved.filePath);
-        this.assertDistinctTemplateOutput("namespace alias", (resolved) => resolved.namespaceAlias);
+        this.assertDistinctNamespaceAliases(namespaceAliases);
         this.assertDistinctTemplateOutput("class name", (resolved) => resolved.className);
     }
 
@@ -271,7 +286,7 @@ export class TypeScriptNameResolver {
 
     /** Resolves the literal template identifier used by generated helpers. */
     public getTemplateIdLiteral(template: AnalyzedTemplate): string {
-        return `${template.templateId.moduleName}:${template.templateId.templateName}`;
+        return `${template.templateId.packageId}:${template.templateId.moduleName}:${template.templateId.templateName}`;
     }
 
     private getResolvedTemplate(template: AnalyzedTemplate): ResolvedTemplateNames {
@@ -419,11 +434,35 @@ export class TypeScriptNameResolver {
         }
     }
 
+    private assertDistinctNamespaceAliases(
+        namespaceAliases: ReadonlyMap<string, string>,
+    ): void {
+        const identitiesByAlias = new Map<string, string>();
+
+        for (const [identityKey, alias] of namespaceAliases) {
+            const existingIdentityKey = identitiesByAlias.get(alias);
+
+            if (existingIdentityKey !== undefined && existingIdentityKey !== identityKey) {
+                throw new Error(
+                    `Cannot resolve generated namespace alias '${alias}' for `
+                    + `'${existingIdentityKey.replaceAll("\u0000", ":")}' and `
+                    + `'${identityKey.replaceAll("\u0000", ":")}'`,
+                );
+            }
+
+            identitiesByAlias.set(alias, identityKey);
+        }
+    }
+
     private getModuleDirectory(template: AnalyzedTemplate): string {
         return template.templateId.moduleName
             .split(".")
             .map((segment) => this.toKebabCase(segment))
             .join("/");
+    }
+
+    private getPackageModuleIdentityKey(template: AnalyzedTemplate): string {
+        return [template.templateId.packageId, template.templateId.moduleName].join("\u0000");
     }
 
     private safeTypeName(value: string): string {

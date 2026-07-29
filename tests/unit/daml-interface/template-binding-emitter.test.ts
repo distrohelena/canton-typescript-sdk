@@ -54,7 +54,7 @@ describe("TemplateBindingEmitter", () => {
 
         expect(file.path).toBe("generated/packages/sample-hash/main/iou.ts");
         expect(file.contents).toContain("export class Iou");
-        expect(file.contents).toContain('public static readonly templateId = "Main:Iou";');
+        expect(file.contents).toContain('public static readonly templateId = "sample-hash:Main:Iou";');
         expect(file.contents).toContain("public static create(");
         expect(file.contents).toContain("public static exerciseTransfer(");
         expect(file.contents).toContain("public static decodeCreatedEvent(");

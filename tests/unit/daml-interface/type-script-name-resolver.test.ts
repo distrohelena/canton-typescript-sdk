@@ -40,11 +40,11 @@ describe("TypeScriptNameResolver", () => {
         expect(new Set(files.map((file) => file.binding.namespaceAlias)).size).toBe(2);
         expect(new Set(files.map((file) => file.binding.className)).size).toBe(2);
         expect(new Set(files.map((file) => file.binding.createdEventTypeName)).size).toBe(2);
+        expect(new Set(files.map((file) => file.binding.templateIdLiteral)).size).toBe(2);
 
         for (const file of files) {
-            expect(file.binding.templateIdentityKey).toContain(
-                file.binding.templateIdLiteral.replace(":", "\u0000"),
-            );
+            expect(file.binding.templateIdentityKey.replaceAll("\u0000", ":"))
+                .toBe(file.binding.templateIdLiteral);
             expect(file.binding.createFields.map((field) => field.name)).toEqual([
                 "get",
                 "contractId",
@@ -100,6 +100,35 @@ describe("TypeScriptNameResolver", () => {
 
         expect(file.binding.namespaceAlias).toMatch(/^_/);
         expect(file.binding.className).toMatch(/^_/);
+    });
+
+    it("reuses package/module names for separate templates with that identity", () => {
+        const templates = [
+            createTemplate({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "First",
+            }),
+            createTemplate({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Second",
+            }),
+        ];
+
+        const resolver = new TypeScriptNameResolver(templates);
+
+        const files = templates.map((template) =>
+            new TemplateBindingEmitter(resolver).emitTemplateFile(template));
+
+        expect(files.map((file) => file.path)).toEqual([
+            "generated/packages/sample-hash/main/first.ts",
+            "generated/packages/sample-hash/main/second.ts",
+        ]);
+        expect(files.map((file) => file.binding.namespaceAlias)).toEqual([
+            "SampleHashMain",
+            "SampleHashMain",
+        ]);
     });
 });
 
