@@ -72,6 +72,8 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).toContain("fields.issuer,");
         expect(file.contents).toContain("fields.owner,");
         expect(file.contents).toContain("throw new DamlMaterializationError(\"choice\"");
+        expect(file.contents).toContain("IouTransferExercisedEvent.assertTemplateIdentity(event.metadata.templateId);");
+        expect(file.contents).toContain("throw new DamlMaterializationError(\"template ID\"");
         expect(file.contents).toContain('private static readonly descriptor: DamlTypeDescriptor = { kind: "record", fields: [{ damlLabel: "issuer", propertyName: "issuer", type: { kind: "primitive", primitive: "text" } }, { damlLabel: "owner", propertyName: "owner", type: { kind: "primitive", primitive: "text" } }] };');
         expect(file.contents).not.toContain("public static create(");
         expect(file.contents).not.toContain("public static exerciseTransfer(");
@@ -79,5 +81,30 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).not.toContain("public static decodeExercisedEvent(");
         expect(file.contents).not.toContain("as IouFields");
         expect(file.contents).not.toContain("fields.fields");
+    });
+
+    it("emits structural TypeScript types for anonymous DAML record, variant, and enum shapes", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({ packageId: "sample-hash", moduleName: "Main", templateName: "Shapes" }),
+            className: "Shapes",
+            fileName: "shapes.ts",
+            createFields: [new AnalyzedTemplateField({
+                name: "payload",
+                propertyName: "payload",
+                type: {
+                    kind: "record",
+                    fields: [{ damlLabel: "state", propertyName: "state", type: {
+                        kind: "variant",
+                        constructors: [{ constructor: "Open", payload: { kind: "enum", constructors: ["Ready", "Done"] } }],
+                    } }],
+                },
+            })],
+            choices: [],
+        });
+
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template).contents;
+
+        expect(contents).toContain('readonly payload: { readonly state: { readonly tag: "Open"; readonly value: "Ready" | "Done"; }; };');
+        expect(contents).not.toContain("readonly payload: unknown;");
     });
 });

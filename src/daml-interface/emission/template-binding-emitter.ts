@@ -197,7 +197,7 @@ export class TemplateBindingEmitter {
             "",
             "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
             `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
-            `            throw new Error(\`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
+            `            throw new DamlMaterializationError("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
             "        }",
             "    }",
             "}",
@@ -227,16 +227,24 @@ export class TemplateBindingEmitter {
             "",
             `    public static fromExercisedEvent(event: DamlExercisedEventSource): ${choice.exercisedEventTypeName} {`,
             "        const normalized = normalizeDamlExercisedEventSource(event);",
+            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(normalized.metadata.templateId);`,
             `        return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`,
             "    }",
             "",
             `    public static fromNormalizedEvent(event: DamlNormalizedExercisedEvent): ${choice.exercisedEventTypeName} {`,
+            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(event.metadata.templateId);`,
             `        if (event.choice !== ${JSON.stringify(choice.name)}) {`,
             `            throw new DamlMaterializationError("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
             "        }",
             `        const argument = materializeDamlValue<${choice.parameterTypeName}>(decodeDamlValue(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, generatedDamlTypeDescriptorRegistry, "choice argument"));`,
             `        const result = materializeDamlValue<${choice.returnTypeName}>(decodeDamlValue(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, generatedDamlTypeDescriptorRegistry, "exercise result"));`,
             `        return new ${choice.exercisedEventTypeName}(event.contractId, argument, result, event.consuming, event.metadata);`,
+            "    }",
+            "",
+            "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
+            `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
+            `            throw new DamlMaterializationError("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
+            "        }",
             "    }",
             "}",
         ].join("\n");
@@ -290,9 +298,12 @@ export class TemplateBindingEmitter {
             case "genMap":
                 return `ReadonlyMap<${this.getTypeName(type.key, namedReferences)}, ${this.getTypeName(type.value, namedReferences)}>`;
             case "record":
+                return `{ ${type.fields.map((field) => `readonly ${field.propertyName}: ${this.getTypeName(field.type, namedReferences)};`).join(" ")} }`;
             case "variant":
+                return type.constructors.map((constructor) =>
+                    `{ readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, namedReferences)}; }`).join(" | ");
             case "enum":
-                return "unknown";
+                return type.constructors.map((constructor) => JSON.stringify(constructor)).join(" | ");
             case "namedReference":
                 return this.getNamedReference(type.identity, namedReferences).alias;
         }

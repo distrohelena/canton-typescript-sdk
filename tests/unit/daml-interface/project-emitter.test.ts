@@ -66,7 +66,13 @@ describe("ProjectEmitter", () => {
             createFields: [{
                 name: "issuer",
                 propertyName: "issuer",
-                type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                type: {
+                    kind: "record",
+                    fields: [{ damlLabel: "status", propertyName: "status", type: {
+                        kind: "variant",
+                        constructors: [{ constructor: "Open", payload: { kind: "enum", constructors: ["Ready"] } }],
+                    } }],
+                },
             }],
             choices: [],
         });
@@ -141,7 +147,13 @@ describe("ProjectEmitter", () => {
             createFields: [{
                 name: "issuer",
                 propertyName: "issuer",
-                type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                type: {
+                    kind: "record",
+                    fields: [{ damlLabel: "status", propertyName: "status", type: {
+                        kind: "variant",
+                        constructors: [{ constructor: "Open", payload: { kind: "enum", constructors: ["Ready"] } }],
+                    } }],
+                },
             }],
             choices: [new AnalyzedChoice({
                 name: "Archive",
