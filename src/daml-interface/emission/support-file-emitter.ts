@@ -142,20 +142,35 @@ export class SupportFileEmitter {
     private assertDistinctModuleExportedSymbols(
         group: GeneratedNamespaceGroup,
     ): void {
-        const filesBySymbol = new Map<string, GeneratedTemplateBindingFile>();
+        const descriptionsBySymbol = new Map<string, string>();
 
         for (const file of group.templateFiles) {
             for (const symbol of this.getExportedSymbols(file)) {
-                const existing = filesBySymbol.get(symbol);
+                const existing = descriptionsBySymbol.get(symbol);
 
-                if (existing !== undefined && existing !== file) {
+                if (existing !== undefined) {
                     throw new Error(
                         `Cannot emit generated module symbol '${symbol}' for `
-                        + `'${this.describeTemplate(existing)}' and '${this.describeTemplate(file)}'`,
+                        + `'${existing}' and '${this.describeTemplate(file)}'`,
                     );
                 }
 
-                filesBySymbol.set(symbol, file);
+                descriptionsBySymbol.set(symbol, this.describeTemplate(file));
+            }
+        }
+
+        if (group.namedTypeFile !== undefined) {
+            for (const symbol of group.namedTypeFile.exportedTypeNames) {
+                const existing = descriptionsBySymbol.get(symbol);
+
+                if (existing !== undefined) {
+                    throw new Error(
+                        `Cannot emit generated module symbol '${symbol}' for `
+                        + `'${existing}' and '${group.namedTypeFile.path}'`,
+                    );
+                }
+
+                descriptionsBySymbol.set(symbol, group.namedTypeFile.path);
             }
         }
     }

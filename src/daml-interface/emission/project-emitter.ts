@@ -36,6 +36,7 @@ export class ProjectEmitter {
 
         const namedTypeFiles = this.namedTypeEmitter.emitPreparedNamedTypeFiles(
             analysis.typeDefinitions,
+            templateFiles,
         );
 
         const supportFiles = [

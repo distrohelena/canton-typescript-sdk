@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
+import { GeneratedNamedTypeFile } from "../../../src/daml-interface/emission-model/generated-named-type-file.js";
 import { GeneratedTemplateBinding } from "../../../src/daml-interface/emission-model/generated-template-binding.js";
 import { GeneratedTemplateBindingFile } from "../../../src/daml-interface/emission-model/generated-template-binding-file.js";
 import { SupportFileEmitter } from "../../../src/daml-interface/emission/support-file-emitter.js";
@@ -62,6 +63,32 @@ describe("SupportFileEmitter", () => {
 
         expect(() => new SupportFileEmitter().emitNamespaceFiles(project))
             .toThrow(/FooCreateFields.*sample-hash:Main:Foo/);
+    });
+
+    it("rejects a remaining cross-kind collision between a named type and template export", () => {
+        const templateFile = createTemplateFile({
+            packageId: "sample-hash",
+            namespaceAlias: "SampleHashMain",
+            className: "Node",
+            templateName: "Node",
+            contents: "export class Node {}\n",
+        });
+
+        const namedTypeFile = new GeneratedNamedTypeFile({
+            path: "generated/packages/sample-hash/main/types.ts",
+            contents: "export interface Node {}\n",
+            packageId: "sample-hash",
+            moduleName: "Main",
+            namespaceAlias: "SampleHashMain",
+            exportedTypeNames: ["Node"],
+        });
+
+        expect(() => new SupportFileEmitter().emitNamespaceFiles(
+            new GeneratedDamlInterfaceProject({
+                templateFiles: [templateFile],
+                namedTypeFiles: [namedTypeFile],
+            }),
+        )).toThrow(/Node.*sample-hash:Main:Node.*types\.ts/);
     });
 });
 

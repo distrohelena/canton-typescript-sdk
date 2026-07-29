@@ -1,10 +1,16 @@
+import { execFileSync } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
 import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
 import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-template.js";
+import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-choice.js";
 import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
+import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 
 describe("ProjectEmitter", () => {
     it("emits named declarations and one lazy descriptor registry for every reachable identity", () => {
@@ -117,5 +123,73 @@ describe("ProjectEmitter", () => {
         expect(project.namedTypeFiles[0].path).toBe("generated/packages/sample-hash/main/types.ts");
         expect(project.supportFiles.find((file) => file.path === "generated/support/runtime.ts")?.contents)
             .toContain("DamlUnit");
+    });
+
+    it("renames a named declaration that would collide with a compilable template barrel export", async () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Node",
+            }),
+            className: "Node",
+            fileName: "node.ts",
+            createFields: [],
+            choices: [new AnalyzedChoice({
+                name: "Archive",
+                methodName: "exerciseArchive",
+                parameterName: "unit",
+                parameterType: { kind: "primitive", builtinType: DamlLfBuiltinType.unit },
+                returnType: { kind: "primitive", builtinType: DamlLfBuiltinType.unit },
+            })],
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [template],
+            typeDefinitions: [{
+                identity: new TypeConReference({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    name: "Node",
+                }),
+                kind: "record",
+                fields: [],
+            }],
+        }));
+
+        const namedTypes = project.namedTypeFiles[0];
+
+        const barrel = project.supportFiles.find((file) =>
+            file.path === "generated/packages/sample-hash/main/index.ts");
+
+        expect(namedTypes.exportedTypeNames).toEqual(["NodeType"]);
+        expect(namedTypes.contents).toContain("export interface NodeType {");
+        expect(barrel?.contents).toBe([
+            'export * from "./types.js";',
+            'export * from "./node.js";',
+            "",
+        ].join("\n"));
+
+        const outputDirectory = await mkdtemp(join(tmpdir(), "daml-interface-project-"));
+
+        try {
+            await new DamlInterfaceWriter().writeProjectAsync(project, outputDirectory);
+
+            execFileSync(
+                process.execPath,
+                [
+                    "./node_modules/typescript/bin/tsc",
+                    "--noEmit",
+                    "--module",
+                    "NodeNext",
+                    "--moduleResolution",
+                    "NodeNext",
+                    join(outputDirectory, "generated/packages/sample-hash/main/index.ts"),
+                ],
+                { cwd: process.cwd(), stdio: "inherit" },
+            );
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
     });
 });

@@ -2,6 +2,7 @@ import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
 import { AnalyzedDamlType } from "../analysis/analyzed-daml-type.js";
 import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-definition.js";
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
+import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
 
 type ModuleIdentity = {
@@ -43,10 +44,14 @@ export class NamedTypeEmitter {
     /** Emits named type files from an already prepared shared name resolver. */
     public emitPreparedNamedTypeFiles(
         definitions: readonly AnalyzedDamlTypeDefinition[],
+        templateFiles: readonly GeneratedTemplateBindingFile[] = [],
     ): readonly GeneratedNamedTypeFile[] {
         const modules = this.resolveModulesOrThrow(definitions);
 
-        const names = this.resolveDefinitionNamesOrThrow(definitions);
+        const names = this.resolveDefinitionNamesOrThrow(
+            definitions,
+            this.getReservedModuleExports(templateFiles),
+        );
 
         return [...modules.values()].map((module) => {
             const moduleDefinitions = definitions.filter((definition) =>
@@ -265,6 +270,7 @@ export class NamedTypeEmitter {
 
     private resolveDefinitionNamesOrThrow(
         definitions: readonly AnalyzedDamlTypeDefinition[],
+        reservedNamesByModule: ReadonlyMap<string, ReadonlySet<string>>,
     ): ReadonlyMap<string, string> {
         const values = definitions.map((definition) => [
             this.getDefinitionKey(definition.identity.packageId, definition.identity.moduleName, definition.identity.name),
@@ -286,6 +292,7 @@ export class NamedTypeEmitter {
             ([, definition]) => this.safeTypeName(definition.identity.name),
             ([, definition]) => this.getModuleKey(definition.identity.packageId, definition.identity.moduleName),
             "_",
+            reservedNamesByModule,
         );
 
         return new Map(values.map((value) => [
@@ -299,6 +306,7 @@ export class NamedTypeEmitter {
         getBaseName: (value: T) => string,
         getScope: (value: T) => string,
         collisionSeparator = "_",
+        reservedNamesByScope: ReadonlyMap<string, ReadonlySet<string>> = new Map(),
     ): ReadonlyMap<T, string> {
         const counts = new Map<string, number>();
 
@@ -323,9 +331,9 @@ export class NamedTypeEmitter {
 
             const baseCandidate = `${baseName}${suffix}`;
 
-            const used = allocated.get(scope) ?? new Set<string>();
+            const used = allocated.get(scope) ?? new Set<string>(reservedNamesByScope.get(scope));
 
-            let candidate = baseCandidate;
+            let candidate = used.has(baseCandidate) ? `${baseCandidate}Type` : baseCandidate;
 
             let escalation = 2;
 
@@ -340,6 +348,39 @@ export class NamedTypeEmitter {
         }
 
         return names;
+    }
+
+    private getReservedModuleExports(
+        templateFiles: readonly GeneratedTemplateBindingFile[],
+    ): ReadonlyMap<string, ReadonlySet<string>> {
+        const exportsByModule = new Map<string, Set<string>>();
+
+        for (const file of templateFiles) {
+            const binding = file.binding;
+
+            const moduleKey = this.getModuleKeyFromTemplateIdentity(binding.templateIdentityKey);
+
+            const exports = exportsByModule.get(moduleKey) ?? new Set<string>();
+
+            exports.add(binding.className);
+            exports.add(binding.createFieldsTypeName);
+            exports.add(binding.createdEventTypeName);
+
+            for (const choice of binding.choices) {
+                exports.add(choice.choiceTypeName);
+                exports.add(choice.exercisedEventTypeName);
+            }
+
+            exportsByModule.set(moduleKey, exports);
+        }
+
+        return exportsByModule;
+    }
+
+    private getModuleKeyFromTemplateIdentity(identityKey: string): string {
+        const [packageId, moduleName] = identityKey.split("\u0000");
+
+        return this.getModuleKey(packageId, moduleName);
     }
 
     private relativeFilePath(fromPath: string, toPath: string): string {
