@@ -8,7 +8,15 @@ import {
 import { DamlDecodedValue } from "./daml-value-converter.js";
 
 /** Converts decoded DAML containers into the shapes exposed by generated TypeScript declarations. */
-export function materializeDamlValue<T>(value: DamlDecodedValue): T {
+export class DamlValueMaterializer {
+    private constructor() {}
+
+    public static materialize<T>(value: DamlDecodedValue): T {
+        return materializeDamlValue(value);
+    }
+}
+
+function materializeDamlValue<T>(value: DamlDecodedValue): T {
     return materialize(value) as T;
 }
 

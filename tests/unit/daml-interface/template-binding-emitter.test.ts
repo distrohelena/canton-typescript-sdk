@@ -54,7 +54,7 @@ describe("TemplateBindingEmitter", () => {
         const file = new TemplateBindingEmitter().emitTemplateFile(template);
 
         expect(file.path).toBe("generated/packages/sample-hash/main/iou.ts");
-        expect(file.contents).toContain('import { DamlMaterializationError, DamlTemplate, decodeDamlValue, materializeDamlValue, normalizeDamlCreatedEventSource, normalizeDamlExercisedEventSource } from "@distrohelena/canton-typescript-sdk/daml-interface";');
+        expect(file.contents).toContain('import { DamlEventSourceNormalizer, DamlMaterializationError, DamlTemplate, DamlValueConverter, DamlValueMaterializer } from "@distrohelena/canton-typescript-sdk/daml-interface";');
         expect(file.contents).toContain('import { generatedDamlTypeDescriptorRegistry } from "../../../support/descriptors.js";');
         expect(file.contents).toContain("export interface IouFields");
         expect(file.contents).toContain("export class Iou extends DamlTemplate implements IouFields");
@@ -69,7 +69,7 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).toContain("public readonly result: string;");
         expect(file.contents).toContain("public readonly consuming: boolean;");
         expect(file.contents).toContain("public readonly metadata: DamlExercisedEventMetadata;");
-        expect(file.contents).toContain("materializeDamlValue<IouFields>(decodeDamlValue(");
+        expect(file.contents).toContain("DamlValueMaterializer.materialize<IouFields>(DamlValueConverter.decode(");
         expect(file.contents).toContain("fields.issuer,");
         expect(file.contents).toContain("fields.owner,");
         expect(file.contents).toContain("throw new DamlMaterializationError(\"choice\"");

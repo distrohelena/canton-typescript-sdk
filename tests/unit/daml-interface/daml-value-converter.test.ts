@@ -13,14 +13,16 @@ import {
     DamlTypeDescriptor,
     DamlTypeDescriptorRegistry,
     DamlUnit,
+    DamlValueConverter,
     DamlVariant,
-    decodeDamlValue,
 } from "../../../src/daml-interface/index.js";
 import { Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 
 const emptyRegistry: DamlTypeDescriptorRegistry = {
     resolve: () => undefined,
 };
+
+const decodeDamlValue = DamlValueConverter.decode;
 
 const descriptors = {
     unit: { kind: "primitive", primitive: "unit" },

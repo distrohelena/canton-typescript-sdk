@@ -14,12 +14,9 @@ export { DamlInterfaceWriteException } from "./errors/daml-interface-write.excep
 export { DamlInterfaceWriter } from "./writing/daml-interface-writer.js";
 export { DamlTemplate } from "./runtime/daml-template.js";
 export { DamlMaterializationError } from "./runtime/daml-materialization-error.js";
-export { decodeDamlValue } from "./runtime/daml-value-converter.js";
-export { materializeDamlValue } from "./runtime/daml-value-materializer.js";
-export {
-    normalizeDamlCreatedEventSource,
-    normalizeDamlExercisedEventSource,
-} from "./runtime/daml-event-source-normalizer.js";
+export { DamlValueConverter } from "./runtime/daml-value-converter.js";
+export { DamlValueMaterializer } from "./runtime/daml-value-materializer.js";
+export { DamlEventSourceNormalizer } from "./runtime/daml-event-source-normalizer.js";
 export { DamlNumeric } from "../core/types/daml-numeric.js";
 export { DamlParty } from "../core/types/daml-party.js";
 export {

@@ -378,10 +378,9 @@ async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void>
         "export type DamlTypeDescriptor = unknown;",
         "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string; };",
         "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined; };",
-        "export declare function decodeDamlValue(...args: readonly unknown[]): unknown;",
-        "export declare function materializeDamlValue<T>(value: unknown): T;",
-        "export declare function normalizeDamlCreatedEventSource(source: unknown): any;",
-        "export declare function normalizeDamlExercisedEventSource(source: unknown): any;",
+        "export declare class DamlValueConverter { static decode(...args: readonly unknown[]): unknown; }",
+        "export declare class DamlValueMaterializer { static materialize<T>(value: unknown): T; }",
+        "export declare class DamlEventSourceNormalizer { static normalizeCreated(source: unknown): any; static normalizeExercised(source: unknown): any; }",
         "",
     ].join("\n"));
 }

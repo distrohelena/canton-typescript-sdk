@@ -29,8 +29,8 @@ describe("RegistryEmitter", () => {
         expect(registryFile.path).toBe("generated/registry.ts");
         expect(registryFile.contents).toContain("fromCreatedEvent(event: DamlCreatedEventSource)");
         expect(registryFile.contents).toContain("fromExercisedEvent(event: DamlExercisedEventSource)");
-        expect(registryFile.contents).toContain("normalizeDamlCreatedEventSource(event)");
-        expect(registryFile.contents).toContain("normalizeDamlExercisedEventSource(event)");
+        expect(registryFile.contents).toContain("DamlEventSourceNormalizer.normalizeCreated(event)");
+        expect(registryFile.contents).toContain("DamlEventSourceNormalizer.normalizeExercised(event)");
         expect(registryFile.contents).toContain("DamlMaterializationError");
         expect(registryFile.contents).toContain('sample-hash:Main:Iou');
         expect(registryFile.contents).not.toContain("decodeCreatedEvent");

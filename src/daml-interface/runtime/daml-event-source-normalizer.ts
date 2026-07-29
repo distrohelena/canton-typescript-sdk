@@ -69,11 +69,26 @@ const DAML_MIN_TIMESTAMP_SECONDS = -62135596800n;
 
 const DAML_MAX_TIMESTAMP_SECONDS = 253402300799n;
 
-/**
- * Recognizes a Ledger API create event, a contract response/wrapper, or a
- * PQS/JSON contract record and produces one immutable runtime shape.
- */
-export function normalizeDamlCreatedEventSource(
+/** Recognizes Ledger API and PQS event sources as immutable DAML event shapes. */
+export class DamlEventSourceNormalizer {
+    private constructor() {}
+
+    /** Recognizes a Ledger API create event, contract response/wrapper, or PQS/JSON contract record. */
+    public static normalizeCreated(
+        source: DamlCreatedEventSource,
+    ): DamlNormalizedCreatedEvent {
+        return normalizeDamlCreatedEventSource(source);
+    }
+
+    /** Recognizes a Ledger API exercise event or a PQS/JSON exercise record. */
+    public static normalizeExercised(
+        source: DamlExercisedEventSource,
+    ): DamlNormalizedExercisedEvent {
+        return normalizeDamlExercisedEventSource(source);
+    }
+}
+
+function normalizeDamlCreatedEventSource(
     source: DamlCreatedEventSource,
 ): DamlNormalizedCreatedEvent {
     const recognized = findNestedEvent(source, "created");
@@ -96,12 +111,7 @@ export function normalizeDamlCreatedEventSource(
     });
 }
 
-/**
- * Recognizes a Ledger API exercise event or a PQS/JSON exercise record and
- * produces one immutable runtime shape. Choice information may be supplied by
- * PQS's exercise-type relation and identity by its contract relation.
- */
-export function normalizeDamlExercisedEventSource(
+function normalizeDamlExercisedEventSource(
     source: DamlExercisedEventSource,
 ): DamlNormalizedExercisedEvent {
     const recognized = findNestedEvent(source, "exercised");

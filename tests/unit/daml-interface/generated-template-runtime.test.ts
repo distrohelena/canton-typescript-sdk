@@ -87,10 +87,9 @@ async function writeRuntime(root: string): Promise<void> {
     await writeFile(join(sdkDirectory, "daml-interface.js"), [
         "export class DamlMaterializationError extends Error { constructor(path, detail) { super(`${path}: ${detail}`); this.path = path; } }",
         "export class DamlTemplate { constructor(contractId) { this.contractId = contractId; } }",
-        "export const normalizeDamlCreatedEventSource = (event) => event;",
-        "export const normalizeDamlExercisedEventSource = (event) => event;",
-        "export const decodeDamlValue = (source) => source.value;",
-        "export const materializeDamlValue = (value) => value;",
+        "export class DamlEventSourceNormalizer { static normalizeCreated(event) { return event; } static normalizeExercised(event) { return event; } }",
+        "export class DamlValueConverter { static decode(source) { return source.value; } }",
+        "export class DamlValueMaterializer { static materialize(value) { return value; } }",
         "",
     ].join("\n"));
 }

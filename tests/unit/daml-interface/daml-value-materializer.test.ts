@@ -4,9 +4,11 @@ import {
     DamlGenMap,
     DamlRecord,
     DamlTextMap,
+    DamlValueMaterializer,
     DamlVariant,
-    materializeDamlValue,
 } from "../../../src/daml-interface/index.js";
+
+const materializeDamlValue = DamlValueMaterializer.materialize;
 
 describe("materializeDamlValue", () => {
     it("converts decoded DAML containers to the generated declaration shapes", () => {

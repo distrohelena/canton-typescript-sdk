@@ -47,8 +47,21 @@ const DAML_MIN_INT64 = -9223372036854775808n;
 
 const DAML_MAX_INT64 = 9223372036854775807n;
 
-/** Decodes a protobuf or JSON/PQS DAML value according to its generated descriptor. */
-export function decodeDamlValue(
+/** Decodes protobuf or JSON/PQS DAML values according to generated descriptors. */
+export class DamlValueConverter {
+    private constructor() {}
+
+    public static decode(
+        source: DamlValueSource,
+        descriptor: DamlTypeDescriptor,
+        registry: DamlTypeDescriptorRegistry,
+        path: string,
+    ): DamlDecodedValue {
+        return decodeDamlValue(source, descriptor, registry, path);
+    }
+}
+
+function decodeDamlValue(
     source: DamlValueSource,
     descriptor: DamlTypeDescriptor,
     registry: DamlTypeDescriptorRegistry,

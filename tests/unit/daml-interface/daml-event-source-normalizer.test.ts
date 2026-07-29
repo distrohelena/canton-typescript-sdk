@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
     DamlCreatedEventSource,
+    DamlEventSourceNormalizer,
     DamlMaterializationError,
-    normalizeDamlCreatedEventSource,
-    normalizeDamlExercisedEventSource,
 } from "../../../src/daml-interface/index.js";
 import { GetContractResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import { CreatedEvent, Event, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
@@ -15,6 +14,10 @@ const templateId = {
     moduleName: "Main.Module",
     entityName: "Iou",
 } as const;
+
+const normalizeDamlCreatedEventSource = DamlEventSourceNormalizer.normalizeCreated;
+
+const normalizeDamlExercisedEventSource = DamlEventSourceNormalizer.normalizeExercised;
 
 const createdEvent = CreatedEvent.create({
     offset: "17",
