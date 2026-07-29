@@ -14,6 +14,10 @@ export { DamlInterfaceWriter } from "./writing/daml-interface-writer.js";
 export { DamlTemplate } from "./runtime/daml-template.js";
 export { DamlMaterializationError } from "./runtime/daml-materialization-error.js";
 export { decodeDamlValue } from "./runtime/daml-value-converter.js";
+export {
+    normalizeDamlCreatedEventSource,
+    normalizeDamlExercisedEventSource,
+} from "./runtime/daml-event-source-normalizer.js";
 export { DamlNumeric } from "../core/types/daml-numeric.js";
 export { DamlParty } from "../core/types/daml-party.js";
 export {
@@ -29,6 +33,15 @@ export {
 export type {
     DamlDecodedValue,
 } from "./runtime/daml-value-converter.js";
+export type {
+    DamlCreatedEventMetadata,
+    DamlCreatedEventSource,
+    DamlExercisedEventMetadata,
+    DamlExercisedEventSource,
+    DamlJsonEventRecord,
+    DamlNormalizedCreatedEvent,
+    DamlNormalizedExercisedEvent,
+} from "./runtime/daml-event-source-normalizer.js";
 export type {
     DamlContractIdDescriptor,
     DamlEnumDescriptor,
