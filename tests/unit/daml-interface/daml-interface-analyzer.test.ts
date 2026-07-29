@@ -96,6 +96,78 @@ describe("DamlInterfaceAnalyzer", () => {
         },
     );
 
+    it.each([0, 37])(
+        "retains valid numeric boundary scale %i",
+        (numericScale) => {
+            const compilation = createCompilation({
+                templateName: "TradeOrder",
+                fieldTypeFactory: () =>
+                    new DamlLfType({
+                        builtinType: DamlLfBuiltinType.numeric,
+                        numericScale,
+                    }),
+            });
+
+            const result = new DamlInterfaceAnalyzer().analyzeOrThrow(compilation);
+
+            expect(result.templates[0].createFields[0].type).toEqual({
+                kind: "primitive",
+                builtinType: DamlLfBuiltinType.numeric,
+                numericScale,
+            });
+        },
+    );
+
+    it("rejects noninteger numeric scales in their field context", () => {
+        const compilation = createCompilation({
+            templateName: "TradeOrder",
+            fieldTypeFactory: () =>
+                new DamlLfType({
+                    builtinType: DamlLfBuiltinType.numeric,
+                    numericScale: 1.5,
+                }),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/template field 'issuer'.*numeric.*integer scale/);
+    });
+
+    it("isolates frozen canonical identities from mutable LF references", () => {
+        const sourceIdentity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "TradeOrder",
+        });
+
+        const compilation = createCompilation({
+            templateName: "TradeOrder",
+            fieldTypeFactory: () =>
+                new DamlLfType({ typeConReference: sourceIdentity }),
+        });
+
+        const result = new DamlInterfaceAnalyzer().analyzeOrThrow(compilation);
+
+        const descriptor = result.templates[0].createFields[0].type;
+
+        const definition = result.typeDefinitions[0];
+
+        expect(descriptor).toMatchObject({ kind: "namedReference" });
+
+        if (descriptor.kind !== "namedReference") {
+            throw new Error("expected a named type descriptor");
+        }
+
+        expect(Object.isFrozen(descriptor.identity)).toBe(true);
+        expect(Object.isFrozen(definition.identity)).toBe(true);
+        expect(descriptor.identity).toBe(definition.identity);
+        expect(descriptor.identity).not.toBe(sourceIdentity);
+
+        (sourceIdentity as unknown as { name: string }).name = "MutatedTradeOrder";
+
+        expect(descriptor.identity.name).toBe("TradeOrder");
+        expect(definition.identity.name).toBe("TradeOrder");
+    });
+
     it("resolves recursive serializable DAML types into generator descriptors", () => {
         const compilation = createRichCompilation();
 
@@ -111,6 +183,8 @@ describe("DamlInterfaceAnalyzer", () => {
             "namedReference",
             "namedReference",
             "namedReference",
+            "textMap",
+            "genMap",
         ]);
         expect(template.createFields[0].type).toEqual({
             kind: "optional",
@@ -128,6 +202,24 @@ describe("DamlInterfaceAnalyzer", () => {
                         name: "TradeOrder",
                     }),
                 },
+            },
+        });
+        expect(template.createFields[7].type).toMatchObject({
+            kind: "textMap",
+            value: {
+                kind: "namedReference",
+                identity: { name: "Status" },
+            },
+        });
+        expect(template.createFields[8].type).toMatchObject({
+            kind: "genMap",
+            key: {
+                kind: "namedReference",
+                identity: { name: "Settlement" },
+            },
+            value: {
+                kind: "namedReference",
+                identity: { name: "Instruction" },
             },
         });
 
@@ -368,6 +460,23 @@ function createRichCompilation(): DamlLfCompilation {
         new DamlLfField({ name: "status", type: namedType("Status") }),
         new DamlLfField({ name: "mutual", type: namedType("MutualA") }),
         new DamlLfField({ name: "node", type: namedType("Node") }),
+        new DamlLfField({
+            name: "metadata",
+            type: new DamlLfType({
+                builtinType: DamlLfBuiltinType.textMap,
+                typeArguments: [namedType("Status")],
+            }),
+        }),
+        new DamlLfField({
+            name: "routing",
+            type: new DamlLfType({
+                builtinType: DamlLfBuiltinType.genMap,
+                typeArguments: [
+                    namedType("Settlement"),
+                    namedType("Instruction"),
+                ],
+            }),
+        }),
     ];
 
     const templateId = new DamlLfTemplateId({

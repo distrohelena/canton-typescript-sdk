@@ -147,6 +147,7 @@ export class DamlInterfaceAnalyzer {
 
 class AnalyzedDamlTypeBuilder {
     private readonly definitionKeys: string[] = [];
+    private readonly canonicalIdentities = new Map<string, TypeConReference>();
     private readonly definitions = new Map<
         string,
         AnalyzedDamlTypeDefinition | undefined
@@ -267,23 +268,26 @@ class AnalyzedDamlTypeBuilder {
     ): AnalyzedDamlType {
         const key = this.getDefinitionKey(reference);
 
+        const identity = this.getCanonicalIdentity(reference, key);
+
         if (!this.definitions.has(key)) {
             this.definitionKeys.push(key);
             this.definitions.set(key, undefined);
             this.definitions.set(
                 key,
-                this.buildNamedDefinitionOrThrow(reference, context),
+                this.buildNamedDefinitionOrThrow(reference, identity, context),
             );
         }
 
         return Object.freeze({
             kind: "namedReference" as const,
-            identity: reference,
+            identity,
         });
     }
 
     private buildNamedDefinitionOrThrow(
         reference: TypeConReference,
+        identity: TypeConReference,
         context: string,
     ): AnalyzedDamlTypeDefinition {
         let dataType: DamlLfDataType;
@@ -299,7 +303,7 @@ class AnalyzedDamlTypeBuilder {
 
         if (dataType.definition.kind === "record") {
             return Object.freeze({
-                identity: reference,
+                identity,
                 kind: "record" as const,
                 fields: Object.freeze(dataType.definition.fields.map((field) =>
                     Object.freeze({
@@ -314,7 +318,7 @@ class AnalyzedDamlTypeBuilder {
             });
         } else if (dataType.definition.kind === "variant") {
             return Object.freeze({
-                identity: reference,
+                identity,
                 kind: "variant" as const,
                 constructors: Object.freeze(
                     dataType.definition.constructors.map((constructor) =>
@@ -331,7 +335,7 @@ class AnalyzedDamlTypeBuilder {
         }
 
         return Object.freeze({
-            identity: reference,
+            identity,
             kind: "enum" as const,
             constructors: Object.freeze([...dataType.definition.constructors]),
         });
@@ -352,6 +356,24 @@ class AnalyzedDamlTypeBuilder {
 
     private getDefinitionKey(reference: TypeConReference): string {
         return `${reference.packageId}::${reference.moduleName}::${reference.name}`;
+    }
+
+    private getCanonicalIdentity(
+        reference: TypeConReference,
+        key: string,
+    ): TypeConReference {
+        let identity = this.canonicalIdentities.get(key);
+
+        if (identity === undefined) {
+            identity = Object.freeze(new TypeConReference({
+                packageId: reference.packageId,
+                moduleName: reference.moduleName,
+                name: reference.name,
+            }));
+            this.canonicalIdentities.set(key, identity);
+        }
+
+        return identity;
     }
 
     private unsupported(
