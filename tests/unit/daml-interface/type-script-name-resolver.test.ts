@@ -158,6 +158,22 @@ describe("TypeScriptNameResolver", () => {
         ]));
     });
 
+    it("uses the package name rather than its hash in namespace aliases", () => {
+        const template = createTemplate({
+            packageId: "426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3c",
+            moduleName: "Oz.Token.Kernel",
+            templateName: "Holding",
+        });
+        const resolver = new TypeScriptNameResolver([template], new Map([
+            [template.templateId.packageId, {
+                packageName: "OZ Research",
+                packageVersion: "0.0.1",
+            }],
+        ]));
+
+        expect(resolver.getNamespaceAlias(template)).toBe("OZResearchOzTokenKernel");
+    });
+
     it("resets allocated names when emitting independent projects", () => {
         const emitter = new ProjectEmitter();
 

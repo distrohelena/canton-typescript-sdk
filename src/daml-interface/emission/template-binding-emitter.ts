@@ -152,7 +152,7 @@ export class TemplateBindingEmitter {
             'import type { DamlCreatedEventSource, DamlDate, DamlExercisedEventMetadata, DamlExercisedEventSource, DamlNormalizedExercisedEvent, DamlNumeric, DamlParty, DamlTimestamp, DamlTypeDescriptor, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',
             `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
-                `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
+                `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => name === alias ? name : `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
         ];
     }
 
@@ -385,7 +385,19 @@ export class TemplateBindingEmitter {
 
         const usedAliases = new Set<string>();
 
-        for (const [key, reference] of [...identities.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+        for (const [key, reference] of [...identities.entries()].sort(([, left], [, right]) => {
+            const leftIsLocal = left.identity.packageId === template.templateId.packageId
+                && left.identity.moduleName === template.templateId.moduleName;
+            const rightIsLocal = right.identity.packageId === template.templateId.packageId
+                && right.identity.moduleName === template.templateId.moduleName;
+
+            if (leftIsLocal !== rightIsLocal) {
+                return leftIsLocal ? -1 : 1;
+            }
+
+            return this.getNamedReferenceKey(left.identity)
+                .localeCompare(this.getNamedReferenceKey(right.identity));
+        })) {
             const file = namedTypeFiles.find((candidate) =>
                 candidate.packageId === reference.identity.packageId
                 && candidate.moduleName === reference.identity.moduleName);
@@ -402,9 +414,10 @@ export class TemplateBindingEmitter {
                 continue;
             }
 
-            const baseAlias = this.toTypeName(
-                `${reference.identity.packageId} ${reference.identity.moduleName} ${exportedName}`,
-            );
+            const baseAlias = reference.identity.packageId === template.templateId.packageId
+                && reference.identity.moduleName === template.templateId.moduleName
+                ? exportedName
+                : this.toTypeName(`${file.namespaceAlias} ${exportedName}`);
 
             let alias = baseAlias;
 

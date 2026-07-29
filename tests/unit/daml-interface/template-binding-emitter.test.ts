@@ -9,6 +9,7 @@ import {
     AnalyzedTemplateField,
 } from "../../../src/daml-interface/analysis/analyzed-template.js";
 import { TemplateBindingEmitter } from "../../../src/daml-interface/emission/template-binding-emitter.js";
+import { GeneratedNamedTypeFile } from "../../../src/daml-interface/emission-model/generated-named-type-file.js";
 
 describe("TemplateBindingEmitter", () => {
     it("emits typed template and choice event classes from analyzed template metadata", () => {
@@ -165,5 +166,49 @@ describe("TemplateBindingEmitter", () => {
         expect(contents.contents).not.toContain("contract:");
         expect(contents.contents).not.toContain("Splice.Api.Token.HoldingV1");
         expect(contents.contents).not.toContain("Holding as");
+    });
+
+    it("imports same-module named types without a package-hash alias", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3c",
+                moduleName: "Oz.Token.Kernel",
+                templateName: "Holding",
+            }),
+            className: "Holding",
+            fileName: "holding.ts",
+            createFields: [],
+            choices: [new AnalyzedChoice({
+                name: "Burn",
+                methodName: "exerciseBurn",
+                parameterName: "burn",
+                parameterType: {
+                    kind: "namedReference",
+                    identity: new TypeConReference({
+                        packageId: "426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3c",
+                        moduleName: "Oz.Token.Kernel",
+                        name: "Burn",
+                    }),
+                },
+                returnType: new DamlLfType({ builtinType: DamlLfBuiltinType.unit }),
+            })],
+        });
+        const typeFile = new GeneratedNamedTypeFile({
+            path: "generated/packages/oz-research_0.0.1/oz/token/kernel/types.ts",
+            contents: "",
+            packageId: template.templateId.packageId,
+            moduleName: template.templateId.moduleName,
+            namespaceAlias: "OZResearchOzTokenKernel",
+            exportedTypeNames: ["Burn"],
+            exportedTypeNamesByIdentity: new Map([[
+                `${template.templateId.packageId}\u0000${template.templateId.moduleName}\u0000Burn`,
+                "Burn",
+            ]]),
+        });
+
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template, [typeFile]).contents;
+
+        expect(contents).toContain("import type { Burn } from");
+        expect(contents).not.toContain("426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3cOzTokenKernelBurn");
     });
 });

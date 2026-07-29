@@ -74,6 +74,7 @@ export class NamedTypeEmitter {
             const externalTypeAliases = this.resolveExternalTypeAliases(
                 module,
                 moduleDefinitions,
+                modules,
                 names,
             );
 
@@ -197,6 +198,7 @@ export class NamedTypeEmitter {
     private resolveExternalTypeAliases(
         module: ResolvedModule,
         definitions: readonly AnalyzedDamlTypeDefinition[],
+        modules: ReadonlyMap<string, ResolvedModule>,
         names: ReadonlyMap<string, string>,
     ): ExternalTypeAliases {
         const references = new Map<string, { packageId: string; moduleName: string; name: string }>();
@@ -226,8 +228,17 @@ export class NamedTypeEmitter {
             this.getDefinitionName(definition, names)));
 
         for (const [key, identity] of [...references.entries()].sort(([left], [right]) => left.localeCompare(right))) {
+            const referencedModule = modules.get(this.getModuleKey(
+                identity.packageId,
+                identity.moduleName,
+            ));
+
+            if (referencedModule === undefined) {
+                throw new Error(`Cannot emit unresolved named DAML type '${identity.name}'`);
+            }
+
             const baseName = this.safeTypeName(
-                `${identity.packageId} ${identity.moduleName} ${identity.name}`,
+                `${referencedModule.namespaceAlias} ${identity.name}`,
             );
 
             let alias = baseName;

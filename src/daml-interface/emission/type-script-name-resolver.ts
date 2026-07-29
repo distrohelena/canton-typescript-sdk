@@ -166,7 +166,7 @@ export class TypeScriptNameResolver {
                 value: identityKey,
                 key: `namespace\u0000${identityKey}`,
                 baseName: this.safeNamespaceAlias(
-                    `${module.packageId} ${module.moduleName}`,
+                    `${this.getPackageNamespaceLabel(module.packageId)} ${module.moduleName}`,
                 ),
                 collisionSeparator: "_",
             })),
@@ -571,6 +571,14 @@ export class TypeScriptNameResolver {
         }
 
         return `${this.toPackageNameSegment(metadata.packageName)}_${this.toPackageVersionSegment(metadata.packageVersion)}`;
+    }
+
+    private getPackageNamespaceLabel(packageId: string): string {
+        const packageName = this.packageMetadata.get(packageId)?.packageName.trim();
+
+        return packageName === undefined || packageName.length === 0
+            ? packageId
+            : packageName;
     }
 
     private toPackageNameSegment(value: string): string {
