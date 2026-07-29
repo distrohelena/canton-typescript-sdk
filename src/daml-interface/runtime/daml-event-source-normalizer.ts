@@ -30,7 +30,8 @@ export type DamlCreatedEventMetadata = {
     readonly witnessParties?: readonly string[];
     readonly signatories?: readonly string[];
     readonly observers?: readonly string[];
-    readonly createdAt?: unknown;
+    /** Canonical UTC ISO-8601 timestamp. */
+    readonly createdAt?: string;
 };
 
 export type DamlExercisedEventMetadata = {
@@ -63,24 +64,6 @@ type RecognizedEvent = {
     readonly event: DamlJsonEventRecord;
     readonly encoding: "protobuf" | "json";
 };
-
-const DATE_MUTATORS = [
-    "setDate",
-    "setFullYear",
-    "setHours",
-    "setMilliseconds",
-    "setMinutes",
-    "setMonth",
-    "setSeconds",
-    "setTime",
-    "setUTCDate",
-    "setUTCFullYear",
-    "setUTCHours",
-    "setUTCMilliseconds",
-    "setUTCMinutes",
-    "setUTCMonth",
-    "setUTCSeconds",
-] as const;
 
 /**
  * Recognizes a Ledger API create event, a contract response/wrapper, or a
@@ -271,12 +254,12 @@ function identityFrom(value: unknown, path: string): DamlTypeIdentity {
 function freezeCreatedMetadata(event: DamlJsonEventRecord, templateId: DamlTypeIdentity): DamlCreatedEventMetadata {
     return Object.freeze(removeUndefined({
         templateId,
-        offset: optionalString(event, ["offset", "createdEventOffset", "created_event_offset"]),
+        offset: optionalString(event, ["offset", "createdEventOffset", "created_event_offset"], "offset", "created event source"),
         nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "created event source"),
         witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"], "witness parties", "created event source"),
         signatories: optionalStringArray(event, ["signatories"], "signatories", "created event source"),
         observers: optionalStringArray(event, ["observers"], "observers", "created event source"),
-        createdAt: cloneOptionalValue(event, ["createdAt", "created_at"]),
+        createdAt: optionalCreatedAt(event, ["createdAt", "created_at"], "created event source"),
     }));
 }
 
@@ -291,7 +274,8 @@ function freezeExercisedMetadata(
 
     return Object.freeze(removeUndefined({
         templateId,
-        offset: optionalString(event, ["offset"]) ?? optionalString(transaction ?? {}, ["offset"]),
+        offset: optionalString(event, ["offset"], "offset", "exercised event source")
+            ?? optionalString(transaction ?? {}, ["offset"], "offset", "exercised event source"),
         nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "exercised event source"),
         actingParties: optionalStringArray(event, ["actingParties", "acting_parties", "controllers"], "acting parties", "exercised event source"),
         witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"], "witness parties", "exercised event source"),
@@ -402,8 +386,25 @@ function freezeValueSource(value: unknown, encoding: "protobuf" | "protobuf-reco
     return Object.freeze({ kind: "json" as const, value: cloneAndFreeze(value) });
 }
 
-function optionalString(event: DamlJsonEventRecord, names: readonly string[]): string | undefined {
-    return stringValue(readProperty(event, names).value);
+function optionalString(
+    event: DamlJsonEventRecord,
+    names: readonly string[],
+    label: string,
+    path: string,
+): string | undefined {
+    const property = readProperty(event, names);
+
+    if (!property.found) {
+        return undefined;
+    }
+
+    const value = stringValue(property.value);
+
+    if (value === undefined) {
+        throw sourceError(path, `${label} must be a non-empty string`);
+    }
+
+    return value;
 }
 
 function optionalNodeId(event: DamlJsonEventRecord, names: readonly string[], label: string, path: string): number | undefined {
@@ -441,10 +442,70 @@ function optionalStringArray(
     return cloneAndFreeze(property.value) as readonly string[];
 }
 
-function cloneOptionalValue(event: DamlJsonEventRecord, names: readonly string[]): unknown {
+function optionalCreatedAt(event: DamlJsonEventRecord, names: readonly string[], path: string): string | undefined {
     const property = readProperty(event, names);
 
-    return property.found ? cloneAndFreeze(property.value) : undefined;
+    if (!property.found || property.value === null) {
+        return undefined;
+    } else if (property.value instanceof Date) {
+        if (Number.isNaN(property.value.getTime())) {
+            throw sourceError(path, "created at must be a valid timestamp");
+        }
+
+        return property.value.toISOString();
+    } else if (typeof property.value === "string") {
+        return canonicalIsoTimestamp(property.value, path);
+    }
+
+    return canonicalProtobufTimestamp(property.value, path);
+}
+
+function canonicalIsoTimestamp(value: string, path: string): string {
+    const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/.exec(value);
+
+    if (match === null) {
+        throw sourceError(path, "created at must be a UTC ISO-8601 timestamp");
+    }
+
+    const milliseconds = (match[2] ?? "").padEnd(3, "0").slice(0, 3);
+
+    const date = new Date(`${match[1]}.${milliseconds}Z`);
+
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 19) !== match[1]) {
+        throw sourceError(path, "created at must be a valid timestamp");
+    }
+
+    return `${match[1]}${match[2] === undefined ? "" : `.${match[2]}`}Z`;
+}
+
+function canonicalProtobufTimestamp(value: unknown, path: string): string {
+    const timestamp = asObject(value);
+
+    const seconds = timestamp === undefined ? undefined : readProperty(timestamp, ["seconds"]).value;
+
+    const nanos = timestamp === undefined ? undefined : readProperty(timestamp, ["nanos"]).value;
+
+    if (typeof seconds !== "string" || !/^-?\d+$/.test(seconds) || typeof nanos !== "number" || !Number.isSafeInteger(nanos) || nanos < 0 || nanos > 999999999) {
+        throw sourceError(path, "created at must be a valid timestamp");
+    }
+
+    const milliseconds = BigInt(seconds) * 1000n;
+
+    if (milliseconds < BigInt(-8640000000000000) || milliseconds > BigInt(8640000000000000)) {
+        throw sourceError(path, "created at must be a valid timestamp");
+    }
+
+    const date = new Date(Number(milliseconds));
+
+    if (Number.isNaN(date.getTime())) {
+        throw sourceError(path, "created at must be a valid timestamp");
+    }
+
+    const base = date.toISOString().replace(".000Z", "");
+
+    const fraction = nanos.toString().padStart(9, "0").replace(/0+$/, "");
+
+    return `${base}${fraction.length === 0 ? "" : `.${fraction}`}Z`;
 }
 
 function readProperty(object: DamlJsonEventRecord, names: readonly string[]): { readonly found: boolean; readonly value?: unknown } {
@@ -485,7 +546,7 @@ function cloneAndFreeze<T>(value: T, seen = new WeakMap<object, unknown>()): T {
     if (value === null || typeof value !== "object") {
         return value;
     } else if (value instanceof Date) {
-        return immutableDate(value) as T;
+        return Object.freeze(new Date(value.getTime())) as T;
     }
 
     const existing = seen.get(value);
@@ -509,20 +570,6 @@ function cloneAndFreeze<T>(value: T, seen = new WeakMap<object, unknown>()): T {
     }
 
     return Object.freeze(output) as T;
-}
-
-function immutableDate(value: Date): Date {
-    const date = new Date(value.getTime());
-
-    for (const method of DATE_MUTATORS) {
-        Object.defineProperty(date, method, {
-            value: () => {
-                throw new TypeError("canonical Date values are immutable");
-            },
-        });
-    }
-
-    return Object.freeze(date);
 }
 
 function removeUndefined<T extends Record<string, unknown>>(value: T): T {

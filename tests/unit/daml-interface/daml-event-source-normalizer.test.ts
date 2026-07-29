@@ -390,6 +390,24 @@ describe("DAML event source validation", () => {
             consuming: false,
             lastDescendantNodeId: "9007199254740992",
         })).toThrow(/last descendant node ID/);
+        expect(() => normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            offset: 17,
+        })).toThrow(/offset/);
+        expect(() => normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            createdAt: "not-a-timestamp",
+        })).toThrow(/created at/);
+        expect(() => normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            createdAt: new Date("not-a-date"),
+        })).toThrow(/created at/);
     });
 });
 
@@ -417,14 +435,14 @@ describe("canonical source isolation", () => {
 
         expect(canonicalPayload.nested.items[0]?.owner).toBe("Alice");
         expect(normalized.metadata.witnessParties).toEqual(["Alice"]);
-        expect((normalized.metadata.createdAt as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
+        expect(normalized.metadata.createdAt).toBe("2026-01-02T03:04:05.000Z");
         expect(Object.isFrozen(canonicalPayload)).toBe(true);
         expect(Object.isFrozen(canonicalPayload.nested)).toBe(true);
         expect(Object.isFrozen(canonicalPayload.nested.items)).toBe(true);
         expect(Object.isFrozen(canonicalPayload.nested.items[0])).toBe(true);
         expect(Object.isFrozen(normalized.metadata.witnessParties)).toBe(true);
-        expect(Object.isFrozen(normalized.metadata.createdAt)).toBe(true);
-        expect(() => (normalized.metadata.createdAt as Date).setUTCFullYear(2028)).toThrow();
+        expect(typeof normalized.metadata.createdAt).toBe("string");
+        expect(() => Date.prototype.setUTCFullYear.call(normalized.metadata.createdAt, 2028)).toThrow();
     });
 
     it("deep clones and freezes protobuf values before sources can mutate them", () => {
