@@ -177,8 +177,11 @@ function createContractIdTemplateWorkspace(
     typeArguments: readonly DamlLfType[],
 ): DamlLfWorkspace {
     const packageId = "consumer-hash";
+
     const moduleName = "Consumer.Module";
+
     const templateName = "Consumer";
+
     const fields = [
         new DamlLfField({
             name: "holding",
