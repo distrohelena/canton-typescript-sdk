@@ -63,51 +63,79 @@ function decodeProtobufValue(
     registry: DamlTypeDescriptorRegistry,
     path: string,
 ): DamlDecodedValue {
-    const kind = value.sum.oneofKind;
+    switch (value.sum.oneofKind) {
+        case undefined:
+            throw materializationError(path, "value is absent");
+        case "unit":
+            requirePrimitiveDescriptor(descriptor, "unit", path);
 
-    if (kind === undefined) {
-        throw materializationError(path, "value is absent");
-    }
+            return new DamlUnit();
+        case "bool":
+            requirePrimitiveDescriptor(descriptor, "bool", path);
 
-    switch (descriptor.kind) {
-        case "primitive":
-            return decodeProtobufPrimitive(value, descriptor.primitive, path);
+            return value.sum.bool;
+        case "int64":
+            requirePrimitiveDescriptor(descriptor, "int64", path);
+
+            return decodeInt64(value.sum.int64, path);
+        case "date":
+            requirePrimitiveDescriptor(descriptor, "date", path);
+
+            return new DamlDate(value.sum.date);
+        case "timestamp":
+            requirePrimitiveDescriptor(descriptor, "timestamp", path);
+
+            return new DamlTimestamp(requireIntegerString(value.sum.timestamp, path, "timestamp"));
+        case "numeric":
+            requirePrimitiveDescriptor(descriptor, "numeric", path);
+
+            return decodeNumeric(value.sum.numeric, path);
+        case "party":
+            requirePrimitiveDescriptor(descriptor, "party", path);
+
+            return decodeParty(value.sum.party, path);
+        case "text":
+            requirePrimitiveDescriptor(descriptor, "text", path);
+
+            return value.sum.text;
         case "contractId":
-            return requireProtobufKind(value, "contractId", path).contractId;
-        case "optional": {
-            const optional = requireProtobufKind(value, "optional", path).optional;
+            requireDescriptorKind(descriptor, "contractId", path, "contractId");
 
-            return optional.value === undefined
+            return value.sum.contractId;
+        case "optional":
+            requireDescriptorKind(descriptor, "optional", path, "optional");
+
+            return value.sum.optional.value === undefined
                 ? undefined
-                : decodeDamlValue({ kind: "protobuf", value: optional.value }, descriptor.element, registry, path);
-        }
-        case "list": {
-            const elements = requireProtobufKind(value, "list", path).list.elements;
+                : decodeDamlValue({ kind: "protobuf", value: value.sum.optional.value }, descriptor.element, registry, path);
+        case "list":
+            requireDescriptorKind(descriptor, "list", path, "list");
 
-            return elements.map((element, index) => decodeDamlValue(
+            return value.sum.list.elements.map((element, index) => decodeDamlValue(
                 { kind: "protobuf", value: element }, descriptor.element, registry, indexedPath(path, index),
             ));
-        }
-        case "textMap": {
-            const entries = requireProtobufKind(value, "textMap", path).textMap.entries;
+        case "textMap":
+            requireDescriptorKind(descriptor, "textMap", path, "textMap");
 
-            return new DamlTextMap(entries.map((entry, index) => [
+            return new DamlTextMap(value.sum.textMap.entries.map((entry, index) => [
                 entry.key,
                 decodeRequiredProtobufValue(entry.value, descriptor.value, registry, `${indexedPath(path, index)}.${entry.key}`),
             ]));
-        }
-        case "genMap": {
-            const entries = requireProtobufKind(value, "genMap", path).genMap.entries;
+        case "genMap":
+            requireDescriptorKind(descriptor, "genMap", path, "genMap");
 
-            return new DamlGenMap(entries.map((entry, index) => [
+            return new DamlGenMap(value.sum.genMap.entries.map((entry, index) => [
                 decodeRequiredProtobufValue(entry.key, descriptor.key, registry, `${indexedPath(path, index)}.key`),
                 decodeRequiredProtobufValue(entry.value, descriptor.value, registry, `${indexedPath(path, index)}.value`),
             ]));
-        }
         case "record":
-            return decodeProtobufRecord(value, descriptor, registry, path);
+            requireDescriptorKind(descriptor, "record", path, "record");
+
+            return decodeProtobufRecord(value.sum.record, descriptor, registry, path);
         case "variant": {
-            const variant = requireProtobufKind(value, "variant", path).variant;
+            requireDescriptorKind(descriptor, "variant", path, "variant");
+
+            const variant = value.sum.variant;
 
             const constructor = descriptor.constructors.find((candidate) => candidate.constructor === variant.constructor);
 
@@ -120,52 +148,26 @@ function decodeProtobufValue(
                 decodeRequiredProtobufValue(variant.value, constructor.payload, registry, `${path}.${variant.constructor}`),
             );
         }
-        case "enum": {
-            const constructor = requireProtobufKind(value, "enum", path).enum.constructor;
+        case "enum":
+            requireDescriptorKind(descriptor, "enum", path, "enum");
 
-            if (!descriptor.constructors.includes(constructor)) {
-                throw materializationError(path, `unknown enum constructor ${constructor}`);
+            if (!descriptor.constructors.includes(value.sum.enum.constructor)) {
+                throw materializationError(path, `unknown enum constructor ${value.sum.enum.constructor}`);
             }
 
-            return new DamlEnum(constructor);
-        }
-    }
-}
-
-function decodeProtobufPrimitive(
-    value: Value,
-    primitive: "unit" | "bool" | "int64" | "date" | "timestamp" | "numeric" | "party" | "text",
-    path: string,
-): DamlDecodedValue {
-    switch (primitive) {
-        case "unit":
-            requireProtobufKind(value, "unit", path);
-
-            return new DamlUnit();
-        case "bool":
-            return requireProtobufKind(value, "bool", path).bool;
-        case "int64":
-            return decodeInt64(requireProtobufKind(value, "int64", path).int64, path);
-        case "date":
-            return new DamlDate(requireProtobufKind(value, "date", path).date);
-        case "timestamp":
-            return new DamlTimestamp(requireProtobufKind(value, "timestamp", path).timestamp);
-        case "numeric":
-            return decodeNumeric(requireProtobufKind(value, "numeric", path).numeric, path);
-        case "party":
-            return decodeParty(requireProtobufKind(value, "party", path).party, path);
-        case "text":
-            return requireProtobufKind(value, "text", path).text;
+            return new DamlEnum(value.sum.enum.constructor);
+        default:
+            return rejectUnknownProtobufKind(path, value.sum);
     }
 }
 
 function decodeProtobufRecord(
-    value: Value,
+    record: Extract<Value["sum"], { readonly oneofKind: "record" }>["record"],
     descriptor: Extract<DamlTypeDescriptor, { readonly kind: "record" }>,
     registry: DamlTypeDescriptorRegistry,
     path: string,
 ): DamlRecord {
-    const fields = requireProtobufKind(value, "record", path).record.fields;
+    const fields = record.fields;
 
     const labelsPresent = fields.every((field) => field.label.length > 0);
 
@@ -359,19 +361,29 @@ function decodeRequiredProtobufValue(value: Value | undefined, descriptor: DamlT
     return decodeDamlValue({ kind: "protobuf", value }, descriptor, registry, path);
 }
 
-function requireProtobufKind<K extends Exclude<Value["sum"]["oneofKind"], undefined>>(value: Value, expected: K, path: string): Extract<Value["sum"], { readonly oneofKind: K }> {
-    if (!hasProtobufKind(value, expected)) {
-        throw materializationError(path, `expected ${expected} but received ${value.sum.oneofKind ?? "absent"}`);
+function requirePrimitiveDescriptor(
+    descriptor: Exclude<DamlTypeDescriptor, { readonly kind: "namedReference" }>,
+    primitive: "unit" | "bool" | "int64" | "date" | "timestamp" | "numeric" | "party" | "text",
+    path: string,
+): asserts descriptor is Extract<DamlTypeDescriptor, { readonly kind: "primitive" }> {
+    if (descriptor.kind !== "primitive" || descriptor.primitive !== primitive) {
+        throw materializationError(path, `expected ${descriptor.kind} but received ${primitive}`);
     }
-
-    return value.sum;
 }
 
-function hasProtobufKind<K extends Exclude<Value["sum"]["oneofKind"], undefined>>(
-    value: Value,
+function requireDescriptorKind<K extends Exclude<DamlTypeDescriptor["kind"], "namedReference">>(
+    descriptor: Exclude<DamlTypeDescriptor, { readonly kind: "namedReference" }>,
     expected: K,
-): value is Value & { readonly sum: Extract<Value["sum"], { readonly oneofKind: K }> } {
-    return value.sum.oneofKind === expected;
+    path: string,
+    received: string,
+): asserts descriptor is Extract<DamlTypeDescriptor, { readonly kind: K }> {
+    if (descriptor.kind !== expected) {
+        throw materializationError(path, `expected ${descriptor.kind} but received ${received}`);
+    }
+}
+
+function rejectUnknownProtobufKind(path: string, _value: never): never {
+    throw materializationError(path, "value has an unknown protobuf oneof kind");
 }
 
 function requireArray(value: unknown, path: string, description: string): readonly unknown[] {

@@ -136,6 +136,7 @@ describe("decodeDamlValue nested values and validation", () => {
     it("rejects absent values, type mismatches, invalid scalar content, and malformed JSON shapes with the descriptor path", () => {
         expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: undefined } })), descriptors.text, emptyRegistry, "Iou.name")).toThrow(DamlMaterializationError);
         expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "bool", bool: true } })), descriptors.text, emptyRegistry, "Iou.name")).toThrow(/Iou\.name/);
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "timestamp", timestamp: "not-microseconds" } })), descriptors.timestamp, emptyRegistry, "Iou.time")).toThrow(/Iou\.time/);
         expect(() => decodeDamlValue(json(1), descriptors.text, emptyRegistry, "Iou.name")).toThrow(/Iou\.name/);
         expect(() => decodeDamlValue(json("invalid"), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
         expect(() => decodeDamlValue(json(""), descriptors.party, emptyRegistry, "Iou.owner")).toThrow(/Iou\.owner/);
