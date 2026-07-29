@@ -138,7 +138,7 @@ export class Lf2ModelMapper {
             });
         }
 
-        if (rawType?.sum.oneofKind === "var") {
+        else if (rawType?.sum.oneofKind === "var") {
             return new DamlLfType({
                 typeVariableReference: Lf2ModelMapper.mapTypeVariableReference(
                     rawPackage,
@@ -232,11 +232,11 @@ export class Lf2ModelMapper {
             return { kind: "star" };
         }
 
-        if (rawKind?.sum.oneofKind === "nat") {
+        else if (rawKind?.sum.oneofKind === "nat") {
             return { kind: "nat" };
         }
 
-        if (rawKind?.sum.oneofKind === "arrow") {
+        else if (rawKind?.sum.oneofKind === "arrow") {
             return {
                 kind: "arrow",
                 parameters: rawKind.sum.arrow.params.map((parameter) =>
@@ -249,18 +249,18 @@ export class Lf2ModelMapper {
             };
         }
 
-        if (rawKind?.sum.oneofKind === "internedKind") {
-            const internedKind = rawPackage.internedKinds[rawKind.sum.internedKind];
-
-            return internedKind === undefined
-                ? {
-                    kind: "unknown",
-                    internedKindIndex: rawKind.sum.internedKind,
-                }
-                : Lf2ModelMapper.mapTypeParameterKind(rawPackage, internedKind);
+        if (rawKind?.sum.oneofKind !== "internedKind") {
+            return { kind: "unknown" };
         }
 
-        return { kind: "unknown" };
+        const internedKind = rawPackage.internedKinds[rawKind.sum.internedKind];
+
+        return internedKind === undefined
+            ? {
+                kind: "unknown",
+                internedKindIndex: rawKind.sum.internedKind,
+            }
+            : Lf2ModelMapper.mapTypeParameterKind(rawPackage, internedKind);
     }
 
     private static mapBuiltinType(builtinType: BuiltinType): DamlLfBuiltinType {

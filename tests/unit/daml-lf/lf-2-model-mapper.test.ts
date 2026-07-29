@@ -714,6 +714,7 @@ describe("LF 2.x model mapper", () => {
         const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
             createGenericDataTypesArchiveBytes(),
         );
+
         const box = packageModel.modules[0]?.definitions[0] as DamlLfDataType & {
             readonly typeParameters: readonly {
                 readonly name?: string;
@@ -721,7 +722,9 @@ describe("LF 2.x model mapper", () => {
                 readonly kind: unknown;
             }[];
         };
+
         const fields = box.definition.kind === "record" ? box.definition.fields : [];
+
         const value = fields.find((field) => field.name === "value")?.type as {
             readonly typeVariableReference?: {
                 readonly name?: string;
@@ -729,7 +732,9 @@ describe("LF 2.x model mapper", () => {
             };
             readonly typeArguments: readonly unknown[];
         };
+
         const textBox = fields.find((field) => field.name === "textBox")?.type;
+
         const polymorphic = fields.find((field) => field.name === "polymorphic")?.type as {
             readonly diagnosticForall?: {
                 readonly typeParameters: readonly {
@@ -811,6 +816,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
             },
         },
     });
+
     const text: Type = {
         sum: {
             oneofKind: "builtin",
@@ -820,6 +826,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
             },
         },
     };
+
     const box: Type = {
         sum: {
             oneofKind: "con",
@@ -840,6 +847,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
             },
         },
     };
+
     const packageBytes = Package.toBinary({
         modules: [
             {
@@ -947,6 +955,7 @@ function createGenericDataTypesArchiveBytes(): Uint8Array {
             oneofKind: undefined,
         },
     });
+
     const payloadBytes = ArchivePayload.toBinary({
         minor: "1",
         patch: 0,
