@@ -5,12 +5,14 @@ import {
     DefDataType,
     DefTemplate,
     Expr,
+    Kind,
     Module,
     Package as LfArchivePackage,
     SelfOrImportedPackageId,
     TemplateChoice,
     Type,
     TypeConId,
+    TypeVarWithKind,
     Update,
     VarWithType,
 } from "../../transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
@@ -19,14 +21,18 @@ import { DamlLfDecodeException } from "../errors/daml-lf-decode.exception.js";
 import { DamlLfBuiltinType } from "./daml-lf-builtin-type.js";
 import { DamlLfChoice } from "./daml-lf-choice.js";
 import { DamlLfChoiceParameter } from "./daml-lf-choice-parameter.js";
-import { DamlLfDataType } from "./daml-lf-data-type.js";
+import {
+    DamlLfDataType,
+    DamlLfTypeParameter,
+    DamlLfTypeParameterKind,
+} from "./daml-lf-data-type.js";
 import { DamlLfExpression } from "./daml-lf-expression.js";
 import { DamlLfField } from "./daml-lf-field.js";
 import { DamlLfModule } from "./daml-lf-module.js";
 import { DamlLfPackage } from "./daml-lf-package.js";
 import { DamlLfTemplate } from "./daml-lf-template.js";
 import { DamlLfTemplateId } from "./daml-lf-template-id.js";
-import { DamlLfType } from "./daml-lf-type.js";
+import { DamlLfType, DamlLfTypeVariableReference } from "./daml-lf-type.js";
 import { DamlLfValueDefinition } from "./daml-lf-value-definition.js";
 import { TypeConReference } from "./type-con-reference.js";
 
@@ -98,6 +104,12 @@ export class Lf2ModelMapper {
                 ...(lhs.typeConReference === undefined
                     ? {}
                     : { typeConReference: lhs.typeConReference }),
+                ...(lhs.typeVariableReference === undefined
+                    ? {}
+                    : { typeVariableReference: lhs.typeVariableReference }),
+                ...(lhs.diagnosticForall === undefined
+                    ? {}
+                    : { diagnosticForall: lhs.diagnosticForall }),
                 typeArguments: numericScale === undefined
                     ? [
                         ...lhs.typeArguments,
@@ -112,11 +124,30 @@ export class Lf2ModelMapper {
         }
 
         if (rawType?.sum.oneofKind === "forall") {
-            return Lf2ModelMapper.mapType(
-                currentPackageId,
-                rawPackage,
-                rawType.sum.forall.body,
-            );
+            return new DamlLfType({
+                diagnosticForall: {
+                    typeParameters: rawType.sum.forall.vars.map((parameter) =>
+                        Lf2ModelMapper.mapTypeParameter(rawPackage, parameter),
+                    ),
+                    body: Lf2ModelMapper.mapType(
+                        currentPackageId,
+                        rawPackage,
+                        rawType.sum.forall.body,
+                    ),
+                },
+            });
+        }
+
+        if (rawType?.sum.oneofKind === "var") {
+            return new DamlLfType({
+                typeVariableReference: Lf2ModelMapper.mapTypeVariableReference(
+                    rawPackage,
+                    rawType.sum.var.varInternedStr,
+                ),
+                typeArguments: rawType.sum.var.args.map((item) =>
+                    Lf2ModelMapper.mapType(currentPackageId, rawPackage, item),
+                ),
+            });
         }
 
         if (rawType?.sum.oneofKind === "con") {
@@ -160,6 +191,76 @@ export class Lf2ModelMapper {
         return new DamlLfType({
             builtinType: DamlLfBuiltinType.unknown,
         });
+    }
+
+    private static mapTypeParameter(
+        rawPackage: LfArchivePackage,
+        rawParameter: TypeVarWithKind,
+    ): DamlLfTypeParameter {
+        const name = Lf2ModelMapper.resolveInternedStringOrUndefined(
+            rawPackage.internedStrings,
+            rawParameter.varInternedStr,
+        );
+
+        return {
+            ...(name === undefined ? {} : { name }),
+            internedStringIndex: rawParameter.varInternedStr,
+            kind: Lf2ModelMapper.mapTypeParameterKind(rawPackage, rawParameter.kind),
+        };
+    }
+
+    private static mapTypeVariableReference(
+        rawPackage: LfArchivePackage,
+        internedStringIndex: number,
+    ): DamlLfTypeVariableReference {
+        const name = Lf2ModelMapper.resolveInternedStringOrUndefined(
+            rawPackage.internedStrings,
+            internedStringIndex,
+        );
+
+        return {
+            ...(name === undefined ? {} : { name }),
+            internedStringIndex,
+        };
+    }
+
+    private static mapTypeParameterKind(
+        rawPackage: LfArchivePackage,
+        rawKind: Kind | undefined,
+    ): DamlLfTypeParameterKind {
+        if (rawKind?.sum.oneofKind === "star") {
+            return { kind: "star" };
+        }
+
+        if (rawKind?.sum.oneofKind === "nat") {
+            return { kind: "nat" };
+        }
+
+        if (rawKind?.sum.oneofKind === "arrow") {
+            return {
+                kind: "arrow",
+                parameters: rawKind.sum.arrow.params.map((parameter) =>
+                    Lf2ModelMapper.mapTypeParameterKind(rawPackage, parameter),
+                ),
+                result: Lf2ModelMapper.mapTypeParameterKind(
+                    rawPackage,
+                    rawKind.sum.arrow.result,
+                ),
+            };
+        }
+
+        if (rawKind?.sum.oneofKind === "internedKind") {
+            const internedKind = rawPackage.internedKinds[rawKind.sum.internedKind];
+
+            return internedKind === undefined
+                ? {
+                    kind: "unknown",
+                    internedKindIndex: rawKind.sum.internedKind,
+                }
+                : Lf2ModelMapper.mapTypeParameterKind(rawPackage, internedKind);
+        }
+
+        return { kind: "unknown" };
     }
 
     private static mapBuiltinType(builtinType: BuiltinType): DamlLfBuiltinType {
@@ -332,6 +433,9 @@ export class Lf2ModelMapper {
                 rawDataType.nameInternedDname,
             ),
             definition,
+            typeParameters: rawDataType.params.map((parameter) =>
+                Lf2ModelMapper.mapTypeParameter(rawPackage, parameter),
+            ),
         });
     }
 
@@ -1396,6 +1500,13 @@ export class Lf2ModelMapper {
         }
 
         return internedStrings[index];
+    }
+
+    private static resolveInternedStringOrUndefined(
+        internedStrings: readonly string[],
+        index: number | undefined,
+    ): string | undefined {
+        return index === undefined ? undefined : internedStrings[index];
     }
 
     private static resolveInternedDottedName(

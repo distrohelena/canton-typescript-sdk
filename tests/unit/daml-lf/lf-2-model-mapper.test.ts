@@ -709,7 +709,259 @@ describe("LF 2.x model mapper", () => {
             }),
         );
     });
+
+    it("preserves generic data-type binders, variable references, and forall markers", () => {
+        const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
+            createGenericDataTypesArchiveBytes(),
+        );
+        const box = packageModel.modules[0]?.definitions[0] as DamlLfDataType & {
+            readonly typeParameters: readonly {
+                readonly name?: string;
+                readonly internedStringIndex: number;
+                readonly kind: unknown;
+            }[];
+        };
+        const fields = box.definition.kind === "record" ? box.definition.fields : [];
+        const value = fields.find((field) => field.name === "value")?.type as {
+            readonly typeVariableReference?: {
+                readonly name?: string;
+                readonly internedStringIndex: number;
+            };
+            readonly typeArguments: readonly unknown[];
+        };
+        const textBox = fields.find((field) => field.name === "textBox")?.type;
+        const polymorphic = fields.find((field) => field.name === "polymorphic")?.type as {
+            readonly diagnosticForall?: {
+                readonly typeParameters: readonly {
+                    readonly name?: string;
+                    readonly kind: unknown;
+                }[];
+                readonly body: {
+                    readonly typeVariableReference?: {
+                        readonly name?: string;
+                    };
+                    readonly typeArguments: readonly {
+                        readonly builtinType: DamlLfBuiltinType;
+                    }[];
+                };
+            };
+        };
+
+        expect(box.typeParameters).toEqual([
+            {
+                name: "a",
+                internedStringIndex: 5,
+                kind: { kind: "star" },
+            },
+        ]);
+        expect(value).toMatchObject({
+            typeVariableReference: {
+                name: "a",
+                internedStringIndex: 5,
+            },
+            typeArguments: [],
+        });
+        expect(textBox).toMatchObject({
+            typeConReference: {
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                name: "Box",
+            },
+            typeArguments: [
+                {
+                    builtinType: DamlLfBuiltinType.text,
+                    typeArguments: [],
+                },
+            ],
+        });
+        expect(polymorphic.diagnosticForall).toEqual({
+            typeParameters: [
+                {
+                    name: "f",
+                    internedStringIndex: 9,
+                    kind: {
+                        kind: "arrow",
+                        parameters: [{ kind: "star" }],
+                        result: { kind: "star" },
+                    },
+                },
+            ],
+            body: expect.objectContaining({
+                typeVariableReference: {
+                    name: "f",
+                    internedStringIndex: 9,
+                },
+                typeArguments: [
+                    expect.objectContaining({
+                        builtinType: DamlLfBuiltinType.text,
+                    }),
+                ],
+            }),
+        });
+    });
 });
+
+function createGenericDataTypesArchiveBytes(): Uint8Array {
+    const typeVariable = (varInternedStr: number, args: readonly Type[] = []): Type => ({
+        sum: {
+            oneofKind: "var",
+            var: {
+                varInternedStr,
+                args: [...args],
+            },
+        },
+    });
+    const text: Type = {
+        sum: {
+            oneofKind: "builtin",
+            builtin: {
+                builtin: BuiltinType.TEXT,
+                args: [],
+            },
+        },
+    };
+    const box: Type = {
+        sum: {
+            oneofKind: "con",
+            con: {
+                tycon: {
+                    module: {
+                        packageId: {
+                            sum: {
+                                oneofKind: "selfPackageId",
+                                selfPackageId: {},
+                            },
+                        },
+                        moduleNameInternedDname: 0,
+                    },
+                    nameInternedDname: 1,
+                },
+                args: [text],
+            },
+        },
+    };
+    const packageBytes = Package.toBinary({
+        modules: [
+            {
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [
+                    {
+                        nameInternedDname: 1,
+                        params: [
+                            {
+                                varInternedStr: 5,
+                                kind: {
+                                    sum: {
+                                        oneofKind: "star",
+                                        star: {},
+                                    },
+                                },
+                            },
+                        ],
+                        serializable: true,
+                        dataCons: {
+                            oneofKind: "record",
+                            record: {
+                                fields: [
+                                    {
+                                        fieldInternedStr: 6,
+                                        type: typeVariable(5),
+                                    },
+                                    {
+                                        fieldInternedStr: 7,
+                                        type: box,
+                                    },
+                                    {
+                                        fieldInternedStr: 8,
+                                        type: {
+                                            sum: {
+                                                oneofKind: "forall",
+                                                forall: {
+                                                    vars: [
+                                                        {
+                                                            varInternedStr: 9,
+                                                            kind: {
+                                                                sum: {
+                                                                    oneofKind: "arrow",
+                                                                    arrow: {
+                                                                        params: [
+                                                                            {
+                                                                                sum: {
+                                                                                    oneofKind: "star",
+                                                                                    star: {},
+                                                                                },
+                                                                            },
+                                                                        ],
+                                                                        result: {
+                                                                            sum: {
+                                                                                oneofKind: "star",
+                                                                                star: {},
+                                                                            },
+                                                                        },
+                                                                    },
+                                                                },
+                                                            },
+                                                        },
+                                                    ],
+                                                    body: typeVariable(9, [text]),
+                                                },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                ],
+                values: [],
+                templates: [],
+                exceptions: [],
+                interfaces: [],
+            },
+        ],
+        internedStrings: [
+            "sample-package",
+            "1.0.0",
+            "Sample",
+            "Module",
+            "Box",
+            "a",
+            "value",
+            "textBox",
+            "polymorphic",
+            "f",
+        ],
+        internedDottedNames: [
+            { segmentsInternedStr: [2, 3] },
+            { segmentsInternedStr: [4] },
+        ],
+        metadata: {
+            nameInternedStr: 0,
+            versionInternedStr: 1,
+        },
+        internedTypes: [],
+        internedKinds: [],
+        internedExprs: [],
+        importsSum: {
+            oneofKind: undefined,
+        },
+    });
+    const payloadBytes = ArchivePayload.toBinary({
+        minor: "1",
+        patch: 0,
+        sum: {
+            oneofKind: "damlLf2",
+            damlLf2: packageBytes,
+        },
+    });
+
+    return Archive.toBinary({
+        hashFunction: HashFunction.SHA256,
+        payload: payloadBytes,
+        hash: "sample-hash",
+    });
+}
 
 function createValueReferenceArchiveBytes(): Uint8Array {
     const packageBytes = Package.toBinary({
