@@ -25,15 +25,27 @@ The ordinary `DamlLfCompilation.createOrThrow` path remains strict for general
 semantic/evaluator consumers. Generator analysis resolves named types lazily
 only when they are reachable from an emitted template field or choice. Thus an
 unused external reference is ignored, while a real structured external record
-used by a generated template still fails clearly instead of producing an
-untyped binding. `ContractId<T>` remains its existing special case: its target
-is never resolved because the generated value is a string.
+used by a generated template still fails with its fully qualified package,
+module, and type identity instead of producing an untyped binding.
+`ContractId<T>` remains its existing special case: its target is never resolved
+because the generated value is a string.
+
+DAR generation continues to load all Dalf entries and emit their templates, as
+it does today. The new factory changes only global validation: each loaded
+package may contain unused external references without blocking generation.
 
 ## Verification
 
-Add a real one-Dalf fixture containing an otherwise-unused data/value
-definition that directly references `Splice.Api.Token.HoldingV1.Holding`, with
-no Holding package in the workspace. Prove strict `createOrThrow` still rejects
-the fixture, while `generateFromDalfOrThrowAsync` succeeds and emits only the
-reachable template bindings. Cover the equivalent DAR generation path and
-ensure no generated source includes the external package/module name.
+Add separate real one-Dalf fixtures (or isolated workspaces) containing an
+otherwise-unused data type and an otherwise-unused value definition,
+respectively, that directly reference `Splice.Api.Token.HoldingV1.Holding`,
+with no Holding package in the workspace. Prove strict `createOrThrow` rejects
+each branch independently, while `generateFromDalfOrThrowAsync` succeeds for
+the package containing both and emits only reachable template bindings. Cover
+the equivalent DAR generation path and ensure no generated source includes the
+external package/module name.
+
+Add separate Dalf and DAR negative tests where a template field or choice
+directly uses the missing structured Holding type. Generation must reject with
+the fully qualified external identity. This proves the factory removes only
+unreachable dependency requirements.
