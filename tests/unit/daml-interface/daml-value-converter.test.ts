@@ -83,6 +83,19 @@ describe("decodeDamlValue primitive representations", () => {
         expect(() => decodeDamlValue(json(overPrecision), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
     });
 
+    it("normalizes Ledger Numeric leading plus signs for protobuf and JSON values", () => {
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "numeric", numeric: "+12.30" } })), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("12.30"));
+        expect(decodeDamlValue(json("+12.30"), descriptors.numeric, emptyRegistry, "Iou.amount")).toEqual(new DamlNumeric("12.30"));
+        expect(() => decodeDamlValue(json("+-12.30"), descriptors.numeric, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+    });
+
+    it("enforces signed Int64 bounds for protobuf and JSON values", () => {
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "int64", int64: "-9223372036854775808" } })), descriptors.int64, emptyRegistry, "Iou.amount")).toBe(-9223372036854775808n);
+        expect(decodeDamlValue(json("9223372036854775807"), descriptors.int64, emptyRegistry, "Iou.amount")).toBe(9223372036854775807n);
+        expect(() => decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "int64", int64: "9223372036854775808" } })), descriptors.int64, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+        expect(() => decodeDamlValue(json("-9223372036854775809"), descriptors.int64, emptyRegistry, "Iou.amount")).toThrow(/Iou\.amount/);
+    });
+
     it("enforces ledger Date and Timestamp bounds for protobuf and JSON values", () => {
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "date", date: -719162 } })), descriptors.date, emptyRegistry, "Iou.date")).toEqual(new DamlDate(-719162));
         expect(decodeDamlValue(json(2932896), descriptors.date, emptyRegistry, "Iou.date")).toEqual(new DamlDate(2932896));
@@ -140,6 +153,8 @@ describe("decodeDamlValue nested values and validation", () => {
     it("converts protobuf optionals, maps, labelled and positional records, variants, enums, and contract IDs", () => {
         const optional = { kind: "optional", element: descriptors.text } as const satisfies DamlTypeDescriptor;
 
+        const list = { kind: "list", element: descriptors.int64 } as const satisfies DamlTypeDescriptor;
+
         const textMap = { kind: "textMap", value: descriptors.party } as const satisfies DamlTypeDescriptor;
 
         const genMap = { kind: "genMap", key: descriptors.text, value: descriptors.int64 } as const satisfies DamlTypeDescriptor;
@@ -151,6 +166,8 @@ describe("decodeDamlValue nested values and validation", () => {
         const contractId = { kind: "contractId", contract: tradeDescriptor } as const satisfies DamlTypeDescriptor;
 
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "optional", optional: { value: Value.create({ sum: { oneofKind: "text", text: "memo" } }) } } })), optional, emptyRegistry, "Iou.memo")).toBe("memo");
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "optional", optional: {} } })), optional, emptyRegistry, "Iou.memo")).toBeUndefined();
+        expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "list", list: { elements: [Value.create({ sum: { oneofKind: "int64", int64: "1" } }), Value.create({ sum: { oneofKind: "int64", int64: "2" } })] } } })), list, emptyRegistry, "Iou.ids")).toEqual([1n, 2n]);
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "textMap", textMap: { entries: [{ key: "Alice", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } })), textMap, emptyRegistry, "Iou.owners")).toEqual(new DamlTextMap([["Alice", new DamlParty("Alice")]]));
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "genMap", genMap: { entries: [{ key: Value.create({ sum: { oneofKind: "text", text: "one" } }), value: Value.create({ sum: { oneofKind: "int64", int64: "1" } }) }] } } })), genMap, emptyRegistry, "Iou.entries")).toEqual(new DamlGenMap([["one", 1n]]));
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "record", record: { fields: [{ label: "amount", value: Value.create({ sum: { oneofKind: "numeric", numeric: "12.30" } }) }, { label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } })), tradeDescriptor, emptyRegistry, "Trade")).toEqual(new DamlRecord({ amount: new DamlNumeric("12.30"), owner: new DamlParty("Alice") }));

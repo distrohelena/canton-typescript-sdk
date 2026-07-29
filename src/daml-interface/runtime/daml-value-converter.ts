@@ -43,6 +43,10 @@ const DAML_MIN_TIMESTAMP_MICROSECONDS = -62135596800000000n;
 
 const DAML_MAX_TIMESTAMP_MICROSECONDS = 253402300799999999n;
 
+const DAML_MIN_INT64 = -9223372036854775808n;
+
+const DAML_MAX_INT64 = 9223372036854775807n;
+
 /** Decodes a protobuf or JSON/PQS DAML value according to its generated descriptor. */
 export function decodeDamlValue(
     source: DamlValueSource,
@@ -431,11 +435,19 @@ function requireIntegerString(value: unknown, path: string, description: string)
 function decodeInt64(value: string, path: string): bigint {
     const integer = requireIntegerString(value, path, "int64");
 
+    let int64: bigint;
+
     try {
-        return BigInt(integer);
+        int64 = BigInt(integer);
     } catch {
         throw materializationError(path, "invalid int64");
     }
+
+    if (int64 < DAML_MIN_INT64 || int64 > DAML_MAX_INT64) {
+        throw materializationError(path, "int64 is outside the DAML ledger range");
+    }
+
+    return int64;
 }
 
 function decodeDate(value: unknown, path: string): DamlDate {
@@ -461,11 +473,17 @@ function decodeTimestamp(value: unknown, path: string): DamlTimestamp {
 }
 
 function decodeNumeric(value: string, numericScale: number | undefined, path: string): DamlNumeric {
-    const decimalSeparator = value.indexOf(".");
+    if (!/^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) {
+        throw materializationError(path, "invalid numeric");
+    }
 
-    const fractionLength = decimalSeparator === -1 ? 0 : value.length - decimalSeparator - 1;
+    const normalized = value.startsWith("+") ? value.slice(1) : value;
 
-    const precision = value.replace(/[-.]/g, "").length;
+    const decimalSeparator = normalized.indexOf(".");
+
+    const fractionLength = decimalSeparator === -1 ? 0 : normalized.length - decimalSeparator - 1;
+
+    const precision = normalized.replace(/[-.]/g, "").length;
 
     const maxScale = numericScale ?? 37;
 
@@ -478,7 +496,7 @@ function decodeNumeric(value: string, numericScale: number | undefined, path: st
     }
 
     try {
-        return new DamlNumeric(value);
+        return new DamlNumeric(normalized);
     } catch {
         throw materializationError(path, "invalid numeric");
     }
