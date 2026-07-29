@@ -116,7 +116,7 @@ export class TypeScriptNameResolver {
             allTemplates.map((template) => ({
                 value: template,
                 key: this.getTemplateIdentityKey(template),
-                baseName: this.toKebabCase(template.templateId.templateName),
+                baseName: this.getTemplateFileBaseName(template),
                 scope: `${template.templateId.packageId}\u0000${template.templateId.moduleName}`,
             })),
         );
@@ -462,6 +462,12 @@ export class TypeScriptNameResolver {
             .split(".")
             .map((segment) => this.toKebabCase(segment))
             .join("/");
+    }
+
+    private getTemplateFileBaseName(template: AnalyzedTemplate): string {
+        const fileName = this.toKebabCase(template.templateId.templateName);
+
+        return fileName === "index" ? "index-template" : fileName;
     }
 
     private getPackageModuleIdentityKey(template: AnalyzedTemplate): string {

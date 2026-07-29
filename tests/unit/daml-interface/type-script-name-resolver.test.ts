@@ -163,6 +163,32 @@ describe("TypeScriptNameResolver", () => {
         expect(secondProject.templateFiles[0].path)
             .toBe("generated/packages/sample-hash/main/iou.ts");
     });
+
+    it("reserves module index.ts for the namespace barrel", () => {
+        const template = createTemplate({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            templateName: "Index",
+        });
+
+        const project = new ProjectEmitter().emitProject(
+            new DamlInterfaceAnalysisResult({
+                templates: [template],
+                typeDefinitions: [],
+            }),
+        );
+
+        const outputPaths = [
+            ...project.templateFiles.map((file) => file.path),
+            ...project.supportFiles.map((file) => file.path),
+        ];
+
+        expect(project.templateFiles[0].path)
+            .toBe("generated/packages/sample-hash/main/index-template.ts");
+        expect(project.supportFiles.map((file) => file.path))
+            .toContain("generated/packages/sample-hash/main/index.ts");
+        expect(new Set(outputPaths).size).toBe(outputPaths.length);
+    });
 });
 
 function createTemplate(init: {
