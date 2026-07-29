@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+    DamlCreatedEventSource,
     DamlMaterializationError,
     normalizeDamlCreatedEventSource,
     normalizeDamlExercisedEventSource,
 } from "../../../src/daml-interface/index.js";
 import { GetContractResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
-import { CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { CreatedEvent, Event, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { ActiveContract } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { Record, Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 
@@ -66,6 +67,12 @@ describe("normalizeDamlCreatedEventSource", () => {
         });
         expect(Object.isFrozen(direct)).toBe(true);
         expect(Object.isFrozen(direct.metadata)).toBe(true);
+    });
+
+    it("accepts a generated Event envelope as a declared created-event source", () => {
+        const source: DamlCreatedEventSource = Event.create({ event: { oneofKind: "created", created: createdEvent } });
+
+        expect(normalizeDamlCreatedEventSource(source).payload.kind).toBe("protobuf");
     });
 
     it("keeps empty generated record payloads on the protobuf path", () => {
@@ -202,6 +209,23 @@ describe("normalizeDamlExercisedEventSource", () => {
             lastDescendantNodeId: 5,
         });
         expect(camel.metadata).toEqual(snake.metadata);
+    });
+
+    it("falls back to PQS exercise-type and package relations for identity", () => {
+        const normalized = normalizeDamlExercisedEventSource({
+            contractId: "#cid",
+            argument: "Bob",
+            result: "accepted",
+            exerciseType: {
+                choice: "Transfer",
+                consuming: true,
+                moduleName: "Main.Module",
+                entityName: "Iou",
+            },
+            package: { id: "pkg-id" },
+        });
+
+        expect(normalized.metadata.templateId).toEqual(templateId);
     });
 });
 
@@ -342,6 +366,88 @@ describe("DAML event source validation", () => {
             createdEvent: { contractId: "#cid", templateId, payload: {} },
             created_event: { contractId: "#other", templateId, payload: {} },
         })).toThrow(/created event source/);
+    });
+
+    it("rejects corrupt optional metadata instead of coercing it", () => {
+        expect(() => normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            witnessParties: ["Alice", 42],
+        })).toThrow(DamlMaterializationError);
+        expect(() => normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload: {},
+            nodeId: "-1",
+        })).toThrow(/node ID/);
+        expect(() => normalizeDamlExercisedEventSource({
+            contractId: "#cid",
+            templateId,
+            choice: "Transfer",
+            argument: {},
+            result: {},
+            consuming: false,
+            lastDescendantNodeId: "9007199254740992",
+        })).toThrow(/last descendant node ID/);
+    });
+});
+
+describe("canonical source isolation", () => {
+    it("deep clones and freezes JSON payloads, metadata arrays, and dates", () => {
+        const payload = { nested: { items: [{ owner: "Alice" }] } };
+
+        const witnesses = ["Alice"];
+
+        const createdAt = new Date("2026-01-02T03:04:05.000Z");
+
+        const normalized = normalizeDamlCreatedEventSource({
+            contractId: "#cid",
+            templateId,
+            payload,
+            witnesses,
+            createdAt,
+        });
+
+        payload.nested.items[0]!.owner = "Bob";
+        witnesses.push("Bob");
+        createdAt.setUTCFullYear(2027);
+
+        const canonicalPayload = normalized.payload.value as { nested: { items: { owner: string }[] } };
+
+        expect(canonicalPayload.nested.items[0]?.owner).toBe("Alice");
+        expect(normalized.metadata.witnessParties).toEqual(["Alice"]);
+        expect((normalized.metadata.createdAt as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
+        expect(Object.isFrozen(canonicalPayload)).toBe(true);
+        expect(Object.isFrozen(canonicalPayload.nested)).toBe(true);
+        expect(Object.isFrozen(canonicalPayload.nested.items)).toBe(true);
+        expect(Object.isFrozen(canonicalPayload.nested.items[0])).toBe(true);
+        expect(Object.isFrozen(normalized.metadata.witnessParties)).toBe(true);
+        expect(Object.isFrozen(normalized.metadata.createdAt)).toBe(true);
+        expect(() => (normalized.metadata.createdAt as Date).setUTCFullYear(2028)).toThrow();
+    });
+
+    it("deep clones and freezes protobuf values before sources can mutate them", () => {
+        const source = CreatedEvent.create({
+            contractId: "#cid",
+            templateId,
+            createArguments: Record.create({
+                fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }],
+            }),
+        });
+
+        const normalized = normalizeDamlCreatedEventSource(source);
+
+        source.createArguments!.fields[0]!.value!.sum = { oneofKind: "party", party: "Bob" };
+
+        const value = normalized.payload.value;
+
+        expect(value.sum.oneofKind).toBe("record");
+        expect(value.sum.record.fields[0]?.value?.sum).toMatchObject({ party: "Alice" });
+        expect(Object.isFrozen(value)).toBe(true);
+        expect(Object.isFrozen(value.sum.record)).toBe(true);
+        expect(Object.isFrozen(value.sum.record.fields)).toBe(true);
+        expect(Object.isFrozen(value.sum.record.fields[0]?.value)).toBe(true);
     });
 });
 

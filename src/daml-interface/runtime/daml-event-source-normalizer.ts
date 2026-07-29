@@ -1,6 +1,6 @@
 import { MESSAGE_TYPE } from "@protobuf-ts/runtime";
 import { GetContractResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
-import { CreatedEvent, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { ActiveContract } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import type { Record as DamlRecordValue, Value } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 import type { ContractResult, ExerciseResult } from "../../query/model-types.js";
@@ -14,11 +14,13 @@ export type DamlCreatedEventSource =
     | GetContractResponse
     | ActiveContract
     | ContractResult
+    | Event
     | DamlJsonEventRecord;
 
 export type DamlExercisedEventSource =
     | ExercisedEvent
     | ExerciseResult
+    | Event
     | DamlJsonEventRecord;
 
 export type DamlCreatedEventMetadata = {
@@ -62,12 +64,30 @@ type RecognizedEvent = {
     readonly encoding: "protobuf" | "json";
 };
 
+const DATE_MUTATORS = [
+    "setDate",
+    "setFullYear",
+    "setHours",
+    "setMilliseconds",
+    "setMinutes",
+    "setMonth",
+    "setSeconds",
+    "setTime",
+    "setUTCDate",
+    "setUTCFullYear",
+    "setUTCHours",
+    "setUTCMilliseconds",
+    "setUTCMinutes",
+    "setUTCMonth",
+    "setUTCSeconds",
+] as const;
+
 /**
  * Recognizes a Ledger API create event, a contract response/wrapper, or a
  * PQS/JSON contract record and produces one immutable runtime shape.
  */
 export function normalizeDamlCreatedEventSource(
-    source: DamlCreatedEventSource | unknown,
+    source: DamlCreatedEventSource,
 ): DamlNormalizedCreatedEvent {
     const recognized = findNestedEvent(source, "created");
 
@@ -95,7 +115,7 @@ export function normalizeDamlCreatedEventSource(
  * PQS's exercise-type relation and identity by its contract relation.
  */
 export function normalizeDamlExercisedEventSource(
-    source: DamlExercisedEventSource | unknown,
+    source: DamlExercisedEventSource,
 ): DamlNormalizedExercisedEvent {
     const recognized = findNestedEvent(source, "exercised");
 
@@ -252,11 +272,11 @@ function freezeCreatedMetadata(event: DamlJsonEventRecord, templateId: DamlTypeI
     return Object.freeze(removeUndefined({
         templateId,
         offset: optionalString(event, ["offset", "createdEventOffset", "created_event_offset"]),
-        nodeId: optionalNumber(event, ["nodeId", "node_id"]),
-        witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"]),
-        signatories: optionalStringArray(event, ["signatories"]),
-        observers: optionalStringArray(event, ["observers"]),
-        createdAt: readProperty(event, ["createdAt", "created_at"]).value,
+        nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "created event source"),
+        witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"], "witness parties", "created event source"),
+        signatories: optionalStringArray(event, ["signatories"], "signatories", "created event source"),
+        observers: optionalStringArray(event, ["observers"], "observers", "created event source"),
+        createdAt: cloneOptionalValue(event, ["createdAt", "created_at"]),
     }));
 }
 
@@ -272,10 +292,10 @@ function freezeExercisedMetadata(
     return Object.freeze(removeUndefined({
         templateId,
         offset: optionalString(event, ["offset"]) ?? optionalString(transaction ?? {}, ["offset"]),
-        nodeId: optionalNumber(event, ["nodeId", "node_id"]),
-        actingParties: optionalStringArray(event, ["actingParties", "acting_parties", "controllers"]),
-        witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"]),
-        lastDescendantNodeId: optionalNumber(event, ["lastDescendantNodeId", "last_descendant_node_id"]),
+        nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "exercised event source"),
+        actingParties: optionalStringArray(event, ["actingParties", "acting_parties", "controllers"], "acting parties", "exercised event source"),
+        witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"], "witness parties", "exercised event source"),
+        lastDescendantNodeId: optionalNodeId(event, ["lastDescendantNodeId", "last_descendant_node_id"], "last descendant node ID", "exercised event source"),
     }));
 }
 
@@ -371,37 +391,60 @@ function requiredProperty(
 
 function freezeValueSource(value: unknown, encoding: "protobuf" | "protobuf-record" | "json"): DamlValueSource {
     if (encoding === "protobuf") {
-        return Object.freeze({ kind: "protobuf" as const, value: value as Value });
+        return Object.freeze({ kind: "protobuf" as const, value: cloneAndFreeze(value) as Value });
     } else if (encoding === "protobuf-record") {
         return Object.freeze({
             kind: "protobuf" as const,
-            value: Object.freeze({ sum: { oneofKind: "record" as const, record: value as DamlRecordValue } }),
+            value: cloneAndFreeze({ sum: { oneofKind: "record" as const, record: value as DamlRecordValue } }) as Value,
         });
     }
 
-    return Object.freeze({ kind: "json" as const, value });
+    return Object.freeze({ kind: "json" as const, value: cloneAndFreeze(value) });
 }
 
 function optionalString(event: DamlJsonEventRecord, names: readonly string[]): string | undefined {
     return stringValue(readProperty(event, names).value);
 }
 
-function optionalNumber(event: DamlJsonEventRecord, names: readonly string[]): number | undefined {
-    const value = readProperty(event, names).value;
+function optionalNodeId(event: DamlJsonEventRecord, names: readonly string[], label: string, path: string): number | undefined {
+    const property = readProperty(event, names);
 
-    if (typeof value === "number" && Number.isFinite(value)) {
-        return value;
-    } else if (typeof value === "string" && /^-?\d+$/.test(value)) {
-        return Number(value);
+    if (!property.found) {
+        return undefined;
     }
 
-    return undefined;
+    const value = property.value;
+
+    const number = typeof value === "number" ? value : typeof value === "string" && /^\d+$/.test(value) ? Number(value) : undefined;
+
+    if (number === undefined || !Number.isSafeInteger(number) || number < 0) {
+        throw sourceError(path, `${label} must be a non-negative safe integer`);
+    }
+
+    return number;
 }
 
-function optionalStringArray(event: DamlJsonEventRecord, names: readonly string[]): readonly string[] | undefined {
-    const value = readProperty(event, names).value;
+function optionalStringArray(
+    event: DamlJsonEventRecord,
+    names: readonly string[],
+    label: string,
+    path: string,
+): readonly string[] | undefined {
+    const property = readProperty(event, names);
 
-    return Array.isArray(value) ? Object.freeze(value.map(String)) : undefined;
+    if (!property.found) {
+        return undefined;
+    } else if (!Array.isArray(property.value) || !property.value.every((item) => typeof item === "string")) {
+        throw sourceError(path, `${label} must be an array of strings`);
+    }
+
+    return cloneAndFreeze(property.value) as readonly string[];
+}
+
+function cloneOptionalValue(event: DamlJsonEventRecord, names: readonly string[]): unknown {
+    const property = readProperty(event, names);
+
+    return property.found ? cloneAndFreeze(property.value) : undefined;
 }
 
 function readProperty(object: DamlJsonEventRecord, names: readonly string[]): { readonly found: boolean; readonly value?: unknown } {
@@ -436,6 +479,50 @@ function asObject(value: unknown): DamlJsonEventRecord | undefined {
 
 function stringValue(value: unknown): string | undefined {
     return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function cloneAndFreeze<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+    if (value === null || typeof value !== "object") {
+        return value;
+    } else if (value instanceof Date) {
+        return immutableDate(value) as T;
+    }
+
+    const existing = seen.get(value);
+
+    if (existing !== undefined) {
+        return existing as T;
+    }
+
+    const output: Record<PropertyKey, unknown> | unknown[] = Array.isArray(value)
+        ? []
+        : Object.create(Object.getPrototypeOf(value)) as Record<PropertyKey, unknown>;
+
+    seen.set(value, output);
+
+    for (const key of Reflect.ownKeys(value)) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
+        if (descriptor !== undefined && "value" in descriptor) {
+            Object.defineProperty(output, key, { ...descriptor, value: cloneAndFreeze(descriptor.value, seen) });
+        }
+    }
+
+    return Object.freeze(output) as T;
+}
+
+function immutableDate(value: Date): Date {
+    const date = new Date(value.getTime());
+
+    for (const method of DATE_MUTATORS) {
+        Object.defineProperty(date, method, {
+            value: () => {
+                throw new TypeError("canonical Date values are immutable");
+            },
+        });
+    }
+
+    return Object.freeze(date);
 }
 
 function removeUndefined<T extends Record<string, unknown>>(value: T): T {
