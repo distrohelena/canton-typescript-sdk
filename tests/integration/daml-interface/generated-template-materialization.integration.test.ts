@@ -125,9 +125,11 @@ describe("generated DAML template materialization", () => {
 
         try {
             const file = temporaryProject.project.templateFiles[0];
+
             const generated = await import(pathToFileURL(
                 `${temporaryProject.directory}/dist/${file!.path.replace(/\.ts$/, ".js")}`,
             ).href) as GeneratedIouModule;
+
             const client = new PqsQueryClient({
                 query: async () => ({
                     rows: [{
@@ -190,7 +192,9 @@ describe("generated DAML template materialization", () => {
                     exercises: { take: 1, include: { exerciseType: true, contract: true, package: true } },
                 },
             });
+
             const [exercise] = contract!.exercises!;
+
             const materialized = generated.Iou.fromExercisedEvent(exercise);
 
             expect(materialized).toBeInstanceOf(generated.IouTransferExercisedEvent);
