@@ -140,6 +140,39 @@ describe("LF 2.x model mapper", () => {
         });
     });
 
+    it("preserves a numeric scale stored as an interned Nat", () => {
+        const mapType = Lf2ModelMapper as unknown as {
+            mapType: (packageId: string, rawPackage: Package, rawType: unknown) => {
+                readonly builtinType: DamlLfBuiltinType;
+                readonly numericScale?: number;
+                readonly typeArguments: readonly unknown[];
+            };
+        };
+
+        const type = mapType.mapType("sample-hash", {
+            internedTypes: [{ sum: { oneofKind: "nat", nat: "10" } }],
+        } as Package, {
+            sum: {
+                oneofKind: "tapp",
+                tapp: {
+                    lhs: {
+                        sum: {
+                            oneofKind: "builtin",
+                            builtin: { builtin: BuiltinType.NUMERIC, args: [] },
+                        },
+                    },
+                    rhs: { sum: { oneofKind: "internedType", internedType: 0 } },
+                },
+            },
+        });
+
+        expect(type).toMatchObject({
+            builtinType: DamlLfBuiltinType.numeric,
+            numericScale: 10,
+            typeArguments: [],
+        });
+    });
+
     it("retains every serializable Ledger API type shape", () => {
         const packageModel = new DamlLfPackageLoader().loadPackageOrThrow(
             createSerializableTypeShapesArchiveBytes(),

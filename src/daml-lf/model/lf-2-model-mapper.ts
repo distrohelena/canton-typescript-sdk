@@ -82,7 +82,10 @@ export class Lf2ModelMapper {
             );
 
             const numericScale = lhs.builtinType === DamlLfBuiltinType.numeric
-                ? Lf2ModelMapper.readNumericScale(rawType.sum.tapp.rhs)
+                ? Lf2ModelMapper.readNumericScale(
+                    rawPackage,
+                    rawType.sum.tapp.rhs,
+                )
                 : undefined;
 
             return new DamlLfType({
@@ -135,7 +138,10 @@ export class Lf2ModelMapper {
                 rawType.sum.builtin.builtin,
             );
             const numericScale = builtinType === DamlLfBuiltinType.numeric
-                ? Lf2ModelMapper.readNumericScale(rawType.sum.builtin.args[0])
+                ? Lf2ModelMapper.readNumericScale(
+                    rawPackage,
+                    rawType.sum.builtin.args[0],
+                )
                 : undefined;
 
             return new DamlLfType({
@@ -189,7 +195,20 @@ export class Lf2ModelMapper {
         }
     }
 
-    private static readNumericScale(rawType: Type | undefined): number | undefined {
+    private static readNumericScale(
+        rawPackage: LfArchivePackage,
+        rawType: Type | undefined,
+    ): number | undefined {
+        if (
+            rawType?.sum.oneofKind === "internedType"
+            && rawType.sum.internedType >= 0
+        ) {
+            return Lf2ModelMapper.readNumericScale(
+                rawPackage,
+                rawPackage.internedTypes[rawType.sum.internedType],
+            );
+        }
+
         if (rawType?.sum.oneofKind !== "nat") {
             return undefined;
         }
