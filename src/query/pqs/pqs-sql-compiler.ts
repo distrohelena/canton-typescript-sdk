@@ -89,9 +89,7 @@ function compileProfileIncludes(source: PqsRelation, parentAlias: string, includ
         const alias = `"${name}"`;
         const nested = compileProfileIncludes(edge.target, alias, options.include as Readonly<Record<string, unknown>> | undefined, profile, addValue);
         const metadata = pqsRelationMetadata[edge.target];
-        const requested = options.select === undefined
-            ? Object.entries(metadata.fields)
-            : Object.entries(options.select as Record<string, unknown>).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => [field, metadata.fields[field]] as const);
+        const requested = compileIncludedFields(edge.target, options.select as Readonly<Record<string, unknown>> | undefined, alias, profile);
         const json = (options.select as { readonly json?: Readonly<Record<string, {
             readonly field: string;
             readonly path: readonly string[];
@@ -100,15 +98,16 @@ function compileProfileIncludes(source: PqsRelation, parentAlias: string, includ
         const jsonSelections = Object.entries(json).map(([projectionName, projection]) => {
             if (!PqsSchemaProfileV1.jsonField(edge.target, projection.field)) throw new Error(`${projection.field} is not a JSON field of ${edge.target}`);
             if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${projectionName}.path must be a non-empty JSON path`);
-            const column = metadata.fields[projection.field];
+            const column = edge.target === "__contracts"
+                ? projection.field === "payload" ? "payload" : undefined
+                : metadata.fields[projection.field];
             if (column === undefined) throw new Error(`${projection.field} is not a field of ${edge.target}`);
             const text = `${alias}."${column}" #>> ${addValue(projection.path)}::text[]`;
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             return [`'${projectionName}'`, expression] as const;
         });
         if (requested.length === 0 && jsonSelections.length === 0) throw new Error(`Nested ${name}.select must include at least one field`);
-        if (requested.some(([, column]) => column === undefined)) throw new Error(`Nested ${name}.select references an unknown field`);
-        const fields = requested.flatMap(([field, column]) => [`'${field}'`, `${alias}."${column}"`]);
+        const fields = requested.flatMap(([field, expression]) => [`'${field}'`, expression]);
         const nestedFields = nested.flatMap((selection) => {
             const match = /^(.*) as "([^"]+)"$/.exec(selection);
             return match === null ? [] : [`'${match[2]}'`, match[1]];
@@ -123,6 +122,41 @@ function compileProfileIncludes(source: PqsRelation, parentAlias: string, includ
         selected.push(`${expression} as "${name}"`);
     }
     return selected;
+}
+
+function compileIncludedFields(
+    target: PqsRelation,
+    select: Readonly<Record<string, unknown>> | undefined,
+    alias: string,
+    profile: PqsSchemaProfileV1,
+): readonly (readonly [string, string])[] {
+    if (target !== "__contracts") {
+        const metadata = pqsRelationMetadata[target];
+        const selected = select === undefined
+            ? Object.entries(metadata.fields)
+            : Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => [field, metadata.fields[field]] as const);
+        if (selected.some(([, column]) => column === undefined)) throw new Error("Nested relation.select references an unknown field");
+        return selected.map(([field, column]) => [field, `${alias}."${column}"`] as const);
+    }
+
+    const selected = select === undefined
+        ? ["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]
+        : Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => field);
+    const expressions: Readonly<Record<string, string>> = {
+        contractId: `${alias}."contract_id"`,
+        templateId: `jsonb_build_object('packageId', ${alias}."creation_package_id", 'moduleName', (select contract_type."module_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"), 'entityName', (select contract_type."entity_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"))`,
+        packageId: `${alias}."creation_package_id"`,
+        payload: `${alias}."payload"`,
+        witnesses: `${alias}."witnesses"`,
+        createdEventOffset: `${alias}."created_at_ix"::text`,
+        createdAt: `(select created_transaction."effective_at" from ${profile.relation("__transactions")} created_transaction where created_transaction."ix" = ${alias}."created_at_ix")`,
+        archivedEventOffset: `${alias}."archived_at_ix"::text`,
+        archivedAt: `(select archived_transaction."effective_at" from ${profile.relation("__transactions")} archived_transaction where archived_transaction."ix" = ${alias}."archived_at_ix")`,
+        active: `${alias}."archived_at_ix" is null`,
+    };
+    const requested = selected.map((field) => [field, expressions[field]] as const);
+    if (requested.some(([, expression]) => expression === undefined)) throw new Error("Nested contract.select references an unknown field");
+    return requested as readonly (readonly [string, string])[];
 }
 
 function compilePhysicalOrderBy(relation: PqsRelation, orderBy: unknown, alias: string): string {

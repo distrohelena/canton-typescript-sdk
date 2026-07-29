@@ -1,6 +1,8 @@
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ContractResult } from "../../../src/query/model-types.js";
+import { PqsQueryClient } from "../../../src/query/pqs/pqs-query-client.js";
+import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { generateTemporaryProjectAsync } from "./generated-project-test-helper.js";
 
@@ -111,6 +113,94 @@ describe("generated DAML template materialization", () => {
                 consuming: false,
             });
             expect(archive).toMatchObject({ choiceName: "Archive", consuming: true });
+        } finally {
+            await temporaryProject.disposeAsync();
+        }
+    });
+
+    it("materializes a PQS exercise reached through a nested contract include", async () => {
+        const temporaryProject = await generateTemporaryProjectAsync(
+            SampleLfPackageFixture.createMaterializationLf2ArchiveBytes(),
+        );
+
+        try {
+            const file = temporaryProject.project.templateFiles[0];
+            const generated = await import(pathToFileURL(
+                `${temporaryProject.directory}/dist/${file!.path.replace(/\.ts$/, ".js")}`,
+            ).href) as GeneratedIouModule;
+            const client = new PqsQueryClient({
+                query: async () => ({
+                    rows: [{
+                        contract_id: "#iou-1",
+                        package_id: "sample-hash",
+                        payload: iouJsonPayload(),
+                        witnesses: ["Alice"],
+                        created_event_offset: "7",
+                        created_at: null,
+                        archived_event_offset: null,
+                        archived_at: null,
+                        active: true,
+                        template_package_id: "sample-hash",
+                        template_module_name: "Sample.Module",
+                        template_entity_name: "Iou",
+                        exercises: [{
+                            tpe_pk: "1",
+                            contract_tpe_pk: "1",
+                            exercise_event_pk: null,
+                            exercised_at_ix: "7",
+                            contract_id: "#iou-1",
+                            argument: "Charlie",
+                            result: "transferred",
+                            redaction_id: null,
+                            package_pk: "1",
+                            controllers: ["Alice"],
+                            last_descendant_node_id: "0",
+                            witnesses: ["Alice"],
+                            exerciseType: {
+                                pk: "1",
+                                choice: "Transfer",
+                                consuming: false,
+                                aliases: [],
+                                package_name: "sample-hash",
+                                module_name: "Sample.Module",
+                                entity_name: "Iou",
+                                template_fqn: "sample-hash:Sample.Module:Iou",
+                                choice_fqn: "sample-hash:Sample.Module:Iou:Transfer",
+                            },
+                            contract: {
+                                contractId: "#iou-1",
+                                templateId: iouTemplateId(),
+                                packageId: "sample-hash",
+                                payload: iouJsonPayload(),
+                                witnesses: ["Alice"],
+                                createdEventOffset: "7",
+                                createdAt: null,
+                                archivedEventOffset: null,
+                                archivedAt: null,
+                                active: true,
+                            },
+                            package: { pk: "1", name: "sample", version: "1.0", id: "sample-hash" },
+                        }],
+                    }],
+                }),
+            } as never, new PqsSchemaProfileV1());
+
+            const [contract] = await client.contracts.findMany({
+                include: {
+                    exercises: { take: 1, include: { exerciseType: true, contract: true, package: true } },
+                },
+            });
+            const [exercise] = contract!.exercises!;
+            const materialized = generated.Iou.fromExercisedEvent(exercise);
+
+            expect(materialized).toBeInstanceOf(generated.IouTransferExercisedEvent);
+            expect(materialized).toMatchObject({
+                choiceName: "Transfer",
+                contractId: "#iou-1",
+                argument: "Charlie",
+                result: "transferred",
+                consuming: false,
+            });
         } finally {
             await temporaryProject.disposeAsync();
         }

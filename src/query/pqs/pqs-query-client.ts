@@ -731,6 +731,17 @@ function mapEventJson(value: unknown): Record<string, unknown> | undefined {
     return row ?? undefined;
 }
 
+function mapSelectedRelationJson(value: unknown, relation: PqsRelation): Record<string, unknown> | undefined {
+    const row = mapSelectedProfileJsonRow(value, relation);
+    return row ?? undefined;
+}
+
+function mapLogicalContractJson(value: unknown): ContractResult | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid included __contracts row");
+    return value as ContractResult;
+}
+
 function mapExerciseJson(value: unknown): ExerciseResult {
     const raw = value as Record<string, unknown>;
     const row = mapSelectedProfileJsonRow(value, "__exercises");
@@ -742,8 +753,12 @@ function mapExerciseJson(value: unknown): ExerciseResult {
     return {
         ...base,
         ...projections,
+        ...(raw.exerciseType === undefined ? {} : { exerciseType: mapSelectedRelationJson(raw.exerciseType, "__exercise_tpe") }),
+        ...(raw.contractType === undefined ? {} : { contractType: mapSelectedRelationJson(raw.contractType, "__contract_tpe") }),
         ...(raw.event === undefined ? {} : { event: raw.event === null ? null : mapEventJson(raw.event) ?? null }),
         ...(raw.transaction === undefined ? {} : { transaction: raw.transaction === null ? null : mapTransactionJson(raw.transaction) ?? null }),
+        ...(raw.package === undefined ? {} : { package: mapSelectedRelationJson(raw.package, "__packages") }),
+        ...(raw.contract === undefined ? {} : { contract: mapLogicalContractJson(raw.contract) }),
     } as ExerciseResult;
 }
 
