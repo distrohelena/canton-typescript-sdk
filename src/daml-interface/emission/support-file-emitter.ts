@@ -18,11 +18,6 @@ export class SupportFileEmitter {
                 contents: "export type GeneratedContractId = string;\n",
             }),
             new GeneratedSupportFile({
-                path: "generated/support/decoding.ts",
-                contents:
-                    "export function castGeneratedEvent<T>(event: unknown): T {\n    return event as T;\n}\n",
-            }),
-            new GeneratedSupportFile({
                 path: "generated/support/runtime.ts",
                 contents: [
                     'export type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',

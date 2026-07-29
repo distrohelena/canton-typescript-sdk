@@ -10,6 +10,19 @@ import { GeneratedTemplateBindingFile } from "../../../src/daml-interface/emissi
 import { SupportFileEmitter } from "../../../src/daml-interface/emission/support-file-emitter.js";
 
 describe("SupportFileEmitter", () => {
+    it("does not emit unchecked event-casting support", () => {
+        const supportFiles = new SupportFileEmitter().emitSupportFiles(
+            new DamlInterfaceAnalysisResult({ templates: [], typeDefinitions: [] }),
+        );
+
+        expect(supportFiles.map((file) => file.path)).not.toContain(
+            "generated/support/decoding.ts",
+        );
+        expect(supportFiles.map((file) => file.contents).join("\n")).not.toContain(
+            "castGeneratedEvent",
+        );
+    });
+
     it("namespaces template modules so same Foo interface and class do not collide", () => {
         const project = new GeneratedDamlInterfaceProject({
             templateFiles: [
