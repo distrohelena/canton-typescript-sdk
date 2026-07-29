@@ -219,7 +219,7 @@ export class SupportFileEmitter {
             identities.add(identityKey);
 
             return [
-                `    ${JSON.stringify(identityKey)}: () => deepFreeze(${this.emitDefinitionDescriptor(definition, fieldPropertyNames)}),`,
+                `    ${JSON.stringify(identityKey)}: () => deepFreeze(${this.emitDefinitionDescriptor(definition, fieldPropertyNames)} satisfies DamlTypeDescriptor),`,
             ].join("");
         });
 

@@ -284,7 +284,75 @@ describe("ProjectEmitter", () => {
             expect(descriptors).toContain(`propertyName: ${JSON.stringify(alias)}`);
         }
     });
+
+    it("emits descriptor factories that type-check as DamlTypeDescriptor", async () => {
+        const identity = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "Node",
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [],
+            typeDefinitions: [{
+                identity,
+                kind: "record",
+                fields: [{
+                    damlLabel: "next",
+                    propertyName: "next",
+                    type: { kind: "optional", element: { kind: "namedReference", identity } },
+                }],
+            }],
+        }));
+
+        const outputDirectory = await mkdtemp(join(tmpdir(), "daml-descriptors-"));
+
+        try {
+            await new DamlInterfaceWriter().writeProjectAsync(project, outputDirectory);
+            await writeDescriptorRuntimeDeclaration(outputDirectory);
+
+            execFileSync(
+                process.execPath,
+                [
+                    "./node_modules/typescript/bin/tsc",
+                    "--noEmit",
+                    "--module",
+                    "NodeNext",
+                    "--moduleResolution",
+                    "NodeNext",
+                    join(outputDirectory, "generated/support/descriptors.ts"),
+                ],
+                { cwd: process.cwd(), stdio: "inherit" },
+            );
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
+    });
 });
+
+async function writeDescriptorRuntimeDeclaration(outputDirectory: string): Promise<void> {
+    const runtimeDirectory = join(
+        outputDirectory,
+        "node_modules/@distrohelena/canton-typescript-sdk",
+    );
+
+    await mkdir(runtimeDirectory, { recursive: true });
+    await writeFile(join(runtimeDirectory, "package.json"), JSON.stringify({
+        name: "@distrohelena/canton-typescript-sdk",
+        type: "module",
+        exports: { "./daml-interface": "./daml-interface.d.ts" },
+    }), "utf8");
+    await writeFile(join(runtimeDirectory, "daml-interface.d.ts"), [
+        "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string };",
+        "export type DamlTypeDescriptor =",
+        "    | { readonly kind: \"primitive\"; readonly primitive: string; readonly numericScale?: number }",
+        "    | { readonly kind: \"optional\"; readonly element: DamlTypeDescriptor }",
+        "    | { readonly kind: \"record\"; readonly fields: readonly { readonly damlLabel: string; readonly propertyName: string; readonly type: DamlTypeDescriptor }[] }",
+        "    | { readonly kind: \"namedReference\"; readonly identity: DamlTypeIdentity };",
+        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined };",
+        "",
+    ].join("\n"), "utf8");
+}
 
 async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void> {
     const packageDirectory = join(outputDirectory, "node_modules", "@distrohelena", "canton-typescript-sdk");
