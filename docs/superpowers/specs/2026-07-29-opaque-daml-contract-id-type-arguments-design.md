@@ -21,12 +21,18 @@ Holding package even though generated TypeScript only needs `string`.
 `ContractId<T>` is opaque below its arity check:
 
 - Compilation validates that the builtin has exactly one type argument but does
-  not resolve or recursively validate that argument.
+  not resolve or recursively validate that argument. Zero or multiple arguments
+  remain invalid.
 - Analysis maps it directly to a contract-ID analyzed type with no nested
   contract descriptor.
-- Runtime and emitted `contractId` descriptors contain only `kind:
-  "contractId"`; decoding returns the source string unchanged.
-- Descriptor-walking/import logic does not traverse a contract-ID target.
+- Emitted `contractId` descriptors contain only `kind: "contractId"`; decoding
+  returns the source string unchanged. The public runtime descriptor keeps an
+  optional legacy `contract` member for source compatibility, but generated
+  bindings neither emit nor inspect it.
+- Every generator traversal stops at a contract ID: template descriptor
+  emission, named-reference walking, and legacy type normalization in
+  `TemplateBindingEmitter`; named-reference and runtime-primitive traversal in
+  `NamedTypeEmitter`; and descriptor emission in `SupportFileEmitter`.
 
 Ordinary named references, including records, variants, and enums nested in
 template fields or choices, remain resolvable requirements. This does not make
@@ -34,11 +40,15 @@ the generator silently emit `unknown` for real structured dependencies.
 
 ## Verification
 
-Add a regression package containing a selected template field or choice typed
-as `ContractId<missing:Splice.Api.Token.HoldingV1:Holding>`, with no Holding
-package loaded. Compiling and generating that one package must succeed and the
-generated member must materialize as a string. Keep an unresolved ordinary
-named-type reference test to prove structured dependencies still fail.
+Add an actual Dalf-byte regression package containing a selected template field,
+choice parameter, and choice result typed as
+`ContractId<missing:Splice.Api.Token.HoldingV1:Holding>`, with no Holding
+package loaded. Compiling and generating that one package must succeed; emitted
+descriptors must be exactly `{ kind: "contractId" }`; output types must be
+`string`; and protobuf/JSON materialization must return the ID string. Test
+that zero and two `ContractId` arguments fail while exactly one unresolved
+target succeeds. Keep an unresolved ordinary named-type reference test to prove
+structured dependencies still fail.
 
 Update existing descriptor/converter/analyzer/emitter tests for the descriptor
 shape without `contract`, and run the DAML-LF plus DAML-interface unit and
