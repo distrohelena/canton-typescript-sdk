@@ -43,7 +43,7 @@ describe("ProjectEmitter", () => {
 
         const descriptors = project.supportFiles.find((file) => file.path === "generated/support/descriptors.ts");
 
-        expect(descriptors?.contents).toContain("export const generatedDamlTypeDescriptorRegistry");
+        expect(descriptors?.contents).toContain("export class GeneratedDamlTypeDescriptorRegistry");
         expect(descriptors?.contents).toContain('"sample-hash:Main:Node"');
         expect(descriptors?.contents).toContain("const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({");
         expect(descriptors?.contents).toContain("Object.freeze({");

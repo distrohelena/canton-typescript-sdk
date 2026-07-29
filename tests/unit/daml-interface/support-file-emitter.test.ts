@@ -146,12 +146,12 @@ describe("SupportFileEmitter", () => {
                 },
             }).outputText,
         ).toString("base64")}`) as {
-            generatedDamlTypeDescriptorRegistry: {
+            GeneratedDamlTypeDescriptorRegistry: {
                 resolve(identity: { packageId: string; moduleName: string; entityName: string }): (() => unknown) | undefined;
             };
         };
 
-        const descriptor = module.generatedDamlTypeDescriptorRegistry.resolve({
+        const descriptor = module.GeneratedDamlTypeDescriptorRegistry.resolve({
             packageId: "sample-hash",
             moduleName: "Main",
             entityName: "Node",

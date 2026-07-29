@@ -82,7 +82,7 @@ async function writeRuntime(root: string): Promise<void> {
     await mkdir(sdkDirectory, { recursive: true });
     await mkdir(join(root, "generated", "support"), { recursive: true });
     await writeFile(join(root, "package.json"), '{"type":"module"}');
-    await writeFile(join(root, "generated", "support", "descriptors.js"), "export const generatedDamlTypeDescriptorRegistry = {};\n");
+    await writeFile(join(root, "generated", "support", "descriptors.js"), "export class GeneratedDamlTypeDescriptorRegistry { static resolve() { return undefined; } }\n");
     await writeFile(join(sdkDirectory, "package.json"), '{"type":"module","exports":{"./daml-interface":"./daml-interface.js"}}');
     await writeFile(join(sdkDirectory, "daml-interface.js"), [
         "export class DamlMaterializationError extends Error { constructor(path, detail) { super(`${path}: ${detail}`); this.path = path; } }",

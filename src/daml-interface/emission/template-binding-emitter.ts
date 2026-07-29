@@ -150,7 +150,7 @@ export class TemplateBindingEmitter {
         return [
             'import { DamlEventSourceNormalizer, DamlMaterializationError, DamlTemplate, DamlValueConverter, DamlValueMaterializer } from "@distrohelena/canton-typescript-sdk/daml-interface";',
             'import type { DamlCreatedEventSource, DamlDate, DamlExercisedEventMetadata, DamlExercisedEventSource, DamlNormalizedExercisedEvent, DamlNumeric, DamlParty, DamlTimestamp, DamlTypeDescriptor, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',
-            `import { generatedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
+            `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
                 `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
         ];
@@ -178,7 +178,7 @@ export class TemplateBindingEmitter {
             `    public static fromCreatedEvent(event: DamlCreatedEventSource): ${binding.className} {`,
             "        const normalized = DamlEventSourceNormalizer.normalizeCreated(event);",
             `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
-            `        const fields = DamlValueMaterializer.materialize<${binding.createFieldsTypeName}>(DamlValueConverter.decode(normalized.payload, ${binding.className}.descriptor, generatedDamlTypeDescriptorRegistry, "create arguments"));`,
+            `        const fields = DamlValueMaterializer.materialize<${binding.createFieldsTypeName}>(DamlValueConverter.decode(normalized.payload, ${binding.className}.descriptor, GeneratedDamlTypeDescriptorRegistry, "create arguments"));`,
             `        return new ${binding.className}(`,
             "            normalized.contractId,",
             ...orderedArguments,
@@ -236,8 +236,8 @@ export class TemplateBindingEmitter {
             `        if (event.choice !== ${JSON.stringify(choice.name)}) {`,
             `            throw new DamlMaterializationError("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
             "        }",
-            `        const argument = DamlValueMaterializer.materialize<${choice.parameterTypeName}>(DamlValueConverter.decode(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, generatedDamlTypeDescriptorRegistry, "choice argument"));`,
-            `        const result = DamlValueMaterializer.materialize<${choice.returnTypeName}>(DamlValueConverter.decode(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, generatedDamlTypeDescriptorRegistry, "exercise result"));`,
+            `        const argument = DamlValueMaterializer.materialize<${choice.parameterTypeName}>(DamlValueConverter.decode(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, GeneratedDamlTypeDescriptorRegistry, "choice argument"));`,
+            `        const result = DamlValueMaterializer.materialize<${choice.returnTypeName}>(DamlValueConverter.decode(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, GeneratedDamlTypeDescriptorRegistry, "exercise result"));`,
             `        return new ${choice.exercisedEventTypeName}(event.contractId, argument, result, event.consuming, event.metadata);`,
             "    }",
             "",
