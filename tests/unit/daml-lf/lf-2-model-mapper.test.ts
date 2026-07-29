@@ -412,6 +412,9 @@ describe("LF 2.x model mapper", () => {
                             moduleName: string;
                             name: string;
                         };
+                        typeArguments: readonly {
+                            builtinType: DamlLfBuiltinType;
+                        }[];
                     };
                 }>;
             };
@@ -422,6 +425,11 @@ describe("LF 2.x model mapper", () => {
             moduleName: "Sample.Module",
             name: "VaultIdentity",
         });
+        expect(snapshotDefinition.fields[0]?.type.typeArguments).toEqual([
+            expect.objectContaining({
+                builtinType: DamlLfBuiltinType.text,
+            }),
+        ]);
     });
 
     it("retains enum definitions for type resolution", () => {
