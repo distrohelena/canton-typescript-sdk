@@ -19,7 +19,7 @@
 
 - [ ] **Step 1: Add failing normalization/materialization tests**
 
-Cover `createArguments`, `create_arguments`, and `payload` with `{ fields: [{ label: "owner", value: { text: "Alice" } }] }`; assert protobuf record/value canonical oneofs, frozen values, and a nested list or optional containing `{ text: ... }`. Explicitly assert empty fields is protobuf. Cover non-array fields, missing/non-string labels, malformed/non-object/multi-variant values, and ordinary JSON objects with a fields property falling back to JSON. Add generated `Iou.fromCreatedEvent()` integration coverage that materializes typed fields from this third path.
+Cover `createArguments`, `create_arguments`, and `payload` with `{ fields: [{ label: "owner", value: { text: "Alice" } }] }`; assert protobuf record/value canonical oneofs, frozen values, and a nested list or optional containing `{ text: ... }`. Explicitly assert empty fields and omitted default labels are protobuf. Cover non-array fields, present non-string labels, malformed/non-object/multi-variant values, and ordinary JSON objects with a fields property falling back to JSON. Add generated `Iou.fromCreatedEvent()` integration coverage that materializes typed fields from this third path.
 
 - [ ] **Step 2: Verify red**
 
