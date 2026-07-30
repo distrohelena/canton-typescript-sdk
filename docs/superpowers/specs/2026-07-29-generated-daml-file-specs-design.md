@@ -78,8 +78,8 @@ A generator-owned sample synthesizer derives two deterministic, recursive
 representations from analyzed DAML types:
 
 - A TypeScript-value emitter produces values assignable to emitted declarations:
-  `DamlNumeric`, `DamlParty`, `DamlDate`, `Date`, `bigint`, and the generated
-  record/variant interfaces as appropriate.
+  `DamlNumeric`, `DamlParty`, `DamlDate`, `DamlTimestamp`, `DamlUnit`,
+  `bigint`, and the generated record/variant interfaces as appropriate.
 - A ledger-value emitter produces JSON values accepted by the generated event
   converters: int64/numeric strings, `{}` for unit, labelled DAML records,
   `{ tag, value }` variants, JSON text maps, and key/value-pair generic maps.
