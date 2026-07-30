@@ -204,6 +204,7 @@ describe("TemplateBindingEmitter", () => {
                 returnType: new DamlLfType({ builtinType: DamlLfBuiltinType.unit }),
             })],
         });
+
         const typeFile = new GeneratedNamedTypeFile({
             path: "generated/packages/oz-research_0.0.1/oz/token/kernel/types.ts",
             contents: "",
@@ -216,6 +217,7 @@ describe("TemplateBindingEmitter", () => {
                 "Burn",
             ]]),
         });
+
         const externalTypeFile = new GeneratedNamedTypeFile({
             path: "generated/packages/ghc-stdlib-da-internal-template_1.0.0/da/internal/template/types.ts",
             contents: "",
