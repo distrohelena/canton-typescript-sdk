@@ -7,11 +7,14 @@ import { GeneratedChoiceBinding } from "../emission-model/generated-choice-bindi
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import { GeneratedSpecFile } from "../emission-model/generated-spec-file.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
-import {
-    GeneratedTestSampleEmitter,
-    GeneratedTestSampleImport,
-    GeneratedTestSampleImportCollector,
-} from "./generated-test-sample-emitter.js";
+import { GeneratedTestSampleEmitter } from "./generated-test-sample-emitter.js";
+
+type GeneratedTestSampleImport = {
+    readonly modulePath: string;
+    readonly exportedName: string;
+    readonly localName: string;
+    readonly typeOnly: boolean;
+};
 
 /** Emits dependency-free Node test modules alongside every generated DAML module. */
 export class GeneratedSpecEmitter {
@@ -38,20 +41,32 @@ export class GeneratedSpecEmitter {
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
     ): string {
-        const imports = new GeneratedTestSampleImportCollector();
-
         const binding = file.binding;
 
-        imports.reserveLocalNames([
+        const reservedLocalNames = [
             binding.className,
             ...binding.choices.map((choice) => choice.exercisedEventTypeName),
-        ]);
+        ];
 
-        const sampleContext = this.sampleContext(project, analysis, imports);
+        let imports: readonly GeneratedTestSampleImport[] = [];
+
+        const sampleContext = this.sampleContext(project, analysis);
+
+        const emitTypeScriptSample = (type: AnalyzedDamlType): string => {
+            const emission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(
+                this.normalizeType(type),
+                sampleContext,
+                { imports, reservedLocalNames },
+            );
+
+            imports = emission.imports;
+
+            return emission.expression;
+        };
 
         const expectedFields = binding.createFields.map((field) => ({
             propertyName: field.propertyName,
-            expression: GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(this.normalizeType(field.type), sampleContext),
+            expression: emitTypeScriptSample(field.type),
         }));
 
         const payload = this.emitObject(binding.createFields.map((field) => ({
@@ -61,11 +76,17 @@ export class GeneratedSpecEmitter {
 
         const localImports = [binding.className, ...binding.choices.map((choice) => choice.exercisedEventTypeName)];
 
-        const choiceBlocks = binding.choices.map((choice) => this.emitChoiceSpec(binding.templateIdLiteral, binding.className, choice, sampleContext));
+        const choiceBlocks = binding.choices.map((choice) => this.emitChoiceSpec(
+            binding.templateIdLiteral,
+            binding.className,
+            choice,
+            sampleContext,
+            emitTypeScriptSample,
+        ));
 
         const lines = [
             ...this.nodeImports(),
-            ...this.emitSampleImports(imports.imports, this.specPath(file.path)),
+            ...this.emitSampleImports(imports, this.specPath(file.path)),
             `import { ${localImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path))};`,
             "",
             `test(${JSON.stringify(`${binding.className} materializes a created event`)}, () => {`,
@@ -95,9 +116,24 @@ export class GeneratedSpecEmitter {
             definition.identity.packageId === file.packageId
             && definition.identity.moduleName === file.moduleName);
 
-        const imports = new GeneratedTestSampleImportCollector();
+        const context = this.sampleContext(project, analysis);
 
-        const context = this.sampleContext(project, analysis, imports);
+        let imports: readonly GeneratedTestSampleImport[] = [];
+
+        const emitTypeScriptSample = (
+            type: AnalyzedDamlType,
+            typeVariableBindings?: ReadonlyMap<string, AnalyzedDamlType>,
+        ): string => {
+            const emission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(
+                type,
+                { ...context, typeVariableBindings },
+                { imports },
+            );
+
+            imports = emission.imports;
+
+            return emission.expression;
+        };
 
         const samples: string[] = [];
 
@@ -116,7 +152,7 @@ export class GeneratedSpecEmitter {
                 typeArguments,
             };
 
-            const sample = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(reference, context);
+            const sample = emitTypeScriptSample(reference);
 
             if (definition.kind === "enum") {
                 for (const constructor of definition.constructors) {
@@ -129,13 +165,13 @@ export class GeneratedSpecEmitter {
                         constructors: [constructor],
                     };
 
-                    const expression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(variant, {
-                        ...context,
-                        typeVariableBindings: new Map((definition.typeParameters ?? []).map((parameter) => [
+                    const expression = emitTypeScriptSample(
+                        variant,
+                        new Map((definition.typeParameters ?? []).map((parameter) => [
                             `${parameter.name}\u0000${parameter.internedStringIndex}`,
                             { kind: "primitive" as const, builtinType: DamlLfBuiltinType.text },
                         ])),
-                    });
+                    );
 
                     samples.push(`const ${this.safeLocalName(exportedName, constructor.constructor)} = (${expression} satisfies ${this.appliedTypeName(exportedName, typeArguments)});`);
                 }
@@ -148,7 +184,7 @@ export class GeneratedSpecEmitter {
 
         return [
             ...this.nodeImports(),
-            ...this.emitSampleImports(imports.imports.filter((entry) => entry.modulePath !== file.path), this.specPath(file.path)),
+            ...this.emitSampleImports(imports.filter((entry) => entry.modulePath !== file.path), this.specPath(file.path)),
             ...(namedImports.length === 0 ? [] : [`import type { ${namedImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path))};`]),
             "",
             ...samples,
@@ -165,10 +201,11 @@ export class GeneratedSpecEmitter {
         className: string,
         choice: GeneratedChoiceBinding,
         sampleContext: ReturnType<typeof GeneratedSpecEmitter.sampleContext>,
+        emitTypeScriptSample: (type: AnalyzedDamlType) => string,
     ): readonly string[] {
-        const argument = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(this.normalizeType(choice.parameterType), sampleContext);
+        const argument = emitTypeScriptSample(choice.parameterType);
 
-        const result = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(this.normalizeType(choice.returnType), sampleContext);
+        const result = emitTypeScriptSample(choice.returnType);
 
         const ledgerArgument = GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(this.normalizeType(choice.parameterType), sampleContext);
 
@@ -299,16 +336,13 @@ export class GeneratedSpecEmitter {
     private static sampleContext(
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
-        imports: GeneratedTestSampleImportCollector,
     ): {
         readonly definitions: readonly AnalyzedDamlTypeDefinition[];
         readonly namedTypeFiles: readonly GeneratedNamedTypeFile[];
-        readonly imports: GeneratedTestSampleImportCollector;
     } {
         return {
             definitions: analysis.typeDefinitions.map((definition) => this.normalizeDefinition(definition)),
             namedTypeFiles: project.namedTypeFiles,
-            imports,
         };
     }
 

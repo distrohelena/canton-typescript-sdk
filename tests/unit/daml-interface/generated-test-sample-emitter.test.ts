@@ -8,7 +8,6 @@ import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.
 import { AnalyzedDamlTypeDefinition } from "../../../src/daml-interface/analysis/analyzed-daml-type-definition.js";
 import {
     GeneratedTestSampleEmitter,
-    GeneratedTestSampleImportCollector,
 } from "../../../src/daml-interface/emission/generated-test-sample-emitter.js";
 import { GeneratedNamedTypeFile } from "../../../src/daml-interface/emission-model/generated-named-type-file.js";
 
@@ -60,19 +59,19 @@ describe("GeneratedTestSampleEmitter", () => {
             }],
         };
 
-        const imports = new GeneratedTestSampleImportCollector();
+        const context = sampleContext();
 
-        const context = sampleContext([], [], imports);
+        const typeScriptEmission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(type, context);
 
-        expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(type, context)).toContain('amountValue: new DamlNumeric("1.00")');
-        expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(type, context)).toContain("number: 1n");
-        expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(type, context)).toContain('state: { tag: "Open", value: new DamlDate(1) }');
+        expect(typeScriptEmission.expression).toContain('amountValue: new DamlNumeric("1.00")');
+        expect(typeScriptEmission.expression).toContain("number: 1n");
+        expect(typeScriptEmission.expression).toContain('state: { tag: "Open", value: new DamlDate(1) }');
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(type, context)).toContain('amount: "1.00"');
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(type, context)).toContain("marker: {}");
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(type, context)).toContain('number: "1"');
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(type, context)).toContain('labels: { "sample-key": "sample text" }');
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(type, context)).toContain('pairs: [["sample text", true]]');
-        expect(imports.imports).toEqual(expect.arrayContaining([
+        expect(typeScriptEmission.imports).toEqual(expect.arrayContaining([
             expect.objectContaining({ exportedName: "DamlNumeric" }),
             expect.objectContaining({ exportedName: "DamlDate" }),
         ]));
@@ -155,9 +154,7 @@ describe("GeneratedTestSampleEmitter", () => {
 
         const files = [namedFile(node, "SampleNode", "nodeValue")];
 
-        const imports = new GeneratedTestSampleImportCollector();
-
-        const context = sampleContext([definition], files, imports);
+        const context = sampleContext([definition], files);
 
         const textNode = {
             kind: "namedReference" as const,
@@ -171,10 +168,16 @@ describe("GeneratedTestSampleEmitter", () => {
             typeArguments: [{ kind: "primitive" as const, builtinType: DamlLfBuiltinType.int64 }],
         };
 
-        expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(textNode, context)).toContain('nodeValue: "sample text"');
-        expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(numberNode, context)).toContain("nodeValue: 1n");
+        const textEmission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(textNode, context);
+
+        const numberEmission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(numberNode, context, {
+            imports: textEmission.imports,
+        });
+
+        expect(textEmission.expression).toContain('nodeValue: "sample text"');
+        expect(numberEmission.expression).toContain("nodeValue: 1n");
         expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(textNode, context)).toContain("next: null");
-        expect(imports.imports).toContainEqual(expect.objectContaining({ exportedName: "SampleNode" }));
+        expect(numberEmission.imports).toContainEqual(expect.objectContaining({ exportedName: "SampleNode" }));
     });
 
     it("collects runtime wrappers used only by a phantom generic application", async () => {
@@ -187,16 +190,14 @@ describe("GeneratedTestSampleEmitter", () => {
             fields: [],
         };
 
-        const imports = new GeneratedTestSampleImportCollector();
-
-        const expression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow({
+        const emission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow({
             kind: "namedReference",
             identity: phantom,
             typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.date }],
-        }, sampleContext([definition], [namedFile(phantom, "Phantom")], imports));
+        }, sampleContext([definition], [namedFile(phantom, "Phantom")]));
 
-        expect(expression).toContain("satisfies Phantom<DamlDate>");
-        expect(imports.imports).toEqual(expect.arrayContaining([
+        expect(emission.expression).toContain("satisfies Phantom<DamlDate>");
+        expect(emission.imports).toEqual(expect.arrayContaining([
             expect.objectContaining({
                 modulePath: "@distrohelena/canton-typescript-sdk/daml-interface",
                 exportedName: "DamlDate",
@@ -212,7 +213,7 @@ describe("GeneratedTestSampleEmitter", () => {
             await writeFile(sourcePath, [
                 "class DamlDate { public constructor(public readonly daysSinceEpoch: number) {} }",
                 "interface Phantom<T> {}",
-                `const sample = ${expression};`,
+                `const sample = ${emission.expression};`,
                 "void sample;",
             ].join("\n"), "utf8");
             execFileSync(process.execPath, [
@@ -255,20 +256,18 @@ describe("GeneratedTestSampleEmitter", () => {
             fields: [],
         }];
 
-        const imports = new GeneratedTestSampleImportCollector();
-
-        const expression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(
+        const emission = GeneratedTestSampleEmitter.emitTypeScriptExpressionWithImportsOrThrow(
             { kind: "namedReference", identity: wrapper, typeArguments: [] },
             sampleContext(definitions, [
                 namedFile(wrapper, "Wrapper"),
                 namedFile(left, "Foo", "value", "generated/packages/sample/left/types.ts", "SampleLeft"),
                 namedFile(right, "Foo", "value", "generated/packages/sample/right/types.ts", "SampleRight"),
-            ], imports),
+            ]),
         );
 
-        expect(expression).toContain("satisfies Foo");
-        expect(expression).toContain("satisfies SampleRightFoo");
-        expect(imports.imports.filter((entry) => entry.exportedName === "Foo").map((entry) => entry.localName))
+        expect(emission.expression).toContain("satisfies Foo");
+        expect(emission.expression).toContain("satisfies SampleRightFoo");
+        expect(emission.imports.filter((entry) => entry.exportedName === "Foo").map((entry) => entry.localName))
             .toEqual(["Foo", "SampleRightFoo"]);
     });
 
@@ -325,11 +324,11 @@ describe("GeneratedTestSampleEmitter", () => {
 
         expect(() => GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(
             { kind: "namedReference", identity: loop, typeArguments: [] },
-            sampleContext([definition], [namedFile(loop, "Loop")], undefined, ["fixture"]),
+            sampleContext([definition], [namedFile(loop, "Loop")], ["fixture"]),
         )).toThrow("sample:Module:Loop");
         expect(() => GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(
             { kind: "namedReference", identity: loop, typeArguments: [] },
-            sampleContext([definition], [namedFile(loop, "Loop")], undefined, ["fixture"]),
+            sampleContext([definition], [namedFile(loop, "Loop")], ["fixture"]),
         )).toThrow("fixture.next");
     });
 });
@@ -362,13 +361,11 @@ function namedFile(
 function sampleContext(
     definitions: readonly AnalyzedDamlTypeDefinition[] = [],
     namedTypeFiles: readonly GeneratedNamedTypeFile[] = [],
-    imports?: GeneratedTestSampleImportCollector,
     path: readonly string[] = ["value"],
 ) {
     return {
         definitions,
         namedTypeFiles,
-        imports,
         path,
         maximumDepth: 3,
     };

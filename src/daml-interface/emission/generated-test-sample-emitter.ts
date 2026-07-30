@@ -5,7 +5,7 @@ import { AnalyzedDamlTypeDefinition } from "../analysis/analyzed-daml-type-defin
 import { DamlInterfaceUnsupportedShapeException } from "../errors/daml-interface-unsupported-shape.exception.js";
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 
-export type GeneratedTestSampleImport = {
+type GeneratedTestSampleImport = {
     readonly modulePath: string;
     readonly exportedName: string;
     readonly localName: string;
@@ -13,9 +13,19 @@ export type GeneratedTestSampleImport = {
 };
 
 /** Collects generated-test dependencies while assigning deterministic collision-safe local names. */
-export class GeneratedTestSampleImportCollector {
+class GeneratedTestSampleImportCollector {
     private readonly importsByKey = new Map<string, GeneratedTestSampleImport>();
     private readonly localNames = new Set<string>();
+
+    public constructor(imports: readonly GeneratedTestSampleImport[] = []) {
+        for (const entry of imports) {
+            this.importsByKey.set(
+                `${entry.modulePath}\u0000${entry.exportedName}\u0000${entry.typeOnly ? "type" : "value"}`,
+                entry,
+            );
+            this.localNames.add(entry.localName);
+        }
+    }
 
     public get imports(): readonly GeneratedTestSampleImport[] {
         return [...this.importsByKey.values()].sort((left, right) =>
@@ -82,7 +92,6 @@ export class GeneratedTestSampleImportCollector {
 export type GeneratedTestSampleContext = {
     readonly definitions: readonly AnalyzedDamlTypeDefinition[];
     readonly namedTypeFiles: readonly GeneratedNamedTypeFile[];
-    readonly imports?: GeneratedTestSampleImportCollector;
     readonly path?: readonly string[];
     readonly maximumDepth?: number;
     readonly typeVariableBindings?: ReadonlyMap<string, AnalyzedDamlType>;
@@ -121,10 +130,43 @@ export class GeneratedTestSampleEmitter {
         return this.emitOrThrow(type, context, "ledger");
     }
 
+    /** Emits a TypeScript sample with its immutable, collision-safe import requirements. */
+    public static emitTypeScriptExpressionWithImportsOrThrow(
+        type: AnalyzedDamlType,
+        context: GeneratedTestSampleContext,
+        options: {
+            readonly imports?: readonly {
+                readonly modulePath: string;
+                readonly exportedName: string;
+                readonly localName: string;
+                readonly typeOnly: boolean;
+            }[];
+            readonly reservedLocalNames?: readonly string[];
+        } = {},
+    ): {
+        readonly expression: string;
+        readonly imports: readonly {
+            readonly modulePath: string;
+            readonly exportedName: string;
+            readonly localName: string;
+            readonly typeOnly: boolean;
+        }[];
+    } {
+        const imports = new GeneratedTestSampleImportCollector(options.imports);
+
+        imports.reserveLocalNames(options.reservedLocalNames ?? []);
+
+        return {
+            expression: this.emitOrThrow(type, context, "typeScript", imports),
+            imports: imports.imports,
+        };
+    }
+
     private static emitOrThrow(
         type: AnalyzedDamlType,
         context: GeneratedTestSampleContext,
         representation: Representation,
+        imports?: GeneratedTestSampleImportCollector,
     ): string {
         const bindings = context.typeVariableBindings ?? new Map<string, AnalyzedDamlType>();
 
@@ -132,7 +174,7 @@ export class GeneratedTestSampleEmitter {
             representation,
             definitionIndex: this.createDefinitionIndex(context.definitions),
             namedTypeFiles: context.namedTypeFiles,
-            imports: context.imports,
+            imports,
             path: context.path ?? ["value"],
             depth: context.maximumDepth ?? this.defaultMaximumDepth,
             bindings,
