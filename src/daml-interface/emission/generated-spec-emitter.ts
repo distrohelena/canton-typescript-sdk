@@ -137,6 +137,8 @@ export class GeneratedSpecEmitter {
 
         const samples: string[] = [];
 
+        const usedSampleLocalNames = new Set<string>();
+
         for (const definition of definitions) {
             const exportedName = file.exportedTypeNamesByIdentity.get(this.definitionKey(definition));
 
@@ -156,7 +158,7 @@ export class GeneratedSpecEmitter {
 
             if (definition.kind === "enum") {
                 for (const constructor of definition.constructors) {
-                    samples.push(`const ${this.safeLocalName(exportedName, constructor)}: ${exportedName} = ${JSON.stringify(constructor)};`);
+                    samples.push(`const ${this.allocateSafeLocalName(exportedName, constructor, usedSampleLocalNames)}: ${exportedName} = ${JSON.stringify(constructor)};`);
                 }
             } else if (definition.kind === "variant") {
                 for (const constructor of definition.constructors) {
@@ -173,10 +175,10 @@ export class GeneratedSpecEmitter {
                         ])),
                     );
 
-                    samples.push(`const ${this.safeLocalName(exportedName, constructor.constructor)} = (${expression} satisfies ${this.appliedTypeName(exportedName, typeArguments)});`);
+                    samples.push(`const ${this.allocateSafeLocalName(exportedName, constructor.constructor, usedSampleLocalNames)} = (${expression} satisfies ${this.appliedTypeName(exportedName, typeArguments)});`);
                 }
             } else {
-                samples.push(`const ${this.safeLocalName(exportedName, "sample")} = ${sample};`);
+                samples.push(`const ${this.allocateSafeLocalName(exportedName, "sample", usedSampleLocalNames)} = ${sample};`);
             }
         }
 
@@ -291,12 +293,52 @@ export class GeneratedSpecEmitter {
             ].join("\n");
         }
 
+        return this.emitNamespaceSpec(path, project, analysis);
+    }
+
+    private static emitNamespaceSpec(
+        path: string,
+        project: GeneratedDamlInterfaceProject,
+        analysis: DamlInterfaceAnalysisResult,
+    ): string {
+        const directoryPath = path.replace(/\/[^/]+$/, "");
+
+        const typeFile = project.namedTypeFiles.find((file) => file.path === `${directoryPath}/types.ts`);
+
+        const typeExports = typeFile?.exportedTypeNames ?? [];
+
+        const valueExports = project.templateFiles
+            .filter((file) => file.path.startsWith(`${directoryPath}/`))
+            .flatMap((file) => [file.binding.className, ...file.binding.choices.map((choice) => choice.exercisedEventTypeName)]);
+
+        const modulePath = this.modulePath(this.specPath(path), path);
+
+        const typeAssertions = typeExports.map((exportedName, index) => {
+            const definition = analysis.typeDefinitions.find((candidate) =>
+                typeFile?.exportedTypeNamesByIdentity.get(this.definitionKey(candidate)) === exportedName);
+
+            const typeParameterCount = definition === undefined || definition.kind === "enum"
+                ? 0
+                : (definition.typeParameters?.length ?? 0);
+
+            const arguments_ = typeParameterCount === 0
+                ? ""
+                : `<${Array.from({ length: typeParameterCount }, () => "unknown").join(", ")}>`;
+
+            return `const forwardedType_${index} = undefined as unknown as ${exportedName}${arguments_};`;
+        });
+
         return [
             ...this.nodeImports(),
-            `import * as GeneratedNamespace from ${JSON.stringify(this.modulePath(this.specPath(path), path))};`,
+            ...(typeExports.length === 0 ? [] : [`import type { ${typeExports.join(", ")} } from ${JSON.stringify(modulePath)};`]),
+            ...(valueExports.length === 0 ? [] : [`import { ${valueExports.join(", ")} } from ${JSON.stringify(modulePath)};`]),
             "",
-            `test(${JSON.stringify(`${path} exports its generated namespace`)}, () => {`,
-            "    assert.ok(GeneratedNamespace !== undefined);",
+            ...typeAssertions,
+            ...(typeAssertions.length === 0 ? [] : [""]),
+            `test(${JSON.stringify(`${path} forwards its generated exports`)}, () => {`,
+            ...typeAssertions.map((_, index) => `    void forwardedType_${index};`),
+            ...valueExports.map((exportedName) => `    assert.equal(typeof ${exportedName}, "function");`),
+            ...(typeAssertions.length === 0 && valueExports.length === 0 ? ["    assert.ok(true);"] : []),
             "});",
             "",
         ].join("\n");
@@ -441,8 +483,25 @@ export class GeneratedSpecEmitter {
         return `${definition.identity.packageId}\u0000${definition.identity.moduleName}\u0000${definition.identity.name}`;
     }
 
-    private static safeLocalName(typeName: string, suffix: string): string {
-        return `${typeName.replace(/[^A-Za-z0-9_$]/g, "_")}_${suffix.replace(/[^A-Za-z0-9_$]/g, "_")}`;
+    private static allocateSafeLocalName(
+        typeName: string,
+        suffix: string,
+        usedNames: Set<string>,
+    ): string {
+        const baseName = `${typeName.replace(/[^A-Za-z0-9_$]/g, "_")}_${suffix.replace(/[^A-Za-z0-9_$]/g, "_")}`;
+
+        let localName = baseName;
+
+        let number = 2;
+
+        while (usedNames.has(localName)) {
+            localName = `${baseName}_${number}`;
+            number += 1;
+        }
+
+        usedNames.add(localName);
+
+        return localName;
     }
 
     private static specPath(path: string): string {

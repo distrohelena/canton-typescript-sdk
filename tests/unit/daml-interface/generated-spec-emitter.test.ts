@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
+import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
 import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-choice.js";
 import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-template.js";
@@ -100,6 +101,37 @@ describe("GeneratedSpecEmitter", () => {
         await typecheckGeneratedTemplateAndSpec(createTemplateProject("DamlEventSourceNormalizer"));
     });
 
+    it("allocates distinct named-spec locals for colliding DAML variant labels", async () => {
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [],
+            typeDefinitions: [{
+                identity: new TypeConReference({ packageId: "sample-hash", moduleName: "Sample.Types", name: "Choice" }),
+                kind: "variant",
+                typeParameters: [],
+                constructors: [{ constructor: "A-B", payload: { kind: "primitive", builtinType: DamlLfBuiltinType.text } }, {
+                    constructor: "A_B", payload: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                }],
+            }],
+        }));
+
+        const spec = project.specFiles.find((file) => file.productionPath.endsWith("/types.ts"));
+
+        expect(spec?.contents).toContain("const Choice_A_B =");
+        expect(spec?.contents).toContain("const Choice_A_B_2 =");
+        await typecheckGeneratedSpec(project, spec?.path);
+    });
+
+    it("typechecks a known forwarded namespace-barrel value export", async () => {
+        const project = createTemplateProject("Iou");
+
+        const spec = project.specFiles.find((file) =>
+            file.productionPath.endsWith("/sample/module/index.ts"));
+
+        expect(spec?.contents).toContain('import { Iou } from "./index.js";');
+        expect(spec?.contents).toContain('assert.equal(typeof Iou, "function");');
+        await typecheckGeneratedSpec(project, spec?.path);
+    });
+
     it("emits finite generic-recursive named type specs from the generic fixture", async () => {
         const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
             SampleLfPackageFixture.createGenericRecursiveLf2ArchiveBytes(),
@@ -147,13 +179,21 @@ function createTemplateProject(className: string) {
 }
 
 async function typecheckGeneratedTemplateAndSpec(project: ReturnType<typeof createTemplateProject>): Promise<void> {
+    await typecheckGeneratedSpec(
+        project,
+        project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.path,
+    );
+}
+
+async function typecheckGeneratedSpec(
+    project: ReturnType<typeof createTemplateProject> | import("../../../src/daml-interface/emission-model/generated-daml-interface-project.js").GeneratedDamlInterfaceProject,
+    specPath: string | undefined,
+): Promise<void> {
     const directory = await mkdtemp(join(tmpdir(), "daml-template-import-collision-"));
 
     try {
         await new DamlInterfaceWriter().writeProjectAsync(project, directory);
         await writeGeneratedSdkAndNodeTypeStubs(directory);
-
-        const specPath = project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.path;
 
         execFileSync(process.execPath, [
             "./node_modules/typescript/bin/tsc",
