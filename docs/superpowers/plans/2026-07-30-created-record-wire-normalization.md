@@ -15,10 +15,11 @@
 **Files:**
 - Modify: `src/daml-interface/runtime/daml-event-source-normalizer.ts`
 - Test: `tests/unit/daml-interface/daml-event-source-normalizer.test.ts`
+- Test: `tests/integration/daml-interface/generated-template-materialization.integration.test.ts`
 
 - [ ] **Step 1: Add failing normalization/materialization tests**
 
-Cover `createArguments`, `create_arguments`, and `payload` with `{ fields: [{ label: "owner", value: { text: "Alice" } }] }`; assert protobuf record/value canonical oneofs, frozen values, and successful materialization. Cover invalid/multi-variant lookalikes staying JSON.
+Cover `createArguments`, `create_arguments`, and `payload` with `{ fields: [{ label: "owner", value: { text: "Alice" } }] }`; assert protobuf record/value canonical oneofs, frozen values, and a nested list or optional containing `{ text: ... }`. Explicitly assert empty fields is protobuf. Cover non-array fields, missing/non-string labels, malformed/non-object/multi-variant values, and ordinary JSON objects with a fields property falling back to JSON. Add generated `Iou.fromCreatedEvent()` integration coverage that materializes typed fields from this third path.
 
 - [ ] **Step 2: Verify red**
 
@@ -28,7 +29,7 @@ Expected: FAIL because wire records are currently normalized as JSON.
 
 - [ ] **Step 3: Implement narrowly**
 
-Add a strict record-wire predicate, recognizing a `fields` array of labeled, single-oneof JSON values. In created normalization, parse matching payloads with `Value.fromJson({ record: payload })` before freeze/clone. Do not change generated protobuf or ordinary JSON paths.
+Add a strict recursive record-wire predicate. It accepts only valid ts-proto JSON `Value` oneofs, validates scalar payload types and recursively validates nested `list`, `optional`, and `record` values before parsing. In created normalization, parse matching payloads with `Value.fromJson({ record: payload })` before freeze/clone. Do not change generated protobuf or ordinary JSON paths.
 
 - [ ] **Step 4: Verify and commit**
 
