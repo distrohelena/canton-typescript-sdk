@@ -1,6 +1,13 @@
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
+import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface-cli.js";
+
+const VAULT_BASE_DAR = "/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar";
 
 describe("DamlInterfaceGenerator", () => {
     it("builds a generated project from dalf archive bytes", async () => {
@@ -105,6 +112,32 @@ describe("DamlInterfaceGenerator", () => {
         expect(descriptors).toContain('entityName: "Node" }, typeArguments: [typeArguments[0]!]');
         expect(descriptors).toContain('entityName: "Right" }, typeArguments: [typeArguments[0]!]');
     });
+
+    it.skipIf(!existsSync(VAULT_BASE_DAR))(
+        "generates Vault Base SplitUnderlying with its concrete Tuple2 result application",
+        async () => {
+            const outputDirectory = await mkdtemp(join(tmpdir(), "vault-base-generated-"));
+
+            try {
+                const exitCode = await new DamlInterfaceCli().runAsync([
+                    "--input", VAULT_BASE_DAR,
+                    "--output", outputDirectory,
+                ]);
+
+                const binding = await readFile(join(
+                    outputDirectory,
+                    "generated/packages/vault-base_0.0.1/oz/vault/base/test-token/cip112/test-underlying-holding.ts",
+                ), "utf8");
+
+                expect(exitCode).toBe(0);
+                expect(binding).toContain("export class TestUnderlyingHoldingSplitUnderlyingExercisedEvent");
+                expect(binding).toContain("public readonly result: Tuple2<string, string>;");
+                expect(binding).toContain("DamlValueMaterializer.materialize<Tuple2<string, string>>");
+            } finally {
+                await rm(outputDirectory, { recursive: true, force: true });
+            }
+        },
+    );
 });
 
 function expectProjectToExcludeExternalHolding(project: {
