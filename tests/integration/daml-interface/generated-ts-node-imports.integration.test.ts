@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import {
@@ -18,7 +19,7 @@ describe("generated DAML project ts-node imports", () => {
         try {
             expect(temporaryProject.executedSpecPaths).toEqual(
                 temporaryProject.project.specFiles.map((file) =>
-                    `${temporaryProject.directory}/${file.path}`,
+                    join(temporaryProject.directory, file.path),
                 ).sort(),
             );
             await expectNoRelativeJavaScriptImportsAsync(temporaryProject.directory);
@@ -41,7 +42,7 @@ describe("generated DAML project ts-node imports", () => {
             try {
                 expect(temporaryProject.executedSpecPaths).toEqual(
                     temporaryProject.project.specFiles.map((file) =>
-                        `${temporaryProject.directory}/${file.path}`,
+                        join(temporaryProject.directory, file.path),
                     ).sort(),
                 );
                 await expectNoRelativeJavaScriptImportsAsync(temporaryProject.directory);

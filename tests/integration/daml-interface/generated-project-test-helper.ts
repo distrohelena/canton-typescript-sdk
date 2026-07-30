@@ -306,6 +306,8 @@ function requireGeneratedTsNodeSourcesOrThrow(
             ...sourcePaths,
         ], {
             cwd: directory,
+            // This fixture deliberately uses CommonJS and Node resolution to exercise runtime require() exports.
+            // The SDK publishes ESM-only declarations, so normal ts-node instead fails TS2307; NodeNext compilation validates types.
             env: { ...process.env, TS_NODE_TRANSPILE_ONLY: "true" },
             stdio: "pipe",
         });
@@ -331,6 +333,8 @@ function executeTsNodeGeneratedSpecsOrThrow(
             ...specPaths,
         ], {
             cwd: directory,
+            // This fixture deliberately uses CommonJS and Node resolution to exercise runtime require() exports.
+            // The SDK publishes ESM-only declarations, so normal ts-node instead fails TS2307; NodeNext compilation validates types.
             env: { ...process.env, TS_NODE_TRANSPILE_ONLY: "true" },
             stdio: "pipe",
         });
