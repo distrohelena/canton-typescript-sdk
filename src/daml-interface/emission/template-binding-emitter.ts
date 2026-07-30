@@ -115,13 +115,15 @@ export class TemplateBindingEmitter {
         binding: GeneratedTemplateBinding,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
     ): string {
+        const runtimeWrapperTypeNames = this.resolveRuntimeWrapperTypeNames(
+            binding.className,
+            binding.choices.map((choice) => choice.exercisedEventTypeName),
+        );
+
         const imports = this.emitImports(
             binding,
             namedReferences,
-            this.resolveRuntimeWrapperTypeNames(
-                binding.className,
-                binding.choices.map((choice) => choice.exercisedEventTypeName),
-            ),
+            runtimeWrapperTypeNames,
         );
 
         const fields = binding.createFields.map((field) =>
@@ -147,9 +149,9 @@ export class TemplateBindingEmitter {
             ...fields,
             "}",
             "",
-            this.emitTemplateClass(binding, constructorParameters, constructorAssignments, orderedArguments, exercisedReturnType),
+            this.emitTemplateClass(binding, constructorParameters, constructorAssignments, orderedArguments, exercisedReturnType, runtimeWrapperTypeNames),
             ...(binding.choices.length === 0 ? [] : ["", ...binding.choices.flatMap((choice) => [
-                this.emitChoiceEventClass(binding, choice),
+                this.emitChoiceEventClass(binding, choice, runtimeWrapperTypeNames),
                 "",
             ])]),
         ].join("\n");
@@ -170,7 +172,13 @@ export class TemplateBindingEmitter {
         }
 
         return [
-            'import { DamlEventSourceNormalizer, DamlMaterializationError, DamlTemplate, DamlValueConverter, DamlValueMaterializer } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+            `import { ${[
+                "DamlEventSourceNormalizer",
+                "DamlMaterializationError",
+                "DamlTemplate",
+                "DamlValueConverter",
+                "DamlValueMaterializer",
+            ].map((name) => this.emitImportedName(name, runtimeWrapperTypeNames)).join(", ")} } from "@distrohelena/canton-typescript-sdk/daml-interface";`,
             `import type { ${[
                 "DamlCreatedEventSource",
                 "DamlDate",
@@ -182,11 +190,7 @@ export class TemplateBindingEmitter {
                 "DamlTimestamp",
                 "DamlTypeDescriptor",
                 "DamlUnit",
-            ].map((name) => {
-                const localName = runtimeWrapperTypeNames.get(name) ?? name;
-
-                return localName === name ? name : `${name} as ${localName}`;
-            }).join(", ")} } from "@distrohelena/canton-typescript-sdk/daml-interface";`,
+            ].map((name) => this.emitImportedName(name, runtimeWrapperTypeNames)).join(", ")} } from "@distrohelena/canton-typescript-sdk/daml-interface";`,
             `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
                 `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => name === alias ? name : `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
@@ -199,11 +203,12 @@ export class TemplateBindingEmitter {
         constructorAssignments: readonly string[],
         orderedArguments: readonly string[],
         exercisedReturnType: string,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
     ): string {
         return [
-            `export class ${binding.className} extends DamlTemplate implements ${binding.createFieldsTypeName} {`,
+            `export class ${binding.className} extends ${this.getSdkName("DamlTemplate", runtimeWrapperTypeNames)} implements ${binding.createFieldsTypeName} {`,
             `    public static readonly templateId = ${JSON.stringify(binding.templateIdLiteral)};`,
-            `    private static readonly descriptor: DamlTypeDescriptor = ${this.emitTemplateDescriptor(binding)};`,
+            `    private static readonly descriptor: ${this.getSdkName("DamlTypeDescriptor", runtimeWrapperTypeNames)} = ${this.emitTemplateDescriptor(binding)};`,
             "",
             ...binding.createFields.map((field) => `    public readonly ${field.propertyName}: ${field.typeName};`),
             ...(binding.createFields.length === 0 ? [] : [""]),
@@ -212,49 +217,53 @@ export class TemplateBindingEmitter {
             ...constructorAssignments,
             "    }",
             "",
-            `    public static fromCreatedEvent(event: DamlCreatedEventSource): ${binding.className} {`,
-            "        const normalized = DamlEventSourceNormalizer.normalizeCreated(event);",
+            `    public static fromCreatedEvent(event: ${this.getSdkName("DamlCreatedEventSource", runtimeWrapperTypeNames)}): ${binding.className} {`,
+            `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeCreated(event);`,
             `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
-            `        const fields = DamlValueMaterializer.materialize<${binding.createFieldsTypeName}>(DamlValueConverter.decode(normalized.payload, ${binding.className}.descriptor, GeneratedDamlTypeDescriptorRegistry, "create arguments"));`,
+            `        const fields = ${this.getSdkName("DamlValueMaterializer", runtimeWrapperTypeNames)}.materialize<${binding.createFieldsTypeName}>(${this.getSdkName("DamlValueConverter", runtimeWrapperTypeNames)}.decode(normalized.payload, ${binding.className}.descriptor, GeneratedDamlTypeDescriptorRegistry, "create arguments"));`,
             `        return new ${binding.className}(`,
             "            normalized.contractId,",
             ...orderedArguments,
             "        );",
             "    }",
             "",
-            `    public static fromExercisedEvent(event: DamlExercisedEventSource): ${exercisedReturnType} {`,
-            "        const normalized = DamlEventSourceNormalizer.normalizeExercised(event);",
+            `    public static fromExercisedEvent(event: ${this.getSdkName("DamlExercisedEventSource", runtimeWrapperTypeNames)}): ${exercisedReturnType} {`,
+            `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeExercised(event);`,
             `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
             "        switch (normalized.choice) {",
             ...binding.choices.map((choice) => `            case ${JSON.stringify(choice.name)}:\n                return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`),
             "            default:",
-            `                throw new DamlMaterializationError("choice", \`Unexpected choice '\${normalized.choice}' for template '${binding.templateIdLiteral}'\`);`,
+            `                throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("choice", \`Unexpected choice '\${normalized.choice}' for template '${binding.templateIdLiteral}'\`);`,
             "        }",
             "    }",
             "",
             "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
             `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
-            `            throw new DamlMaterializationError("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
+            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
             "        }",
             "    }",
             "}",
         ].join("\n");
     }
 
-    private emitChoiceEventClass(binding: GeneratedTemplateBinding, choice: GeneratedChoiceBinding): string {
+    private emitChoiceEventClass(
+        binding: GeneratedTemplateBinding,
+        choice: GeneratedChoiceBinding,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
+    ): string {
         return [
             `export class ${choice.exercisedEventTypeName} {`,
-            `    private static readonly argumentDescriptor: DamlTypeDescriptor = ${this.emitDescriptor(choice.parameterType)};`,
-            `    private static readonly resultDescriptor: DamlTypeDescriptor = ${this.emitDescriptor(choice.returnType)};`,
+            `    private static readonly argumentDescriptor: ${this.getSdkName("DamlTypeDescriptor", runtimeWrapperTypeNames)} = ${this.emitDescriptor(choice.parameterType)};`,
+            `    private static readonly resultDescriptor: ${this.getSdkName("DamlTypeDescriptor", runtimeWrapperTypeNames)} = ${this.emitDescriptor(choice.returnType)};`,
             "",
             `    public readonly choiceName = ${JSON.stringify(choice.name)} as const;`,
             "    public readonly contractId: string;",
             `    public readonly argument: ${choice.parameterTypeName};`,
             `    public readonly result: ${choice.returnTypeName};`,
             "    public readonly consuming: boolean;",
-            "    public readonly metadata: DamlExercisedEventMetadata;",
+            `    public readonly metadata: ${this.getSdkName("DamlExercisedEventMetadata", runtimeWrapperTypeNames)};`,
             "",
-            "    public constructor(contractId: string, argument: " + choice.parameterTypeName + ", result: " + choice.returnTypeName + ", consuming: boolean, metadata: DamlExercisedEventMetadata) {",
+            "    public constructor(contractId: string, argument: " + choice.parameterTypeName + ", result: " + choice.returnTypeName + ", consuming: boolean, metadata: " + this.getSdkName("DamlExercisedEventMetadata", runtimeWrapperTypeNames) + ") {",
             "        this.contractId = contractId;",
             "        this.argument = argument;",
             "        this.result = result;",
@@ -262,25 +271,25 @@ export class TemplateBindingEmitter {
             "        this.metadata = metadata;",
             "    }",
             "",
-            `    public static fromExercisedEvent(event: DamlExercisedEventSource): ${choice.exercisedEventTypeName} {`,
-            "        const normalized = DamlEventSourceNormalizer.normalizeExercised(event);",
+            `    public static fromExercisedEvent(event: ${this.getSdkName("DamlExercisedEventSource", runtimeWrapperTypeNames)}): ${choice.exercisedEventTypeName} {`,
+            `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeExercised(event);`,
             `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(normalized.metadata.templateId);`,
             `        return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`,
             "    }",
             "",
-            `    public static fromNormalizedEvent(event: DamlNormalizedExercisedEvent): ${choice.exercisedEventTypeName} {`,
+            `    public static fromNormalizedEvent(event: ${this.getSdkName("DamlNormalizedExercisedEvent", runtimeWrapperTypeNames)}): ${choice.exercisedEventTypeName} {`,
             `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(event.metadata.templateId);`,
             `        if (event.choice !== ${JSON.stringify(choice.name)}) {`,
-            `            throw new DamlMaterializationError("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
+            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
             "        }",
-            `        const argument = DamlValueMaterializer.materialize<${choice.parameterTypeName}>(DamlValueConverter.decode(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, GeneratedDamlTypeDescriptorRegistry, "choice argument"));`,
-            `        const result = DamlValueMaterializer.materialize<${choice.returnTypeName}>(DamlValueConverter.decode(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, GeneratedDamlTypeDescriptorRegistry, "exercise result"));`,
+            `        const argument = ${this.getSdkName("DamlValueMaterializer", runtimeWrapperTypeNames)}.materialize<${choice.parameterTypeName}>(${this.getSdkName("DamlValueConverter", runtimeWrapperTypeNames)}.decode(event.argument, ${choice.exercisedEventTypeName}.argumentDescriptor, GeneratedDamlTypeDescriptorRegistry, "choice argument"));`,
+            `        const result = ${this.getSdkName("DamlValueMaterializer", runtimeWrapperTypeNames)}.materialize<${choice.returnTypeName}>(${this.getSdkName("DamlValueConverter", runtimeWrapperTypeNames)}.decode(event.result, ${choice.exercisedEventTypeName}.resultDescriptor, GeneratedDamlTypeDescriptorRegistry, "exercise result"));`,
             `        return new ${choice.exercisedEventTypeName}(event.contractId, argument, result, event.consuming, event.metadata);`,
             "    }",
             "",
             "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
             `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
-            `            throw new DamlMaterializationError("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
+            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
             "        }",
             "    }",
             "}",
@@ -382,7 +391,23 @@ export class TemplateBindingEmitter {
 
         const names = new Map<string, string>();
 
-        for (const name of ["DamlDate", "DamlNumeric", "DamlParty", "DamlTimestamp", "DamlUnit"]) {
+        for (const name of [
+            "DamlCreatedEventSource",
+            "DamlDate",
+            "DamlEventSourceNormalizer",
+            "DamlExercisedEventMetadata",
+            "DamlExercisedEventSource",
+            "DamlMaterializationError",
+            "DamlNormalizedExercisedEvent",
+            "DamlNumeric",
+            "DamlParty",
+            "DamlTemplate",
+            "DamlTimestamp",
+            "DamlTypeDescriptor",
+            "DamlUnit",
+            "DamlValueConverter",
+            "DamlValueMaterializer",
+        ]) {
             let localName = name;
 
             let suffix = 2;
@@ -401,6 +426,16 @@ export class TemplateBindingEmitter {
         }
 
         return names;
+    }
+
+    private getSdkName(name: string, runtimeWrapperTypeNames: RuntimeWrapperTypeNames): string {
+        return runtimeWrapperTypeNames.get(name) ?? name;
+    }
+
+    private emitImportedName(name: string, runtimeWrapperTypeNames: RuntimeWrapperTypeNames): string {
+        const localName = this.getSdkName(name, runtimeWrapperTypeNames);
+
+        return localName === name ? name : `${name} as ${localName}`;
     }
 
     private normalizeType(type: AnalyzedDamlType | DamlLfType): AnalyzedDamlType {

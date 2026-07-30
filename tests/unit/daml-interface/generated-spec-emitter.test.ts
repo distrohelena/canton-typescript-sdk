@@ -89,28 +89,15 @@ describe("GeneratedSpecEmitter", () => {
     });
 
     it("typechecks a DamlNumeric template and its generated sibling spec", async () => {
-        const project = createDamlNumericProject();
+        await typecheckGeneratedTemplateAndSpec(createTemplateProject("DamlNumeric"));
+    });
 
-        const directory = await mkdtemp(join(tmpdir(), "daml-template-import-collision-"));
+    it("typechecks a template colliding with an SDK type import and its sibling spec", async () => {
+        await typecheckGeneratedTemplateAndSpec(createTemplateProject("DamlCreatedEventSource"));
+    });
 
-        try {
-            await new DamlInterfaceWriter().writeProjectAsync(project, directory);
-            await writeGeneratedSdkAndNodeTypeStubs(directory);
-
-            const specPath = project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.path;
-
-            execFileSync(process.execPath, [
-                "./node_modules/typescript/bin/tsc",
-                "--noEmit",
-                "--target", "ES2022",
-                "--module", "NodeNext",
-                "--moduleResolution", "NodeNext",
-                "--skipLibCheck",
-                join(directory, specPath ?? "missing.spec.ts"),
-            ], { cwd: process.cwd(), stdio: "inherit" });
-        } finally {
-            await rm(directory, { recursive: true, force: true });
-        }
+    it("typechecks a template colliding with an SDK value import and its sibling spec", async () => {
+        await typecheckGeneratedTemplateAndSpec(createTemplateProject("DamlEventSourceNormalizer"));
     });
 
     it("emits finite generic-recursive named type specs from the generic fixture", async () => {
@@ -138,16 +125,16 @@ describe("GeneratedSpecEmitter", () => {
     });
 });
 
-function createDamlNumericProject() {
+function createTemplateProject(className: string) {
     return new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
         templates: [new AnalyzedTemplate({
             templateId: new DamlLfTemplateId({
                 packageId: "sample-hash",
                 moduleName: "Sample.Module",
-                templateName: "DamlNumeric",
+                templateName: className,
             }),
-            className: "DamlNumeric",
-            fileName: "daml-numeric.ts",
+            className,
+            fileName: `${className}.ts`,
             createFields: [{
                 name: "amount",
                 propertyName: "amount",
@@ -157,6 +144,29 @@ function createDamlNumericProject() {
         })],
         typeDefinitions: [],
     }));
+}
+
+async function typecheckGeneratedTemplateAndSpec(project: ReturnType<typeof createTemplateProject>): Promise<void> {
+    const directory = await mkdtemp(join(tmpdir(), "daml-template-import-collision-"));
+
+    try {
+        await new DamlInterfaceWriter().writeProjectAsync(project, directory);
+        await writeGeneratedSdkAndNodeTypeStubs(directory);
+
+        const specPath = project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.path;
+
+        execFileSync(process.execPath, [
+            "./node_modules/typescript/bin/tsc",
+            "--noEmit",
+            "--target", "ES2022",
+            "--module", "NodeNext",
+            "--moduleResolution", "NodeNext",
+            "--skipLibCheck",
+            join(directory, specPath ?? "missing.spec.ts"),
+        ], { cwd: process.cwd(), stdio: "inherit" });
+    } finally {
+        await rm(directory, { recursive: true, force: true });
+    }
 }
 
 async function writeGeneratedSdkAndNodeTypeStubs(directory: string): Promise<void> {
