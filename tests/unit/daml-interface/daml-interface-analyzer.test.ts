@@ -484,6 +484,52 @@ describe("DamlInterfaceAnalyzer", () => {
             .toThrow(/field 'value' of record 'BrokenBox'.*applied type variables/);
     });
 
+    it("rejects generic parameter binders without resolved names", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "BrokenBox",
+                    typeParameters: [{
+                        internedStringIndex: 1,
+                        kind: { kind: "star" },
+                    }],
+                    fields: [],
+                }),
+            ],
+            choiceParameterType: namedType("BrokenBox", [textType()]),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/choice parameter 'input'.*type parameter '#1'.*resolved name/);
+    });
+
+    it("rejects named record fields with unresolved type variable names", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "BrokenBox",
+                    typeParameters: [{
+                        name: "a",
+                        internedStringIndex: 1,
+                        kind: { kind: "star" },
+                    }],
+                    fields: [
+                        new DamlLfField({
+                            name: "value",
+                            type: new DamlLfType({
+                                typeVariable: { internedStringIndex: 1 },
+                            }),
+                        }),
+                    ],
+                }),
+            ],
+            choiceParameterType: namedType("BrokenBox", [textType()]),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/field 'value' of record 'BrokenBox'.*type variable '#1'.*resolved name/);
+    });
+
     it("rejects retained forall types in choice return context", () => {
         const compilation = createGenericNamedTypeCompilation({
             dataTypes: [],

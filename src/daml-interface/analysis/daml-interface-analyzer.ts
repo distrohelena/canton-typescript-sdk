@@ -184,7 +184,12 @@ class AnalyzedDamlTypeBuilder {
         if (type.diagnosticForall !== undefined) {
             throw this.unsupported(context, "retained forall types are not supported");
         } else if (type.typeVariable !== undefined) {
-            if (type.typeArguments.length !== 0) {
+            if (type.typeVariable.name === undefined) {
+                throw this.unsupported(
+                    context,
+                    `type variable '${this.getTypeVariableName(type.typeVariable)}' requires a resolved name`,
+                );
+            } else if (type.typeArguments.length !== 0) {
                 throw this.unsupported(context, "applied type variables are not supported");
             }
 
@@ -441,7 +446,12 @@ class AnalyzedDamlTypeBuilder {
         }
 
         for (const parameter of dataType.typeParameters) {
-            if (parameter.kind.kind !== "star") {
+            if (parameter.name === undefined) {
+                throw this.unsupported(
+                    context,
+                    `type parameter '${this.getTypeParameterName(parameter)}' requires a resolved name`,
+                );
+            } else if (parameter.kind.kind !== "star") {
                 throw this.unsupported(
                     context,
                     `type parameter '${this.getTypeParameterName(parameter)}' must have kind '*'`,
