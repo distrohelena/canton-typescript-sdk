@@ -278,7 +278,7 @@ export class TemplateBindingEmitter {
             case "typeVariable":
                 throw new Error("Cannot emit generic DAML type variables");
             case "namedReference":
-                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} }, typeArguments: [${(type.typeArguments ?? []).map((argument) => this.emitDescriptor(argument)).join(", ")}] }`;
+                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} } }`;
         }
     }
 
