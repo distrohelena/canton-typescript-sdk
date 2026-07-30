@@ -1,8 +1,11 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
+import { DamlInterfaceGeneratorOptions } from "../../../src/daml-interface/daml-interface-generator-options.js";
+import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
+import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
 import { generateTemporaryProjectFromDarAsync } from "./generated-project-test-helper.js";
 
 const VAULT_BASE_DAR = process.env.DAML_INTERFACE_VAULT_BASE_DAR;
@@ -26,6 +29,40 @@ describe("DamlInterfaceGenerator", () => {
         expect(project.specFiles).toHaveLength(project.productionFiles.length);
         expect(project.specFiles.map((file) => file.path)).toEqual(
             project.productionFiles.map((file) => file.path.replace(/\.ts$/, ".spec.ts")),
+        );
+    });
+
+    it("passes the selected import style to ProjectEmitter for Dalf and DAR generation", async () => {
+        const project = new GeneratedDamlInterfaceProject({ templateFiles: [] });
+
+        const emitProject = vi.fn(() => project);
+
+        const projectEmitter = { emitProject } as unknown as ProjectEmitter;
+
+        const generator = new DamlInterfaceGenerator(
+            new DamlInterfaceGeneratorOptions({ moduleImportStyle: "ts-node" }),
+            undefined,
+            projectEmitter,
+        );
+
+        await generator.generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createLf2ArchiveBytes(),
+        );
+        await generator.generateFromDarOrThrowAsync(
+            SampleLfPackageFixture.createTemplateGenerationDarBytes(
+                SampleLfPackageFixture.createLf2ArchiveBytes(),
+            ),
+        );
+
+        expect(emitProject).toHaveBeenNthCalledWith(
+            1,
+            expect.anything(),
+            "ts-node",
+        );
+        expect(emitProject).toHaveBeenNthCalledWith(
+            2,
+            expect.anything(),
+            "ts-node",
         );
     });
 

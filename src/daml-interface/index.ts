@@ -5,6 +5,7 @@ export { AnalyzedChoice } from "./analysis/analyzed-choice.js";
 export { AnalyzedTemplate, AnalyzedTemplateField } from "./analysis/analyzed-template.js";
 export { DamlInterfaceGenerator } from "./daml-interface-generator.js";
 export { DamlInterfaceGeneratorOptions } from "./daml-interface-generator-options.js";
+export { DamlModuleImportStyles } from "./emission/daml-module-import-style.js";
 export { GeneratedDamlInterfaceProject } from "./emission-model/generated-daml-interface-project.js";
 export { GeneratedTemplateBindingFile } from "./emission-model/generated-template-binding-file.js";
 export { GeneratedNamedTypeFile } from "./emission-model/generated-named-type-file.js";
@@ -29,6 +30,9 @@ export {
     DamlUnit,
     DamlVariant,
 } from "../core/types/daml-values.js";
+export type {
+    DamlModuleImportStyle,
+} from "./emission/daml-module-import-style.js";
 export type {
     DamlDecodedValue,
 } from "./runtime/daml-value-converter.js";

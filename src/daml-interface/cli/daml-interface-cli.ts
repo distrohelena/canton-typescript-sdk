@@ -1,19 +1,19 @@
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { DamlInterfaceGenerator } from "../daml-interface-generator.js";
+import { DamlInterfaceGeneratorOptions } from "../daml-interface-generator-options.js";
 import { DamlInterfaceGenerationException } from "../errors/daml-interface-generation.exception.js";
 import { DamlInterfaceCliOptions } from "./daml-interface-cli-options.js";
 import { DamlInterfaceWriter } from "../writing/daml-interface-writer.js";
 
 export class DamlInterfaceCli {
     public constructor(
-        private readonly generator: DamlInterfaceGenerator = new DamlInterfaceGenerator(),
+        private readonly generator: DamlInterfaceGenerator | undefined = undefined,
         private readonly writer: DamlInterfaceWriter = new DamlInterfaceWriter(),
         private readonly readFileAsync: (
             path: string,
         ) => Promise<Uint8Array> = readFile,
     ) {
-        void this.generator;
         void this.writer;
         void this.readFileAsync;
     }
@@ -22,15 +22,21 @@ export class DamlInterfaceCli {
     public async runAsync(args: readonly string[]): Promise<number> {
         const options = DamlInterfaceCliOptions.parseOrThrow(args);
 
+        const generator = this.generator ?? new DamlInterfaceGenerator(
+            new DamlInterfaceGeneratorOptions({
+                moduleImportStyle: options.moduleImportStyle,
+            }),
+        );
+
         const bytes = await this.readFileAsync(options.inputPath);
 
         const extension = extname(options.inputPath).toLowerCase();
 
         const project =
             extension === ".dar"
-                ? await this.generator.generateFromDarOrThrowAsync(bytes)
+                ? await generator.generateFromDarOrThrowAsync(bytes)
                 : extension === ".dalf"
-                    ? await this.generator.generateFromDalfOrThrowAsync(bytes)
+                    ? await generator.generateFromDalfOrThrowAsync(bytes)
                     : undefined;
 
         if (project === undefined) {

@@ -47,6 +47,7 @@ export class DamlInterfaceGenerator {
 
         return this.projectEmitter.emitProject(
             this.analyzeOrThrow(compilation),
+            this.options.moduleImportStyle,
         );
     }
 
@@ -68,6 +69,7 @@ export class DamlInterfaceGenerator {
 
         return this.projectEmitter.emitProject(
             this.analyzeOrThrow(compilation),
+            this.options.moduleImportStyle,
         );
     }
 }

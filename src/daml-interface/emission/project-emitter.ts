@@ -6,6 +6,10 @@ import { RegistryEmitter } from "./registry-emitter.js";
 import { SupportFileEmitter } from "./support-file-emitter.js";
 import { TemplateBindingEmitter } from "./template-binding-emitter.js";
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
+import {
+    DamlModuleImportStyles,
+    type DamlModuleImportStyle,
+} from "./daml-module-import-style.js";
 
 export class ProjectEmitter {
     public constructor(
@@ -25,7 +29,10 @@ export class ProjectEmitter {
     /** Emits the complete in-memory DAML interface project from analyzed templates. */
     public emitProject(
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle: DamlModuleImportStyle = DamlModuleImportStyles.esm,
     ): GeneratedDamlInterfaceProject {
+        void moduleImportStyle;
+
         this.namedTypeEmitter.prepareProjectOrThrow(
             analysis.templates,
             analysis.typeDefinitions,

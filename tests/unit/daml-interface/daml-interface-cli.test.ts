@@ -4,6 +4,7 @@ import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface
 import { DamlInterfaceCliOptions } from "../../../src/daml-interface/cli/daml-interface-cli-options.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
+import { DamlInterfaceGenerationException } from "../../../src/daml-interface/errors/daml-interface-generation.exception.js";
 
 describe("DamlInterfaceCli", () => {
     it("parses input and output options", () => {
@@ -16,6 +17,44 @@ describe("DamlInterfaceCli", () => {
 
         expect(options.inputPath).toBe("sample.dalf");
         expect(options.outputDirectory).toBe("generated");
+        expect(options.moduleImportStyle).toBe("esm");
+    });
+
+    it("parses the supported module import styles", () => {
+        expect(DamlInterfaceCliOptions.parseOrThrow([
+            "--input",
+            "sample.dalf",
+            "--output",
+            "generated",
+            "--module-import-style",
+            "esm",
+        ]).moduleImportStyle).toBe("esm");
+        expect(DamlInterfaceCliOptions.parseOrThrow([
+            "--input",
+            "sample.dalf",
+            "--output",
+            "generated",
+            "--module-import-style",
+            "ts-node",
+        ]).moduleImportStyle).toBe("ts-node");
+    });
+
+    it("rejects a missing or unsupported module import style", () => {
+        expect(() => DamlInterfaceCliOptions.parseOrThrow([
+            "--input",
+            "sample.dalf",
+            "--output",
+            "generated",
+            "--module-import-style",
+        ])).toThrow(DamlInterfaceGenerationException);
+        expect(() => DamlInterfaceCliOptions.parseOrThrow([
+            "--input",
+            "sample.dalf",
+            "--output",
+            "generated",
+            "--module-import-style",
+            "commonjs",
+        ])).toThrow(DamlInterfaceGenerationException);
     });
 
     it("delegates generation and writing for dalf input", async () => {
