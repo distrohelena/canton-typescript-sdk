@@ -98,6 +98,78 @@ describe("GeneratedDamlInterfaceProject", () => {
 
         expect(project.specFiles).toEqual([]);
     });
+
+    it("retains frozen copies of validated artifact arrays", async () => {
+        const productionFiles = createProductionFiles();
+
+        const templateFiles = [productionFiles[0] as GeneratedTemplateBindingFile];
+
+        const namedTypeFiles = [productionFiles[1] as GeneratedNamedTypeFile];
+
+        const supportFiles = [
+            productionFiles[2] as GeneratedSupportFile,
+            productionFiles[3] as GeneratedSupportFile,
+        ];
+
+        const specFiles = [new GeneratedSpecFile(
+            "generated/packages/sample/main/iou.spec.ts",
+            'import "node:test";\n',
+            templateFiles[0].path,
+        )];
+
+        const project = new GeneratedDamlInterfaceProject({
+            templateFiles,
+            namedTypeFiles,
+            supportFiles,
+            registryFile: productionFiles[4] as GeneratedRegistryFile,
+            indexFile: productionFiles[5] as GeneratedSupportFile,
+            specFiles,
+        });
+
+        const injectedTemplate = new GeneratedTemplateBindingFile({
+            path: "generated/packages/sample/main/injected.ts",
+            contents: "export {};\n",
+            binding: templateFiles[0].binding,
+        });
+
+        const injectedSpec = new GeneratedSpecFile(
+            "generated/packages/sample/main/injected.spec.ts",
+            'import "node:test";\n',
+            injectedTemplate.path,
+        );
+
+        templateFiles.push(injectedTemplate);
+        namedTypeFiles.pop();
+        supportFiles.pop();
+        specFiles.push(injectedSpec);
+
+        expect(project.templateFiles).toEqual([productionFiles[0]]);
+        expect(project.namedTypeFiles).toEqual([productionFiles[1]]);
+        expect(project.supportFiles).toEqual([productionFiles[2], productionFiles[3]]);
+        expect(project.specFiles).toHaveLength(1);
+        expect(Object.isFrozen(project.templateFiles)).toBe(true);
+        expect(Object.isFrozen(project.namedTypeFiles)).toBe(true);
+        expect(Object.isFrozen(project.supportFiles)).toBe(true);
+        expect(Object.isFrozen(project.productionFiles)).toBe(true);
+        expect(Object.isFrozen(project.specFiles)).toBe(true);
+
+        const outputDirectory = await mkdtemp(join(tmpdir(), "daml-interface-writer-frozen-"));
+
+        try {
+            await new DamlInterfaceWriter().writeProjectAsync(project, outputDirectory);
+
+            await expect(readFile(
+                join(outputDirectory, injectedTemplate.path),
+                "utf8",
+            )).rejects.toThrow();
+            await expect(readFile(
+                join(outputDirectory, injectedSpec.path),
+                "utf8",
+            )).rejects.toThrow();
+        } finally {
+            await rm(outputDirectory, { recursive: true, force: true });
+        }
+    });
 });
 
 describe("DamlInterfaceWriter", () => {

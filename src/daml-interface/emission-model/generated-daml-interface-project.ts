@@ -29,27 +29,44 @@ export class GeneratedDamlInterfaceProject {
         indexFile?: GeneratedSupportFile;
         specFiles?: readonly GeneratedSpecFile[];
     }) {
-        this.templateFiles = init.templateFiles;
-        this.namedTypeFiles = init.namedTypeFiles ?? [];
-        this.supportFiles = init.supportFiles ?? [];
-        this.registryFile = init.registryFile;
-        this.indexFile = init.indexFile;
-        this.productionFiles = [
-            ...this.templateFiles,
-            ...this.namedTypeFiles,
-            ...this.supportFiles,
-            ...(this.registryFile === undefined ? [] : [this.registryFile]),
-            ...(this.indexFile === undefined ? [] : [this.indexFile]),
-        ];
-        this.specFiles = init.specFiles ?? [];
+        const templateFiles = [...init.templateFiles];
 
-        this.validateFilesOrThrow();
+        const namedTypeFiles = [...(init.namedTypeFiles ?? [])];
+
+        const supportFiles = [...(init.supportFiles ?? [])];
+
+        const registryFile = init.registryFile;
+
+        const indexFile = init.indexFile;
+
+        const productionFiles: GeneratedProductionFile[] = [
+            ...templateFiles,
+            ...namedTypeFiles,
+            ...supportFiles,
+            ...(registryFile === undefined ? [] : [registryFile]),
+            ...(indexFile === undefined ? [] : [indexFile]),
+        ];
+
+        const specFiles = [...(init.specFiles ?? [])];
+
+        this.validateFilesOrThrow(productionFiles, specFiles);
+
+        this.templateFiles = Object.freeze(templateFiles);
+        this.namedTypeFiles = Object.freeze(namedTypeFiles);
+        this.supportFiles = Object.freeze(supportFiles);
+        this.registryFile = registryFile;
+        this.indexFile = indexFile;
+        this.productionFiles = Object.freeze(productionFiles);
+        this.specFiles = Object.freeze(specFiles);
     }
 
-    private validateFilesOrThrow(): void {
+    private validateFilesOrThrow(
+        productionFiles: readonly GeneratedProductionFile[],
+        specFiles: readonly GeneratedSpecFile[],
+    ): void {
         const productionPaths = new Set<string>();
 
-        for (const file of this.productionFiles) {
+        for (const file of productionFiles) {
             if (file.path.endsWith(".spec.ts")) {
                 throw new Error(`Generated production file path must not end in .spec.ts: ${file.path}`);
             } else if (!file.path.endsWith(".ts")) {
@@ -63,7 +80,7 @@ export class GeneratedDamlInterfaceProject {
 
         const specPaths = new Set<string>();
 
-        for (const specFile of this.specFiles) {
+        for (const specFile of specFiles) {
             if (!productionPaths.has(specFile.productionPath)) {
                 throw new Error(
                     `Generated spec references a production path that does not exist: ${specFile.productionPath}`,
