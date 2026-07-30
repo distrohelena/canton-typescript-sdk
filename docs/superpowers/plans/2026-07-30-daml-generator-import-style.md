@@ -18,6 +18,7 @@
 - Modify: `src/daml-interface/cli/daml-interface-cli-options.ts`
 - Modify: `src/daml-interface/cli/daml-interface-cli.ts`
 - Modify: `src/daml-interface/emission/project-emitter.ts`
+- Modify: `src/daml-interface/index.ts`
 - Test: `tests/unit/daml-interface/daml-interface-cli.test.ts`
 - Test: `tests/unit/daml-interface/project-emitter.test.ts`
 
@@ -33,14 +34,14 @@ Expected: FAIL because import style does not exist.
 
 - [ ] **Step 3: Implement immutable import style flow**
 
-Define:
+Define a static-only public class plus union type:
 
 ```ts
-export const DamlModuleImportStyle = Object.freeze({ esm: "esm", tsNode: "ts-node" } as const);
-export type DamlModuleImportStyle = typeof DamlModuleImportStyle[keyof typeof DamlModuleImportStyle];
+export class DamlModuleImportStyles { public static readonly esm = "esm"; public static readonly tsNode = "ts-node"; }
+export type DamlModuleImportStyle = "esm" | "ts-node";
 ```
 
-Add `moduleImportStyle?: DamlModuleImportStyle` to generator options, default it to `esm`, parse CLI strictly, and pass it to `ProjectEmitter` without changing injected generator semantics.
+Export the type/class from `daml-interface/index.ts`. Add `moduleImportStyle?: DamlModuleImportStyle` to generator options, default it to `esm`, and parse CLI strictly. Make the CLI injected generator optional: after parsing, a non-injected CLI creates `new DamlInterfaceGenerator(new DamlInterfaceGeneratorOptions({ moduleImportStyle: options.moduleImportStyle }))`; an injected fake is used unchanged. Make ProjectEmitter take style per `emitProject(analysis, style)` call; generator passes `this.options.moduleImportStyle` on both Dalf and DAR paths. Tests prove direct Dalf/DAR generator flow plus injected/non-injected CLI behavior.
 
 - [ ] **Step 4: Verify and commit**
 
@@ -85,6 +86,7 @@ Commit: `feat: emit ts-node compatible DAML imports`.
 
 **Files:**
 - Modify: `package.json` (add `ts-node` development dependency; preserve user version change)
+- Modify: `package-lock.json`
 - Modify: `tests/integration/daml-interface/generated-project-test-helper.ts`
 - Modify: `tests/integration/daml-interface/generated-project-compilation.integration.test.ts`
 - Modify: `tests/integration/daml-interface/daml-interface-generator.integration.test.ts`
@@ -92,7 +94,7 @@ Commit: `feat: emit ts-node compatible DAML imports`.
 
 - [ ] **Step 1: Write failing CommonJS source-runner test**
 
-Create a temporary generated project in ts-node style with a temporary `package.json` containing `type: commonjs` and a CommonJS/Node `tsconfig`. Run `node -r ts-node/register` to `require()` its root index and template source, then execute a generated source `.spec.ts`. Assert ESM mode still NodeNext-compiles.
+Create a temporary generated project in ts-node style with a temporary `package.json` containing `type: commonjs` and a CommonJS/Node `tsconfig` with `esModuleInterop: true` and `types: ["node"]`. Run Node with the repository-absolute `node_modules/ts-node/register` preload to `require()` its root index and template source, then execute all generated source `.spec.ts` files with `node -r <absolute-register> --test ...`. Assert ESM mode still NodeNext-compiles.
 
 - [ ] **Step 2: Run test red**
 
@@ -102,7 +104,7 @@ Expected: FAIL until ts-node is installed and all generated relative imports are
 
 - [ ] **Step 3: Implement harness and Vault coverage**
 
-Install `ts-node` as a dev dependency. Extend temporary-project helper with explicit CommonJS test configuration and source execution helper. Use it for a materialization fixture and the configured Vault Base DAR; assert Vault ts-node output contains no relative `.js` imports and source template/index/spec load/run.
+Install `ts-node` as a dev dependency and update `package-lock.json`. Extend temporary-project helper with explicit CommonJS test configuration and source execution helper using the repo-absolute preload. Reuse its production/spec enumeration to execute all source specs. Use it for a materialization fixture and the configured Vault Base DAR; assert Vault ts-node output contains no relative `.js` imports and source template/index/all specs load/run.
 
 - [ ] **Step 4: Verify and commit**
 
