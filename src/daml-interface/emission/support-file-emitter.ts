@@ -5,6 +5,8 @@ import { GeneratedDamlInterfaceProject } from "../emission-model/generated-daml-
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import { GeneratedSupportFile } from "../emission-model/generated-support-file.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
+import { type DamlModuleImportStyle } from "./daml-module-import-style.js";
+import { RelativeModuleSpecifier } from "./relative-module-specifier.js";
 
 export class SupportFileEmitter {
     /** Emits shared support files for the generated DAML interface project. */
@@ -31,15 +33,15 @@ export class SupportFileEmitter {
     /** Emits one barrel module for each generated DAML package/module namespace. */
     public emitNamespaceFiles(
         project: GeneratedDamlInterfaceProject,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly GeneratedSupportFile[] {
         return this.getNamespaceGroups(project).map((group) =>
             new GeneratedSupportFile({
                 path: `${group.directoryPath}/index.ts`,
                 contents: `${[
-                    ...(group.namedTypeFile === undefined ? [] : ["export * from \"./types.js\";"]),
+                    ...(group.namedTypeFile === undefined ? [] : [`export * from ${JSON.stringify(RelativeModuleSpecifier.fromPaths(`${group.directoryPath}/index.ts`, group.namedTypeFile.path, moduleImportStyle))};`]),
                     ...group.templateFiles
-                    .map((file) => this.getFileNameWithoutExtension(file.path))
-                    .map((fileName) => `export * from "./${fileName}.js";`),
+                    .map((file) => `export * from ${JSON.stringify(RelativeModuleSpecifier.fromPaths(`${group.directoryPath}/index.ts`, file.path, moduleImportStyle))};`),
                 ].join("\n")}\n`,
             })
         );
@@ -48,15 +50,15 @@ export class SupportFileEmitter {
     /** Emits the generated project index file. */
     public emitIndexFile(
         project: GeneratedDamlInterfaceProject,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): GeneratedSupportFile {
         const exportLines = this.getNamespaceGroups(project)
             .map((group) =>
-                `export * as ${group.alias} from "${group.directoryPath
-                    .replace(/^generated\//, "./")}/index.js";`);
+                `export * as ${group.alias} from ${JSON.stringify(RelativeModuleSpecifier.fromPaths("generated/index.ts", `${group.directoryPath}/index.ts`, moduleImportStyle))};`);
 
         const lines = [
             ...exportLines,
-            'export * from "./registry.js";',
+            `export * from ${JSON.stringify(RelativeModuleSpecifier.fromPaths("generated/index.ts", "generated/registry.ts", moduleImportStyle))};`,
         ];
 
         return new GeneratedSupportFile({

@@ -1,15 +1,20 @@
 import { GeneratedDamlInterfaceProject } from "../emission-model/generated-daml-interface-project.js";
 import { GeneratedRegistryFile } from "../emission-model/generated-registry-file.js";
+import { type DamlModuleImportStyle } from "./daml-module-import-style.js";
+import { RelativeModuleSpecifier } from "./relative-module-specifier.js";
 
 export class RegistryEmitter {
     /** Emits a registry that dispatches created and exercised events by template id. */
     public emitRegistry(
         project: GeneratedDamlInterfaceProject,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): GeneratedRegistryFile {
         const importLines = project.templateFiles.map((file) => {
-            const modulePath = file.path
-                .replace(/^generated\//, "./")
-                .replace(/\.ts$/, ".js");
+            const modulePath = RelativeModuleSpecifier.fromPaths(
+                "generated/registry.ts",
+                file.path,
+                moduleImportStyle,
+            );
 
             return `import { ${file.binding.className} } from "${modulePath}";`;
         });

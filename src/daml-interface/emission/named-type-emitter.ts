@@ -5,6 +5,8 @@ import { DamlInterfacePackageMetadata } from "../analysis/daml-interface-analyze
 import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-file.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
+import { type DamlModuleImportStyle } from "./daml-module-import-style.js";
+import { RelativeModuleSpecifier } from "./relative-module-specifier.js";
 
 type ModuleIdentity = {
     readonly packageId: string;
@@ -45,16 +47,18 @@ export class NamedTypeEmitter {
     /** Emits one `types.ts` module for every reachable DAML package/module identity. */
     public emitNamedTypeFiles(
         definitions: readonly AnalyzedDamlTypeDefinition[],
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly GeneratedNamedTypeFile[] {
         this.nameResolver.prepareProjectOrThrow([], definitions);
 
-        return this.emitPreparedNamedTypeFiles(definitions);
+        return this.emitPreparedNamedTypeFiles(definitions, [], moduleImportStyle);
     }
 
     /** Emits named type files from an already prepared shared name resolver. */
     public emitPreparedNamedTypeFiles(
         definitions: readonly AnalyzedDamlTypeDefinition[],
         templateFiles: readonly GeneratedTemplateBindingFile[] = [],
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly GeneratedNamedTypeFile[] {
         const modules = this.resolveModulesOrThrow(definitions);
 
@@ -92,6 +96,7 @@ export class NamedTypeEmitter {
                 modules,
                 names,
                 externalTypeAliases,
+                moduleImportStyle,
             );
 
             return new GeneratedNamedTypeFile({
@@ -159,6 +164,7 @@ export class NamedTypeEmitter {
         modules: ReadonlyMap<string, ResolvedModule>,
         names: ReadonlyMap<string, string>,
         externalTypeAliases: ExternalTypeAliases,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly string[] {
         const imports = new Map<string, Map<string, string>>();
 
@@ -182,7 +188,7 @@ export class NamedTypeEmitter {
                     throw new Error(`Cannot emit unresolved named DAML type '${reference.identity.name}'`);
                 }
 
-                const importPath = this.relativeFilePath(module.path, referencedModule.path);
+                const importPath = this.relativeFilePath(module.path, referencedModule.path, moduleImportStyle);
 
                 const importedNames = imports.get(importPath) ?? new Map<string, string>();
 
@@ -196,7 +202,7 @@ export class NamedTypeEmitter {
 
         return [
             ...(runtimeTypes.size === 0 ? [] : [
-                `import type { ${[...runtimeTypes].sort().join(", ")} } from ${JSON.stringify(this.relativeFilePath(module.path, "generated/support/runtime.ts"))};`,
+                `import type { ${[...runtimeTypes].sort().join(", ")} } from ${JSON.stringify(this.relativeFilePath(module.path, "generated/support/runtime.ts", moduleImportStyle))};`,
             ]),
             ...[...imports.entries()]
             .sort(([left], [right]) => left.localeCompare(right))
@@ -752,19 +758,12 @@ export class NamedTypeEmitter {
         return this.getModuleKey(packageId, moduleName);
     }
 
-    private relativeFilePath(fromPath: string, toPath: string): string {
-        const from = fromPath.split("/").slice(0, -1);
-
-        const to = toPath.split("/");
-
-        while (from[0] === to[0] && from.length > 0) {
-            from.shift();
-            to.shift();
-        }
-
-        const relativePath = from.map(() => "..").concat(to).join("/") || ".";
-
-        return `${relativePath.startsWith(".") ? relativePath : `./${relativePath}`}`.replace(/\.ts$/, ".js");
+    private relativeFilePath(
+        fromPath: string,
+        toPath: string,
+        moduleImportStyle?: DamlModuleImportStyle,
+    ): string {
+        return RelativeModuleSpecifier.fromPaths(fromPath, toPath, moduleImportStyle);
     }
 
     private getDefinitionName(definition: AnalyzedDamlTypeDefinition, names: ReadonlyMap<string, string>): string {

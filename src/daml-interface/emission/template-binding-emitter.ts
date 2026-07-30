@@ -10,6 +10,8 @@ import {
 } from "../emission-model/generated-template-binding.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
 import { TypeScriptNameResolver } from "./type-script-name-resolver.js";
+import { type DamlModuleImportStyle } from "./daml-module-import-style.js";
+import { RelativeModuleSpecifier } from "./relative-module-specifier.js";
 
 type NamedReference = Extract<AnalyzedDamlType, { readonly kind: "namedReference" }>;
 
@@ -38,14 +40,15 @@ export class TemplateBindingEmitter {
     public emitTemplateFile(
         template: AnalyzedTemplate,
         namedTypeFiles: readonly GeneratedNamedTypeFile[] = [],
+        moduleImportStyle?: DamlModuleImportStyle,
     ): GeneratedTemplateBindingFile {
-        const namedReferences = this.resolveNamedReferences(template, namedTypeFiles);
+        const namedReferences = this.resolveNamedReferences(template, namedTypeFiles, moduleImportStyle);
 
         const binding = this.createBinding(template, namedReferences);
 
         return new GeneratedTemplateBindingFile({
             path: binding.path,
-            contents: this.emitContents(binding, namedReferences),
+            contents: this.emitContents(binding, namedReferences, moduleImportStyle),
             binding,
         });
     }
@@ -114,6 +117,7 @@ export class TemplateBindingEmitter {
     private emitContents(
         binding: GeneratedTemplateBinding,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         const runtimeWrapperTypeNames = this.resolveRuntimeWrapperTypeNames(
             binding.className,
@@ -124,6 +128,7 @@ export class TemplateBindingEmitter {
             binding,
             namedReferences,
             runtimeWrapperTypeNames,
+            moduleImportStyle,
         );
 
         const fields = binding.createFields.map((field) =>
@@ -161,6 +166,7 @@ export class TemplateBindingEmitter {
         binding: GeneratedTemplateBinding,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
         runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly string[] {
         const namedImports = new Map<string, Map<string, string>>();
 
@@ -191,7 +197,7 @@ export class TemplateBindingEmitter {
                 "DamlTypeDescriptor",
                 "DamlUnit",
             ].map((name) => this.emitImportedName(name, runtimeWrapperTypeNames)).join(", ")} } from "@distrohelena/canton-typescript-sdk/daml-interface";`,
-            `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
+            `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts", moduleImportStyle))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
                 `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => name === alias ? name : `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
         ];
@@ -489,6 +495,7 @@ export class TemplateBindingEmitter {
     private resolveNamedReferences(
         template: AnalyzedTemplate,
         namedTypeFiles: readonly GeneratedNamedTypeFile[],
+        moduleImportStyle?: DamlModuleImportStyle,
     ): ReadonlyMap<string, ResolvedNamedReference> {
         const identities = new Map<string, NamedReference>();
 
@@ -593,7 +600,7 @@ export class TemplateBindingEmitter {
             }
 
             return [key, {
-                path: this.relativeFilePath(this.nameResolver.getTemplateFilePath(template), file.path),
+                path: this.relativeFilePath(this.nameResolver.getTemplateFilePath(template), file.path, moduleImportStyle),
                 exportedName,
                 alias: alias!,
             }];
@@ -683,18 +690,11 @@ export class TemplateBindingEmitter {
         return binding.templateIdLiteral.split(":")[2]!;
     }
 
-    private relativeFilePath(fromPath: string, toPath: string): string {
-        const from = fromPath.split("/").slice(0, -1);
-
-        const to = toPath.split("/");
-
-        while (from[0] === to[0] && from.length > 0) {
-            from.shift();
-            to.shift();
-        }
-
-        const relative = from.map(() => "..").concat(to).join("/") || ".";
-
-        return `${relative.startsWith(".") ? relative : `./${relative}`}`.replace(/\.ts$/, ".js");
+    private relativeFilePath(
+        fromPath: string,
+        toPath: string,
+        moduleImportStyle?: DamlModuleImportStyle,
+    ): string {
+        return RelativeModuleSpecifier.fromPaths(fromPath, toPath, moduleImportStyle);
     }
 }

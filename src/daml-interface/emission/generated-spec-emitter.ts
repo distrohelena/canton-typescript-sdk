@@ -8,6 +8,8 @@ import { GeneratedNamedTypeFile } from "../emission-model/generated-named-type-f
 import { GeneratedSpecFile } from "../emission-model/generated-spec-file.js";
 import { GeneratedTemplateBindingFile } from "../emission-model/generated-template-binding-file.js";
 import { GeneratedTestSampleEmitter } from "./generated-test-sample-emitter.js";
+import { type DamlModuleImportStyle } from "./daml-module-import-style.js";
+import { RelativeModuleSpecifier } from "./relative-module-specifier.js";
 
 type GeneratedTestSampleImport = {
     readonly modulePath: string;
@@ -24,14 +26,15 @@ export class GeneratedSpecEmitter {
     public static emitSpecFiles(
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly GeneratedSpecFile[] {
         return project.productionFiles.map((file) => new GeneratedSpecFile(
             this.specPath(file.path),
             file instanceof GeneratedTemplateBindingFile
-                ? this.emitTemplateSpec(file, project, analysis)
+                ? this.emitTemplateSpec(file, project, analysis, moduleImportStyle)
                 : file instanceof GeneratedNamedTypeFile
-                    ? this.emitNamedTypeSpec(file, project, analysis)
-                    : this.emitSupportSpec(file.path, project, analysis),
+                    ? this.emitNamedTypeSpec(file, project, analysis, moduleImportStyle)
+                    : this.emitSupportSpec(file.path, project, analysis, moduleImportStyle),
             file.path,
         ));
     }
@@ -40,6 +43,7 @@ export class GeneratedSpecEmitter {
         file: GeneratedTemplateBindingFile,
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         const binding = file.binding;
 
@@ -86,8 +90,8 @@ export class GeneratedSpecEmitter {
 
         const lines = [
             ...this.nodeImports(),
-            ...this.emitSampleImports(imports, this.specPath(file.path)),
-            `import { ${localImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path))};`,
+            ...this.emitSampleImports(imports, this.specPath(file.path), moduleImportStyle),
+            `import { ${localImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path, moduleImportStyle))};`,
             "",
             `test(${JSON.stringify(`${binding.className} materializes a created event`)}, () => {`,
             `    const expected = ${this.emitObject(expectedFields.map((field) => ({ key: field.propertyName, expression: field.expression })))};`,
@@ -111,6 +115,7 @@ export class GeneratedSpecEmitter {
         file: GeneratedNamedTypeFile,
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         const definitions = analysis.typeDefinitions.filter((definition) =>
             definition.identity.packageId === file.packageId
@@ -186,8 +191,8 @@ export class GeneratedSpecEmitter {
 
         return [
             ...this.nodeImports(),
-            ...this.emitSampleImports(imports.filter((entry) => entry.modulePath !== file.path), this.specPath(file.path)),
-            ...(namedImports.length === 0 ? [] : [`import type { ${namedImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path))};`]),
+            ...this.emitSampleImports(imports.filter((entry) => entry.modulePath !== file.path), this.specPath(file.path), moduleImportStyle),
+            ...(namedImports.length === 0 ? [] : [`import type { ${namedImports.join(", ")} } from ${JSON.stringify(this.modulePath(this.specPath(file.path), file.path, moduleImportStyle))};`]),
             "",
             ...samples,
             "",
@@ -242,11 +247,12 @@ export class GeneratedSpecEmitter {
         path: string,
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         if (path === "generated/support/contracts.ts") {
             return [
                 ...this.nodeImports(),
-                'import type { GeneratedContractId } from "./contracts.js";',
+                `import type { GeneratedContractId } from ${JSON.stringify(this.modulePath(this.specPath(path), path, moduleImportStyle))};`,
                 "",
                 'const sampleContractId = "#sample-contract-id" satisfies GeneratedContractId;',
                 "",
@@ -258,7 +264,7 @@ export class GeneratedSpecEmitter {
         } else if (path === "generated/support/runtime.ts") {
             return [
                 ...this.nodeImports(),
-                'import type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit } from "./runtime.js";',
+                `import type { DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit } from ${JSON.stringify(this.modulePath(this.specPath(path), path, moduleImportStyle))};`,
                 "",
                 "const runtimeTypes = undefined as unknown as readonly [DamlDate, DamlNumeric, DamlParty, DamlTimestamp, DamlUnit];",
                 "",
@@ -269,11 +275,11 @@ export class GeneratedSpecEmitter {
                 "",
             ].join("\n");
         } else if (path === "generated/support/descriptors.ts") {
-            return this.emitDescriptorSpec(path, project, analysis);
+            return this.emitDescriptorSpec(path, project, analysis, moduleImportStyle);
         } else if (path === "generated/registry.ts") {
             return [
                 ...this.nodeImports(),
-                'import { GeneratedRegistry } from "./registry.js";',
+                `import { GeneratedRegistry } from ${JSON.stringify(this.modulePath(this.specPath(path), path, moduleImportStyle))};`,
                 "",
                 'test("generated registry exposes static event readers", () => {',
                 '    assert.equal(typeof GeneratedRegistry.fromCreatedEvent, "function");',
@@ -284,7 +290,7 @@ export class GeneratedSpecEmitter {
         } else if (path === "generated/index.ts") {
             return [
                 ...this.nodeImports(),
-                'import * as Generated from "./index.js";',
+                `import * as Generated from ${JSON.stringify(this.modulePath(this.specPath(path), path, moduleImportStyle))};`,
                 "",
                 'test("generated project index exports the registry", () => {',
                 '    assert.equal(typeof Generated.GeneratedRegistry, "function");',
@@ -293,13 +299,14 @@ export class GeneratedSpecEmitter {
             ].join("\n");
         }
 
-        return this.emitNamespaceSpec(path, project, analysis);
+        return this.emitNamespaceSpec(path, project, analysis, moduleImportStyle);
     }
 
     private static emitNamespaceSpec(
         path: string,
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         const directoryPath = path.replace(/\/[^/]+$/, "");
 
@@ -311,7 +318,7 @@ export class GeneratedSpecEmitter {
             .filter((file) => file.path.startsWith(`${directoryPath}/`))
             .flatMap((file) => [file.binding.className, ...file.binding.choices.map((choice) => choice.exercisedEventTypeName)]);
 
-        const modulePath = this.modulePath(this.specPath(path), path);
+        const modulePath = this.modulePath(this.specPath(path), path, moduleImportStyle);
 
         const typeAssertions = typeExports.map((exportedName, index) => {
             const definition = analysis.typeDefinitions.find((candidate) =>
@@ -348,6 +355,7 @@ export class GeneratedSpecEmitter {
         path: string,
         project: GeneratedDamlInterfaceProject,
         analysis: DamlInterfaceAnalysisResult,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): string {
         const resolveLines = analysis.typeDefinitions.flatMap((definition) => {
             const typeParameterCount = definition.kind === "enum" ? 0 : (definition.typeParameters?.length ?? 0);
@@ -365,7 +373,7 @@ export class GeneratedSpecEmitter {
 
         return [
             ...this.nodeImports(),
-            `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.modulePath(this.specPath(path), path))};`,
+            `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.modulePath(this.specPath(path), path, moduleImportStyle))};`,
             "",
             'test("generated descriptor registry resolves every emitted type", () => {',
             ...resolveLines,
@@ -391,10 +399,11 @@ export class GeneratedSpecEmitter {
     private static emitSampleImports(
         imports: readonly GeneratedTestSampleImport[],
         sourcePath: string,
+        moduleImportStyle?: DamlModuleImportStyle,
     ): readonly string[] {
         return imports.map((entry) => {
             const modulePath = entry.modulePath.startsWith("generated/")
-                ? this.modulePath(sourcePath, entry.modulePath)
+                ? this.modulePath(sourcePath, entry.modulePath, moduleImportStyle)
                 : entry.modulePath;
 
             const imported = entry.exportedName === entry.localName
@@ -508,25 +517,11 @@ export class GeneratedSpecEmitter {
         return path.replace(/\.ts$/, ".spec.ts");
     }
 
-    private static modulePath(fromPath: string, toPath: string): string {
-        const fromDirectory = fromPath.split("/").slice(0, -1);
-
-        const target = toPath.replace(/\.ts$/, ".js").split("/");
-
-        let shared = 0;
-
-        while (shared < fromDirectory.length && fromDirectory[shared] === target[shared]) {
-            shared += 1;
-        }
-
-        const upwards = fromDirectory.slice(shared).map(() => "..");
-
-        const downwards = target.slice(shared);
-
-        const segments = [...upwards, ...downwards];
-
-        return segments.length === 0 ? "./index.js" : segments[0] === ".."
-            ? segments.join("/")
-            : `./${segments.join("/")}`;
+    private static modulePath(
+        fromPath: string,
+        toPath: string,
+        moduleImportStyle?: DamlModuleImportStyle,
+    ): string {
+        return RelativeModuleSpecifier.fromPaths(fromPath, toPath, moduleImportStyle);
     }
 }

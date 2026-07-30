@@ -31,8 +31,6 @@ export class ProjectEmitter {
         analysis: DamlInterfaceAnalysisResult,
         moduleImportStyle: DamlModuleImportStyle = DamlModuleImportStyles.esm,
     ): GeneratedDamlInterfaceProject {
-        void moduleImportStyle;
-
         this.namedTypeEmitter.prepareProjectOrThrow(
             analysis.templates,
             analysis.typeDefinitions,
@@ -46,16 +44,18 @@ export class ProjectEmitter {
         const namedTypeFiles = this.namedTypeEmitter.emitPreparedNamedTypeFiles(
             analysis.typeDefinitions,
             templateBindingFiles,
+            moduleImportStyle,
         );
 
         const templateFiles = analysis.templates.map((template) =>
-            this.templateBindingEmitter.emitTemplateFile(template, namedTypeFiles),
+            this.templateBindingEmitter.emitTemplateFile(template, namedTypeFiles, moduleImportStyle),
         );
 
         const supportFiles = [
             ...this.supportFileEmitter.emitSupportFiles(analysis, namedTypeFiles),
             ...this.supportFileEmitter.emitNamespaceFiles(
                 new GeneratedDamlInterfaceProject({ templateFiles, namedTypeFiles }),
+                moduleImportStyle,
             ),
         ];
 
@@ -65,7 +65,7 @@ export class ProjectEmitter {
             supportFiles,
         });
 
-        const registryFile = this.registryEmitter.emitRegistry(baseProject);
+        const registryFile = this.registryEmitter.emitRegistry(baseProject, moduleImportStyle);
 
         const projectWithRegistry = new GeneratedDamlInterfaceProject({
             templateFiles,
@@ -76,6 +76,7 @@ export class ProjectEmitter {
 
         const indexFile = this.supportFileEmitter.emitIndexFile(
             projectWithRegistry,
+            moduleImportStyle,
         );
 
         const project = new GeneratedDamlInterfaceProject({
@@ -92,7 +93,7 @@ export class ProjectEmitter {
             supportFiles,
             registryFile,
             indexFile,
-            specFiles: GeneratedSpecEmitter.emitSpecFiles(project, analysis),
+            specFiles: GeneratedSpecEmitter.emitSpecFiles(project, analysis, moduleImportStyle),
         });
     }
 }

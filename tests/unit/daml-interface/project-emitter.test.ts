@@ -10,6 +10,7 @@ import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysi
 import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-template.js";
 import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-choice.js";
 import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
+import { DamlModuleImportStyles } from "../../../src/daml-interface/emission/daml-module-import-style.js";
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 
 describe("ProjectEmitter", () => {
@@ -36,6 +37,86 @@ describe("ProjectEmitter", () => {
         expect(project.templateFiles[0]?.contents).toContain(
             'from "../../../support/descriptors.js";',
         );
+    });
+
+    it("uses extensionless relative imports throughout a ts-node project", () => {
+        const node = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name: "Node",
+        });
+
+        const external = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "External",
+            name: "External",
+        });
+
+        const project = new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+            templates: [new AnalyzedTemplate({
+                templateId: new DamlLfTemplateId({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    templateName: "Iou",
+                }),
+                className: "Iou",
+                fileName: "iou.ts",
+                createFields: [{
+                    name: "node",
+                    propertyName: "node",
+                    type: { kind: "namedReference", identity: node },
+                }],
+                choices: [],
+            })],
+            typeDefinitions: [{
+                identity: node,
+                kind: "record",
+                fields: [{
+                    damlLabel: "external",
+                    propertyName: "external",
+                    type: { kind: "namedReference", identity: external },
+                }],
+            }, {
+                identity: external,
+                kind: "record",
+                fields: [{
+                    damlLabel: "date",
+                    propertyName: "date",
+                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.date },
+                }],
+            }],
+        }), DamlModuleImportStyles.tsNode);
+
+        const template = project.templateFiles[0]?.contents;
+
+        const mainTypes = project.namedTypeFiles.find((file) => file.path.endsWith("/main/types.ts"))?.contents;
+
+        const registry = project.registryFile?.contents;
+
+        const mainBarrel = project.supportFiles.find((file) => file.path.endsWith("/main/index.ts"))?.contents;
+
+        const index = project.indexFile?.contents;
+
+        const templateSpec = project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.contents;
+
+        const registrySpec = project.specFiles.find((file) => file.productionPath === "generated/registry.ts")?.contents;
+
+        expect(template).toContain('from "@distrohelena/canton-typescript-sdk/daml-interface";');
+        expect(template).toContain('from "../../../support/descriptors";');
+        expect(template).toContain('from "./types";');
+        expect(mainTypes).toContain('from "../external/types";');
+        expect(registry).toContain('from "./packages/sample-hash/main/iou";');
+        expect(mainBarrel).toContain('export * from "./types";');
+        expect(mainBarrel).toContain('export * from "./iou";');
+        expect(index).toContain('from "./packages/sample-hash/main/index";');
+        expect(index).toContain('export * from "./registry";');
+        expect(templateSpec).toContain('from "./iou";');
+        expect(templateSpec).toContain('from "./types";');
+        expect(registrySpec).toContain('from "./registry";');
+
+        for (const file of [...project.productionFiles, ...project.specFiles]) {
+            expect(file.contents).not.toMatch(/(?:from|import) [^\n]*["']\.{1,2}\/[^"']*\.js["']/);
+        }
     });
 
     it("emits named declarations and one lazy descriptor registry for every reachable identity", () => {
