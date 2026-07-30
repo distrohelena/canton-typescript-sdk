@@ -7,7 +7,7 @@ import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface-cli.js";
 
-const VAULT_BASE_DAR = "/home/helena/env/daml-ops/oz-research/vault-base/.daml/dist/vault-base-0.0.1.dar";
+const VAULT_BASE_DAR = process.env.DAML_INTERFACE_VAULT_BASE_DAR;
 
 describe("DamlInterfaceGenerator", () => {
     it("builds a generated project from dalf archive bytes", async () => {
@@ -113,9 +113,15 @@ describe("DamlInterfaceGenerator", () => {
         expect(descriptors).toContain('entityName: "Right" }, typeArguments: [typeArguments[0]!]');
     });
 
-    it.skipIf(!existsSync(VAULT_BASE_DAR))(
-        "generates Vault Base SplitUnderlying with its concrete Tuple2 result application",
+    it.skipIf(VAULT_BASE_DAR === undefined)(
+        "generates configured Vault Base SplitUnderlying with its concrete Tuple2 result application",
         async () => {
+            if (VAULT_BASE_DAR === undefined) {
+                throw new Error("DAML_INTERFACE_VAULT_BASE_DAR must be set to run this external integration test");
+            } else if (!existsSync(VAULT_BASE_DAR)) {
+                throw new Error(`DAML_INTERFACE_VAULT_BASE_DAR does not exist: ${VAULT_BASE_DAR}`);
+            }
+
             const outputDirectory = await mkdtemp(join(tmpdir(), "vault-base-generated-"));
 
             try {
