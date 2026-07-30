@@ -2,9 +2,12 @@
 
 ## Goal
 
-Every TypeScript source file emitted by the DAML interface generator must have a
-colocated, runnable `*.spec.ts` file. The generated project remains free of a
-generated `package.json` and third-party test-runner dependency.
+Every non-spec production TypeScript module emitted by the DAML interface
+generator must have a colocated, runnable `*.spec.ts` file. Production modules
+are template, named-type, support, registry, and index files; generated
+`*.spec.ts` files are not production modules and never generate further specs.
+The generated project remains free of a generated `package.json` and
+third-party test-runner dependency.
 
 ## Layout
 
@@ -34,7 +37,7 @@ project compiles them with its normal TypeScript configuration and runs the
 compiled files with Node's test runner, for example:
 
 ```bash
-node --test dist/generated/**/*.spec.js
+find dist/generated -name '*.spec.js' -exec node --test {} +
 ```
 
 Generated specs therefore require no generator-owned package manager or test
@@ -45,7 +48,8 @@ TypeScript typings and compilation configuration used by their project.
 
 ### Template files
 
-Each template spec imports its sibling binding and validates:
+Each template spec imports its sibling binding and validates with a generated
+JSON ledger-event fixture:
 
 - `fromCreatedEvent` materializes the generated template class and preserves
   its `contractId` and fields.
@@ -56,10 +60,10 @@ Each template spec imports its sibling binding and validates:
 
 ### Named type files
 
-Named-type specs include compile-time sample assignments for each generated
-record, variant, and enum/type alias exposed by the file. They also contain a
-minimal Node test so the file is a runnable test module. Variants exercise each
-constructor.
+Named-type specs include compile-time TypeScript sample assignments for each
+generated record, variant, and enum/type alias exposed by the file. They also
+contain a minimal Node test so the file is a runnable test module. Variants
+exercise each constructor.
 
 ### Support, registry, and barrel files
 
@@ -70,31 +74,52 @@ applications of generic types.
 
 ## Sample synthesis
 
-A generator-owned sample synthesizer derives deterministic representative values
-from analyzed DAML types:
+A generator-owned sample synthesizer derives two deterministic, recursive
+representations from analyzed DAML types:
 
-- Primitives use stable values appropriate to their TypeScript and ledger
-  representations.
+- A TypeScript-value emitter produces values assignable to emitted declarations:
+  `DamlNumeric`, `DamlParty`, `DamlDate`, `Date`, `bigint`, and the generated
+  record/variant interfaces as appropriate.
+- A ledger-value emitter produces JSON values accepted by the generated event
+  converters: int64/numeric strings, `{}` for unit, labelled DAML records,
+  `{ tag, value }` variants, JSON text maps, and key/value-pair generic maps.
+  It also emits the exact created/exercised event envelopes, template identity,
+  contract ID, choice name, consuming flag, and event metadata fixture shape
+  required by the normalizer and converter.
+
+Both emitters use these shared rules:
+
+- Primitives use stable values appropriate to their representation.
 - Records and variants recursively synthesize their fields/constructors.
-- Lists, maps, tuples, and optionals use values that exercise their decoder
-  paths, with empty values at recursion boundaries where required.
+- Lists, maps, tuples, and optionals use representative values, with empty
+  optionals/collections only at recursion boundaries where required.
 - Generic declarations receive concrete representative type arguments.
-- Recursive references are bounded by a fixed depth and then terminate through
-  an empty optional/collection or a minimal constructor value.
+- Recursive references are bounded by a fixed depth and terminate through an
+  empty optional/collection or a finite variant branch only where the DAML type
+  admits one. A strict recursion such as `Loop { next: Loop }` has no finite
+  representative; generation fails deterministically with its DAML identity and
+  the recursive value path instead of emitting an invalid or omitted spec.
 - External opaque contract IDs remain strings; specs must not force users to
   load external DARs merely to test their own generated project.
 
+Generated runtime tests provide representative-path coverage: each template
+field, choice argument, and choice result is materialized from one legal
+fixture. Named-type compile-time samples cover every variant constructor. This
+is intentionally not exhaustive decoder-branch coverage for every nested
+constructor and collection cardinality; those remain SDK runtime tests.
+
 Generation fails with an identity- and path-specific error if a reachable
 generated type cannot be assigned a legal representative sample. It must never
-silently omit that source file's spec.
+silently omit that production module's spec.
 
 ## SDK verification
 
 Integration coverage will generate a temporary project and verify that every
-emitted `.ts` source has exactly one sibling `.spec.ts` file, typecheck source
-and specs together, compile them, and execute the compiled specs through
-Node's test runner. The configured Vault Base DAR integration follows the same
-path when `DAML_INTERFACE_VAULT_BASE_DAR` is set.
+emitted non-spec production `.ts` source has exactly one sibling `.spec.ts`
+file, typecheck source and specs together, compile them, discover compiled spec
+files recursively, and execute them through Node's test runner. The configured
+Vault Base DAR integration follows the same path when
+`DAML_INTERFACE_VAULT_BASE_DAR` is set.
 
 ## Non-goals
 
