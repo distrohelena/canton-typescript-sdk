@@ -475,13 +475,28 @@ export class GeneratedTestSampleEmitter {
         switch (type.kind) {
             case "primitive":
                 switch (type.builtinType) {
-                    case DamlLfBuiltinType.unit: return "DamlUnit";
+                    case DamlLfBuiltinType.unit:
+                        state.imports?.addRuntime("DamlUnit");
+
+                        return "DamlUnit";
                     case DamlLfBuiltinType.bool: return "boolean";
                     case DamlLfBuiltinType.int64: return "bigint";
-                    case DamlLfBuiltinType.date: return "DamlDate";
-                    case DamlLfBuiltinType.timestamp: return "DamlTimestamp";
-                    case DamlLfBuiltinType.numeric: return "DamlNumeric";
-                    case DamlLfBuiltinType.party: return "DamlParty";
+                    case DamlLfBuiltinType.date:
+                        state.imports?.addRuntime("DamlDate");
+
+                        return "DamlDate";
+                    case DamlLfBuiltinType.timestamp:
+                        state.imports?.addRuntime("DamlTimestamp");
+
+                        return "DamlTimestamp";
+                    case DamlLfBuiltinType.numeric:
+                        state.imports?.addRuntime("DamlNumeric");
+
+                        return "DamlNumeric";
+                    case DamlLfBuiltinType.party:
+                        state.imports?.addRuntime("DamlParty");
+
+                        return "DamlParty";
                     case DamlLfBuiltinType.text: return "string";
                     default: throw this.uninhabitable(state.path, type);
                 }

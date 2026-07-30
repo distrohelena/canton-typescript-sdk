@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
@@ -134,6 +138,101 @@ describe("GeneratedTestSampleEmitter", () => {
         expect(imports.imports).toContainEqual(expect.objectContaining({ exportedName: "SampleNode" }));
     });
 
+    it("collects runtime wrappers used only by a phantom generic application", async () => {
+        const phantom = identity("Phantom");
+
+        const definition: AnalyzedDamlTypeDefinition = {
+            identity: phantom,
+            kind: "record",
+            typeParameters: [{ name: "T", internedStringIndex: 0, kind: { kind: "star" } }],
+            fields: [],
+        };
+
+        const imports = new GeneratedTestSampleImportCollector();
+
+        const expression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow({
+            kind: "namedReference",
+            identity: phantom,
+            typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.date }],
+        }, sampleContext([definition], [namedFile(phantom, "Phantom")], imports));
+
+        expect(expression).toContain("satisfies Phantom<DamlDate>");
+        expect(imports.imports).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                modulePath: "@distrohelena/canton-typescript-sdk/daml-interface",
+                exportedName: "DamlDate",
+                localName: "DamlDate",
+            }),
+        ]));
+
+        const directory = await mkdtemp(join(tmpdir(), "daml-sample-phantom-"));
+
+        try {
+            const sourcePath = join(directory, "phantom.ts");
+
+            await writeFile(sourcePath, [
+                "class DamlDate { public constructor(public readonly daysSinceEpoch: number) {} }",
+                "interface Phantom<T> {}",
+                `const sample = ${expression};`,
+                "void sample;",
+            ].join("\n"), "utf8");
+            execFileSync(process.execPath, [
+                "./node_modules/typescript/bin/tsc",
+                "--noEmit",
+                "--target", "ES2022",
+                "--module", "NodeNext",
+                "--moduleResolution", "NodeNext",
+                "--skipLibCheck",
+                sourcePath,
+            ], { cwd: process.cwd(), stdio: "inherit" });
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it("aliases same-named types from different generated modules collision-safely", () => {
+        const wrapper = identity("Wrapper");
+
+        const left = new TypeConReference({ packageId: "sample", moduleName: "Left", name: "Foo" });
+
+        const right = new TypeConReference({ packageId: "sample", moduleName: "Right", name: "Foo" });
+
+        const definitions: readonly AnalyzedDamlTypeDefinition[] = [{
+            identity: wrapper,
+            kind: "record",
+            typeParameters: [],
+            fields: [{ damlLabel: "left", propertyName: "left", type: { kind: "namedReference", identity: left, typeArguments: [] } }, {
+                damlLabel: "right", propertyName: "right", type: { kind: "namedReference", identity: right, typeArguments: [] },
+            }],
+        }, {
+            identity: left,
+            kind: "record",
+            typeParameters: [],
+            fields: [],
+        }, {
+            identity: right,
+            kind: "record",
+            typeParameters: [],
+            fields: [],
+        }];
+
+        const imports = new GeneratedTestSampleImportCollector();
+
+        const expression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(
+            { kind: "namedReference", identity: wrapper, typeArguments: [] },
+            sampleContext(definitions, [
+                namedFile(wrapper, "Wrapper"),
+                namedFile(left, "Foo", "value", "generated/packages/sample/left/types.ts", "SampleLeft"),
+                namedFile(right, "Foo", "value", "generated/packages/sample/right/types.ts", "SampleRight"),
+            ], imports),
+        );
+
+        expect(expression).toContain("satisfies Foo");
+        expect(expression).toContain("satisfies SampleRightFoo");
+        expect(imports.imports.filter((entry) => entry.exportedName === "Foo").map((entry) => entry.localName))
+            .toEqual(["Foo", "SampleRightFoo"]);
+    });
+
     it("finds finite exits through direct, indirect, and generic recursion", () => {
         const direct = identity("Direct");
 
@@ -200,15 +299,21 @@ function identity(name: string): TypeConReference {
     return new TypeConReference({ packageId: "sample", moduleName: "Module", name });
 }
 
-function namedFile(identityValue: TypeConReference, exportedName: string, propertyName = "value"): GeneratedNamedTypeFile {
+function namedFile(
+    identityValue: TypeConReference,
+    exportedName: string,
+    propertyName = "value",
+    path = "generated/packages/sample/module/types.ts",
+    namespaceAlias = "SampleModule",
+): GeneratedNamedTypeFile {
     const key = `${identityValue.packageId}\u0000${identityValue.moduleName}\u0000${identityValue.name}`;
 
     return new GeneratedNamedTypeFile({
-        path: "generated/packages/sample/module/types.ts",
+        path,
         contents: "",
         packageId: identityValue.packageId,
         moduleName: identityValue.moduleName,
-        namespaceAlias: "SampleModule",
+        namespaceAlias,
         exportedTypeNames: [exportedName],
         exportedTypeNamesByIdentity: new Map([[key, exportedName]]),
         fieldPropertyNames: new Map([[`${key}\u0000field\u00000`, propertyName]]),
