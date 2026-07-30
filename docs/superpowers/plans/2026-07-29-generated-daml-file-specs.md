@@ -21,12 +21,18 @@
 
 - [ ] **Step 1: Write failing model/writer tests**
 
-Add a project containing one production template file and one `GeneratedSpecFile`. Assert the project preserves `specFiles`, and `DamlInterfaceWriter.writeProjectAsync` writes both paths. Assert a spec path ending in `.spec.ts` is accepted as an artifact and is never included in the production-source enumeration introduced by this task.
+Add a project containing template, named-type, support, registry, namespace-barrel,
+and root-index production files with a matching `GeneratedSpecFile` for each.
+Assert the project preserves `specFiles`, and `DamlInterfaceWriter.writeProjectAsync`
+writes every artifact. Assert the constructor rejects duplicate production/spec
+paths, a missing production path, a non-sibling spec path, and a production file
+ending in `.spec.ts`.
 
 ```ts
-expect(project.specFiles.map((file) => file.path)).toEqual([
+expect(project.specFiles).toHaveLength(project.productionFiles.length);
+expect(project.specFiles.map((file) => file.path)).toContain(
     "generated/packages/sample/iou.spec.ts",
-]);
+);
 await expect(readFile(join(output, "generated/packages/sample/iou.spec.ts"), "utf8"))
     .resolves.toContain("node:test");
 ```
@@ -51,7 +57,7 @@ export class GeneratedSpecFile {
 }
 ```
 
-Extend `GeneratedDamlInterfaceProject` with `readonly specFiles`, defaulting to `[]`, and an explicit `productionFiles` collection that contains only template, named-type, support, registry, and index modules. Extend `DamlInterfaceWriter`'s existing artifact list with `...project.specFiles`.
+Extend `GeneratedDamlInterfaceProject` with `readonly specFiles`, defaulting to `[]`, and an explicit `productionFiles` collection that contains only template, named-type, support, registry, and index modules. In its constructor enforce unique paths, require every `GeneratedSpecFile.productionPath` to name an existing production file, require its path to equal `productionPath.replace(/\.ts$/, ".spec.ts")`, and reject any production path ending in `.spec.ts`. Extend `DamlInterfaceWriter`'s existing artifact list with `...project.specFiles`.
 
 - [ ] **Step 4: Run focused tests and lint**
 
@@ -82,14 +88,14 @@ Cover both output representations from the same analyzed type:
 - TypeScript samples use `DamlNumeric`, `DamlParty`, `DamlDate`, `DamlTimestamp`, `DamlUnit`, `bigint`, generated records, and generated variants.
 - Ledger samples use int64/numeric strings, `{}` unit, labelled records, `{ tag, value }` variants, JSON text maps, and generic-map pairs.
 - A generic `Node<string>` and `Node<bigint>` are independently instantiated.
-- A finite optional-recursive type terminates at the configured depth.
+- Direct and indirect mutual recursion both reach an optional or finite-variant
+  escape at the configured depth; a generic recursive application does the same.
 - Strict `Loop { next: Loop }` throws an error including the DAML identity and value path.
 
 ```ts
-expect(samples.emitLedgerValueOrThrow(nodeText, context)).toEqual({
-    label: "sample-text",
-    next: undefined,
-});
+expect(samples.emitLedgerExpressionOrThrow(nodeText, context)).toContain(
+    'next: null',
+);
 expect(() => samples.emitLedgerValueOrThrow(strictLoop, context)).toThrow(
     "Sample.Module:Loop",
 );
@@ -103,9 +109,9 @@ Expected: FAIL because the emitter does not exist.
 
 - [ ] **Step 3: Implement separate sample emitters in one static class**
 
-Implement `GeneratedTestSampleEmitter` as a static-only class. Its public static operations must separately return TypeScript expression source and JSON ledger-value expression source; do not expose module-level functions. Carry an immutable recursion context with expanded type identities, generic bindings, and path segments. At the depth boundary, choose only an optional/empty collection/finite variant escape. If none exists, throw `DamlInterfaceEmissionError` (or the repository’s existing emission error type) with identity and path.
+Implement `GeneratedTestSampleEmitter` as a static-only class. Its public static operations separately return TypeScript-expression source and JSON-ledger-expression source; tests assert emitted source, not materialized JavaScript objects. Ledger optionals terminate as literal `null`, never `undefined`. Do not expose module-level functions. Carry an immutable context containing a definition index keyed by identity, lexical generic bindings, generated module/export names, resolved record-property aliases from `GeneratedNamedTypeFile`, expanded type identities, and path segments. At the depth boundary, search through named references for only an optional/empty collection/finite variant escape. If none exists, throw `DamlInterfaceEmissionError` (or the repository’s existing emission error type) with identity and path.
 
-Implement helpers for all analyzed descriptor kinds, including `typeVariable` lookup and named references with concrete type arguments. Emit source imports through explicit dependency collection rather than hard-coding generated package paths.
+Implement helpers for all analyzed descriptor kinds, including `typeVariable` lookup and named references with concrete type arguments. Resolve named declarations through the definition index and emit collision-safe module/export references using the supplied named-type metadata. Emit source imports through explicit dependency collection rather than hard-coding generated package paths.
 
 - [ ] **Step 4: Run focused tests and build**
 
@@ -139,7 +145,9 @@ Use the materialization, generic-recursive, collision, and opaque-contract-ID fi
 - every `project.productionFiles` path has exactly one sibling path obtained by replacing `.ts` with `.spec.ts`;
 - no spec has its own spec;
 - template specs import `node:test`, `node:assert/strict`, their sibling module, call `fromCreatedEvent`, and emit one `fromExercisedEvent` case per choice;
-- named-type specs include compile-time `satisfies` assignments for records and every variant constructor;
+- named-type specs include compile-time `satisfies` assignments for records,
+  every enum literal, every variant constructor, and at least one concrete
+  application of each generic declaration;
 - support, registry, namespace, and index specs import and exercise their corresponding generated module;
 - generated specs never mention unresolved external types where the production module intentionally uses `string` contract IDs.
 
@@ -163,7 +171,7 @@ return new GeneratedDamlInterfaceProject({
 });
 ```
 
-Use relative `.js` imports from specs to their production module. Template event fixtures must use the ledger-value emitter and contain explicit JSON event metadata; TypeScript type samples must use the TypeScript-value emitter. Do not generate package metadata, scripts, test configuration, or third-party test imports.
+Use relative `.js` imports from specs to their production module. Template event fixtures must use the ledger-value emitter and contain explicit JSON event metadata; TypeScript type samples must use the TypeScript-value emitter. Each template spec asserts the exact `fromCreatedEvent` class, contract ID, and fields. For every choice it asserts the exact exercised-event class, argument, result, consuming flag, and metadata equality. Descriptor-registry specs resolve every non-generic definition and at least one concrete application of every generic definition via `GeneratedDamlTypeDescriptorRegistry.resolve(identity, typeArguments)`, supplying concrete `DamlTypeDescriptor` arguments. Do not generate package metadata, scripts, test configuration, or third-party test imports.
 
 - [ ] **Step 4: Run focused tests and build**
 
@@ -190,9 +198,9 @@ git commit -m "feat: emit generated DAML file specs"
 
 - [ ] **Step 1: Write failing integration assertions**
 
-Extend `generateTemporaryProjectAsync` tests to assert every production source has exactly one sibling spec. Include `generated/**/*.spec.ts` in the temporary project compiler input. Add a helper that recursively finds compiled `.spec.js` files under `dist/generated` and invokes `node --test` with explicit paths. Add a test that verifies the generated specs execute successfully for the materialization and generic-recursive fixtures.
+Extend `generateTemporaryProjectAsync` tests to assert every production source has exactly one sibling spec. Include `generated/**/*.spec.ts` in the temporary project compiler input. Link the SDK test harness's resolvable `@types/node` package into the temporary project's `node_modules/@types/node` so generated `node:test` and `node:assert/strict` imports typecheck without generating consumer package metadata. Add a helper that recursively finds compiled `.spec.js` files under `dist/generated` and invokes `node --test` with explicit paths. Add a test that verifies the generated specs execute successfully for the materialization and generic-recursive fixtures.
 
-Add the same assertions to the configured Vault Base test: it must confirm every emitted production file has a spec and execute the compiled Vault Base specs when `DAML_INTERFACE_VAULT_BASE_DAR` is configured.
+Add `generateTemporaryProjectFromDarAsync` (or a helper accepting a pre-generated project) so the configured Vault Base test uses the existing CLI/DAR generation path, then typechecks and executes Vault's compiled specs. It must confirm every emitted production file has a spec when `DAML_INTERFACE_VAULT_BASE_DAR` is configured.
 
 - [ ] **Step 2: Run the integration tests to verify failure**
 
@@ -202,7 +210,7 @@ Expected: FAIL until generated specs exist, compile, and execute.
 
 - [ ] **Step 3: Implement compile-and-run helper behavior**
 
-Use Node `readdir` recursion or `glob`-free directory traversal in the SDK test helper, then call `execFileSync(process.execPath, ["--test", ...specPaths])`. Preserve the helper’s `try`/`catch` cleanup so temporary output is always removed. Do not use shell globstar or create a generated `package.json`.
+Use Node `readdir` recursion or `glob`-free directory traversal in the SDK test helper, then call `execFileSync(process.execPath, ["--test", ...specPaths])`. Add the DAR/project overload while preserving the helper’s `try`/`catch` cleanup so temporary output is always removed. Preserve the generated-project no-`package.json` constraint; the temporary harness-only `package.json` and `@types/node` symlink exist solely to compile/run the SDK integration test.
 
 - [ ] **Step 4: Run integration suite, build, and focused lint**
 
