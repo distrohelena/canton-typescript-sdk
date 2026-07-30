@@ -128,6 +128,103 @@ describe("normalizeDamlCreatedEventSource", () => {
         expect(camel.metadata).toEqual(snake.metadata);
         expect(pqs.metadata).toMatchObject({ offset: "17", witnessParties: ["Alice", "Bob"] });
     });
+
+    it("normalizes JSON-serialized ts-proto records from every created payload alias as protobuf", () => {
+        const record = {
+            fields: [
+                { label: "owner", value: { text: "Alice" } },
+                { label: "tags", value: { list: { elements: [{ text: "priority" }] } } },
+                { value: { optional: { value: { text: "memo" } } } },
+            ],
+        };
+
+        const normalized = [
+            normalizeDamlCreatedEventSource({ contractId: "#camel", templateId, createArguments: record }),
+            normalizeDamlCreatedEventSource({ contractId: "#snake", templateId, create_arguments: record }),
+            normalizeDamlCreatedEventSource({ contractId: "#payload", templateId, payload: record }),
+        ];
+
+        expect(normalized.map((event) => event.payload.kind)).toEqual(["protobuf", "protobuf", "protobuf"]);
+        expect(normalized.map((event) => event.payload.value)).toEqual([
+            { sum: { oneofKind: "record", record: { fields: [
+                { label: "owner", value: { sum: { oneofKind: "text", text: "Alice" } } },
+                { label: "tags", value: { sum: { oneofKind: "list", list: { elements: [{ sum: { oneofKind: "text", text: "priority" } }] } } } },
+                { label: "", value: { sum: { oneofKind: "optional", optional: { value: { sum: { oneofKind: "text", text: "memo" } } } } } },
+            ] } } },
+            { sum: { oneofKind: "record", record: { fields: [
+                { label: "owner", value: { sum: { oneofKind: "text", text: "Alice" } } },
+                { label: "tags", value: { sum: { oneofKind: "list", list: { elements: [{ sum: { oneofKind: "text", text: "priority" } }] } } } },
+                { label: "", value: { sum: { oneofKind: "optional", optional: { value: { sum: { oneofKind: "text", text: "memo" } } } } } },
+            ] } } },
+            { sum: { oneofKind: "record", record: { fields: [
+                { label: "owner", value: { sum: { oneofKind: "text", text: "Alice" } } },
+                { label: "tags", value: { sum: { oneofKind: "list", list: { elements: [{ sum: { oneofKind: "text", text: "priority" } }] } } } },
+                { label: "", value: { sum: { oneofKind: "optional", optional: { value: { sum: { oneofKind: "text", text: "memo" } } } } } },
+            ] } } },
+        ]);
+        expect(normalized.every((event) => Object.isFrozen(event.payload.value))).toBe(true);
+        expect(normalized[0]?.payload.value.sum.oneofKind).toBe("record");
+        expect(Object.isFrozen(normalized[0]?.payload.value.sum.record.fields)).toBe(true);
+        expect(Object.isFrozen(normalized[0]?.payload.value.sum.record.fields[0]?.value)).toBe(true);
+    });
+
+    it("recognizes every valid ts-proto Value JSON variant recursively", () => {
+        const identifier = { packageId: "pkg-id", moduleName: "Main.Module", entityName: "Type" };
+
+        const normalized = normalizeDamlCreatedEventSource({
+            contractId: "#all-values",
+            templateId,
+            payload: {
+                fields: [
+                    { label: "unit", value: { unit: {} } },
+                    { label: "bool", value: { bool: true } },
+                    { label: "int64", value: { int64: "42" } },
+                    { label: "date", value: { date: 1 } },
+                    { label: "timestamp", value: { timestamp: "2" } },
+                    { label: "numeric", value: { numeric: "3.14" } },
+                    { label: "party", value: { party: "Alice" } },
+                    { label: "text", value: { text: "text" } },
+                    { label: "contract", value: { contractId: "#contract" } },
+                    { label: "none", value: { optional: {} } },
+                    { label: "list", value: { list: { elements: [{ text: "nested" }] } } },
+                    { label: "textMap", value: { textMap: { entries: [{ key: "key", value: { text: "value" } }] } } },
+                    { label: "genMap", value: { genMap: { entries: [{ key: { text: "key" }, value: { text: "value" } }] } } },
+                    { label: "record", value: { record: { recordId: identifier, fields: [{ value: { text: "nested" } }] } } },
+                    { label: "variant", value: { variant: { variantId: identifier, constructor: "Some", value: { text: "nested" } } } },
+                    { label: "enum", value: { enum: { enumId: identifier, constructor: "Case" } } },
+                ],
+            },
+        });
+
+        expect(normalized.payload.kind).toBe("protobuf");
+        expect(normalized.payload.value.sum.oneofKind).toBe("record");
+        expect(normalized.payload.value.sum.record.fields).toHaveLength(16);
+    });
+
+    it("keeps malformed record-wire lookalikes on the JSON path", () => {
+        const payloads = [
+            { fields: {} },
+            { fields: [{ label: 1, value: { text: "Alice" } }] },
+            { fields: [{ label: "owner", value: {} }] },
+            { fields: [{ label: "owner", value: { text: "Alice", party: "Alice" } }] },
+            { fields: [{ label: "owner", value: { list: { elements: [{}] } } }] },
+            { fields: [{ label: "owner", value: { textMap: { entries: [{ key: 1, value: { text: "Alice" } }] } } }] },
+            { fields: [{ label: "owner", value: { genMap: { entries: [{ key: { text: "key" } }] } } }] },
+            { fields: [{ label: "owner", value: { record: { recordId: { packageId: "pkg" }, fields: [] } } }] },
+            { fields: [{ label: "owner", value: { variant: { constructor: "Some" } } }] },
+            { fields: [{ label: "owner", value: { enum: { constructor: 1 } } }] },
+        ];
+
+        for (const payload of payloads) {
+            expect(normalizeDamlCreatedEventSource({ contractId: "#json", templateId, payload }).payload.kind).toBe("json");
+        }
+
+        expect(normalizeDamlCreatedEventSource({
+            contractId: "#empty",
+            templateId,
+            payload: { fields: [] },
+        }).payload.kind).toBe("protobuf");
+    });
 });
 
 describe("normalizeDamlExercisedEventSource", () => {

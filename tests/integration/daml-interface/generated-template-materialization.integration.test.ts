@@ -67,11 +67,28 @@ describe("generated DAML template materialization", () => {
                 create_arguments: iouJsonPayload(),
             };
 
+            const recordWireEnvelope = {
+                contractId: "#iou-1",
+                templateId: iouTemplateId(),
+                payload: {
+                    fields: [
+                        { label: "issuer", value: { text: "Alice" } },
+                        { label: "details", value: { record: { fields: [
+                            { label: "owner", value: { text: "Bob" } },
+                            { label: "reference", value: { text: "reference-1" } },
+                        ] } } },
+                        { label: "tags", value: { list: { elements: [{ text: "priority" }, { text: "settlement" }] } } },
+                        { label: "note", value: { optional: { value: { text: "optional note" } } } },
+                    ],
+                },
+            };
+
             const materialized = [
                 generated.Iou.fromCreatedEvent(createdEvent),
                 generated.Iou.fromCreatedEvent(grpc.GetContractResponse.create({ createdEvent })),
                 generated.Iou.fromCreatedEvent(contractResult),
                 generated.Iou.fromCreatedEvent(jsonEnvelope),
+                generated.Iou.fromCreatedEvent(recordWireEnvelope),
             ];
 
             expect(materialized.map((iou) => ({
@@ -80,7 +97,7 @@ describe("generated DAML template materialization", () => {
                 details: iou.details,
                 tags: iou.tags,
                 note: iou.note,
-            }))).toEqual(Array(4).fill({
+            }))).toEqual(Array(5).fill({
                 contractId: "#iou-1",
                 issuer: "Alice",
                 details: { owner: "Bob", reference: "reference-1" },

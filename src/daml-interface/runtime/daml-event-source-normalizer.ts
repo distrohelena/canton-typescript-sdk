@@ -1,8 +1,8 @@
-import { MESSAGE_TYPE } from "@protobuf-ts/runtime";
+import { MESSAGE_TYPE, type JsonValue } from "@protobuf-ts/runtime";
 import { GetContractResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { ActiveContract } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
-import type { Record as DamlRecordValue, Value } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
+import { Value, type Record as DamlRecordValue } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 import type { ContractResult, ExerciseResult } from "../../query/model-types.js";
 import { DamlMaterializationError } from "./daml-materialization-error.js";
 import type { DamlTypeIdentity, DamlValueSource } from "./daml-type-descriptor.js";
@@ -106,7 +106,7 @@ function normalizeDamlCreatedEventSource(
     return Object.freeze({
         kind: "created" as const,
         contractId,
-        payload: freezeValueSource(payload, recognized.encoding === "protobuf" ? "protobuf-record" : "json"),
+        payload: freezeCreatedValueSource(payload, recognized.encoding),
         metadata,
     });
 }
@@ -398,6 +398,204 @@ function freezeValueSource(value: unknown, encoding: "protobuf" | "protobuf-reco
     }
 
     return Object.freeze({ kind: "json" as const, value: cloneAndFreeze(value) });
+}
+
+function freezeCreatedValueSource(value: unknown, encoding: "protobuf" | "json"): DamlValueSource {
+    if (encoding === "protobuf") {
+        return freezeValueSource(value, "protobuf-record");
+    } else if (isRecordWireJson(value)) {
+        return freezeValueSource(Value.fromJson({ record: value } as JsonValue), "protobuf");
+    }
+
+    return freezeValueSource(value, "json");
+}
+
+const VALUE_JSON_VARIANTS = new Set([
+    "unit",
+    "bool",
+    "int64",
+    "date",
+    "timestamp",
+    "numeric",
+    "party",
+    "text",
+    "contractId",
+    "optional",
+    "list",
+    "textMap",
+    "genMap",
+    "record",
+    "variant",
+    "enum",
+]);
+
+function isRecordWireJson(value: unknown): value is DamlJsonEventRecord {
+    const record = asObject(value);
+
+    return record !== undefined
+        && hasOnlyKeys(record, ["recordId", "fields"])
+        && Array.isArray(record.fields)
+        && isAbsentOr(record, "recordId", isIdentifierJson)
+        && record.fields.every(isRecordFieldJson);
+}
+
+function isRecordFieldJson(value: unknown): boolean {
+    const field = asObject(value);
+
+    return field !== undefined
+        && hasOnlyKeys(field, ["label", "value"])
+        && isAbsentOr(field, "label", (label) => typeof label === "string")
+        && isValueJson(field.value);
+}
+
+function isValueJson(value: unknown): boolean {
+    const json = asObject(value);
+
+    if (json === undefined) {
+        return false;
+    }
+
+    const variants = Object.keys(json).filter((key) => VALUE_JSON_VARIANTS.has(key));
+
+    if (variants.length !== 1 || Object.keys(json).length !== 1) {
+        return false;
+    }
+
+    const variant = variants[0];
+
+    switch (variant) {
+        case "unit":
+            return isEmptyJsonObject(json.unit);
+        case "bool":
+            return typeof json.bool === "boolean";
+        case "int64":
+        case "timestamp":
+        case "numeric":
+        case "party":
+        case "text":
+        case "contractId":
+            return typeof json[variant] === "string";
+        case "date":
+            return typeof json.date === "number" && Number.isSafeInteger(json.date);
+        case "optional":
+            return isOptionalJson(json.optional);
+        case "list":
+            return isListJson(json.list);
+        case "textMap":
+            return isTextMapJson(json.textMap);
+        case "genMap":
+            return isGenMapJson(json.genMap);
+        case "record":
+            return isNestedRecordJson(json.record);
+        case "variant":
+            return isVariantJson(json.variant);
+        case "enum":
+            return isEnumJson(json.enum);
+        default:
+            return false;
+    }
+}
+
+function isEmptyJsonObject(value: unknown): boolean {
+    const json = asObject(value);
+
+    return json !== undefined && Object.keys(json).length === 0;
+}
+
+function isOptionalJson(value: unknown): boolean {
+    const json = asObject(value);
+
+    return json !== undefined
+        && hasOnlyKeys(json, ["value"])
+        && isAbsentOr(json, "value", isValueJson);
+}
+
+function isListJson(value: unknown): boolean {
+    const json = asObject(value);
+
+    return json !== undefined
+        && hasOnlyKeys(json, ["elements"])
+        && isAbsentOr(json, "elements", (elements) => Array.isArray(elements) && elements.every(isValueJson));
+}
+
+function isTextMapJson(value: unknown): boolean {
+    const json = asObject(value);
+
+    return json !== undefined
+        && hasOnlyKeys(json, ["entries"])
+        && isAbsentOr(json, "entries", (entries) => Array.isArray(entries) && entries.every((entry) => {
+            const item = asObject(entry);
+
+            return item !== undefined
+                && hasOnlyKeys(item, ["key", "value"])
+                && typeof item.key === "string"
+                && isValueJson(item.value);
+        }));
+}
+
+function isGenMapJson(value: unknown): boolean {
+    const json = asObject(value);
+
+    return json !== undefined
+        && hasOnlyKeys(json, ["entries"])
+        && isAbsentOr(json, "entries", (entries) => Array.isArray(entries) && entries.every((entry) => {
+            const item = asObject(entry);
+
+            return item !== undefined
+                && hasOnlyKeys(item, ["key", "value"])
+                && isValueJson(item.key)
+                && isValueJson(item.value);
+        }));
+}
+
+function isNestedRecordJson(value: unknown): boolean {
+    const record = asObject(value);
+
+    return record !== undefined
+        && hasOnlyKeys(record, ["recordId", "fields"])
+        && isAbsentOr(record, "recordId", isIdentifierJson)
+        && isAbsentOr(record, "fields", (fields) => Array.isArray(fields) && fields.every(isRecordFieldJson));
+}
+
+function isVariantJson(value: unknown): boolean {
+    const variant = asObject(value);
+
+    return variant !== undefined
+        && hasOnlyKeys(variant, ["variantId", "constructor", "value"])
+        && isAbsentOr(variant, "variantId", isIdentifierJson)
+        && typeof variant.constructor === "string"
+        && isValueJson(variant.value);
+}
+
+function isEnumJson(value: unknown): boolean {
+    const enumValue = asObject(value);
+
+    return enumValue !== undefined
+        && hasOnlyKeys(enumValue, ["enumId", "constructor"])
+        && isAbsentOr(enumValue, "enumId", isIdentifierJson)
+        && typeof enumValue.constructor === "string";
+}
+
+function isIdentifierJson(value: unknown): boolean {
+    const identifier = asObject(value);
+
+    return identifier !== undefined
+        && hasOnlyKeys(identifier, ["packageId", "moduleName", "entityName"])
+        && typeof identifier.packageId === "string"
+        && typeof identifier.moduleName === "string"
+        && typeof identifier.entityName === "string";
+}
+
+function hasOnlyKeys(value: DamlJsonEventRecord, keys: readonly string[]): boolean {
+    return Object.keys(value).every((key) => keys.includes(key));
+}
+
+function isAbsentOr(
+    value: DamlJsonEventRecord,
+    key: string,
+    predicate: (property: unknown) => boolean,
+): boolean {
+    return !Object.prototype.hasOwnProperty.call(value, key) || predicate(value[key]);
 }
 
 function optionalString(
