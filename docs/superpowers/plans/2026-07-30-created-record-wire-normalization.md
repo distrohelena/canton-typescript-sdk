@@ -29,7 +29,7 @@ Expected: FAIL because wire records are currently normalized as JSON.
 
 - [ ] **Step 3: Implement narrowly**
 
-Add a strict recursive record-wire predicate. It accepts only valid ts-proto JSON `Value` oneofs, validates scalar payload types and recursively validates nested `list`, `optional`, and `record` values before parsing. In created normalization, parse matching payloads with `Value.fromJson({ record: payload })` before freeze/clone. Do not change generated protobuf or ordinary JSON paths.
+Add a strict recursive record-wire predicate. It accepts every Ledger `Value` JSON oneof supported by `Value.fromJson`: scalar values, contract IDs, timestamps/dates/numerics, party/text, unit/bool, list, optional, textMap entries, genMap key/value entries, record, variant, enum, and the relevant identifier shapes (`recordId`, `variantId`, `enumId`). Validate scalar payload types and every recursive edge (`list.elements`, `optional.value`, `textMap.entries[].value`, `genMap.entries[].key/value`, `record.fields[].value`, `variant.value`) before parsing. In created normalization, parse matching payloads with `Value.fromJson({ record: payload })` before freeze/clone. Do not change generated protobuf or ordinary JSON paths.
 
 - [ ] **Step 4: Verify and commit**
 
