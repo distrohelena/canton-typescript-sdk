@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfTemplateId } from "../../../src/daml-lf/model/daml-lf-template-id.js";
@@ -6,6 +10,7 @@ import { AnalyzedChoice } from "../../../src/daml-interface/analysis/analyzed-ch
 import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-template.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emitter.js";
+import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 
 describe("GeneratedSpecEmitter", () => {
@@ -83,6 +88,31 @@ describe("GeneratedSpecEmitter", () => {
         expect(spec?.contents).toContain('new GeneratedTypeDamlNumeric("1.00")');
     });
 
+    it("typechecks a DamlNumeric template and its generated sibling spec", async () => {
+        const project = createDamlNumericProject();
+
+        const directory = await mkdtemp(join(tmpdir(), "daml-template-import-collision-"));
+
+        try {
+            await new DamlInterfaceWriter().writeProjectAsync(project, directory);
+            await writeGeneratedSdkAndNodeTypeStubs(directory);
+
+            const specPath = project.specFiles.find((file) => file.productionPath === project.templateFiles[0]?.path)?.path;
+
+            execFileSync(process.execPath, [
+                "./node_modules/typescript/bin/tsc",
+                "--noEmit",
+                "--target", "ES2022",
+                "--module", "NodeNext",
+                "--moduleResolution", "NodeNext",
+                "--skipLibCheck",
+                join(directory, specPath ?? "missing.spec.ts"),
+            ], { cwd: process.cwd(), stdio: "inherit" });
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
+
     it("emits finite generic-recursive named type specs from the generic fixture", async () => {
         const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
             SampleLfPackageFixture.createGenericRecursiveLf2ArchiveBytes(),
@@ -107,3 +137,64 @@ describe("GeneratedSpecEmitter", () => {
         expect(templateSpec?.contents).not.toContain("HoldingV1");
     });
 });
+
+function createDamlNumericProject() {
+    return new ProjectEmitter().emitProject(new DamlInterfaceAnalysisResult({
+        templates: [new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Sample.Module",
+                templateName: "DamlNumeric",
+            }),
+            className: "DamlNumeric",
+            fileName: "daml-numeric.ts",
+            createFields: [{
+                name: "amount",
+                propertyName: "amount",
+                type: { kind: "primitive", builtinType: DamlLfBuiltinType.numeric, numericScale: 2 },
+            }],
+            choices: [],
+        })],
+        typeDefinitions: [],
+    }));
+}
+
+async function writeGeneratedSdkAndNodeTypeStubs(directory: string): Promise<void> {
+    const sdkDirectory = join(directory, "node_modules", "@distrohelena", "canton-typescript-sdk");
+
+    await mkdir(sdkDirectory, { recursive: true });
+    await writeFile(join(sdkDirectory, "package.json"), JSON.stringify({
+        name: "@distrohelena/canton-typescript-sdk",
+        type: "module",
+        exports: { "./daml-interface": "./daml-interface.d.ts" },
+    }), "utf8");
+    await writeFile(join(sdkDirectory, "daml-interface.d.ts"), [
+        "export declare class DamlTemplate { constructor(contractId: string); public readonly contractId: string; }",
+        "export declare class DamlMaterializationError extends Error { constructor(path: string, detail: string); }",
+        "export declare class DamlDate { constructor(...args: readonly unknown[]); }",
+        "export declare class DamlNumeric { constructor(...args: readonly unknown[]); }",
+        "export declare class DamlParty { constructor(...args: readonly unknown[]); }",
+        "export declare class DamlTimestamp { constructor(...args: readonly unknown[]); }",
+        "export declare class DamlUnit {}",
+        "export type DamlCreatedEventSource = unknown;",
+        "export type DamlExercisedEventSource = unknown;",
+        "export type DamlExercisedEventMetadata = unknown;",
+        "export type DamlNormalizedExercisedEvent = any;",
+        "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string; };",
+        "export type DamlTypeDescriptor = { readonly kind: string; readonly [key: string]: unknown; };",
+        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity, typeArguments: readonly DamlTypeDescriptor[]) => DamlTypeDescriptor | undefined; };",
+        "export declare class DamlValueConverter { static decode(...args: readonly unknown[]): unknown; }",
+        "export declare class DamlValueMaterializer { static materialize<T>(value: unknown): T; }",
+        "export declare class DamlEventSourceNormalizer { static normalizeCreated(source: unknown): any; static normalizeExercised(source: unknown): any; }",
+        "",
+    ].join("\n"), "utf8");
+
+    const nodeTypesDirectory = join(directory, "node_modules", "@types", "node");
+
+    await mkdir(nodeTypesDirectory, { recursive: true });
+    await writeFile(join(nodeTypesDirectory, "index.d.ts"), [
+        'declare module "node:assert/strict" { const assert: { ok(value: unknown): void; equal(left: unknown, right: unknown): void; deepEqual(left: unknown, right: unknown): void; notEqual(left: unknown, right: unknown): void; }; export default assert; }',
+        'declare module "node:test" { export function test(name: string, body: () => void): void; }',
+        "",
+    ].join("\n"), "utf8");
+}

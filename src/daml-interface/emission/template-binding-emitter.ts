@@ -19,6 +19,8 @@ type ResolvedNamedReference = {
     readonly alias: string;
 };
 
+type RuntimeWrapperTypeNames = ReadonlyMap<string, string>;
+
 /** Emits typed contract and exercise-event bindings for analyzed DAML templates. */
 export class TemplateBindingEmitter {
     public constructor(
@@ -65,10 +67,22 @@ export class TemplateBindingEmitter {
         template: AnalyzedTemplate,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
     ): GeneratedTemplateBinding {
+        const className = this.nameResolver.getTemplateClassName(template);
+
+        const choices = template.choices.map((choice) => ({
+            choice,
+            exercisedEventTypeName: this.nameResolver.getExercisedEventTypeName(template, choice),
+        }));
+
+        const runtimeWrapperTypeNames = this.resolveRuntimeWrapperTypeNames(
+            className,
+            choices.map((entry) => entry.exercisedEventTypeName),
+        );
+
         return new GeneratedTemplateBinding({
             templateIdentityKey: this.nameResolver.getTemplateIdentityKey(template),
             namespaceAlias: this.nameResolver.getNamespaceAlias(template),
-            className: this.nameResolver.getTemplateClassName(template),
+            className,
             templateIdLiteral: this.nameResolver.getTemplateIdLiteral(template),
             path: this.nameResolver.getTemplateFilePath(template),
             createFieldsTypeName: this.nameResolver.getCreateFieldsTypeName(template),
@@ -79,20 +93,20 @@ export class TemplateBindingEmitter {
                     propertyName: this.nameResolver.getFieldPropertyName(template, field),
                     constructorParameterName: this.nameResolver.getFieldConstructorParameterName(template, field),
                     type: this.normalizeType(field.type),
-                    typeName: this.getTypeName(this.normalizeType(field.type), namedReferences),
+                    typeName: this.getTypeName(this.normalizeType(field.type), namedReferences, runtimeWrapperTypeNames),
                 })),
-            choices: template.choices.map((choice) =>
+            choices: choices.map(({ choice, exercisedEventTypeName }) =>
                 new GeneratedChoiceBinding({
                     choiceIdentityKey: this.nameResolver.getChoiceIdentityKey(template, choice),
                     name: choice.name,
                     methodName: this.nameResolver.getChoiceMethodName(template, choice),
                     choiceTypeName: this.nameResolver.getChoiceTypeName(template, choice),
-                    exercisedEventTypeName: this.nameResolver.getExercisedEventTypeName(template, choice),
+                    exercisedEventTypeName,
                     parameterName: this.nameResolver.getChoiceParameterName(template, choice),
                     parameterType: this.normalizeType(choice.parameterType),
-                    parameterTypeName: this.getTypeName(this.normalizeType(choice.parameterType), namedReferences),
+                    parameterTypeName: this.getTypeName(this.normalizeType(choice.parameterType), namedReferences, runtimeWrapperTypeNames),
                     returnType: this.normalizeType(choice.returnType),
-                    returnTypeName: this.getTypeName(this.normalizeType(choice.returnType), namedReferences),
+                    returnTypeName: this.getTypeName(this.normalizeType(choice.returnType), namedReferences, runtimeWrapperTypeNames),
                 })),
         });
     }
@@ -101,7 +115,14 @@ export class TemplateBindingEmitter {
         binding: GeneratedTemplateBinding,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
     ): string {
-        const imports = this.emitImports(binding, namedReferences);
+        const imports = this.emitImports(
+            binding,
+            namedReferences,
+            this.resolveRuntimeWrapperTypeNames(
+                binding.className,
+                binding.choices.map((choice) => choice.exercisedEventTypeName),
+            ),
+        );
 
         const fields = binding.createFields.map((field) =>
             `    readonly ${field.propertyName}: ${field.typeName};`);
@@ -137,6 +158,7 @@ export class TemplateBindingEmitter {
     private emitImports(
         binding: GeneratedTemplateBinding,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
     ): readonly string[] {
         const namedImports = new Map<string, Map<string, string>>();
 
@@ -149,7 +171,22 @@ export class TemplateBindingEmitter {
 
         return [
             'import { DamlEventSourceNormalizer, DamlMaterializationError, DamlTemplate, DamlValueConverter, DamlValueMaterializer } from "@distrohelena/canton-typescript-sdk/daml-interface";',
-            'import type { DamlCreatedEventSource, DamlDate, DamlExercisedEventMetadata, DamlExercisedEventSource, DamlNormalizedExercisedEvent, DamlNumeric, DamlParty, DamlTimestamp, DamlTypeDescriptor, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";',
+            `import type { ${[
+                "DamlCreatedEventSource",
+                "DamlDate",
+                "DamlExercisedEventMetadata",
+                "DamlExercisedEventSource",
+                "DamlNormalizedExercisedEvent",
+                "DamlNumeric",
+                "DamlParty",
+                "DamlTimestamp",
+                "DamlTypeDescriptor",
+                "DamlUnit",
+            ].map((name) => {
+                const localName = runtimeWrapperTypeNames.get(name) ?? name;
+
+                return localName === name ? name : `${name} as ${localName}`;
+            }).join(", ")} } from "@distrohelena/canton-typescript-sdk/daml-interface";`,
             `import { GeneratedDamlTypeDescriptorRegistry } from ${JSON.stringify(this.relativeFilePath(binding.path, "generated/support/descriptors.ts"))};`,
             ...[...namedImports.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([path, imported]) =>
                 `import type { ${[...imported.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([name, alias]) => name === alias ? name : `${name} as ${alias}`).join(", ")} } from ${JSON.stringify(path)};`),
@@ -285,25 +322,26 @@ export class TemplateBindingEmitter {
     private getTypeName(
         type: AnalyzedDamlType,
         namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames = new Map(),
     ): string {
         switch (type.kind) {
             case "primitive":
-                return this.getPrimitiveTypeName(type.builtinType);
+                return this.getPrimitiveTypeName(type.builtinType, runtimeWrapperTypeNames);
             case "contractId":
                 return "string";
             case "optional":
-                return `${this.getTypeName(type.element, namedReferences)} | undefined`;
+                return `${this.getTypeName(type.element, namedReferences, runtimeWrapperTypeNames)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, namedReferences)}[]`;
+                return `readonly ${this.getTypeName(type.element, namedReferences, runtimeWrapperTypeNames)}[]`;
             case "textMap":
-                return `ReadonlyMap<string, ${this.getTypeName(type.value, namedReferences)}>`;
+                return `ReadonlyMap<string, ${this.getTypeName(type.value, namedReferences, runtimeWrapperTypeNames)}>`;
             case "genMap":
-                return `ReadonlyMap<${this.getTypeName(type.key, namedReferences)}, ${this.getTypeName(type.value, namedReferences)}>`;
+                return `ReadonlyMap<${this.getTypeName(type.key, namedReferences, runtimeWrapperTypeNames)}, ${this.getTypeName(type.value, namedReferences, runtimeWrapperTypeNames)}>`;
             case "record":
-                return `{ ${type.fields.map((field) => `readonly ${field.propertyName}: ${this.getTypeName(field.type, namedReferences)};`).join(" ")} }`;
+                return `{ ${type.fields.map((field) => `readonly ${field.propertyName}: ${this.getTypeName(field.type, namedReferences, runtimeWrapperTypeNames)};`).join(" ")} }`;
             case "variant":
                 return type.constructors.map((constructor) =>
-                    `{ readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, namedReferences)}; }`).join(" | ");
+                    `{ readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, namedReferences, runtimeWrapperTypeNames)}; }`).join(" | ");
             case "enum":
                 return type.constructors.map((constructor) => JSON.stringify(constructor)).join(" | ");
             case "typeVariable":
@@ -314,23 +352,55 @@ export class TemplateBindingEmitter {
                 return (type.typeArguments?.length ?? 0) === 0
                     ? name
                     : `${name}<${(type.typeArguments ?? []).map((argument) =>
-                        this.getTypeName(argument, namedReferences)).join(", ")}>`;
+                        this.getTypeName(argument, namedReferences, runtimeWrapperTypeNames)).join(", ")}>`;
             }
         }
     }
 
-    private getPrimitiveTypeName(type: DamlLfBuiltinType): string {
+    private getPrimitiveTypeName(
+        type: DamlLfBuiltinType,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
+    ): string {
         switch (type) {
-            case DamlLfBuiltinType.unit: return "DamlUnit";
+            case DamlLfBuiltinType.unit: return runtimeWrapperTypeNames.get("DamlUnit") ?? "DamlUnit";
             case DamlLfBuiltinType.bool: return "boolean";
             case DamlLfBuiltinType.int64: return "bigint";
-            case DamlLfBuiltinType.date: return "DamlDate";
-            case DamlLfBuiltinType.timestamp: return "DamlTimestamp";
-            case DamlLfBuiltinType.numeric: return "DamlNumeric";
-            case DamlLfBuiltinType.party: return "DamlParty";
+            case DamlLfBuiltinType.date: return runtimeWrapperTypeNames.get("DamlDate") ?? "DamlDate";
+            case DamlLfBuiltinType.timestamp: return runtimeWrapperTypeNames.get("DamlTimestamp") ?? "DamlTimestamp";
+            case DamlLfBuiltinType.numeric: return runtimeWrapperTypeNames.get("DamlNumeric") ?? "DamlNumeric";
+            case DamlLfBuiltinType.party: return runtimeWrapperTypeNames.get("DamlParty") ?? "DamlParty";
             case DamlLfBuiltinType.text: return "string";
             default: throw new Error(`Cannot emit unsupported primitive DAML type '${type}'`);
         }
+    }
+
+    private resolveRuntimeWrapperTypeNames(
+        className: string,
+        exercisedEventTypeNames: readonly string[],
+    ): RuntimeWrapperTypeNames {
+        const usedNames = new Set([className, ...exercisedEventTypeNames]);
+
+        const names = new Map<string, string>();
+
+        for (const name of ["DamlDate", "DamlNumeric", "DamlParty", "DamlTimestamp", "DamlUnit"]) {
+            let localName = name;
+
+            let suffix = 2;
+
+            if (usedNames.has(localName)) {
+                localName = `GeneratedRuntime${name}`;
+            }
+
+            while (usedNames.has(localName)) {
+                localName = `GeneratedRuntime${name}_${suffix}`;
+                suffix += 1;
+            }
+
+            usedNames.add(localName);
+            names.set(name, localName);
+        }
+
+        return names;
     }
 
     private normalizeType(type: AnalyzedDamlType | DamlLfType): AnalyzedDamlType {

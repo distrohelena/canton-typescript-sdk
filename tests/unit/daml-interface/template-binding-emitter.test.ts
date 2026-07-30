@@ -56,6 +56,7 @@ describe("TemplateBindingEmitter", () => {
 
         expect(file.path).toBe("generated/packages/sample-hash/main/iou.ts");
         expect(file.contents).toContain('import { DamlEventSourceNormalizer, DamlMaterializationError, DamlTemplate, DamlValueConverter, DamlValueMaterializer } from "@distrohelena/canton-typescript-sdk/daml-interface";');
+        expect(file.contents).toContain('import type { DamlCreatedEventSource, DamlDate, DamlExercisedEventMetadata, DamlExercisedEventSource, DamlNormalizedExercisedEvent, DamlNumeric, DamlParty, DamlTimestamp, DamlTypeDescriptor, DamlUnit } from "@distrohelena/canton-typescript-sdk/daml-interface";');
         expect(file.contents).toContain('import { GeneratedDamlTypeDescriptorRegistry } from "../../../support/descriptors.js";');
         expect(file.contents).toContain("export interface IouFields");
         expect(file.contents).toContain("export class Iou extends DamlTemplate implements IouFields");
