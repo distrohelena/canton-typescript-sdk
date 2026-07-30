@@ -9,12 +9,9 @@ export class DamlInterfaceWriter {
         outputDirectory: string,
     ): Promise<void> {
         const files = [
-            ...project.templateFiles,
-            ...project.namedTypeFiles,
-            ...project.supportFiles,
-            project.registryFile,
-            project.indexFile,
-        ].filter((item) => item !== undefined);
+            ...project.productionFiles,
+            ...project.specFiles,
+        ];
 
         for (const file of files) {
             const path = join(outputDirectory, file.path);
