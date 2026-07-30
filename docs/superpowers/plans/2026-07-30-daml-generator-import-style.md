@@ -14,6 +14,7 @@
 
 **Files:**
 - Create: `src/daml-interface/emission/daml-module-import-style.ts`
+- Modify: `src/daml-interface/daml-interface-generator-options.ts`
 - Modify: `src/daml-interface/daml-interface-generator.ts`
 - Modify: `src/daml-interface/cli/daml-interface-cli-options.ts`
 - Modify: `src/daml-interface/cli/daml-interface-cli.ts`
@@ -21,6 +22,7 @@
 - Modify: `src/daml-interface/index.ts`
 - Test: `tests/unit/daml-interface/daml-interface-cli.test.ts`
 - Test: `tests/unit/daml-interface/project-emitter.test.ts`
+- Test: `tests/integration/daml-interface/daml-interface-generator.integration.test.ts`
 
 - [ ] **Step 1: Write failing option tests**
 
@@ -37,11 +39,15 @@ Expected: FAIL because import style does not exist.
 Define a static-only public class plus union type:
 
 ```ts
-export class DamlModuleImportStyles { public static readonly esm = "esm"; public static readonly tsNode = "ts-node"; }
+export class DamlModuleImportStyles {
+  public static readonly esm = "esm";
+  public static readonly tsNode = "ts-node";
+  private constructor() {}
+}
 export type DamlModuleImportStyle = "esm" | "ts-node";
 ```
 
-Export the type/class from `daml-interface/index.ts`. Add `moduleImportStyle?: DamlModuleImportStyle` to generator options, default it to `esm`, and parse CLI strictly. Make the CLI injected generator optional: after parsing, a non-injected CLI creates `new DamlInterfaceGenerator(new DamlInterfaceGeneratorOptions({ moduleImportStyle: options.moduleImportStyle }))`; an injected fake is used unchanged. Make ProjectEmitter take style per `emitProject(analysis, style)` call; generator passes `this.options.moduleImportStyle` on both Dalf and DAR paths. Tests prove direct Dalf/DAR generator flow plus injected/non-injected CLI behavior.
+Export the type/class from `daml-interface/index.ts`. Add `moduleImportStyle?: DamlModuleImportStyle` to generator options, default it to `esm`, and parse CLI strictly. Make the CLI injected generator optional: after parsing, a non-injected CLI creates `new DamlInterfaceGenerator(new DamlInterfaceGeneratorOptions({ moduleImportStyle: options.moduleImportStyle }))`; an injected fake is used unchanged. Make ProjectEmitter take style per `emitProject(analysis, style = DamlModuleImportStyles.esm)` call; generator passes `this.options.moduleImportStyle` on both Dalf and DAR paths. Tests prove direct Dalf/DAR generator flow plus injected/non-injected CLI behavior.
 
 - [ ] **Step 4: Verify and commit**
 
