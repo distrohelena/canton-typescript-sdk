@@ -1,11 +1,9 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
-import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface-cli.js";
+import { generateTemporaryProjectFromDarAsync } from "./generated-project-test-helper.js";
 
 const VAULT_BASE_DAR = process.env.DAML_INTERFACE_VAULT_BASE_DAR;
 
@@ -25,6 +23,10 @@ describe("DamlInterfaceGenerator", () => {
         );
         expect(project.registryFile?.path).toBe("generated/registry.ts");
         expect(project.indexFile?.path).toBe("generated/index.ts");
+        expect(project.specFiles).toHaveLength(project.productionFiles.length);
+        expect(project.specFiles.map((file) => file.path)).toEqual(
+            project.productionFiles.map((file) => file.path.replace(/\.ts$/, ".spec.ts")),
+        );
     });
 
     it("generates one Dalf with an absent ContractId target as string-shaped bindings", async () => {
@@ -122,25 +124,22 @@ describe("DamlInterfaceGenerator", () => {
                 throw new Error(`DAML_INTERFACE_VAULT_BASE_DAR does not exist: ${VAULT_BASE_DAR}`);
             }
 
-            const outputDirectory = await mkdtemp(join(tmpdir(), "vault-base-generated-"));
+            const temporaryProject = await generateTemporaryProjectFromDarAsync(VAULT_BASE_DAR);
 
             try {
-                const exitCode = await new DamlInterfaceCli().runAsync([
-                    "--input", VAULT_BASE_DAR,
-                    "--output", outputDirectory,
-                ]);
+                const binding = await readFile(`${temporaryProject.directory}/generated/packages/vault-base_0.0.1/oz/vault/base/test-token/cip112/test-underlying-holding.ts`, "utf8");
 
-                const binding = await readFile(join(
-                    outputDirectory,
-                    "generated/packages/vault-base_0.0.1/oz/vault/base/test-token/cip112/test-underlying-holding.ts",
-                ), "utf8");
-
-                expect(exitCode).toBe(0);
+                expect(temporaryProject.project.specFiles).toHaveLength(
+                    temporaryProject.project.productionFiles.length,
+                );
+                expect(temporaryProject.executedSpecPaths).toHaveLength(
+                    temporaryProject.project.specFiles.length,
+                );
                 expect(binding).toContain("export class TestUnderlyingHoldingSplitUnderlyingExercisedEvent");
                 expect(binding).toContain("public readonly result: Tuple2<string, string>;");
                 expect(binding).toContain("DamlValueMaterializer.materialize<Tuple2<string, string>>");
             } finally {
-                await rm(outputDirectory, { recursive: true, force: true });
+                await temporaryProject.disposeAsync();
             }
         },
     );

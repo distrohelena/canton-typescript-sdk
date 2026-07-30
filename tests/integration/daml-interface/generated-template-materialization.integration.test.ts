@@ -7,6 +7,27 @@ import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package
 import { generateTemporaryProjectAsync } from "./generated-project-test-helper.js";
 
 describe("generated DAML template materialization", () => {
+    it("executes every generated spec for materialization and generic-recursive projects", async () => {
+        const archives = [
+            SampleLfPackageFixture.createMaterializationLf2ArchiveBytes(),
+            SampleLfPackageFixture.createGenericRecursiveLf2ArchiveBytes(),
+        ];
+
+        for (const archiveBytes of archives) {
+            const temporaryProject = await generateTemporaryProjectAsync(archiveBytes);
+
+            try {
+                expect(temporaryProject.executedSpecPaths).toEqual(
+                    temporaryProject.project.specFiles.map((file) =>
+                        `${temporaryProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
+                    ).sort(),
+                );
+            } finally {
+                await temporaryProject.disposeAsync();
+            }
+        }
+    });
+
     it("materializes the same nested contract from gRPC, PQS, and JSON sources", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(
             SampleLfPackageFixture.createMaterializationLf2ArchiveBytes(),

@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface-cli.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
@@ -22,11 +23,39 @@ export async function generateTemporaryProjectAsync(
 
     try {
         await new DamlInterfaceWriter().writeProjectAsync(project, directory);
-        await writeNodeNextProjectFiles(directory, consumerSource);
-        await linkSdkPackage(directory);
-        compileNodeNextProjectOrThrow(directory);
 
-        return new GeneratedTemporaryProject(directory, project);
+        return await finalizeTemporaryProjectAsync(directory, project, consumerSource);
+    } catch (error) {
+        await rm(directory, { recursive: true, force: true });
+
+        throw error;
+    }
+}
+
+/** Generates a temporary project through the DAR CLI path, then compiles and runs its specs. */
+export async function generateTemporaryProjectFromDarAsync(
+    darPath: string,
+    consumerSource?: string,
+): Promise<GeneratedTemporaryProject> {
+    buildSdkOrThrow();
+
+    const archiveBytes = await readFile(darPath);
+
+    const project = await new DamlInterfaceGenerator().generateFromDarOrThrowAsync(archiveBytes);
+
+    const directory = await mkdtemp(join(tmpdir(), "daml-generated-project-"));
+
+    try {
+        const exitCode = await new DamlInterfaceCli().runAsync([
+            "--input", darPath,
+            "--output", directory,
+        ]);
+
+        if (exitCode !== 0) {
+            throw new Error(`DAML interface CLI failed with exit code ${exitCode}`);
+        }
+
+        return await finalizeTemporaryProjectAsync(directory, project, consumerSource);
     } catch (error) {
         await rm(directory, { recursive: true, force: true });
 
@@ -38,11 +67,27 @@ export class GeneratedTemporaryProject {
     public constructor(
         public readonly directory: string,
         public readonly project: GeneratedDamlInterfaceProject,
+        public readonly executedSpecPaths: readonly string[],
     ) {}
 
     public async disposeAsync(): Promise<void> {
         await rm(this.directory, { recursive: true, force: true });
     }
+}
+
+async function finalizeTemporaryProjectAsync(
+    directory: string,
+    project: GeneratedDamlInterfaceProject,
+    consumerSource: string | undefined,
+): Promise<GeneratedTemporaryProject> {
+    await writeNodeNextProjectFiles(directory, consumerSource);
+    await linkSdkPackage(directory);
+    await assertGeneratedSpecCoverageOrThrow(directory, project);
+    compileNodeNextProjectOrThrow(directory);
+
+    const executedSpecPaths = await executeCompiledGeneratedSpecsOrThrow(directory);
+
+    return new GeneratedTemporaryProject(directory, project, executedSpecPaths);
 }
 
 function buildSdkOrThrow(): void {
@@ -79,7 +124,7 @@ async function writeNodeNextProjectFiles(
             outDir: "dist",
             rootDir: ".",
         },
-        include: ["generated/**/*.ts", "consumer.ts"],
+        include: ["generated/**/*.ts", "generated/**/*.spec.ts", "consumer.ts"],
     }, undefined, 2));
     await writeFile(join(directory, "consumer.ts"), consumerSource ?? "export {};\n");
 }
@@ -96,6 +141,73 @@ async function linkSdkPackage(directory: string): Promise<void> {
 
     await mkdir(packageParent, { recursive: true });
     await symlink(process.cwd(), packageDirectory, "dir");
+
+    const nodeTypesDirectory = join(directory, "node_modules", "@types", "node");
+
+    await mkdir(join(directory, "node_modules", "@types"), { recursive: true });
+    await symlink(join(process.cwd(), "node_modules", "@types", "node"), nodeTypesDirectory, "dir");
+}
+
+async function assertGeneratedSpecCoverageOrThrow(
+    directory: string,
+    project: GeneratedDamlInterfaceProject,
+): Promise<void> {
+    const expectedSpecPaths = project.productionFiles
+        .map((file) => file.path.replace(/\.ts$/, ".spec.ts"))
+        .sort();
+
+    const emittedSpecPaths = (await findPathsRecursivelyAsync(join(directory, "generated")))
+        .filter((path) => path.endsWith(".spec.ts"))
+        .map((path) => path.slice(directory.length + 1))
+        .sort();
+
+    if (expectedSpecPaths.length !== project.specFiles.length
+        || expectedSpecPaths.some((path, index) => path !== project.specFiles.map((file) => file.path).sort()[index])
+        || expectedSpecPaths.length !== emittedSpecPaths.length
+        || expectedSpecPaths.some((path, index) => path !== emittedSpecPaths[index])) {
+        throw new Error("Generated project must emit exactly one sibling .spec.ts file for every production module.");
+    }
+}
+
+async function executeCompiledGeneratedSpecsOrThrow(directory: string): Promise<readonly string[]> {
+    const specPaths = (await findPathsRecursivelyAsync(join(directory, "dist", "generated")))
+        .filter((path) => path.endsWith(".spec.js"))
+        .sort();
+
+    if (specPaths.length === 0) {
+        throw new Error("Generated project did not compile any .spec.js files.");
+    }
+
+    try {
+        execFileSync(process.execPath, ["--test", ...specPaths], {
+            cwd: directory,
+            stdio: "pipe",
+        });
+    } catch (error) {
+        const failure = error as { readonly stderr?: Buffer; readonly stdout?: Buffer };
+
+        throw new Error([
+            "Generated DAML specs failed.",
+            failure.stdout?.toString("utf8") ?? "",
+            failure.stderr?.toString("utf8") ?? "",
+        ].join("\n"));
+    }
+
+    return Object.freeze(specPaths);
+}
+
+async function findPathsRecursivelyAsync(directory: string): Promise<readonly string[]> {
+    const entries = await readdir(directory, { withFileTypes: true });
+
+    const paths = await Promise.all(entries.map(async (entry) => {
+        const path = join(directory, entry.name);
+
+        return entry.isDirectory()
+            ? findPathsRecursivelyAsync(path)
+            : [path];
+    }));
+
+    return paths.flat();
 }
 
 function compileNodeNextProjectOrThrow(directory: string): void {

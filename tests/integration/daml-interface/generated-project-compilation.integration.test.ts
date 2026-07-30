@@ -50,6 +50,11 @@ describe("generated DAML project NodeNext compilation", () => {
 
                 expect(emittedSource).toContain("readonly get: string;");
                 expect(emittedSource).not.toMatch(/readonly (contractId|constructor):/);
+                expect(compiledProject.executedSpecPaths).toEqual(
+                    compiledProject.project.specFiles.map((file) =>
+                        `${compiledProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
+                    ).sort(),
+                );
             } finally {
                 await compiledProject.disposeAsync();
             }
