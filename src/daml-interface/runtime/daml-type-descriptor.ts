@@ -77,6 +77,7 @@ export type DamlEnumDescriptor = {
 export type DamlNamedReferenceDescriptor = {
     readonly kind: "namedReference";
     readonly identity: DamlTypeIdentity;
+    readonly typeArguments: readonly DamlTypeDescriptor[];
 };
 
 /** A closed description of a serializable DAML value. */
@@ -96,7 +97,8 @@ export type DamlTypeDescriptor =
 export type DamlTypeDescriptorRegistry = {
     readonly resolve: (
         identity: DamlTypeIdentity,
-    ) => (() => DamlTypeDescriptor) | undefined;
+        typeArguments: readonly DamlTypeDescriptor[],
+    ) => DamlTypeDescriptor | undefined;
 };
 
 export type DamlValueSource =

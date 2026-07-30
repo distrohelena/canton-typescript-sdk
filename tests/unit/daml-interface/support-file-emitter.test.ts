@@ -108,7 +108,7 @@ describe("SupportFileEmitter", () => {
         )).toThrow(/Node.*sample-hash:Main:Node.*types\.ts/);
     });
 
-    it("deep freezes generated descriptor graphs", async () => {
+    it("instantiates and deep freezes generic recursive descriptor graphs", async () => {
         const identity = new TypeConReference({
             packageId: "sample-hash",
             moduleName: "Main",
@@ -120,17 +120,22 @@ describe("SupportFileEmitter", () => {
             typeDefinitions: [{
                 identity,
                 kind: "record",
+                typeParameters: [{ name: "T", internedStringIndex: 0, kind: { kind: "star" } }],
                 fields: [{
                     damlLabel: "next",
                     propertyName: "next",
                     type: {
                         kind: "optional",
-                        element: { kind: "namedReference", identity },
+                        element: {
+                            kind: "namedReference",
+                            identity,
+                            typeArguments: [{ kind: "typeVariable", name: "T", internedStringIndex: 0 }],
+                        },
                     },
                 }, {
                     damlLabel: "label",
                     propertyName: "label",
-                    type: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                    type: { kind: "typeVariable", name: "T", internedStringIndex: 0 },
                 }],
             }],
         });
@@ -147,7 +152,7 @@ describe("SupportFileEmitter", () => {
             }).outputText,
         ).toString("base64")}`) as {
             GeneratedDamlTypeDescriptorRegistry: {
-                resolve(identity: { packageId: string; moduleName: string; entityName: string }): (() => unknown) | undefined;
+                resolve(identity: { packageId: string; moduleName: string; entityName: string }, typeArguments: readonly unknown[]): unknown;
             };
         };
 
@@ -155,9 +160,9 @@ describe("SupportFileEmitter", () => {
             packageId: "sample-hash",
             moduleName: "Main",
             entityName: "Node",
-        })!() as {
+        }, [{ kind: "primitive", primitive: "text" }]) as {
             fields: Array<{
-                type: { element: { identity: { packageId: string } } };
+                type: { element: { identity: { packageId: string }; typeArguments: Array<{ primitive: string }> } };
             }>;
         };
 
@@ -166,10 +171,102 @@ describe("SupportFileEmitter", () => {
         expect(Object.isFrozen(descriptor.fields[0])).toBe(true);
         expect(Object.isFrozen(descriptor.fields[0].type)).toBe(true);
         expect(Object.isFrozen(descriptor.fields[0].type.element.identity)).toBe(true);
+        expect(descriptor.fields[0].type.element.typeArguments[0]?.primitive).toBe("text");
         expect(() => descriptor.fields.push(descriptor.fields[0])).toThrow(TypeError);
         expect(() => {
             descriptor.fields[0].type.element.identity.packageId = "mutated";
         }).toThrow(TypeError);
+
+        const intDescriptor = module.GeneratedDamlTypeDescriptorRegistry.resolve({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            entityName: "Node",
+        }, [{ kind: "primitive", primitive: "int64" }]) as {
+            fields: Array<{ type: { primitive?: string } }>;
+        };
+
+        expect(intDescriptor.fields[1]?.type.primitive).toBe("int64");
+        expect(() => module.GeneratedDamlTypeDescriptorRegistry.resolve({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            entityName: "Node",
+        }, [])).toThrow(/Expected 1 type arguments/);
+        expect(() => module.GeneratedDamlTypeDescriptorRegistry.resolve({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            entityName: "Node",
+        }, [{ kind: "primitive", primitive: "text" }, { kind: "primitive", primitive: "int64" }]))
+            .toThrow(/Expected 1 type arguments/);
+    });
+
+    it("retains type arguments through mutually recursive generic references", async () => {
+        const leftIdentity = new TypeConReference({ packageId: "sample-hash", moduleName: "Main", name: "Left" });
+        const rightIdentity = new TypeConReference({ packageId: "sample-hash", moduleName: "Main", name: "Right" });
+        const typeParameter = { name: "T", internedStringIndex: 0, kind: { kind: "star" as const } };
+
+        const descriptorFile = new SupportFileEmitter().emitSupportFiles(
+            new DamlInterfaceAnalysisResult({
+                templates: [],
+                typeDefinitions: [{
+                    identity: leftIdentity,
+                    kind: "record",
+                    typeParameters: [typeParameter],
+                    fields: [{
+                        damlLabel: "right",
+                        propertyName: "right",
+                        type: {
+                            kind: "optional",
+                            element: {
+                                kind: "namedReference",
+                                identity: rightIdentity,
+                                typeArguments: [{ kind: "typeVariable", name: "T", internedStringIndex: 0 }],
+                            },
+                        },
+                    }],
+                }, {
+                    identity: rightIdentity,
+                    kind: "record",
+                    typeParameters: [typeParameter],
+                    fields: [{
+                        damlLabel: "value",
+                        propertyName: "value",
+                        type: { kind: "typeVariable", name: "T", internedStringIndex: 0 },
+                    }, {
+                        damlLabel: "left",
+                        propertyName: "left",
+                        type: {
+                            kind: "optional",
+                            element: {
+                                kind: "namedReference",
+                                identity: leftIdentity,
+                                typeArguments: [{ kind: "typeVariable", name: "T", internedStringIndex: 0 }],
+                            },
+                        },
+                    }],
+                }],
+            }),
+        ).find((file) => file.path === "generated/support/descriptors.ts");
+
+        const module = await import(`data:text/javascript;base64,${Buffer.from(
+            transpileModule(descriptorFile!.contents, {
+                compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 },
+            }).outputText,
+        ).toString("base64")}`) as {
+            GeneratedDamlTypeDescriptorRegistry: {
+                resolve(identity: { packageId: string; moduleName: string; entityName: string }, typeArguments: readonly unknown[]): unknown;
+            };
+        };
+
+        const left = module.GeneratedDamlTypeDescriptorRegistry.resolve({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            entityName: "Left",
+        }, [{ kind: "primitive", primitive: "text" }]) as {
+            fields: Array<{ type: { element: { identity: { entityName: string }; typeArguments: Array<{ primitive: string }> } } }>;
+        };
+
+        expect(left.fields[0]?.type.element.identity.entityName).toBe("Right");
+        expect(left.fields[0]?.type.element.typeArguments[0]?.primitive).toBe("text");
     });
 
     it("emits target-free ContractId descriptors", () => {

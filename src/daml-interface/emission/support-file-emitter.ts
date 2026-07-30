@@ -213,9 +213,7 @@ export class SupportFileEmitter {
 
             identities.add(identityKey);
 
-            return [
-                `    ${JSON.stringify(identityKey)}: () => deepFreeze(${this.emitDefinitionDescriptor(definition, fieldPropertyNames)} satisfies DamlTypeDescriptor),`,
-            ].join("");
+            return `    ${JSON.stringify(identityKey)}: (typeArguments) => {\n${this.emitFactoryBody(definition, fieldPropertyNames)}\n    },`;
         });
 
         return new GeneratedSupportFile({
@@ -235,15 +233,17 @@ export class SupportFileEmitter {
                 "    return value;",
                 "}",
                 "",
-                "const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({",
+                "const generatedDamlTypeDescriptorFactories: Readonly<Record<string, (typeArguments: readonly DamlTypeDescriptor[]) => DamlTypeDescriptor>> = Object.freeze({",
                 ...factories,
                 "});",
                 "",
                 "export class GeneratedDamlTypeDescriptorRegistry {",
                 "    private constructor() {}",
                 "",
-                "    public static resolve(identity: Parameters<DamlTypeDescriptorRegistry[\"resolve\"]>[0]): ReturnType<DamlTypeDescriptorRegistry[\"resolve\"]> {",
-                "        return generatedDamlTypeDescriptorFactories[`${identity.packageId}:${identity.moduleName}:${identity.entityName}`];",
+                "    public static resolve(identity: Parameters<DamlTypeDescriptorRegistry[\"resolve\"]>[0], typeArguments: Parameters<DamlTypeDescriptorRegistry[\"resolve\"]>[1]): ReturnType<DamlTypeDescriptorRegistry[\"resolve\"]> {",
+                "        const factory = generatedDamlTypeDescriptorFactories[`${identity.packageId}:${identity.moduleName}:${identity.entityName}`];",
+                "",
+                "        return factory === undefined ? undefined : factory(typeArguments);",
                 "    }",
                 "}",
                 "",
@@ -251,43 +251,82 @@ export class SupportFileEmitter {
         });
     }
 
-    private emitDescriptor(type: AnalyzedDamlType): string {
+    private emitFactoryBody(
+        definition: AnalyzedDamlTypeDefinition,
+        fieldPropertyNames: ReadonlyMap<string, string>,
+    ): string {
+        const typeParameters = definition.kind === "enum" ? [] : definition.typeParameters ?? [];
+
+        const substitutions = new Map(
+            typeParameters.map((parameter, index) => [
+                parameter.internedStringIndex,
+                `typeArguments[${index}]!`,
+            ]),
+        );
+
+        return [
+            `        if (typeArguments.length !== ${typeParameters.length}) {`,
+            `            throw new Error(${JSON.stringify(`Expected ${typeParameters.length} type arguments for ${definition.identity.packageId}:${definition.identity.moduleName}:${definition.identity.name}`)});`,
+            "        }",
+            "",
+            `        return deepFreeze(${this.emitDefinitionDescriptor(definition, fieldPropertyNames, substitutions)} satisfies DamlTypeDescriptor);`,
+        ].join("\n");
+    }
+
+    private emitDescriptor(
+        type: AnalyzedDamlType,
+        substitutions: ReadonlyMap<number, string> = new Map(),
+    ): string {
         switch (type.kind) {
             case "primitive":
                 return `{ kind: "primitive", primitive: ${JSON.stringify(type.builtinType)}${type.numericScale === undefined ? "" : `, numericScale: ${type.numericScale}`} }`;
             case "contractId":
                 return '{ kind: "contractId" }';
             case "optional":
-                return `{ kind: "optional", element: ${this.emitDescriptor(type.element)} }`;
+                return `{ kind: "optional", element: ${this.emitDescriptor(type.element, substitutions)} }`;
             case "list":
-                return `{ kind: "list", element: ${this.emitDescriptor(type.element)} }`;
+                return `{ kind: "list", element: ${this.emitDescriptor(type.element, substitutions)} }`;
             case "textMap":
-                return `{ kind: "textMap", value: ${this.emitDescriptor(type.value)} }`;
+                return `{ kind: "textMap", value: ${this.emitDescriptor(type.value, substitutions)} }`;
             case "genMap":
-                return `{ kind: "genMap", key: ${this.emitDescriptor(type.key)}, value: ${this.emitDescriptor(type.value)} }`;
+                return `{ kind: "genMap", key: ${this.emitDescriptor(type.key, substitutions)}, value: ${this.emitDescriptor(type.value, substitutions)} }`;
             case "record":
-                return `{ kind: "record", fields: [${type.fields.map((field) => `{ damlLabel: ${JSON.stringify(field.damlLabel)}, propertyName: ${JSON.stringify(field.propertyName)}, type: ${this.emitDescriptor(field.type)} }`).join(", ")}] }`;
+                return `{ kind: "record", fields: [${type.fields.map((field) => `{ damlLabel: ${JSON.stringify(field.damlLabel)}, propertyName: ${JSON.stringify(field.propertyName)}, type: ${this.emitDescriptor(field.type, substitutions)} }`).join(", ")}] }`;
             case "variant":
-                return `{ kind: "variant", constructors: [${type.constructors.map((constructor) => `{ constructor: ${JSON.stringify(constructor.constructor)}, payload: ${this.emitDescriptor(constructor.payload)} }`).join(", ")}] }`;
+                return `{ kind: "variant", constructors: [${type.constructors.map((constructor) => `{ constructor: ${JSON.stringify(constructor.constructor)}, payload: ${this.emitDescriptor(constructor.payload, substitutions)} }`).join(", ")}] }`;
             case "enum":
                 return `{ kind: "enum", constructors: [${type.constructors.map((constructor) => JSON.stringify(constructor)).join(", ")}] }`;
             case "typeVariable":
-                throw new Error("Cannot emit generic DAML type variables");
+                return this.getTypeVariableSubstitution(type, substitutions);
             case "namedReference":
-                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} } }`;
+                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} }, typeArguments: [${(type.typeArguments ?? []).map((argument) => this.emitDescriptor(argument, substitutions)).join(", ")}] }`;
         }
     }
 
     private emitDefinitionDescriptor(
         definition: AnalyzedDamlTypeDefinition,
         fieldPropertyNames: ReadonlyMap<string, string>,
+        substitutions: ReadonlyMap<number, string>,
     ): string {
         if (definition.kind !== "record") {
-            return this.emitDescriptor(definition);
+            return this.emitDescriptor(definition, substitutions);
         }
 
         return `{ kind: "record", fields: [${definition.fields.map((field, index) =>
-            `{ damlLabel: ${JSON.stringify(field.damlLabel)}, propertyName: ${JSON.stringify(this.getFieldPropertyName(definition, index, fieldPropertyNames))}, type: ${this.emitDescriptor(field.type)} }`).join(", ")}] }`;
+            `{ damlLabel: ${JSON.stringify(field.damlLabel)}, propertyName: ${JSON.stringify(this.getFieldPropertyName(definition, index, fieldPropertyNames))}, type: ${this.emitDescriptor(field.type, substitutions)} }`).join(", ")}] }`;
+    }
+
+    private getTypeVariableSubstitution(
+        type: Extract<AnalyzedDamlType, { readonly kind: "typeVariable" }>,
+        substitutions: ReadonlyMap<number, string>,
+    ): string {
+        const substitution = substitutions.get(type.internedStringIndex);
+
+        if (substitution === undefined) {
+            throw new Error(`Cannot emit unbound generic DAML type variable '${type.name ?? `#${type.internedStringIndex}`}'`);
+        }
+
+        return substitution;
     }
 
     private getFieldPropertyName(

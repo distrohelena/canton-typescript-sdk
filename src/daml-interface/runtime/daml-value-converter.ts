@@ -68,13 +68,13 @@ function decodeDamlValue(
     path: string,
 ): DamlDecodedValue {
     if (descriptor.kind === "namedReference") {
-        const factory = registry.resolve(descriptor.identity);
+        const resolved = registry.resolve(descriptor.identity, descriptor.typeArguments);
 
-        if (factory === undefined) {
+        if (resolved === undefined) {
             throw materializationError(path, "named type descriptor is not registered");
         }
 
-        return decodeDamlValue(source, factory(), registry, path);
+        return decodeDamlValue(source, resolved, registry, path);
     } else if (source.kind === "protobuf") {
         return decodeProtobufValue(source.value, descriptor, registry, path);
     }

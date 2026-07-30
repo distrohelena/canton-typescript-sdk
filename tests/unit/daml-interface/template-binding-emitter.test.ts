@@ -307,6 +307,7 @@ describe("TemplateBindingEmitter", () => {
         expect(contents).toContain("readonly value: Box<Amount>;");
         expect(contents).toContain("public readonly argument: Box<Amount>;");
         expect(contents).toContain("public readonly result: Box<string>;");
-        expect(contents).not.toContain("typeArguments:");
+        expect(contents).toContain('typeArguments: [{ kind: "namedReference", identity: { packageId: "sample-hash", moduleName: "Types", entityName: "Amount" }, typeArguments: [] }]');
+        expect(contents).toContain('typeArguments: [{ kind: "primitive", primitive: "text" }]');
     });
 });

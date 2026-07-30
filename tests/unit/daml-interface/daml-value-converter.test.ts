@@ -191,24 +191,39 @@ describe("decodeDamlValue nested values and validation", () => {
         expect(decodeDamlValue(protobuf(Value.create({ sum: { oneofKind: "contractId", contractId: "#contract" } })), contractId, emptyRegistry, "Trade.id")).toBe("#contract");
     });
 
-    it("resolves named references lazily and supports self-recursive records", () => {
+    it("resolves generic named references using their ordered argument descriptors", () => {
         const nodeIdentity = { packageId: "pkg", moduleName: "Main", entityName: "Node" } as const;
 
         const registry: DamlTypeDescriptorRegistry = {
-            resolve: (identity) => identity.packageId === "pkg" && identity.moduleName === "Main" && identity.entityName === "Node"
-                ? () => ({
+            resolve: (identity, typeArguments) => identity.packageId === "pkg" && identity.moduleName === "Main" && identity.entityName === "Node"
+                ? {
                     kind: "record",
                     fields: [
-                        { damlLabel: "name", propertyName: "name", type: descriptors.text },
-                        { damlLabel: "next", propertyName: "next", type: { kind: "optional", element: { kind: "namedReference", identity: nodeIdentity } } },
+                        { damlLabel: "label", propertyName: "label", type: typeArguments[0]! },
+                        {
+                            damlLabel: "next",
+                            propertyName: "next",
+                            type: {
+                                kind: "optional",
+                                element: { kind: "namedReference", identity: nodeIdentity, typeArguments },
+                            },
+                        },
                     ],
-                })
+                }
                 : undefined,
         };
 
-        const node = decodeDamlValue(json({ name: "root", next: { name: "leaf", next: null } }), { kind: "namedReference", identity: nodeIdentity }, registry, "Node");
+        const node = decodeDamlValue(
+            json({ label: "root", next: { label: "leaf", next: null } }),
+            { kind: "namedReference", identity: nodeIdentity, typeArguments: [descriptors.text] },
+            registry,
+            "Node",
+        );
 
-        expect(node).toEqual(new DamlRecord({ name: "root", next: new DamlRecord({ name: "leaf", next: undefined }) }));
+        expect(node).toEqual(new DamlRecord({
+            label: "root",
+            next: new DamlRecord({ label: "leaf", next: undefined }),
+        }));
     });
 
     it("rejects absent values, type mismatches, invalid scalar content, and malformed JSON shapes with the descriptor path", () => {
