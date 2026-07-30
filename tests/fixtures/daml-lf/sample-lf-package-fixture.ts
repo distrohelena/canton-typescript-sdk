@@ -4,7 +4,7 @@ import {
     ArchivePayload,
     HashFunction,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
-import { Package } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
+import { Package, Type } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 import { strToU8, zipSync } from "fflate";
 
 export class SampleLfPackageFixture {
@@ -277,6 +277,140 @@ export class SampleLfPackageFixture {
                 { segmentsInternedStr: [5] },
             ],
             metadata: { nameInternedStr: 0, versionInternedStr: 1 },
+            internedTypes: [],
+            internedKinds: [],
+            internedExprs: [],
+            importsSum: { oneofKind: undefined },
+        });
+
+        return this.wrapLf2Package(packageBytes);
+    }
+
+    /** A template that reaches self- and mutually-recursive generic named types. */
+    public static createGenericRecursiveLf2ArchiveBytes(): Uint8Array {
+        const builtin = (builtinType: BuiltinType): Type => ({
+            sum: { oneofKind: "builtin", builtin: { builtin: builtinType, args: [] } },
+        });
+
+        const typeVariable = (varInternedStr: number): Type => ({
+            sum: { oneofKind: "var", var: { varInternedStr, args: [] } },
+        });
+
+        const typeCon = (nameInternedDname: number, args: readonly Type[] = []): Type => ({
+            sum: {
+                oneofKind: "con",
+                con: {
+                    tycon: {
+                        module: {
+                            packageId: { sum: { oneofKind: "selfPackageId", selfPackageId: {} } },
+                            moduleNameInternedDname: 0,
+                        },
+                        nameInternedDname,
+                    },
+                    args: [...args],
+                },
+            },
+        });
+
+        const optional = (element: Type): Type => ({
+            sum: {
+                oneofKind: "tapp",
+                tapp: { lhs: builtin(BuiltinType.OPTIONAL), rhs: element },
+            },
+        });
+
+        const parameter = { varInternedStr: 8, kind: { sum: { oneofKind: "star" as const, star: {} } } };
+
+        const packageBytes = Package.toBinary({
+            modules: [{
+                nameInternedDname: 0,
+                synonyms: [],
+                dataTypes: [{
+                    nameInternedDname: 1,
+                    params: [parameter],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [
+                                { fieldInternedStr: 9, type: typeVariable(8) },
+                                { fieldInternedStr: 10, type: optional(typeCon(1, [typeVariable(8)])) },
+                            ],
+                        },
+                    },
+                }, {
+                    nameInternedDname: 2,
+                    params: [parameter],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: { fields: [{ fieldInternedStr: 11, type: optional(typeCon(3, [typeVariable(8)])) }] },
+                    },
+                }, {
+                    nameInternedDname: 3,
+                    params: [parameter],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [
+                                { fieldInternedStr: 9, type: typeVariable(8) },
+                                { fieldInternedStr: 12, type: optional(typeCon(2, [typeVariable(8)])) },
+                            ],
+                        },
+                    },
+                }, {
+                    nameInternedDname: 4,
+                    params: [parameter],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "variant",
+                        variant: {
+                            fields: [
+                                { fieldInternedStr: 13, type: builtin(BuiltinType.UNIT) },
+                                { fieldInternedStr: 14, type: typeVariable(8) },
+                            ],
+                        },
+                    },
+                }, {
+                    nameInternedDname: 5,
+                    params: [],
+                    serializable: true,
+                    dataCons: {
+                        oneofKind: "record",
+                        record: {
+                            fields: [
+                                { fieldInternedStr: 15, type: typeCon(1, [builtin(BuiltinType.TEXT)]) },
+                                { fieldInternedStr: 16, type: typeCon(1, [builtin(BuiltinType.INT64)]) },
+                                { fieldInternedStr: 17, type: typeCon(2, [builtin(BuiltinType.TEXT)]) },
+                                { fieldInternedStr: 18, type: typeCon(4, [builtin(BuiltinType.TEXT)]) },
+                            ],
+                        },
+                    },
+                }],
+                values: [],
+                templates: [{
+                    tyconInternedDname: 5,
+                    paramInternedStr: 19,
+                    choices: [],
+                    implements: [],
+                }],
+                exceptions: [],
+                interfaces: [],
+            }],
+            internedStrings: [
+                "Sample", "Generic", "Node", "Left", "Right", "GenericVariant", "GenericIou", "unused",
+                "a", "label", "next", "right", "left", "Empty", "Value", "textNode", "intNode", "leftText", "variant", "this",
+            ],
+            internedDottedNames: [
+                { segmentsInternedStr: [0, 1] },
+                { segmentsInternedStr: [2] },
+                { segmentsInternedStr: [3] },
+                { segmentsInternedStr: [4] },
+                { segmentsInternedStr: [5] },
+                { segmentsInternedStr: [6] },
+            ],
+            metadata: { nameInternedStr: 7, versionInternedStr: 7 },
             internedTypes: [],
             internedKinds: [],
             internedExprs: [],

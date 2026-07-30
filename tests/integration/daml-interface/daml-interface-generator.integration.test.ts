@@ -80,6 +80,31 @@ describe("DamlInterfaceGenerator", () => {
             "missing-package-id:Splice.Api.Token.HoldingV1:Holding",
         );
     });
+    it("generates recursive generic records and variants reached by a template", async () => {
+        const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createGenericRecursiveLf2ArchiveBytes(),
+        );
+
+        expect(project.templateFiles).toHaveLength(1);
+
+        const namedTypes = project.namedTypeFiles[0]?.contents;
+
+        const template = project.templateFiles[0]?.contents;
+
+        const descriptors = project.supportFiles.find(
+            (file) => file.path === "generated/support/descriptors.ts",
+        )?.contents;
+
+        expect(namedTypes).toContain("export interface Node<A>");
+        expect(namedTypes).toContain("readonly next: Node<A> | undefined;");
+        expect(namedTypes).toContain("export interface Left<A>");
+        expect(namedTypes).toContain("readonly right: Right<A> | undefined;");
+        expect(namedTypes).toContain("export type GenericVariant<A> =");
+        expect(template).toContain("readonly textNode: Node<string>;");
+        expect(template).toContain("readonly intNode: Node<bigint>;");
+        expect(descriptors).toContain('entityName: "Node" }, typeArguments: [typeArguments[0]!]');
+        expect(descriptors).toContain('entityName: "Right" }, typeArguments: [typeArguments[0]!]');
+    });
 });
 
 function expectProjectToExcludeExternalHolding(project: {

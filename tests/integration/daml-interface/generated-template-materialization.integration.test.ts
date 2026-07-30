@@ -192,6 +192,63 @@ describe("generated DAML template materialization", () => {
         }
     });
 
+    it("materializes independently typed self- and mutually-recursive generic values", async () => {
+        const temporaryProject = await generateTemporaryProjectAsync(
+            SampleLfPackageFixture.createGenericRecursiveLf2ArchiveBytes(),
+        );
+
+        try {
+            const file = temporaryProject.project.templateFiles[0]!;
+
+            const generated = await import(pathToFileURL(
+                `${temporaryProject.directory}/dist/${file.path.replace(/\.ts$/, ".js")}`,
+            ).href) as GeneratedGenericModule;
+
+            const materialized = generated.GenericIou.fromCreatedEvent({
+                contract_id: "#generic-1",
+                template_id: genericTemplateId(),
+                create_arguments: {
+                    textNode: {
+                        label: "root",
+                        next: { label: "leaf", next: null },
+                    },
+                    intNode: {
+                        label: "42",
+                        next: { label: "7", next: null },
+                    },
+                    leftText: {
+                        right: {
+                            label: "right",
+                            left: { right: null },
+                        },
+                    },
+                    variant: { tag: "Value", value: "variant text" },
+                },
+            });
+
+            expect(materialized).toMatchObject({
+                contractId: "#generic-1",
+                textNode: {
+                    label: "root",
+                    next: { label: "leaf", next: undefined },
+                },
+                intNode: {
+                    label: 42n,
+                    next: { label: 7n, next: undefined },
+                },
+                leftText: {
+                    right: {
+                        label: "right",
+                        left: { right: undefined },
+                    },
+                },
+                variant: { tag: "Value", value: "variant text" },
+            });
+        } finally {
+            await temporaryProject.disposeAsync();
+        }
+    });
+
     it("materializes a template while unrelated unresolved external types are skipped", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(
             SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
@@ -351,6 +408,20 @@ interface GeneratedLazyModule {
     };
 }
 
+interface GeneratedGenericModule {
+    readonly GenericIou: {
+        fromCreatedEvent(source: unknown): GeneratedGenericIou;
+    };
+}
+
+interface GeneratedGenericIou {
+    readonly contractId: string;
+    readonly textNode: { readonly label: string; readonly next: unknown };
+    readonly intNode: { readonly label: bigint; readonly next: unknown };
+    readonly leftText: unknown;
+    readonly variant: { readonly tag: string; readonly value: string };
+}
+
 interface GeneratedLazyIou {
     readonly contractId: string;
     readonly issuer: string;
@@ -366,6 +437,10 @@ function opaqueTemplateId() {
 
 function lazyTemplateId() {
     return { packageId: "sample-hash", moduleName: "Sample.Lazy", entityName: "Iou" };
+}
+
+function genericTemplateId() {
+    return { packageId: "sample-hash", moduleName: "Sample.Generic", entityName: "GenericIou" };
 }
 
 function iouJsonPayload() {
