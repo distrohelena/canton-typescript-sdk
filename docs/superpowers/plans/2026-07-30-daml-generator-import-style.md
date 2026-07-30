@@ -30,7 +30,7 @@ Assert direct generator/default project emission uses `esm`; CLI omitted option 
 
 - [ ] **Step 2: Run focused tests red**
 
-Run: `npm test -- tests/unit/daml-interface/daml-interface-cli.test.ts tests/unit/daml-interface/project-emitter.test.ts`
+Run: `npm test -- tests/unit/daml-interface/daml-interface-cli.test.ts tests/unit/daml-interface/project-emitter.test.ts tests/integration/daml-interface/daml-interface-generator.integration.test.ts`
 
 Expected: FAIL because import style does not exist.
 
@@ -51,7 +51,7 @@ Export the type/class from `daml-interface/index.ts`. Add `moduleImportStyle?: D
 
 - [ ] **Step 4: Verify and commit**
 
-Run focused tests, scoped ESLint, and `npm run build`.
+Run `npm test -- tests/unit/daml-interface/daml-interface-cli.test.ts tests/unit/daml-interface/project-emitter.test.ts tests/integration/daml-interface/daml-interface-generator.integration.test.ts`, scoped ESLint, and `npm run build`.
 
 Commit: `feat: add DAML generator import style option`.
 
