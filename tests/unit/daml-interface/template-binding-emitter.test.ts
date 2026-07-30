@@ -111,6 +111,31 @@ describe("TemplateBindingEmitter", () => {
         expect(contents).not.toContain("readonly payload: unknown;");
     });
 
+    it("parenthesizes union list elements so readonly arrays preserve DAML precedence", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({ packageId: "sample-hash", moduleName: "Main", templateName: "Lists" }),
+            className: "Lists",
+            fileName: "lists.ts",
+            createFields: [new AnalyzedTemplateField({
+                name: "values",
+                propertyName: "values",
+                type: {
+                    kind: "list",
+                    element: {
+                        kind: "optional",
+                        element: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                    },
+                },
+            })],
+            choices: [],
+        });
+
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template).contents;
+
+        expect(contents).toContain("readonly values: readonly (string | undefined)[];");
+        expect(contents).not.toContain("readonly values: readonly string | undefined[];");
+    });
+
     it("keeps legacy ContractId targets opaque while emitting string descriptors and types", () => {
         const externalHolding = new DamlLfType({
             typeConReference: new TypeConReference({

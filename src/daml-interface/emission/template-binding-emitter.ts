@@ -347,7 +347,7 @@ export class TemplateBindingEmitter {
             case "optional":
                 return `${this.getTypeName(type.element, namedReferences, runtimeWrapperTypeNames)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, namedReferences, runtimeWrapperTypeNames)}[]`;
+                return `readonly ${this.getArrayElementTypeName(type.element, namedReferences, runtimeWrapperTypeNames)}[]`;
             case "textMap":
                 return `ReadonlyMap<string, ${this.getTypeName(type.value, namedReferences, runtimeWrapperTypeNames)}>`;
             case "genMap":
@@ -370,6 +370,18 @@ export class TemplateBindingEmitter {
                         this.getTypeName(argument, namedReferences, runtimeWrapperTypeNames)).join(", ")}>`;
             }
         }
+    }
+
+    private getArrayElementTypeName(
+        type: AnalyzedDamlType,
+        namedReferences: ReadonlyMap<string, ResolvedNamedReference>,
+        runtimeWrapperTypeNames: RuntimeWrapperTypeNames,
+    ): string {
+        const name = this.getTypeName(type, namedReferences, runtimeWrapperTypeNames);
+
+        return type.kind === "optional" || type.kind === "variant" || type.kind === "enum"
+            ? `(${name})`
+            : name;
     }
 
     private getPrimitiveTypeName(

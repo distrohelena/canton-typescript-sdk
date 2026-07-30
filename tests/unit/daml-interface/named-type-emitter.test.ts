@@ -77,6 +77,27 @@ describe("NamedTypeEmitter", () => {
         expect(file.contents).toContain("readonly marker: DamlUnit;");
     });
 
+    it("parenthesizes union list elements so readonly arrays preserve DAML precedence", () => {
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([{
+            identity: new TypeConReference({ packageId: "sample-hash", moduleName: "Main", name: "OptionalList" }),
+            kind: "record",
+            fields: [{
+                damlLabel: "values",
+                propertyName: "values",
+                type: {
+                    kind: "list",
+                    element: {
+                        kind: "optional",
+                        element: { kind: "primitive", builtinType: DamlLfBuiltinType.text },
+                    },
+                },
+            }],
+        }])[0];
+
+        expect(file.contents).toContain("readonly values: readonly (string | undefined)[];");
+        expect(file.contents).not.toContain("readonly values: readonly string | undefined[];");
+    });
+
     it("aliases every external named reference by full identity so A.Foo resolves B.Foo", async () => {
         const reference = (moduleName: string) => new TypeConReference({
             packageId: "sample-hash",

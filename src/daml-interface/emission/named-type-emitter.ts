@@ -360,7 +360,7 @@ export class NamedTypeEmitter {
             case "optional":
                 return `${this.getTypeName(type.element, definition, names, externalTypeAliases, typeParameterNames)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, definition, names, externalTypeAliases, typeParameterNames)}[]`;
+                return `readonly ${this.getArrayElementTypeName(type.element, definition, names, externalTypeAliases, typeParameterNames)}[]`;
             case "textMap":
                 return `ReadonlyMap<string, ${this.getTypeName(type.value, definition, names, externalTypeAliases, typeParameterNames)}>`;
             case "genMap":
@@ -384,6 +384,20 @@ export class NamedTypeEmitter {
                         this.getTypeName(argument, definition, names, externalTypeAliases, typeParameterNames)).join(", ")}>`;
             }
         }
+    }
+
+    private getArrayElementTypeName(
+        type: AnalyzedDamlType,
+        definition: AnalyzedDamlTypeDefinition,
+        names: ReadonlyMap<string, string>,
+        externalTypeAliases: ExternalTypeAliases,
+        typeParameterNames: TypeParameterNames,
+    ): string {
+        const name = this.getTypeName(type, definition, names, externalTypeAliases, typeParameterNames);
+
+        return type.kind === "optional" || type.kind === "variant" || type.kind === "enum"
+            ? `(${name})`
+            : name;
     }
 
     private getPrimitiveTypeName(type: DamlLfBuiltinType): string {
