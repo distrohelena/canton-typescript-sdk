@@ -96,7 +96,7 @@ Cover both output representations from the same analyzed type:
 expect(samples.emitLedgerExpressionOrThrow(nodeText, context)).toContain(
     'next: null',
 );
-expect(() => samples.emitLedgerValueOrThrow(strictLoop, context)).toThrow(
+expect(() => samples.emitLedgerExpressionOrThrow(strictLoop, context)).toThrow(
     "Sample.Module:Loop",
 );
 ```
@@ -109,7 +109,7 @@ Expected: FAIL because the emitter does not exist.
 
 - [ ] **Step 3: Implement separate sample emitters in one static class**
 
-Implement `GeneratedTestSampleEmitter` as a static-only class. Its public static operations separately return TypeScript-expression source and JSON-ledger-expression source; tests assert emitted source, not materialized JavaScript objects. Ledger optionals terminate as literal `null`, never `undefined`. Do not expose module-level functions. Carry an immutable context containing a definition index keyed by identity, lexical generic bindings, generated module/export names, resolved record-property aliases from `GeneratedNamedTypeFile`, expanded type identities, and path segments. At the depth boundary, search through named references for only an optional/empty collection/finite variant escape. If none exists, throw `DamlInterfaceEmissionError` (or the repository’s existing emission error type) with identity and path.
+Implement `GeneratedTestSampleEmitter` as a static-only class. Its exact public operations are `emitTypeScriptExpressionOrThrow(...)` and `emitLedgerExpressionOrThrow(...)`; both return source expressions and tests assert emitted source, not materialized JavaScript objects. Ledger optionals terminate as literal `null`, never `undefined`. Do not expose module-level functions. Carry an immutable context containing a definition index keyed by identity, lexical generic bindings, generated module/export names, resolved record-property aliases from `GeneratedNamedTypeFile`, expanded type identities, and path segments. At the depth boundary, search through named references for only an optional/empty collection/finite variant escape. If none exists, throw the existing `DamlInterfaceUnsupportedShapeException` with the DAML identity and value path.
 
 Implement helpers for all analyzed descriptor kinds, including `typeVariable` lookup and named references with concrete type arguments. Resolve named declarations through the definition index and emit collision-safe module/export references using the supplied named-type metadata. Emit source imports through explicit dependency collection rather than hard-coding generated package paths.
 
@@ -148,7 +148,7 @@ Use the materialization, generic-recursive, collision, and opaque-contract-ID fi
 - named-type specs include compile-time `satisfies` assignments for records,
   every enum literal, every variant constructor, and at least one concrete
   application of each generic declaration;
-- support, registry, namespace, and index specs import and exercise their corresponding generated module;
+- support, registry, namespace, and index specs import and exercise their corresponding generated module; type-only `generated/support/runtime.ts` and `contracts.ts` specs instead use `import type` compile-time assertions plus a minimal passing `node:test`, because their public declarations have no runtime values;
 - generated specs never mention unresolved external types where the production module intentionally uses `string` contract IDs.
 
 - [ ] **Step 2: Run the focused tests to verify failure**
