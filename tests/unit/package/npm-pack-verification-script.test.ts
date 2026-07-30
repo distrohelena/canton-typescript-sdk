@@ -72,7 +72,7 @@ describe("npm publish metadata", () => {
             "canton-localnet-stop": "node/stop-local.sh",
         });
         expect(packageJson.scripts?.build).toBe(
-            "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+            "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/write-cjs-package.mjs",
         );
         expect(packageJson.scripts?.["test:stop-local-script"]).toBe(
             "bash node/test-stop-local.sh",

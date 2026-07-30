@@ -36,39 +36,47 @@
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
+            "import": "./dist/index.js",
+            "require": "./dist/cjs/index.js"
         },
         "./daml-interface": {
             "types": "./dist/daml-interface/index.d.ts",
-            "import": "./dist/daml-interface/index.js"
+            "import": "./dist/daml-interface/index.js",
+            "require": "./dist/cjs/daml-interface/index.js"
         },
         "./daml-lf": {
             "types": "./dist/daml-lf/index.d.ts",
-            "import": "./dist/daml-lf/index.js"
+            "import": "./dist/daml-lf/index.js",
+            "require": "./dist/cjs/daml-lf/index.js"
         },
         "./debugger": {
             "types": "./dist/debugger/index.d.ts",
-            "import": "./dist/debugger/index.js"
+            "import": "./dist/debugger/index.js",
+            "require": "./dist/cjs/debugger/index.js"
         },
         "./grpc": {
             "types": "./dist/grpc/index.d.ts",
-            "import": "./dist/grpc/index.js"
+            "import": "./dist/grpc/index.js",
+            "require": "./dist/cjs/grpc/index.js"
         },
         "./protobuf": {
             "types": "./dist/protobuf/index.d.ts",
-            "import": "./dist/protobuf/index.js"
+            "import": "./dist/protobuf/index.js",
+            "require": "./dist/cjs/protobuf/index.js"
         },
         "./json": {
             "types": "./dist/json/index.d.ts",
-            "import": "./dist/json/index.js"
+            "import": "./dist/json/index.js",
+            "require": "./dist/cjs/json/index.js"
         },
         "./testing": {
             "types": "./dist/testing/index.d.ts",
-            "import": "./dist/testing/index.js"
+            "import": "./dist/testing/index.js",
+            "require": "./dist/cjs/testing/index.js"
         }
     },
     "scripts": {
-        "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+        "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/write-cjs-package.mjs",
         "generate:daml-interface": "node ./dist/daml-interface/cli/daml-interface-cli-main.js",
         "generate:grpc": "node ./scripts/generate-grpc-bindings.mjs",
         "lint": "eslint . --max-warnings=0",

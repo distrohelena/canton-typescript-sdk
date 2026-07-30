@@ -1,0 +1,10 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "declaration": false,
+        "module": "CommonJS",
+        "moduleResolution": "Node",
+        "outDir": "dist/cjs"
+    },
+    "exclude": ["src/daml-interface/cli/daml-interface-cli-main.ts"]
+}
