@@ -19,6 +19,8 @@ type ResolvedModule = ModuleIdentity & {
 
 type ExternalTypeAliases = ReadonlyMap<string, string>;
 
+type TypeParameterNames = ReadonlyMap<string, string>;
+
 /** Emits TypeScript declarations for reachable named DAML records, variants, and enums. */
 export class NamedTypeEmitter {
     public constructor(
@@ -78,6 +80,12 @@ export class NamedTypeEmitter {
                 names,
             );
 
+            const typeParameterNames = this.resolveTypeParameterNames(
+                moduleDefinitions,
+                names,
+                externalTypeAliases,
+            );
+
             const imports = this.emitImports(
                 module,
                 moduleDefinitions,
@@ -92,7 +100,7 @@ export class NamedTypeEmitter {
                     ...imports,
                     ...(imports.length === 0 ? [] : [""]),
                     ...moduleDefinitions.map((definition) =>
-                        this.emitDefinition(definition, names, externalTypeAliases, fieldPropertyNames)),
+                        this.emitDefinition(definition, names, externalTypeAliases, fieldPropertyNames, typeParameterNames)),
                     "",
                 ].join("\n"),
                 packageId: module.packageId,
@@ -119,21 +127,26 @@ export class NamedTypeEmitter {
         names: ReadonlyMap<string, string>,
         externalTypeAliases: ExternalTypeAliases,
         fieldPropertyNames: ReadonlyMap<string, string>,
+        typeParameterNames: TypeParameterNames,
     ): string {
         const name = this.getDefinitionName(definition, names);
 
+        const parameters = this.getDefinitionTypeParameters(definition, typeParameterNames);
+
+        const declarationName = `${name}${parameters.length === 0 ? "" : `<${parameters.join(", ")}>`}`;
+
         if (definition.kind === "record") {
             return [
-                `export interface ${name} {`,
+                `export interface ${declarationName} {`,
                 ...definition.fields.map((field, index) =>
-                    `    readonly ${this.getFieldPropertyName(definition, index, fieldPropertyNames)}: ${this.getTypeName(field.type, names, externalTypeAliases)};`),
+                    `    readonly ${this.getFieldPropertyName(definition, index, fieldPropertyNames)}: ${this.getTypeName(field.type, definition, names, externalTypeAliases, typeParameterNames)};`),
                 "}",
             ].join("\n");
         } else if (definition.kind === "variant") {
             return [
-                `export type ${name} =`,
+                `export type ${declarationName} =`,
                 ...definition.constructors.map((constructor) =>
-                    `    | { readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, names, externalTypeAliases)}; }`),
+                    `    | { readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, definition, names, externalTypeAliases, typeParameterNames)}; }`),
             ].map((line, index, lines) => index === lines.length - 1 ? `${line};` : line).join("\n");
         }
 
@@ -287,6 +300,10 @@ export class NamedTypeEmitter {
             case "namedReference":
                 yield type;
 
+                for (const typeArgument of type.typeArguments ?? []) {
+                    yield* this.getNamedReferences(typeArgument);
+                }
+
                 return;
             case "contractId": return;
             case "optional":
@@ -324,8 +341,10 @@ export class NamedTypeEmitter {
 
     private getTypeName(
         type: AnalyzedDamlType,
+        definition: AnalyzedDamlTypeDefinition,
         names: ReadonlyMap<string, string>,
         externalTypeAliases: ExternalTypeAliases,
+        typeParameterNames: TypeParameterNames,
     ): string {
         switch (type.kind) {
             case "primitive":
@@ -333,25 +352,31 @@ export class NamedTypeEmitter {
             case "contractId":
                 return "string";
             case "optional":
-                return `${this.getTypeName(type.element, names, externalTypeAliases)} | undefined`;
+                return `${this.getTypeName(type.element, definition, names, externalTypeAliases, typeParameterNames)} | undefined`;
             case "list":
-                return `readonly ${this.getTypeName(type.element, names, externalTypeAliases)}[]`;
+                return `readonly ${this.getTypeName(type.element, definition, names, externalTypeAliases, typeParameterNames)}[]`;
             case "textMap":
-                return `ReadonlyMap<string, ${this.getTypeName(type.value, names, externalTypeAliases)}>`;
+                return `ReadonlyMap<string, ${this.getTypeName(type.value, definition, names, externalTypeAliases, typeParameterNames)}>`;
             case "genMap":
-                return `ReadonlyMap<${this.getTypeName(type.key, names, externalTypeAliases)}, ${this.getTypeName(type.value, names, externalTypeAliases)}>`;
+                return `ReadonlyMap<${this.getTypeName(type.key, definition, names, externalTypeAliases, typeParameterNames)}, ${this.getTypeName(type.value, definition, names, externalTypeAliases, typeParameterNames)}>`;
             case "record":
             case "variant":
             case "enum":
                 throw new Error("Named DAML declarations must not contain anonymous record, variant, or enum shapes");
             case "typeVariable":
-                throw new Error("Cannot emit generic DAML type variables");
-            case "namedReference":
-                return externalTypeAliases.get(this.getDefinitionKey(
+                return this.getTypeParameterName(definition, type, typeParameterNames);
+            case "namedReference": {
+                const name = externalTypeAliases.get(this.getDefinitionKey(
                     type.identity.packageId,
                     type.identity.moduleName,
                     type.identity.name,
                 )) ?? this.getNamedReferenceTypeName(type.identity, names);
+
+                return (type.typeArguments?.length ?? 0) === 0
+                    ? name
+                    : `${name}<${(type.typeArguments ?? []).map((argument) =>
+                        this.getTypeName(argument, definition, names, externalTypeAliases, typeParameterNames)).join(", ")}>`;
+            }
         }
     }
 
@@ -376,6 +401,98 @@ export class NamedTypeEmitter {
             default:
                 throw new Error(`Cannot emit unsupported primitive DAML type '${type}'`);
         }
+    }
+
+    private resolveTypeParameterNames(
+        definitions: readonly AnalyzedDamlTypeDefinition[],
+        names: ReadonlyMap<string, string>,
+        externalTypeAliases: ExternalTypeAliases,
+    ): TypeParameterNames {
+        const values = definitions.flatMap((definition) => this.getTypeParameters(definition).map((parameter) => ({
+            definition,
+            parameter,
+        })));
+
+        const moduleBindings = new Set<string>([
+            ...definitions.map((definition) => this.getDefinitionName(definition, names)),
+            ...externalTypeAliases.values(),
+        ]);
+
+        for (const definition of definitions) {
+            for (const runtimeType of this.getRuntimePrimitiveTypes(definition)) {
+                moduleBindings.add(runtimeType);
+            }
+        }
+
+        const reservedNamesByDefinition = new Map<string, ReadonlySet<string>>(
+            definitions.map((definition) => [
+                this.getDefinitionKey(
+                    definition.identity.packageId,
+                    definition.identity.moduleName,
+                    definition.identity.name,
+                ),
+                moduleBindings,
+            ]),
+        );
+
+        const resolved = this.resolveCollisionSafeNames(
+            values,
+            ({ parameter }) => this.safeTypeName(parameter.name ?? `T${parameter.internedStringIndex}`),
+            ({ definition }) => this.getDefinitionKey(
+                definition.identity.packageId,
+                definition.identity.moduleName,
+                definition.identity.name,
+            ),
+            "_",
+            reservedNamesByDefinition,
+        );
+
+        return new Map(values.map((value) => [
+            this.getTypeParameterKey(value.definition, value.parameter.internedStringIndex),
+            resolved.get(value)!,
+        ]));
+    }
+
+    private getDefinitionTypeParameters(
+        definition: AnalyzedDamlTypeDefinition,
+        typeParameterNames: TypeParameterNames,
+    ): readonly string[] {
+        return this.getTypeParameters(definition).map((parameter) =>
+            this.getTypeParameterName(definition, parameter, typeParameterNames));
+    }
+
+    private getTypeParameterName(
+        definition: AnalyzedDamlTypeDefinition,
+        parameter: { readonly internedStringIndex: number },
+        typeParameterNames: TypeParameterNames,
+    ): string {
+        const name = typeParameterNames.get(this.getTypeParameterKey(
+            definition,
+            parameter.internedStringIndex,
+        ));
+
+        if (name === undefined) {
+            throw new Error(`Cannot resolve generic parameter '${parameter.internedStringIndex}' for '${definition.identity.name}'`);
+        }
+
+        return name;
+    }
+
+    private getTypeParameters(
+        definition: AnalyzedDamlTypeDefinition,
+    ): readonly import("../../daml-lf/model/daml-lf-data-type.js").DamlLfTypeParameter[] {
+        return definition.kind === "enum" ? [] : definition.typeParameters ?? [];
+    }
+
+    private getTypeParameterKey(
+        definition: AnalyzedDamlTypeDefinition,
+        internedStringIndex: number,
+    ): string {
+        return `${this.getDefinitionKey(
+            definition.identity.packageId,
+            definition.identity.moduleName,
+            definition.identity.name,
+        )}\u0000type-parameter\u0000${internedStringIndex}`;
     }
 
     private resolveModulesOrThrow(
@@ -727,7 +844,12 @@ export class NamedTypeEmitter {
                 return;
             case "enum":
             case "typeVariable":
+                return;
             case "namedReference":
+                for (const typeArgument of type.typeArguments ?? []) {
+                    yield* this.getRuntimePrimitiveTypes(typeArgument);
+                }
+
                 return;
         }
     }

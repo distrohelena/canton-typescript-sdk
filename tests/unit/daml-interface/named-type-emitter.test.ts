@@ -199,6 +199,123 @@ describe("NamedTypeEmitter", () => {
         expect(file?.contents).toContain("readonly holding: string;");
         expect(file?.contents).not.toContain("import type");
     });
+
+    it("emits generic record and variant declarations with applied named references", () => {
+        const reference = (name: string) => new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name,
+        });
+
+        const typeVariable = {
+            kind: "typeVariable" as const,
+            name: "T",
+            internedStringIndex: 0,
+        };
+
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([
+            {
+                identity: reference("Box"),
+                kind: "record",
+                typeParameters: [{ name: "T", internedStringIndex: 0, kind: { kind: "star" } }],
+                fields: [{ damlLabel: "value", propertyName: "value", type: typeVariable }],
+            },
+            {
+                identity: reference("Result"),
+                kind: "variant",
+                typeParameters: [{ name: "T", internedStringIndex: 0, kind: { kind: "star" } }],
+                constructors: [{ constructor: "Success", payload: typeVariable }],
+            },
+            {
+                identity: reference("Holder"),
+                kind: "record",
+                typeParameters: [],
+                fields: [{
+                    damlLabel: "boxed-result",
+                    propertyName: "boxedResult",
+                    type: {
+                        kind: "namedReference",
+                        identity: reference("Box"),
+                        typeArguments: [{
+                            kind: "namedReference",
+                            identity: reference("Result"),
+                            typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.text }],
+                        }],
+                    },
+                }, {
+                    damlLabel: "boxed-date",
+                    propertyName: "boxedDate",
+                    type: {
+                        kind: "namedReference",
+                        identity: reference("Box"),
+                        typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.date }],
+                    },
+                }],
+            },
+        ])[0];
+
+        expect(file.contents).toContain('import type { DamlDate } from "../../../support/runtime.js";');
+        expect(file.contents).toContain("export interface Box<T> {");
+        expect(file.contents).toContain("readonly value: T;");
+        expect(file.contents).toContain("export type Result<T> =");
+        expect(file.contents).toContain('readonly value: T; };');
+        expect(file.contents).toContain("readonly boxedResult: Box<Result<string>>;");
+        expect(file.contents).toContain("readonly boxedDate: Box<DamlDate>;");
+    });
+
+    it("renames generic parameters that collide with imported and runtime type symbols", () => {
+        const reference = (name: string, moduleName = "Main") => new TypeConReference({
+            packageId: "sample-hash",
+            moduleName,
+            name,
+        });
+
+        const file = new NamedTypeEmitter().emitNamedTypeFiles([
+            {
+                identity: reference("Box"),
+                kind: "record",
+                typeParameters: [
+                    { name: "DamlDate", internedStringIndex: 0, kind: { kind: "star" } },
+                    { name: "Amount", internedStringIndex: 1, kind: { kind: "star" } },
+                ],
+                fields: [
+                    {
+                        damlLabel: "date-value",
+                        propertyName: "dateValue",
+                        type: { kind: "typeVariable", name: "DamlDate", internedStringIndex: 0 },
+                    },
+                    {
+                        damlLabel: "amount-value",
+                        propertyName: "amountValue",
+                        type: { kind: "typeVariable", name: "Amount", internedStringIndex: 1 },
+                    },
+                    {
+                        damlLabel: "date",
+                        propertyName: "date",
+                        type: { kind: "primitive", builtinType: DamlLfBuiltinType.date },
+                    },
+                    {
+                        damlLabel: "external-amount",
+                        propertyName: "externalAmount",
+                        type: { kind: "namedReference", identity: reference("Amount", "Other"), typeArguments: [] },
+                    },
+                ],
+            },
+            {
+                identity: reference("Amount", "Other"),
+                kind: "record",
+                typeParameters: [],
+                fields: [],
+            },
+        ])[0];
+
+        expect(file.contents).toContain('import type { Amount } from "../other/types.js";');
+        expect(file.contents).toContain("export interface Box<DamlDateType, AmountType> {");
+        expect(file.contents).toContain("readonly dateValue: DamlDateType;");
+        expect(file.contents).toContain("readonly amountValue: AmountType;");
+        expect(file.contents).toContain("readonly date: DamlDate;");
+        expect(file.contents).toContain("readonly externalAmount: Amount;");
+    });
 });
 
 function definitions(): readonly AnalyzedDamlTypeDefinition[] {

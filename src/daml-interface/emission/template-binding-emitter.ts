@@ -278,7 +278,7 @@ export class TemplateBindingEmitter {
             case "typeVariable":
                 throw new Error("Cannot emit generic DAML type variables");
             case "namedReference":
-                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} } }`;
+                return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} }, typeArguments: [${(type.typeArguments ?? []).map((argument) => this.emitDescriptor(argument)).join(", ")}] }`;
         }
     }
 
@@ -308,8 +308,14 @@ export class TemplateBindingEmitter {
                 return type.constructors.map((constructor) => JSON.stringify(constructor)).join(" | ");
             case "typeVariable":
                 throw new Error("Cannot emit generic DAML type variables");
-            case "namedReference":
-                return this.getNamedReference(type.identity, namedReferences).alias;
+            case "namedReference": {
+                const name = this.getNamedReference(type.identity, namedReferences).alias;
+
+                return (type.typeArguments?.length ?? 0) === 0
+                    ? name
+                    : `${name}<${(type.typeArguments ?? []).map((argument) =>
+                        this.getTypeName(argument, namedReferences)).join(", ")}>`;
+            }
         }
     }
 
@@ -403,6 +409,7 @@ export class TemplateBindingEmitter {
             const file = namedTypeFiles.find((candidate) =>
                 candidate.packageId === reference.identity.packageId
                 && candidate.moduleName === reference.identity.moduleName);
+
             const exportedName = file?.exportedTypeNamesByIdentity.get(key);
 
             if (exportedName !== undefined) {
@@ -416,6 +423,7 @@ export class TemplateBindingEmitter {
         for (const [key, reference] of [...identities.entries()].sort(([, left], [, right]) => {
             const leftIsLocal = left.identity.packageId === template.templateId.packageId
                 && left.identity.moduleName === template.templateId.moduleName;
+
             const rightIsLocal = right.identity.packageId === template.templateId.packageId
                 && right.identity.moduleName === template.templateId.moduleName;
 
@@ -444,6 +452,7 @@ export class TemplateBindingEmitter {
 
             const isLocal = reference.identity.packageId === template.templateId.packageId
                 && reference.identity.moduleName === template.templateId.moduleName;
+
             const baseAlias = exportedNameCounts.get(exportedName) === 1 || isLocal
                 ? exportedName
                 : this.toTypeName(`${file.namespaceAlias} ${exportedName}`);
@@ -488,9 +497,14 @@ export class TemplateBindingEmitter {
 
     private *walkNamedReferences(type: AnalyzedDamlType): Iterable<NamedReference> {
         switch (type.kind) {
-            case "namedReference": yield type;
+            case "namedReference":
+                yield type;
 
-            return;
+                for (const typeArgument of type.typeArguments ?? []) {
+                    yield* this.walkNamedReferences(typeArgument);
+                }
+
+                return;
             case "contractId": return;
             case "optional":
             case "list": yield* this.walkNamedReferences(type.element);
@@ -513,7 +527,8 @@ export class TemplateBindingEmitter {
 
             return;
             case "primitive":
-            case "enum": return;
+            case "enum":
+            case "typeVariable": return;
         }
     }
 

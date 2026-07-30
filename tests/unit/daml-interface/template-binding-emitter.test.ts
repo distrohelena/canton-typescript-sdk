@@ -235,4 +235,78 @@ describe("TemplateBindingEmitter", () => {
         expect(contents).toContain("import type { Archive } from");
         expect(contents).not.toContain("426b9f3a906de72556356a5233e7ffbe4a985f143594f76bd7464f33df48da3cOzTokenKernelBurn");
     });
+
+    it("emits applied named types and imports references nested in their type arguments", () => {
+        const box = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Types",
+            name: "Box",
+        });
+
+        const amount = new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Types",
+            name: "Amount",
+        });
+
+        const boxOfAmount = {
+            kind: "namedReference" as const,
+            identity: box,
+            typeArguments: [{
+                kind: "namedReference" as const,
+                identity: amount,
+                typeArguments: [],
+            }],
+        };
+
+        const boxOfText = {
+            kind: "namedReference" as const,
+            identity: box,
+            typeArguments: [{ kind: "primitive" as const, builtinType: DamlLfBuiltinType.text }],
+        };
+
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "GenericFields",
+            }),
+            className: "GenericFields",
+            fileName: "generic-fields.ts",
+            createFields: [new AnalyzedTemplateField({
+                name: "value",
+                propertyName: "value",
+                type: boxOfAmount,
+            })],
+            choices: [new AnalyzedChoice({
+                name: "Use",
+                methodName: "exerciseUse",
+                parameterName: "value",
+                parameterType: boxOfAmount,
+                returnType: boxOfText,
+            })],
+        });
+
+        const typeFile = new GeneratedNamedTypeFile({
+            path: "generated/packages/sample-hash/types/types.ts",
+            contents: "",
+            packageId: "sample-hash",
+            moduleName: "Types",
+            namespaceAlias: "SampleHashTypes",
+            exportedTypeNames: ["Box", "Amount"],
+            exportedTypeNamesByIdentity: new Map([
+                ["sample-hash\u0000Types\u0000Box", "Box"],
+                ["sample-hash\u0000Types\u0000Amount", "Amount"],
+            ]),
+        });
+
+        const contents = new TemplateBindingEmitter().emitTemplateFile(template, [typeFile]).contents;
+
+        expect(contents).toContain('import type { Amount, Box } from "../types/types.js";');
+        expect(contents).not.toContain("Box<Amount> as");
+        expect(contents).toContain("readonly value: Box<Amount>;");
+        expect(contents).toContain("public readonly argument: Box<Amount>;");
+        expect(contents).toContain("public readonly result: Box<string>;");
+        expect(contents).toContain('type: { kind: "namedReference", identity: { packageId: "sample-hash", moduleName: "Types", entityName: "Box" }, typeArguments: [{ kind: "namedReference", identity: { packageId: "sample-hash", moduleName: "Types", entityName: "Amount" }, typeArguments: [] }] }');
+    });
 });
