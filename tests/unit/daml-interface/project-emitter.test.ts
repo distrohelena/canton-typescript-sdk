@@ -45,11 +45,13 @@ describe("ProjectEmitter", () => {
 
         expect(descriptors?.contents).toContain("export class GeneratedDamlTypeDescriptorRegistry");
         expect(descriptors?.contents).toContain('"sample-hash:Main:Node"');
-        expect(descriptors?.contents).toContain("const generatedDamlTypeDescriptorFactories: Readonly<Record<string, () => DamlTypeDescriptor>> = Object.freeze({");
+        expect(descriptors?.contents).toContain("const generatedDamlTypeDescriptorFactories: Readonly<Record<string, (typeArguments: readonly DamlTypeDescriptor[]) => DamlTypeDescriptor>> = Object.freeze({");
         expect(descriptors?.contents).toContain("Object.freeze({");
-        expect(descriptors?.contents).toContain("() => deepFreeze({");
+        expect(descriptors?.contents).toContain("(typeArguments) => {");
+        expect(descriptors?.contents).toContain("return deepFreeze({");
         expect(descriptors?.contents).toContain("`${identity.packageId}:${identity.moduleName}:${identity.entityName}`");
         expect(descriptors?.contents).toContain('kind: "namedReference"');
+        expect(descriptors?.contents).toContain("typeArguments: []");
         expect(descriptors?.contents).not.toContain("\\u0000");
         expect((descriptors?.contents.match(/"sample-hash:Main:Node"/g) ?? [])).toHaveLength(1);
     });
@@ -244,8 +246,8 @@ describe("ProjectEmitter", () => {
 
         const binding = project.templateFiles[0].contents;
 
-        expect(binding).toContain('import type { NodeType as SampleHashMainNodeType } from "./types.js";');
-        expect(binding).toContain("readonly next: SampleHashMainNodeType;");
+        expect(binding).toContain('import type { NodeType } from "./types.js";');
+        expect(binding).toContain("readonly next: NodeType;");
         expect(binding).not.toContain("readonly next: Node;");
     });
 
@@ -348,8 +350,8 @@ async function writeDescriptorRuntimeDeclaration(outputDirectory: string): Promi
         "    | { readonly kind: \"primitive\"; readonly primitive: string; readonly numericScale?: number }",
         "    | { readonly kind: \"optional\"; readonly element: DamlTypeDescriptor }",
         "    | { readonly kind: \"record\"; readonly fields: readonly { readonly damlLabel: string; readonly propertyName: string; readonly type: DamlTypeDescriptor }[] }",
-        "    | { readonly kind: \"namedReference\"; readonly identity: DamlTypeIdentity };",
-        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined };",
+        "    | { readonly kind: \"namedReference\"; readonly identity: DamlTypeIdentity; readonly typeArguments: readonly DamlTypeDescriptor[] };",
+        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity, typeArguments: readonly DamlTypeDescriptor[]) => DamlTypeDescriptor | undefined };",
         "",
     ].join("\n"), "utf8");
 }
@@ -377,7 +379,7 @@ async function writeGeneratedSdkTypeStub(outputDirectory: string): Promise<void>
         "export type DamlNormalizedExercisedEvent = any;",
         "export type DamlTypeDescriptor = unknown;",
         "export type DamlTypeIdentity = { readonly packageId: string; readonly moduleName: string; readonly entityName: string; };",
-        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity) => (() => DamlTypeDescriptor) | undefined; };",
+        "export type DamlTypeDescriptorRegistry = { readonly resolve: (identity: DamlTypeIdentity, typeArguments: readonly DamlTypeDescriptor[]) => DamlTypeDescriptor | undefined; };",
         "export declare class DamlValueConverter { static decode(...args: readonly unknown[]): unknown; }",
         "export declare class DamlValueMaterializer { static materialize<T>(value: unknown): T; }",
         "export declare class DamlEventSourceNormalizer { static normalizeCreated(source: unknown): any; static normalizeExercised(source: unknown): any; }",

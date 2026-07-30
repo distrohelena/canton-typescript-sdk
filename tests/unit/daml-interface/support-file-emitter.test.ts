@@ -3,6 +3,12 @@ import { ModuleKind, ScriptTarget, transpileModule } from "typescript";
 import { DamlLfBuiltinType } from "../../../src/daml-lf/model/daml-lf-builtin-type.js";
 import { TypeConReference } from "../../../src/daml-lf/model/type-con-reference.js";
 import { DamlInterfaceAnalysisResult } from "../../../src/daml-interface/analysis/daml-interface-analyzer.js";
+import {
+    DamlRecord,
+    DamlTypeDescriptor,
+    DamlTypeDescriptorRegistry,
+    DamlValueConverter,
+} from "../../../src/daml-interface/index.js";
 import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
 import { GeneratedNamedTypeFile } from "../../../src/daml-interface/emission-model/generated-named-type-file.js";
 import { GeneratedTemplateBinding } from "../../../src/daml-interface/emission-model/generated-template-binding.js";
@@ -252,9 +258,7 @@ describe("SupportFileEmitter", () => {
                 compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2022 },
             }).outputText,
         ).toString("base64")}`) as {
-            GeneratedDamlTypeDescriptorRegistry: {
-                resolve(identity: { packageId: string; moduleName: string; entityName: string }, typeArguments: readonly unknown[]): unknown;
-            };
+            GeneratedDamlTypeDescriptorRegistry: DamlTypeDescriptorRegistry;
         };
 
         const left = module.GeneratedDamlTypeDescriptorRegistry.resolve({
@@ -267,6 +271,27 @@ describe("SupportFileEmitter", () => {
 
         expect(left.fields[0]?.type.element.identity.entityName).toBe("Right");
         expect(left.fields[0]?.type.element.typeArguments[0]?.primitive).toBe("text");
+
+        const decoded = DamlValueConverter.decode(
+            {
+                kind: "json",
+                value: { right: { value: "child", left: { right: null } } },
+            },
+            {
+                kind: "namedReference",
+                identity: { packageId: "sample-hash", moduleName: "Main", entityName: "Left" },
+                typeArguments: [{ kind: "primitive", primitive: "text" }],
+            } satisfies DamlTypeDescriptor,
+            module.GeneratedDamlTypeDescriptorRegistry,
+            "Left",
+        );
+
+        expect(decoded).toEqual(new DamlRecord({
+            right: new DamlRecord({
+                value: "child",
+                left: new DamlRecord({ right: undefined }),
+            }),
+        }));
     });
 
     it("emits target-free ContractId descriptors", () => {
