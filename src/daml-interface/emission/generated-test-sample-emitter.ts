@@ -157,8 +157,11 @@ export class GeneratedTestSampleEmitter {
                 return state.representation === "ledger"
                     ? `{ "sample-key": ${this.emit(type.value, this.descend(state, "sample-key"))} }`
                     : `new Map([["sample-key", ${this.emit(type.value, this.descend(state, "sample-key"))}]])`;
-            case "genMap":
-                return `[[${this.emit(type.key, this.descend(state, "[0].key"))}, ${this.emit(type.value, this.descend(state, "[0].value"))}]]`;
+            case "genMap": {
+                const entry = `[${this.emit(type.key, this.descend(state, "[0].key"))}, ${this.emit(type.value, this.descend(state, "[0].value"))}]`;
+
+                return state.representation === "ledger" ? `[${entry}]` : `new Map([${entry}])`;
+            }
             case "record":
                 return this.emitRecord(type.fields, state);
             case "variant":
@@ -189,7 +192,7 @@ export class GeneratedTestSampleEmitter {
             case "textMap":
                 return state.representation === "ledger" ? "{}" : "new Map()";
             case "genMap":
-                return "[]";
+                return state.representation === "ledger" ? "[]" : "new Map()";
             case "record": {
                 const fields: string[] = [];
 

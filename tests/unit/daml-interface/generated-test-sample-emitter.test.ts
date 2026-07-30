@@ -89,6 +89,45 @@ describe("GeneratedTestSampleEmitter", () => {
         expect(GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(optional, sampleContext())).toBe("undefined");
     });
 
+    it("emits generic maps as TypeScript ReadonlyMap samples and ledger pair arrays", async () => {
+        const genericMap = {
+            kind: "genMap" as const,
+            key: { kind: "primitive" as const, builtinType: DamlLfBuiltinType.text },
+            value: { kind: "primitive" as const, builtinType: DamlLfBuiltinType.bool },
+        };
+
+        const typeScriptExpression = GeneratedTestSampleEmitter.emitTypeScriptExpressionOrThrow(
+            genericMap,
+            sampleContext(),
+        );
+
+        expect(typeScriptExpression).toBe('new Map([["sample text", true]])');
+        expect(GeneratedTestSampleEmitter.emitLedgerExpressionOrThrow(genericMap, sampleContext()))
+            .toBe('[["sample text", true]]');
+
+        const directory = await mkdtemp(join(tmpdir(), "daml-sample-genmap-"));
+
+        try {
+            const sourcePath = join(directory, "gen-map.ts");
+
+            await writeFile(sourcePath, [
+                `const sample: ReadonlyMap<string, boolean> = ${typeScriptExpression};`,
+                "void sample;",
+            ].join("\n"), "utf8");
+            execFileSync(process.execPath, [
+                "./node_modules/typescript/bin/tsc",
+                "--noEmit",
+                "--target", "ES2022",
+                "--module", "NodeNext",
+                "--moduleResolution", "NodeNext",
+                "--skipLibCheck",
+                sourcePath,
+            ], { cwd: process.cwd(), stdio: "inherit" });
+        } finally {
+            await rm(directory, { recursive: true, force: true });
+        }
+    });
+
     it("instantiates generic named records independently and uses resolved record aliases", () => {
         const node = identity("Node");
 
