@@ -42,6 +42,11 @@ export class GeneratedSpecEmitter {
 
         const binding = file.binding;
 
+        imports.reserveLocalNames([
+            binding.className,
+            ...binding.choices.map((choice) => choice.exercisedEventTypeName),
+        ]);
+
         const sampleContext = this.sampleContext(project, analysis, imports);
 
         const expectedFields = binding.createFields.map((field) => ({

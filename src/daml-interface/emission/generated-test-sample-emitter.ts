@@ -23,6 +23,13 @@ export class GeneratedTestSampleImportCollector {
             || left.exportedName.localeCompare(right.exportedName));
     }
 
+    /** Reserves local identifiers already declared by the generated spec module. */
+    public reserveLocalNames(names: readonly string[]): void {
+        for (const name of names) {
+            this.localNames.add(name);
+        }
+    }
+
     public addRuntime(exportedName: string): string {
         return this.add("@distrohelena/canton-typescript-sdk/daml-interface", exportedName, exportedName, false);
     }
@@ -270,9 +277,7 @@ export class GeneratedTestSampleEmitter {
                     return "{}";
                 }
 
-                state.imports?.addRuntime("DamlUnit");
-
-                return "new DamlUnit()";
+                return `new ${state.imports?.addRuntime("DamlUnit") ?? "DamlUnit"}()`;
             case DamlLfBuiltinType.bool:
                 return "true";
             case DamlLfBuiltinType.int64:
@@ -282,17 +287,13 @@ export class GeneratedTestSampleEmitter {
                     return "1";
                 }
 
-                state.imports?.addRuntime("DamlDate");
-
-                return "new DamlDate(1)";
+                return `new ${state.imports?.addRuntime("DamlDate") ?? "DamlDate"}(1)`;
             case DamlLfBuiltinType.timestamp:
                 if (state.representation === "ledger") {
                     return '"1000000"';
                 }
 
-                state.imports?.addRuntime("DamlTimestamp");
-
-                return 'new DamlTimestamp("1000000")';
+                return `new ${state.imports?.addRuntime("DamlTimestamp") ?? "DamlTimestamp"}("1000000")`;
             case DamlLfBuiltinType.numeric: {
                 const numeric = numericScale === undefined || numericScale === 0
                     ? "1"
@@ -302,18 +303,14 @@ export class GeneratedTestSampleEmitter {
                     return JSON.stringify(numeric);
                 }
 
-                state.imports?.addRuntime("DamlNumeric");
-
-                return `new DamlNumeric(${JSON.stringify(numeric)})`;
+                return `new ${state.imports?.addRuntime("DamlNumeric") ?? "DamlNumeric"}(${JSON.stringify(numeric)})`;
             }
             case DamlLfBuiltinType.party:
                 if (state.representation === "ledger") {
                     return '"Alice"';
                 }
 
-                state.imports?.addRuntime("DamlParty");
-
-                return 'new DamlParty("Alice")';
+                return `new ${state.imports?.addRuntime("DamlParty") ?? "DamlParty"}("Alice")`;
             case DamlLfBuiltinType.text:
                 return '"sample text"';
             default:
@@ -479,27 +476,17 @@ export class GeneratedTestSampleEmitter {
             case "primitive":
                 switch (type.builtinType) {
                     case DamlLfBuiltinType.unit:
-                        state.imports?.addRuntime("DamlUnit");
-
-                        return "DamlUnit";
+                        return state.imports?.addRuntime("DamlUnit") ?? "DamlUnit";
                     case DamlLfBuiltinType.bool: return "boolean";
                     case DamlLfBuiltinType.int64: return "bigint";
                     case DamlLfBuiltinType.date:
-                        state.imports?.addRuntime("DamlDate");
-
-                        return "DamlDate";
+                        return state.imports?.addRuntime("DamlDate") ?? "DamlDate";
                     case DamlLfBuiltinType.timestamp:
-                        state.imports?.addRuntime("DamlTimestamp");
-
-                        return "DamlTimestamp";
+                        return state.imports?.addRuntime("DamlTimestamp") ?? "DamlTimestamp";
                     case DamlLfBuiltinType.numeric:
-                        state.imports?.addRuntime("DamlNumeric");
-
-                        return "DamlNumeric";
+                        return state.imports?.addRuntime("DamlNumeric") ?? "DamlNumeric";
                     case DamlLfBuiltinType.party:
-                        state.imports?.addRuntime("DamlParty");
-
-                        return "DamlParty";
+                        return state.imports?.addRuntime("DamlParty") ?? "DamlParty";
                     case DamlLfBuiltinType.text: return "string";
                     default: throw this.uninhabitable(state.path, type);
                 }
