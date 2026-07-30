@@ -1,5 +1,6 @@
 import { DamlInterfaceAnalysisResult } from "../analysis/daml-interface-analyzer.js";
 import { GeneratedDamlInterfaceProject } from "../emission-model/generated-daml-interface-project.js";
+import { GeneratedSpecEmitter } from "./generated-spec-emitter.js";
 import { NamedTypeEmitter } from "./named-type-emitter.js";
 import { RegistryEmitter } from "./registry-emitter.js";
 import { SupportFileEmitter } from "./support-file-emitter.js";
@@ -70,12 +71,21 @@ export class ProjectEmitter {
             projectWithRegistry,
         );
 
+        const project = new GeneratedDamlInterfaceProject({
+            templateFiles,
+            namedTypeFiles,
+            supportFiles,
+            registryFile,
+            indexFile,
+        });
+
         return new GeneratedDamlInterfaceProject({
             templateFiles,
             namedTypeFiles,
             supportFiles,
             registryFile,
             indexFile,
+            specFiles: GeneratedSpecEmitter.emitSpecFiles(project, analysis),
         });
     }
 }

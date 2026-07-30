@@ -40,6 +40,9 @@ describe("ProjectEmitter", () => {
         expect(project.namedTypeFiles.map((file) => file.path)).toEqual([
             "generated/packages/sample-hash/main/types.ts",
         ]);
+        expect(project.specFiles.map((file) => file.path)).toEqual(
+            project.productionFiles.map((file) => file.path.replace(/\.ts$/, ".spec.ts")),
+        );
 
         const descriptors = project.supportFiles.find((file) => file.path === "generated/support/descriptors.ts");
 
