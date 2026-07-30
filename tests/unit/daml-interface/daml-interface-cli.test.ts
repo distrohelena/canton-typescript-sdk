@@ -5,6 +5,7 @@ import { DamlInterfaceCliOptions } from "../../../src/daml-interface/cli/daml-in
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 import { DamlInterfaceGenerationException } from "../../../src/daml-interface/errors/daml-interface-generation.exception.js";
+import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 
 describe("DamlInterfaceCli", () => {
     it("parses input and output options", () => {
@@ -70,12 +71,17 @@ describe("DamlInterfaceCli", () => {
             writeProjectAsync: vi.fn(async () => undefined),
         } as unknown as DamlInterfaceWriter;
 
-        const readFileAsync = vi.fn(async () => new Uint8Array([1, 2, 3]));
+        const archiveBytes = SampleLfPackageFixture.createLf2ArchiveBytes();
+
+        const readFileAsync = vi.fn(async () => archiveBytes);
+
+        const createGenerator = vi.fn();
 
         const exitCode = await new DamlInterfaceCli(
             generator,
             writer,
             readFileAsync,
+            createGenerator,
         ).runAsync([
             "--input",
             "sample.dalf",
@@ -86,9 +92,49 @@ describe("DamlInterfaceCli", () => {
         expect(exitCode).toBe(0);
         expect(readFileAsync).toHaveBeenCalledWith("sample.dalf");
         expect(generator.generateFromDalfOrThrowAsync).toHaveBeenCalled();
+        expect(createGenerator).not.toHaveBeenCalled();
         expect(writer.writeProjectAsync).toHaveBeenCalledWith(
             project,
             "generated",
+        );
+    });
+
+    it("constructs a configured generator when one is not injected", async () => {
+        const project = new GeneratedDamlInterfaceProject({ templateFiles: [] });
+
+        const generator = {
+            generateFromDalfOrThrowAsync: vi.fn(async () => project),
+        } as unknown as DamlInterfaceGenerator;
+
+        const createGenerator = vi.fn(() => generator);
+
+        const writer = {
+            writeProjectAsync: vi.fn(async () => undefined),
+        } as unknown as DamlInterfaceWriter;
+
+        const archiveBytes = SampleLfPackageFixture.createLf2ArchiveBytes();
+
+        const readFileAsync = vi.fn(async () => archiveBytes);
+
+        await new DamlInterfaceCli(
+            undefined,
+            writer,
+            readFileAsync,
+            createGenerator,
+        ).runAsync([
+            "--input",
+            "sample.dalf",
+            "--output",
+            "generated",
+            "--module-import-style",
+            "ts-node",
+        ]);
+
+        expect(createGenerator).toHaveBeenCalledWith(expect.objectContaining({
+            moduleImportStyle: "ts-node",
+        }));
+        expect(generator.generateFromDalfOrThrowAsync).toHaveBeenCalledWith(
+            archiveBytes,
         );
     });
 });

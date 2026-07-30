@@ -13,6 +13,31 @@ import { ProjectEmitter } from "../../../src/daml-interface/emission/project-emi
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 
 describe("ProjectEmitter", () => {
+    it("uses ESM relative imports when emitProject receives no import style", () => {
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Iou",
+            }),
+            className: "Iou",
+            fileName: "iou.ts",
+            createFields: [],
+            choices: [],
+        });
+
+        const project = new ProjectEmitter().emitProject(
+            new DamlInterfaceAnalysisResult({
+                templates: [template],
+                typeDefinitions: [],
+            }),
+        );
+
+        expect(project.templateFiles[0]?.contents).toContain(
+            'from "../../../support/descriptors.js";',
+        );
+    });
+
     it("emits named declarations and one lazy descriptor registry for every reachable identity", () => {
         const identity = new TypeConReference({
             packageId: "sample-hash",

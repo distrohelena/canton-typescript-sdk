@@ -6,6 +6,10 @@ import { DamlInterfaceGenerationException } from "../errors/daml-interface-gener
 import { DamlInterfaceCliOptions } from "./daml-interface-cli-options.js";
 import { DamlInterfaceWriter } from "../writing/daml-interface-writer.js";
 
+type DamlInterfaceGeneratorFactory = (
+    options: DamlInterfaceGeneratorOptions,
+) => DamlInterfaceGenerator;
+
 export class DamlInterfaceCli {
     public constructor(
         private readonly generator: DamlInterfaceGenerator | undefined = undefined,
@@ -13,16 +17,19 @@ export class DamlInterfaceCli {
         private readonly readFileAsync: (
             path: string,
         ) => Promise<Uint8Array> = readFile,
+        private readonly createGenerator: DamlInterfaceGeneratorFactory = (options) =>
+            new DamlInterfaceGenerator(options),
     ) {
         void this.writer;
         void this.readFileAsync;
+        void this.createGenerator;
     }
 
     /** Runs the DAML interface CLI and returns a process exit code. */
     public async runAsync(args: readonly string[]): Promise<number> {
         const options = DamlInterfaceCliOptions.parseOrThrow(args);
 
-        const generator = this.generator ?? new DamlInterfaceGenerator(
+        const generator = this.generator ?? this.createGenerator(
             new DamlInterfaceGeneratorOptions({
                 moduleImportStyle: options.moduleImportStyle,
             }),
