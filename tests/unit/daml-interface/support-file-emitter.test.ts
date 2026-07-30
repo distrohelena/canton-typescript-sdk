@@ -207,7 +207,9 @@ describe("SupportFileEmitter", () => {
 
     it("retains type arguments through mutually recursive generic references", async () => {
         const leftIdentity = new TypeConReference({ packageId: "sample-hash", moduleName: "Main", name: "Left" });
+
         const rightIdentity = new TypeConReference({ packageId: "sample-hash", moduleName: "Main", name: "Right" });
+
         const typeParameter = { name: "T", internedStringIndex: 0, kind: { kind: "star" as const } };
 
         const descriptorFile = new SupportFileEmitter().emitSupportFiles(
