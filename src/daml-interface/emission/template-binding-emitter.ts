@@ -275,6 +275,8 @@ export class TemplateBindingEmitter {
                 return `{ kind: "variant", constructors: [${type.constructors.map((constructor) => `{ constructor: ${JSON.stringify(constructor.constructor)}, payload: ${this.emitDescriptor(constructor.payload)} }`).join(", ")}] }`;
             case "enum":
                 return `{ kind: "enum", constructors: [${type.constructors.map((constructor) => JSON.stringify(constructor)).join(", ")}] }`;
+            case "typeVariable":
+                throw new Error("Cannot emit generic DAML type variables");
             case "namedReference":
                 return `{ kind: "namedReference", identity: { packageId: ${JSON.stringify(type.identity.packageId)}, moduleName: ${JSON.stringify(type.identity.moduleName)}, entityName: ${JSON.stringify(type.identity.name)} } }`;
         }
@@ -304,6 +306,8 @@ export class TemplateBindingEmitter {
                     `{ readonly tag: ${JSON.stringify(constructor.constructor)}; readonly value: ${this.getTypeName(constructor.payload, namedReferences)}; }`).join(" | ");
             case "enum":
                 return type.constructors.map((constructor) => JSON.stringify(constructor)).join(" | ");
+            case "typeVariable":
+                throw new Error("Cannot emit generic DAML type variables");
             case "namedReference":
                 return this.getNamedReference(type.identity, namedReferences).alias;
         }
@@ -333,7 +337,11 @@ export class TemplateBindingEmitter {
 
             return { kind: "contractId" };
         } else if (type.typeConReference !== undefined) {
-            return { kind: "namedReference", identity: type.typeConReference };
+            return {
+                kind: "namedReference",
+                identity: type.typeConReference,
+                typeArguments: type.typeArguments.map((argument) => this.normalizeType(argument)),
+            };
         }
 
         const arguments_ = type.typeArguments.map((argument) => this.normalizeType(argument));

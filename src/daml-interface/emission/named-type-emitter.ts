@@ -317,6 +317,7 @@ export class NamedTypeEmitter {
                 return;
             case "primitive":
             case "enum":
+            case "typeVariable":
                 return;
         }
     }
@@ -343,6 +344,8 @@ export class NamedTypeEmitter {
             case "variant":
             case "enum":
                 throw new Error("Named DAML declarations must not contain anonymous record, variant, or enum shapes");
+            case "typeVariable":
+                throw new Error("Cannot emit generic DAML type variables");
             case "namedReference":
                 return externalTypeAliases.get(this.getDefinitionKey(
                     type.identity.packageId,
@@ -723,6 +726,7 @@ export class NamedTypeEmitter {
 
                 return;
             case "enum":
+            case "typeVariable":
             case "namedReference":
                 return;
         }

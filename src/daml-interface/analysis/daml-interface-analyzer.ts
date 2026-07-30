@@ -1,7 +1,10 @@
 import { DamlLfCompilation } from "../../daml-lf/daml-lf-compilation.js";
 import { DamlLfBuiltinType } from "../../daml-lf/model/daml-lf-builtin-type.js";
 import { DamlLfChoice } from "../../daml-lf/model/daml-lf-choice.js";
-import { DamlLfDataType } from "../../daml-lf/model/daml-lf-data-type.js";
+import {
+    DamlLfDataType,
+    DamlLfTypeParameter,
+} from "../../daml-lf/model/daml-lf-data-type.js";
 import { DamlLfField } from "../../daml-lf/model/daml-lf-field.js";
 import { DamlLfTemplate } from "../../daml-lf/model/daml-lf-template.js";
 import { DamlLfType } from "../../daml-lf/model/daml-lf-type.js";
@@ -173,15 +176,45 @@ class AnalyzedDamlTypeBuilder {
         private readonly toCamelCase: (value: string) => string,
     ) {}
 
-    public buildOrThrow(type: DamlLfType, context: string): AnalyzedDamlType {
-        if (type.typeConReference !== undefined) {
-            if (type.builtinType !== DamlLfBuiltinType.unknown) {
-                throw this.unsupported(context, "a type constructor cannot also be a builtin type");
-            } else if (type.typeArguments.length !== 0) {
-                throw this.unsupported(context, "generic named type applications are not supported");
+    public buildOrThrow(
+        type: DamlLfType,
+        context: string,
+        typeParameters: ReadonlyMap<number, DamlLfTypeParameter> = new Map(),
+    ): AnalyzedDamlType {
+        if (type.diagnosticForall !== undefined) {
+            throw this.unsupported(context, "retained forall types are not supported");
+        } else if (type.typeVariable !== undefined) {
+            if (type.typeArguments.length !== 0) {
+                throw this.unsupported(context, "applied type variables are not supported");
             }
 
-            return this.buildNamedReferenceOrThrow(type.typeConReference, context);
+            const parameter = typeParameters.get(
+                type.typeVariable.internedStringIndex,
+            );
+
+            if (parameter === undefined) {
+                throw this.unsupported(
+                    context,
+                    `unbound type variable '${this.getTypeVariableName(type.typeVariable)}'`,
+                );
+            }
+
+            return Object.freeze({
+                kind: "typeVariable" as const,
+                ...(parameter.name === undefined ? {} : { name: parameter.name }),
+                internedStringIndex: parameter.internedStringIndex,
+            });
+        } else if (type.typeConReference !== undefined) {
+            if (type.builtinType !== DamlLfBuiltinType.unknown) {
+                throw this.unsupported(context, "a type constructor cannot also be a builtin type");
+            }
+
+            return this.buildNamedReferenceOrThrow(
+                type.typeConReference,
+                type.typeArguments,
+                context,
+                typeParameters,
+            );
         }
 
         switch (type.builtinType) {
@@ -230,25 +263,25 @@ class AnalyzedDamlTypeBuilder {
             case DamlLfBuiltinType.optional:
                 return Object.freeze({
                     kind: "optional" as const,
-                    element: this.buildUnaryArgumentOrThrow(type, context),
+                    element: this.buildUnaryArgumentOrThrow(type, context, typeParameters),
                 });
             case DamlLfBuiltinType.list:
                 return Object.freeze({
                     kind: "list" as const,
-                    element: this.buildUnaryArgumentOrThrow(type, context),
+                    element: this.buildUnaryArgumentOrThrow(type, context, typeParameters),
                 });
             case DamlLfBuiltinType.textMap:
                 return Object.freeze({
                     kind: "textMap" as const,
-                    value: this.buildUnaryArgumentOrThrow(type, context),
+                    value: this.buildUnaryArgumentOrThrow(type, context, typeParameters),
                 });
             case DamlLfBuiltinType.genMap:
                 this.assertArgumentCountOrThrow(type, 2, context);
 
                 return Object.freeze({
                     kind: "genMap" as const,
-                    key: this.buildOrThrow(type.typeArguments[0], context),
-                    value: this.buildOrThrow(type.typeArguments[1], context),
+                    key: this.buildOrThrow(type.typeArguments[0], context, typeParameters),
+                    value: this.buildOrThrow(type.typeArguments[1], context, typeParameters),
                 });
             case DamlLfBuiltinType.unknown:
                 throw this.unsupported(context, "the type is not serializable");
@@ -272,54 +305,63 @@ class AnalyzedDamlTypeBuilder {
     private buildUnaryArgumentOrThrow(
         type: DamlLfType,
         context: string,
+        typeParameters: ReadonlyMap<number, DamlLfTypeParameter>,
     ): AnalyzedDamlType {
         this.assertArgumentCountOrThrow(type, 1, context);
 
-        return this.buildOrThrow(type.typeArguments[0], context);
+        return this.buildOrThrow(type.typeArguments[0], context, typeParameters);
     }
 
     private buildNamedReferenceOrThrow(
         reference: TypeConReference,
+        typeArguments: readonly DamlLfType[],
         context: string,
+        typeParameters: ReadonlyMap<number, DamlLfTypeParameter>,
     ): AnalyzedDamlType {
         const key = this.getDefinitionKey(reference);
 
         const identity = this.getCanonicalIdentity(reference, key);
+
+        const dataType = this.getDataTypeOrThrow(reference, context);
+
+        this.assertSupportedDataTypeParametersOrThrow(dataType, context);
+        this.assertNamedArgumentCountOrThrow(typeArguments, dataType, context);
+
+        const analyzedTypeArguments = Object.freeze(typeArguments.map((argument) =>
+            this.buildOrThrow(argument, context, typeParameters)
+        ));
 
         if (!this.definitions.has(key)) {
             this.definitionKeys.push(key);
             this.definitions.set(key, undefined);
             this.definitions.set(
                 key,
-                this.buildNamedDefinitionOrThrow(reference, identity, context),
+                this.buildNamedDefinitionOrThrow(
+                    reference,
+                    identity,
+                    dataType,
+                ),
             );
         }
 
         return Object.freeze({
             kind: "namedReference" as const,
             identity,
+            typeArguments: analyzedTypeArguments,
         });
     }
 
     private buildNamedDefinitionOrThrow(
         reference: TypeConReference,
         identity: TypeConReference,
-        context: string,
+        dataType: DamlLfDataType,
     ): AnalyzedDamlTypeDefinition {
-        let dataType: DamlLfDataType;
-
-        try {
-            dataType = this.semanticModel.getDataTypeOrThrow(reference);
-        } catch {
-            throw this.unsupported(
-                context,
-                `could not resolve named type '${reference.packageId}:${reference.moduleName}:${reference.name}'`,
-            );
-        }
+        const typeParameters = this.createTypeParameterScope(dataType.typeParameters);
 
         if (dataType.definition.kind === "record") {
             return Object.freeze({
                 identity,
+                typeParameters: Object.freeze([...dataType.typeParameters]),
                 kind: "record" as const,
                 fields: Object.freeze(dataType.definition.fields.map((field) =>
                     Object.freeze({
@@ -328,6 +370,7 @@ class AnalyzedDamlTypeBuilder {
                         type: this.buildOrThrow(
                             field.type,
                             `field '${field.name}' of record '${reference.name}'`,
+                            typeParameters,
                         ),
                     })
                 )),
@@ -335,6 +378,7 @@ class AnalyzedDamlTypeBuilder {
         } else if (dataType.definition.kind === "variant") {
             return Object.freeze({
                 identity,
+                typeParameters: Object.freeze([...dataType.typeParameters]),
                 kind: "variant" as const,
                 constructors: Object.freeze(
                     dataType.definition.constructors.map((constructor) =>
@@ -343,6 +387,7 @@ class AnalyzedDamlTypeBuilder {
                             payload: this.buildOrThrow(
                                 constructor.type,
                                 `constructor '${constructor.name}' of variant '${reference.name}'`,
+                                typeParameters,
                             ),
                         })
                     ),
@@ -368,6 +413,75 @@ class AnalyzedDamlTypeBuilder {
                 `builtin '${type.builtinType}' requires ${expectedCount} type argument${expectedCount === 1 ? "" : "s"}`,
             );
         }
+    }
+
+    private getDataTypeOrThrow(
+        reference: TypeConReference,
+        context: string,
+    ): DamlLfDataType {
+        try {
+            return this.semanticModel.getDataTypeOrThrow(reference);
+        } catch {
+            throw this.unsupported(
+                context,
+                `could not resolve named type '${reference.packageId}:${reference.moduleName}:${reference.name}'`,
+            );
+        }
+    }
+
+    private assertSupportedDataTypeParametersOrThrow(
+        dataType: DamlLfDataType,
+        context: string,
+    ): void {
+        if (
+            dataType.definition.kind === "enum" &&
+            dataType.typeParameters.length !== 0
+        ) {
+            throw this.unsupported(context, "generic enums are not supported");
+        }
+
+        for (const parameter of dataType.typeParameters) {
+            if (parameter.kind.kind !== "star") {
+                throw this.unsupported(
+                    context,
+                    `type parameter '${this.getTypeParameterName(parameter)}' must have kind '*'`,
+                );
+            }
+        }
+    }
+
+    private assertNamedArgumentCountOrThrow(
+        typeArguments: readonly DamlLfType[],
+        dataType: DamlLfDataType,
+        context: string,
+    ): void {
+        const expectedCount = dataType.typeParameters.length;
+
+        if (typeArguments.length !== expectedCount) {
+            throw this.unsupported(
+                context,
+                `named type '${dataType.name}' requires ${expectedCount} type argument${expectedCount === 1 ? "" : "s"}`,
+            );
+        }
+    }
+
+    private createTypeParameterScope(
+        parameters: readonly DamlLfTypeParameter[],
+    ): ReadonlyMap<number, DamlLfTypeParameter> {
+        return new Map(parameters.map((parameter) => [
+            parameter.internedStringIndex,
+            parameter,
+        ]));
+    }
+
+    private getTypeVariableName(
+        typeVariable: { readonly name?: string; readonly internedStringIndex: number },
+    ): string {
+        return typeVariable.name ?? `#${typeVariable.internedStringIndex}`;
+    }
+
+    private getTypeParameterName(parameter: DamlLfTypeParameter): string {
+        return parameter.name ?? `#${parameter.internedStringIndex}`;
     }
 
     private getDefinitionKey(reference: TypeConReference): string {

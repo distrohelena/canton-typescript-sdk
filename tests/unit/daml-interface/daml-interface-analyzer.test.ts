@@ -360,7 +360,257 @@ describe("DamlInterfaceAnalyzer", () => {
             `${definition.identity.packageId}:${definition.identity.moduleName}:${definition.identity.name}`,
         )).size).toBe(result.typeDefinitions.length);
     });
+
+    it("analyzes Box<Text> choice types with one star-kind parameter", () => {
+        const typeParameter = {
+            name: "a",
+            internedStringIndex: 1,
+            kind: { kind: "star" as const },
+        };
+
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "Box",
+                    typeParameters: [typeParameter],
+                    fields: [
+                        new DamlLfField({
+                            name: "value",
+                            type: new DamlLfType({
+                                typeVariable: {
+                                    name: "a",
+                                    internedStringIndex: 1,
+                                },
+                            }),
+                        }),
+                    ],
+                }),
+            ],
+            choiceParameterType: namedType("Box", [textType()]),
+            choiceReturnType: namedType("Box", [textType()]),
+        });
+
+        const result = new DamlInterfaceAnalyzer().analyzeOrThrow(compilation);
+
+        expect(result.templates[0].choices[0]).toMatchObject({
+            parameterType: {
+                kind: "namedReference",
+                identity: { name: "Box" },
+                typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.text }],
+            },
+            returnType: {
+                kind: "namedReference",
+                identity: { name: "Box" },
+                typeArguments: [{ kind: "primitive", builtinType: DamlLfBuiltinType.text }],
+            },
+        });
+        expect(result.typeDefinitions).toEqual([
+            {
+                identity: new TypeConReference({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    name: "Box",
+                }),
+                typeParameters: [typeParameter],
+                kind: "record",
+                fields: [
+                    {
+                        damlLabel: "value",
+                        propertyName: "value",
+                        type: {
+                            kind: "typeVariable",
+                            name: "a",
+                            internedStringIndex: 1,
+                        },
+                    },
+                ],
+            },
+        ]);
+    });
+
+    it("rejects unbound type variables in named record fields", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "BrokenBox",
+                    fields: [
+                        new DamlLfField({
+                            name: "value",
+                            type: new DamlLfType({
+                                typeVariable: {
+                                    name: "missing",
+                                    internedStringIndex: 9,
+                                },
+                            }),
+                        }),
+                    ],
+                }),
+            ],
+            choiceParameterType: namedType("BrokenBox"),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/field 'value' of record 'BrokenBox'.*unbound type variable 'missing'/);
+    });
+
+    it("rejects retained forall types in choice return context", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [],
+            choiceReturnType: new DamlLfType({
+                diagnosticForall: {
+                    typeParameters: [],
+                    body: textType(),
+                },
+            }),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/choice return type 'UseBox'.*forall/);
+    });
+
+    it("rejects non-star generic named type parameters", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "NatBox",
+                    typeParameters: [{
+                        name: "n",
+                        internedStringIndex: 2,
+                        kind: { kind: "nat" },
+                    }],
+                    fields: [],
+                }),
+            ],
+            choiceParameterType: namedType("NatBox", [textType()]),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/choice parameter 'input'.*type parameter 'n'.*kind '\*'/);
+    });
+
+    it("rejects generic enums", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "GenericStatus",
+                    typeParameters: [{
+                        name: "a",
+                        internedStringIndex: 3,
+                        kind: { kind: "star" },
+                    }],
+                    definition: {
+                        kind: "enum",
+                        constructors: ["Pending"],
+                    },
+                }),
+            ],
+            choiceParameterType: namedType("GenericStatus", [textType()]),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/choice parameter 'input'.*generic enum/);
+    });
+
+    it("rejects generic named type applications with the wrong arity", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "Box",
+                    typeParameters: [{
+                        name: "a",
+                        internedStringIndex: 1,
+                        kind: { kind: "star" },
+                    }],
+                    fields: [],
+                }),
+            ],
+            choiceReturnType: namedType("Box"),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/choice return type 'UseBox'.*requires 1 type argument/);
+    });
 });
+
+function textType(): DamlLfType {
+    return new DamlLfType({ builtinType: DamlLfBuiltinType.text });
+}
+
+function namedType(
+    name: string,
+    typeArguments: readonly DamlLfType[] = [],
+): DamlLfType {
+    return new DamlLfType({
+        typeConReference: new TypeConReference({
+            packageId: "sample-hash",
+            moduleName: "Main",
+            name,
+        }),
+        typeArguments,
+    });
+}
+
+function createGenericNamedTypeCompilation(init: {
+    dataTypes: readonly DamlLfDataType[];
+    choiceParameterType?: DamlLfType;
+    choiceReturnType?: DamlLfType;
+}): DamlLfCompilation {
+    const packageId = "sample-hash";
+
+    const moduleName = "Main";
+
+    const templateName = "TradeOrder";
+
+    const fields: readonly DamlLfField[] = [];
+
+    const template = new DamlLfTemplate({
+        templateId: new DamlLfTemplateId({
+            packageId,
+            moduleName,
+            templateName,
+        }),
+        name: templateName,
+        parameterName: "self",
+        fields,
+        choices: [
+            new DamlLfChoice({
+                name: "UseBox",
+                selfBinderName: "self",
+                parameter: new DamlLfChoiceParameter({
+                    name: "input",
+                    type: init.choiceParameterType ?? textType(),
+                }),
+                returnType: init.choiceReturnType ?? textType(),
+            }),
+        ],
+    });
+
+    return DamlLfCompilation.createOrThrow(
+        new DamlLfWorkspace([
+            new DamlLfPackage({
+                packageId,
+                packageName: "sample-package",
+                packageVersion: "1.0.0",
+                languageVersion: {
+                    major: 2,
+                    minor: "1",
+                    patch: 0,
+                    toString: () => "2.1",
+                },
+                modules: [
+                    new DamlLfModule({
+                        name: moduleName,
+                        definitions: [
+                            ...init.dataTypes,
+                            new DamlLfDataType({ name: templateName, fields }),
+                            template,
+                        ],
+                    }),
+                ],
+            }),
+        ]),
+    );
+}
 
 function createCompilation(init: {
     templateName: string;

@@ -66,9 +66,16 @@ export type AnalyzedDamlEnumType = {
     readonly constructors: readonly string[];
 };
 
+export type AnalyzedDamlTypeVariableType = {
+    readonly kind: "typeVariable";
+    readonly name?: string;
+    readonly internedStringIndex: number;
+};
+
 export type AnalyzedDamlNamedReferenceType = {
     readonly kind: "namedReference";
     readonly identity: TypeConReference;
+    readonly typeArguments: readonly AnalyzedDamlType[];
 };
 
 /** Closed, immutable description of a DAML value serializable by the generator. */
@@ -82,4 +89,5 @@ export type AnalyzedDamlType =
     | AnalyzedDamlRecordType
     | AnalyzedDamlVariantType
     | AnalyzedDamlEnumType
+    | AnalyzedDamlTypeVariableType
     | AnalyzedDamlNamedReferenceType;
