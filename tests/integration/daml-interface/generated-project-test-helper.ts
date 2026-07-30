@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DamlInterfaceCli } from "../../../src/daml-interface/cli/daml-interface-cli.js";
 import { DamlInterfaceGenerator } from "../../../src/daml-interface/daml-interface-generator.js";
+import { DamlInterfaceGeneratorOptions } from "../../../src/daml-interface/daml-interface-generator-options.js";
 import { GeneratedDamlInterfaceProject } from "../../../src/daml-interface/emission-model/generated-daml-interface-project.js";
 import { DamlInterfaceWriter } from "../../../src/daml-interface/writing/daml-interface-writer.js";
 
@@ -63,6 +64,62 @@ export async function generateTemporaryProjectFromDarAsync(
     }
 }
 
+/** Generates a CommonJS project whose extensionless source imports execute through plain ts-node. */
+export async function generateTsNodeTemporaryProjectAsync(
+    archiveBytes: Uint8Array,
+): Promise<GeneratedTemporaryProject> {
+    buildSdkOrThrow();
+
+    const project = await new DamlInterfaceGenerator(
+        new DamlInterfaceGeneratorOptions({ moduleImportStyle: "ts-node" }),
+    ).generateFromDalfOrThrowAsync(archiveBytes);
+
+    const directory = await mkdtemp(join(tmpdir(), "daml-generated-ts-node-project-"));
+
+    try {
+        await new DamlInterfaceWriter().writeProjectAsync(project, directory);
+
+        return await finalizeTsNodeTemporaryProjectAsync(directory, project);
+    } catch (error) {
+        await rm(directory, { recursive: true, force: true });
+
+        throw error;
+    }
+}
+
+/** Generates a DAR project through the ts-node CLI path and executes its source through plain ts-node. */
+export async function generateTsNodeTemporaryProjectFromDarAsync(
+    darPath: string,
+): Promise<GeneratedTemporaryProject> {
+    buildSdkOrThrow();
+
+    const archiveBytes = await readFile(darPath);
+
+    const project = await new DamlInterfaceGenerator(
+        new DamlInterfaceGeneratorOptions({ moduleImportStyle: "ts-node" }),
+    ).generateFromDarOrThrowAsync(archiveBytes);
+
+    const directory = await mkdtemp(join(tmpdir(), "daml-generated-ts-node-project-"));
+
+    try {
+        const exitCode = await new DamlInterfaceCli().runAsync([
+            "--input", darPath,
+            "--output", directory,
+            "--module-import-style", "ts-node",
+        ]);
+
+        if (exitCode !== 0) {
+            throw new Error(`DAML interface CLI failed with exit code ${exitCode}`);
+        }
+
+        return await finalizeTsNodeTemporaryProjectAsync(directory, project);
+    } catch (error) {
+        await rm(directory, { recursive: true, force: true });
+
+        throw error;
+    }
+}
+
 export class GeneratedTemporaryProject {
     public constructor(
         public readonly directory: string,
@@ -86,6 +143,20 @@ async function finalizeTemporaryProjectAsync(
     compileNodeNextProjectOrThrow(directory);
 
     const executedSpecPaths = await executeCompiledGeneratedSpecsOrThrow(directory);
+
+    return new GeneratedTemporaryProject(directory, project, executedSpecPaths);
+}
+
+async function finalizeTsNodeTemporaryProjectAsync(
+    directory: string,
+    project: GeneratedDamlInterfaceProject,
+): Promise<GeneratedTemporaryProject> {
+    await writeCommonJsTsNodeProjectFiles(directory);
+    await linkSdkPackage(directory);
+    await assertGeneratedSpecCoverageOrThrow(directory, project);
+    requireGeneratedTsNodeSourcesOrThrow(directory, project);
+
+    const executedSpecPaths = executeTsNodeGeneratedSpecsOrThrow(directory, project);
 
     return new GeneratedTemporaryProject(directory, project, executedSpecPaths);
 }
@@ -127,6 +198,29 @@ async function writeNodeNextProjectFiles(
         include: ["generated/**/*.ts", "generated/**/*.spec.ts", "consumer.ts"],
     }, undefined, 2));
     await writeFile(join(directory, "consumer.ts"), consumerSource ?? "export {};\n");
+}
+
+async function writeCommonJsTsNodeProjectFiles(directory: string): Promise<void> {
+    await writeFile(join(directory, "package.json"), JSON.stringify({
+        name: "generated-daml-interface-ts-node-integration-project",
+        private: true,
+        type: "commonjs",
+        dependencies: {
+            "@distrohelena/canton-typescript-sdk": `file:${process.cwd()}`,
+        },
+    }, undefined, 2));
+    await writeFile(join(directory, "tsconfig.json"), JSON.stringify({
+        compilerOptions: {
+            target: "ES2022",
+            module: "CommonJS",
+            moduleResolution: "Node",
+            strict: true,
+            skipLibCheck: true,
+            esModuleInterop: true,
+            types: ["node"],
+        },
+        include: ["generated/**/*.ts", "generated/**/*.spec.ts"],
+    }, undefined, 2));
 }
 
 async function linkSdkPackage(directory: string): Promise<void> {
@@ -194,6 +288,71 @@ async function executeCompiledGeneratedSpecsOrThrow(directory: string): Promise<
     }
 
     return Object.freeze(specPaths);
+}
+
+function requireGeneratedTsNodeSourcesOrThrow(
+    directory: string,
+    project: GeneratedDamlInterfaceProject,
+): void {
+    const sourcePaths = [
+        project.indexFile?.path,
+        ...project.templateFiles.map((file) => file.path),
+    ].filter((path): path is string => path !== undefined).map((path) => join(directory, path));
+
+    try {
+        execFileSync(process.execPath, [
+            "-r", getTsNodeRegisterPath(),
+            "-e", "for (const sourcePath of process.argv.slice(1)) require(sourcePath);",
+            ...sourcePaths,
+        ], {
+            cwd: directory,
+            env: { ...process.env, TS_NODE_TRANSPILE_ONLY: "true" },
+            stdio: "pipe",
+        });
+    } catch (error) {
+        throw sourceExecutionError("Generated DAML ts-node sources failed to load.", error);
+    }
+}
+
+function executeTsNodeGeneratedSpecsOrThrow(
+    directory: string,
+    project: GeneratedDamlInterfaceProject,
+): readonly string[] {
+    const specPaths = project.specFiles.map((file) => join(directory, file.path)).sort();
+
+    if (specPaths.length === 0) {
+        throw new Error("Generated project did not emit any .spec.ts files.");
+    }
+
+    try {
+        execFileSync(process.execPath, [
+            "-r", getTsNodeRegisterPath(),
+            "--test",
+            ...specPaths,
+        ], {
+            cwd: directory,
+            env: { ...process.env, TS_NODE_TRANSPILE_ONLY: "true" },
+            stdio: "pipe",
+        });
+    } catch (error) {
+        throw sourceExecutionError("Generated DAML ts-node specs failed.", error);
+    }
+
+    return Object.freeze(specPaths);
+}
+
+function getTsNodeRegisterPath(): string {
+    return join(process.cwd(), "node_modules", "ts-node", "register");
+}
+
+function sourceExecutionError(message: string, error: unknown): Error {
+    const failure = error as { readonly stderr?: Buffer; readonly stdout?: Buffer };
+
+    return new Error([
+        message,
+        failure.stdout?.toString("utf8") ?? "",
+        failure.stderr?.toString("utf8") ?? "",
+    ].join("\n"));
 }
 
 async function findPathsRecursivelyAsync(directory: string): Promise<readonly string[]> {

@@ -1,6 +1,6 @@
 {
     "name": "@distrohelena/canton-typescript-sdk",
-    "version": "0.1.26",
+    "version": "0.1.29",
     "license": "Apache-2.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -101,6 +101,7 @@
         "@typescript-eslint/utils": "^8.62.1",
         "eslint": "^10.6.0",
         "prettier": "^3.9.4",
+        "ts-node": "^10.9.2",
         "typescript": "^5.9.2",
         "vitest": "^3.2.4"
     }
