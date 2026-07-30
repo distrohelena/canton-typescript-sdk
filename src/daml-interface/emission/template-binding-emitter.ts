@@ -337,10 +337,14 @@ export class TemplateBindingEmitter {
 
             return { kind: "contractId" };
         } else if (type.typeConReference !== undefined) {
+            if (type.typeArguments.length !== 0) {
+                throw new Error("Cannot emit generic DAML named type applications");
+            }
+
             return {
                 kind: "namedReference",
                 identity: type.typeConReference,
-                typeArguments: type.typeArguments.map((argument) => this.normalizeType(argument)),
+                typeArguments: [],
             };
         }
 

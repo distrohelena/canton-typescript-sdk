@@ -453,6 +453,37 @@ describe("DamlInterfaceAnalyzer", () => {
             .toThrow(/field 'value' of record 'BrokenBox'.*unbound type variable 'missing'/);
     });
 
+    it("rejects applied type variables in named record fields", () => {
+        const compilation = createGenericNamedTypeCompilation({
+            dataTypes: [
+                new DamlLfDataType({
+                    name: "BrokenBox",
+                    typeParameters: [{
+                        name: "a",
+                        internedStringIndex: 1,
+                        kind: { kind: "star" },
+                    }],
+                    fields: [
+                        new DamlLfField({
+                            name: "value",
+                            type: new DamlLfType({
+                                typeVariable: {
+                                    name: "a",
+                                    internedStringIndex: 1,
+                                },
+                                typeArguments: [textType()],
+                            }),
+                        }),
+                    ],
+                }),
+            ],
+            choiceParameterType: namedType("BrokenBox", [textType()]),
+        });
+
+        expect(() => new DamlInterfaceAnalyzer().analyzeOrThrow(compilation))
+            .toThrow(/field 'value' of record 'BrokenBox'.*applied type variables/);
+    });
+
     it("rejects retained forall types in choice return context", () => {
         const compilation = createGenericNamedTypeCompilation({
             dataTypes: [],
