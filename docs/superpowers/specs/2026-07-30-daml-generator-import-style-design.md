@@ -28,6 +28,11 @@ into a newly constructed generator. Injectable CLI generators continue to be
 used unchanged when supplied by unit tests. `ProjectEmitter` receives the value
 and configures all downstream emitters from that one policy.
 
+The parser defaults an omitted option to `esm`, accepts only exact `esm` and
+`ts-node` values, and throws `DamlInterfaceGenerationException` with contextual
+messages for a missing or invalid value. Tests cover CLI and direct-generator
+defaults as well as each invalid parser case.
+
 ## Scope
 
 The setting flows through one shared relative-import-specifier policy, rather
@@ -51,9 +56,10 @@ Generator coverage emits both modes from the same fixtures:
 
 The SDK adds `ts-node` as a development dependency. The integration fixture
 uses an explicit CommonJS/Node TypeScript configuration and runs source files
-through `node -r ts-node/register`. It proves the generated template and root
-index load via `require`, and runs a generated source `.spec.ts` file. This mode
-is intentionally incompatible with NodeNext compilation; consumers selecting it
+through `node -r ts-node/register`. Its temporary `package.json` explicitly
+sets `"type": "commonjs"`. It proves the generated template and root index
+load via `require`, and runs a generated source `.spec.ts` file. This mode is
+intentionally incompatible with NodeNext compilation; consumers selecting it
 must use a CommonJS `ts-node` configuration. SDK package imports continue to
 resolve through the package's `require` export conditions.
 
