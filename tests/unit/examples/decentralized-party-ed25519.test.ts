@@ -15,6 +15,7 @@ describe("decentralized party example", () => {
         expect(example).toContain("ownerThreshold: 2");
         expect(example).toContain("partySigningKeys: [partySigningKey]");
         expect(example).toContain("partySigningThreshold: 1");
+        expect(example).toContain("confirmationThreshold: 1");
         expect(example).toContain("getParticipantIdAsync");
         expect(example).toContain("listPartyToParticipantAsync");
         expect(example).toContain("ListPartyToParticipantRequest.create({");

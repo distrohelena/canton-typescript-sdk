@@ -36,6 +36,18 @@ export async function prepareDecentralizedPartyAsync(
 
     const partyKeys = request.partySigningKeys.map(toTopologyKey);
 
+    const store = {
+        store: {
+            oneofKind: "synchronizer" as const,
+            synchronizer: {
+                kind: {
+                    oneofKind: "id" as const,
+                    id: request.synchronizer,
+                },
+            },
+        },
+    };
+
     const participants = [
         {
             participantUid: localParticipant.participantId,
@@ -57,6 +69,7 @@ export async function prepareDecentralizedPartyAsync(
                 {
                     operation: Enums_TopologyChangeOp.ADD_REPLACE,
                     serial: 1,
+                    store,
                     mapping: {
                         mapping: {
                             oneofKind: "decentralizedNamespaceDefinition",
@@ -71,6 +84,7 @@ export async function prepareDecentralizedPartyAsync(
                 ...owners.map((targetKey) => ({
                     operation: Enums_TopologyChangeOp.ADD_REPLACE,
                     serial: 1,
+                    store,
                     mapping: {
                         mapping: {
                             oneofKind: "namespaceDelegation" as const,
@@ -86,6 +100,7 @@ export async function prepareDecentralizedPartyAsync(
                 {
                     operation: Enums_TopologyChangeOp.ADD_REPLACE,
                     serial: 1,
+                    store,
                     mapping: {
                         mapping: {
                             oneofKind: "partyToParticipant",

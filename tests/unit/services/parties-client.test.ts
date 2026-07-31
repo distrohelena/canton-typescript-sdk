@@ -319,6 +319,31 @@ describe("PartyManagementServiceClient", () => {
         )).rejects.toThrow(/generated transaction count/i);
 
         expect(generateTransactionsAsync).toHaveBeenCalledTimes(1);
+        expect(generateTransactionsAsync.mock.calls[0][0].proposals).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    store: {
+                        store: {
+                            oneofKind: "synchronizer",
+                            synchronizer: {
+                                kind: {
+                                    oneofKind: "id",
+                                    id: "sync::sandbox",
+                                },
+                            },
+                        },
+                    },
+                }),
+            ]),
+        );
+        expect(
+            generateTransactionsAsync.mock.calls[0][0].proposals.every(
+                (proposal) =>
+                    proposal.store?.store.oneofKind === "synchronizer" &&
+                    proposal.store.store.synchronizer.kind.oneofKind === "id" &&
+                    proposal.store.store.synchronizer.kind.id === "sync::sandbox",
+            ),
+        ).toBe(true);
     });
 
     it("rejects decentralized finalization with missing signatures", async () => {

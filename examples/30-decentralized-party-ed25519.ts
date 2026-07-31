@@ -51,6 +51,7 @@ runExampleAsync("decentralized-party-ed25519", async () => {
                     ownerThreshold: 2,
                     partySigningKeys: [partySigningKey],
                     partySigningThreshold: 1,
+                    confirmationThreshold: 1,
                     waitForAllocation: true,
                 }),
             );
