@@ -32,18 +32,23 @@ PARTICIPANT_358_SKIP_SYNCHRONIZER_CONNECT=1 \
 "$START_SCRIPT"
 
 grep -Fqx 'name: canton-participant-358' "$runtime_dir/compose.yaml"
+grep -Fqx '  participant358:' "$runtime_dir/compose.yaml"
+if grep -Fqx '  canton:' "$runtime_dir/compose.yaml"; then
+  echo 'sidecar must not claim the quickstart canton DNS alias' >&2
+  exit 1
+fi
 grep -Fqx '    image: ghcr.io/digital-asset/decentralized-canton-sync/docker/canton:0.6.12' "$runtime_dir/compose.yaml"
 grep -Fqx '    image: postgres:16' "$runtime_dir/compose.yaml"
 grep -Fqx '      - default' "$runtime_dir/compose.yaml"
 grep -Fqx '      - localnet' "$runtime_dir/compose.yaml"
-grep -Fqx '    databaseName = participant358' "$runtime_dir/canton.conf"
+grep -Fqx '          databaseName = participant358' "$runtime_dir/canton.conf"
 grep -Fqx '    admin-api {' "$runtime_dir/canton.conf"
 grep -Fqx '      address = "0.0.0.0"' "$runtime_dir/canton.conf"
 grep -Fqx '      port = 5002' "$runtime_dir/canton.conf"
 grep -Fqx '      - "127.0.0.1:8901:5001"' "$runtime_dir/compose.yaml"
-grep -Fqx '    port = 5002' "$runtime_dir/canton.conf"
-grep -Fqx '    port = 7575' "$runtime_dir/canton.conf"
-grep -Fqx 'PARTICIPANT_358_SYNCHRONIZER_CONFIG=' "$runtime_dir/participant-358.env"
+grep -Fqx '      port = 5002' "$runtime_dir/canton.conf"
+grep -Fqx '      port = 7575' "$runtime_dir/canton.conf"
+grep -Fq 'PARTICIPANT_358_SYNCHRONIZER_CONFIG=' "$runtime_dir/participant-358.env"
 grep -F -- '--project-name canton-participant-358' "$docker_log"
 grep -Fqx '    name: quickstart' "$runtime_dir/compose.yaml"
 

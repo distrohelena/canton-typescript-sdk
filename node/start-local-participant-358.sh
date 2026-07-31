@@ -119,7 +119,7 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
-  canton:
+  participant358:
     image: $CANTON_IMAGE
     depends_on:
       postgres:
@@ -161,7 +161,7 @@ if [[ "${PARTICIPANT_358_SKIP_SYNCHRONIZER_CONNECT:-0}" != "1" ]]; then
     node "$SCRIPT_DIR/participant-358-synchronizer.mjs" connect
   do
     if (( SECONDS >= deadline )); then
-      echo "Participant 3.5.8 sidecar did not become ready. Inspect: ${DOCKER_COMPOSE_CMD[*]} --project-name $PROJECT_NAME --file $RUNTIME_DIR/compose.yaml logs canton" >&2
+      echo "Participant 3.5.8 sidecar did not become ready. Inspect: ${DOCKER_COMPOSE_CMD[*]} --project-name $PROJECT_NAME --file $RUNTIME_DIR/compose.yaml logs participant358" >&2
       exit 1
     fi
     sleep 2
