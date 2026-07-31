@@ -8,12 +8,15 @@ import { DamlLfModule } from "../../../src/daml-lf/model/daml-lf-module.js";
 import { DamlLfPackage } from "../../../src/daml-lf/model/daml-lf-package.js";
 import { DamlLfType } from "../../../src/daml-lf/model/daml-lf-type.js";
 import { DamlLfValueDefinition } from "../../../src/daml-lf/model/daml-lf-value-definition.js";
-import { GetContractRequest } from "../../../src/core/types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../../../src/core/types/requests/get-events-by-contract-id-request.js";
 import { GetUpdateResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
-import { GetContractResponse } from "../../../src/core/types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../../../src/core/types/responses/get-events-by-contract-id-response.js";
-import { ContractCreated } from "../../../src/core/types/contract-created.js";
+import {
+    GetContractRequest,
+    GetContractResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     InMemoryReplaySessionStore,
     LedgerReplayDebuggerClient,
@@ -27,6 +30,15 @@ import { ReplayUpdateLoader } from "../../../src/debugger/replay/replay-update-l
 import { DamlSourceMapper } from "../../../src/debugger/source/daml-source-mapper.js";
 import { SourceIndexedCompilation } from "../../../src/debugger/source/source-indexed-compilation.js";
 import { createSourceMappedDarFixture } from "../../fixtures/daml-lf/source-mapped-dar-fixture.js";
+
+const aliceCreateArguments = {
+    fields: [
+        {
+            label: "owner",
+            value: { sum: { oneofKind: "text" as const, text: "Alice" } },
+        },
+    ],
+};
 
 describe("LedgerReplayDebuggerClient integration", () => {
     it("replays a visible exercised update into a stepwise debugger session", async () => {
@@ -87,28 +99,31 @@ describe("LedgerReplayDebuggerClient integration", () => {
             updateService: {
                 async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
                     return GetUpdateResponse.create({
-                        update: { oneofKind: "transaction", transaction: {
-                            updateId: "tx-1",
-                            offset: "42",
-                            actAs: ["Alice"],
-                            events: [
-                                {
-                                    event: {
-                                        oneofKind: "exercised",
-                                        exercised: {
-                                            contractId: "00abc",
-                                            templateId: {
-                                                packageId: "pkg-main",
-                                                moduleName: "Main",
-                                                entityName: "Vault",
+                        update: {
+                            oneofKind: "transaction",
+                            transaction: {
+                                updateId: "tx-1",
+                                offset: "42",
+                                actAs: ["Alice"],
+                                events: [
+                                    {
+                                        event: {
+                                            oneofKind: "exercised",
+                                            exercised: {
+                                                contractId: "00abc",
+                                                templateId: {
+                                                    packageId: "pkg-main",
+                                                    moduleName: "Main",
+                                                    entityName: "Vault",
+                                                },
+                                                choice: "Archive",
+                                                choiceArgument: {},
                                             },
-                                            choice: "Archive",
-                                            choiceArgument: {},
                                         },
                                     },
-                                },
-                            ],
-                        } },
+                                ],
+                            },
+                        },
                     });
                 },
             },
@@ -120,7 +135,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 ): Promise<GetContractResponse> {
                     expect(request.contractId).toBe("00abc");
 
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -128,9 +143,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                                 moduleName: "Main",
                                 entityName: "Vault",
                             },
-                            createArguments: {
-                                owner: "Alice",
-                            },
+                            createArguments: aliceCreateArguments,
                         },
                     });
                 },
@@ -141,8 +154,8 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 ): Promise<GetEventsByContractIdResponse> {
                     expect(request.contractId).toBe("00abc");
 
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -150,12 +163,10 @@ describe("LedgerReplayDebuggerClient integration", () => {
                                     moduleName: "Main",
                                     entityName: "Vault",
                                 },
-                                createArguments: {
-                                    owner: "Alice",
-                                },
+                                createArguments: aliceCreateArguments,
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },

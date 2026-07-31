@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ContractCreated } from "../../../../src/core/types/contract-created.js";
-import { GetContractRequest } from "../../../../src/core/types/requests/get-contract-request.js";
-import { GetEventsByContractIdRequest } from "../../../../src/core/types/requests/get-events-by-contract-id-request.js";
-import { GetContractResponse } from "../../../../src/core/types/responses/get-contract-response.js";
-import { GetEventsByContractIdResponse } from "../../../../src/core/types/responses/get-events-by-contract-id-response.js";
+import {
+    GetContractRequest,
+    GetContractResponse,
+} from "../../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
+import {
+    GetEventsByContractIdRequest,
+    GetEventsByContractIdResponse,
+} from "../../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
     DAML_LF_CONTRACT_ID_MARKER_KEY,
     DAML_LF_NUMERIC_MARKER_KEY,
@@ -12,6 +15,26 @@ import {
 import { ReplayStateHydrationException } from "../../../../src/debugger/index.js";
 import { LedgerReplayEnvironmentBuilder } from "../../../../src/debugger/replay/ledger-replay-environment-builder.js";
 import { ReplayEntrypoint } from "../../../../src/debugger/replay/replay-entrypoint.js";
+
+const aliceCreateArguments = {
+    fields: [
+        {
+            label: "owner",
+            value: { sum: { oneofKind: "text" as const, text: "Alice" } },
+        },
+    ],
+};
+
+const snapshotCreateArguments = {
+    fields: [
+        {
+            label: "totalAssets",
+            value: {
+                sum: { oneofKind: "text" as const, text: "10.0000000000" },
+            },
+        },
+    ],
+};
 
 describe("LedgerReplayEnvironmentBuilder", () => {
     it("hydrates exercised contract payloads and transaction metadata", async () => {
@@ -24,7 +47,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 ): Promise<GetContractResponse> {
                     contractRequests.push(request);
 
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -32,9 +55,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                 moduleName: "Main",
                                 entityName: "Vault",
                             },
-                            createArguments: {
-                                owner: "Alice",
-                            },
+                            createArguments: aliceCreateArguments,
                         },
                     });
                 },
@@ -45,8 +66,8 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 ): Promise<GetEventsByContractIdResponse> {
                     eventRequests.push(request);
 
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -54,12 +75,10 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     moduleName: "Main",
                                     entityName: "Vault",
                                 },
-                                createArguments: {
-                                    owner: "Alice",
-                                },
+                                createArguments: aliceCreateArguments,
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
@@ -133,7 +152,9 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 entityName: "Vault",
             },
         });
-        expect(environment.contracts.get("00abc")?.history.created?.payload).toEqual({
+        expect(
+            environment.contracts.get("00abc")?.history.created?.payload,
+        ).toEqual({
             owner: "Alice",
             [DAML_LF_RECORD_ID_MARKER_KEY]: {
                 packageId: "pkg-main",
@@ -141,7 +162,9 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 entityName: "Vault",
             },
         });
-        expect(environment.contracts.get("00abc")?.synchronizerId).toBe("sync-1");
+        expect(environment.contracts.get("00abc")?.synchronizerId).toBe(
+            "sync-1",
+        );
         expect(environment.actAs).toEqual(["Alice"]);
         expect(environment.packageIds).toEqual(["pkg-child", "pkg-main"]);
     });
@@ -150,12 +173,12 @@ describe("LedgerReplayEnvironmentBuilder", () => {
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(): Promise<GetContractResponse> {
-                    return new GetContractResponse({});
+                    return GetContractResponse.create({});
                 },
             },
             eventQueryService: {
                 async getEventsByContractIdAsync(): Promise<GetEventsByContractIdResponse> {
-                    return new GetEventsByContractIdResponse({});
+                    return GetEventsByContractIdResponse.create({});
                 },
             },
         });
@@ -212,8 +235,8 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 ): Promise<GetEventsByContractIdResponse> {
                     expect(request.contractId).toBe("00abc");
 
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -221,12 +244,10 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     moduleName: "Main",
                                     entityName: "Vault",
                                 },
-                                createArguments: {
-                                    owner: "Alice",
-                                },
+                                createArguments: aliceCreateArguments,
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
@@ -274,14 +295,16 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 entityName: "Vault",
             },
         });
-        expect(environment.contracts.get("00abc")?.synchronizerId).toBe("sync-1");
+        expect(environment.contracts.get("00abc")?.synchronizerId).toBe(
+            "sync-1",
+        );
     });
 
     it("preserves contract-id values inside hydrated payloads", async () => {
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(): Promise<GetContractResponse> {
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -290,22 +313,17 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                 entityName: "Vault",
                             },
                             createArguments: {
-                                sum: {
-                                    oneofKind: "record",
-                                    record: {
-                                        fields: [
-                                            {
-                                                label: "linkedCid",
-                                                value: {
-                                                    sum: {
-                                                        oneofKind: "contractId",
-                                                        contractId: "00def",
-                                                    },
-                                                },
+                                fields: [
+                                    {
+                                        label: "linkedCid",
+                                        value: {
+                                            sum: {
+                                                oneofKind: "contractId",
+                                                contractId: "00def",
                                             },
-                                        ],
+                                        },
                                     },
-                                },
+                                ],
                             },
                         },
                     });
@@ -313,8 +331,8 @@ describe("LedgerReplayEnvironmentBuilder", () => {
             },
             eventQueryService: {
                 async getEventsByContractIdAsync(): Promise<GetEventsByContractIdResponse> {
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -323,26 +341,21 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     entityName: "Vault",
                                 },
                                 createArguments: {
-                                    sum: {
-                                        oneofKind: "record",
-                                        record: {
-                                            fields: [
-                                                {
-                                                    label: "linkedCid",
-                                                    value: {
-                                                        sum: {
-                                                            oneofKind: "contractId",
-                                                            contractId: "00def",
-                                                        },
-                                                    },
+                                    fields: [
+                                        {
+                                            label: "linkedCid",
+                                            value: {
+                                                sum: {
+                                                    oneofKind: "contractId",
+                                                    contractId: "00def",
                                                 },
-                                            ],
+                                            },
                                         },
-                                    },
+                                    ],
                                 },
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
@@ -392,7 +405,9 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                 entityName: "Vault",
             },
         });
-        expect(environment.contracts.get("00abc")?.history.created?.payload).toEqual({
+        expect(
+            environment.contracts.get("00abc")?.history.created?.payload,
+        ).toEqual({
             linkedCid: {
                 [DAML_LF_CONTRACT_ID_MARKER_KEY]: "00def",
             },
@@ -408,7 +423,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(): Promise<GetContractResponse> {
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -416,17 +431,15 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                 moduleName: "Main",
                                 entityName: "Vault",
                             },
-                            createArguments: {
-                                owner: "Alice",
-                            },
+                            createArguments: aliceCreateArguments,
                         },
                     });
                 },
             },
             eventQueryService: {
                 async getEventsByContractIdAsync(): Promise<GetEventsByContractIdResponse> {
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -434,12 +447,10 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     moduleName: "Main",
                                     entityName: "Vault",
                                 },
-                                createArguments: {
-                                    owner: "Alice",
-                                },
+                                createArguments: aliceCreateArguments,
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
@@ -552,7 +563,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                     contractRequests.push(request.contractId);
 
                     if (request.contractId === "00snapshot") {
-                        return new GetContractResponse({
+                        return GetContractResponse.create({
                             createdEvent: {
                                 contractId: "00snapshot",
                                 templateId: {
@@ -560,14 +571,12 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     moduleName: "Main",
                                     entityName: "Snapshot",
                                 },
-                                createArguments: {
-                                    totalAssets: "10.0000000000",
-                                },
+                                createArguments: snapshotCreateArguments,
                             },
                         });
                     }
 
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -575,9 +584,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                 moduleName: "Main",
                                 entityName: "Vault",
                             },
-                            createArguments: {
-                                owner: "Alice",
-                            },
+                            createArguments: aliceCreateArguments,
                         },
                     });
                 },
@@ -589,8 +596,8 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                     eventRequests.push(request.contractId);
 
                     if (request.contractId === "00snapshot") {
-                        return new GetEventsByContractIdResponse({
-                            created: new ContractCreated({
+                        return GetEventsByContractIdResponse.create({
+                            created: {
                                 createdEvent: {
                                     contractId: "00snapshot",
                                     templateId: {
@@ -598,17 +605,15 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                         moduleName: "Main",
                                         entityName: "Snapshot",
                                     },
-                                    createArguments: {
-                                        totalAssets: "10.0000000000",
-                                    },
+                                    createArguments: snapshotCreateArguments,
                                 },
                                 synchronizerId: "sync-snapshot",
-                            }),
+                            },
                         });
                     }
 
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -616,12 +621,10 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     moduleName: "Main",
                                     entityName: "Vault",
                                 },
-                                createArguments: {
-                                    owner: "Alice",
-                                },
+                                createArguments: aliceCreateArguments,
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
@@ -695,7 +698,7 @@ describe("LedgerReplayEnvironmentBuilder", () => {
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(): Promise<GetContractResponse> {
-                    return new GetContractResponse({
+                    return GetContractResponse.create({
                         createdEvent: {
                             contractId: "00abc",
                             templateId: {
@@ -704,21 +707,16 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                 entityName: "VaultSnapshot",
                             },
                             createArguments: {
-                                sum: {
-                                    oneofKind: "record",
-                                    record: {
-                                        fields: [
-                                            {
-                                                value: {
-                                                    sum: {
-                                                        oneofKind: "text",
-                                                        text: "Alice",
-                                                    },
-                                                },
+                                fields: [
+                                    {
+                                        value: {
+                                            sum: {
+                                                oneofKind: "text",
+                                                text: "Alice",
                                             },
-                                        ],
+                                        },
                                     },
-                                },
+                                ],
                             },
                         },
                     });
@@ -726,8 +724,8 @@ describe("LedgerReplayEnvironmentBuilder", () => {
             },
             eventQueryService: {
                 async getEventsByContractIdAsync(): Promise<GetEventsByContractIdResponse> {
-                    return new GetEventsByContractIdResponse({
-                        created: new ContractCreated({
+                    return GetEventsByContractIdResponse.create({
+                        created: {
                             createdEvent: {
                                 contractId: "00abc",
                                 templateId: {
@@ -736,25 +734,20 @@ describe("LedgerReplayEnvironmentBuilder", () => {
                                     entityName: "VaultSnapshot",
                                 },
                                 createArguments: {
-                                    sum: {
-                                        oneofKind: "record",
-                                        record: {
-                                            fields: [
-                                                {
-                                                    value: {
-                                                        sum: {
-                                                            oneofKind: "text",
-                                                            text: "Alice",
-                                                        },
-                                                    },
+                                    fields: [
+                                        {
+                                            value: {
+                                                sum: {
+                                                    oneofKind: "text",
+                                                    text: "Alice",
                                                 },
-                                            ],
+                                            },
                                         },
-                                    },
+                                    ],
                                 },
                             },
                             synchronizerId: "sync-1",
-                        }),
+                        },
                     });
                 },
             },
