@@ -1,12 +1,14 @@
 import {
     AllocatePartyRequest,
+    ListKnownPartiesRequest,
+    TransportKind,
+} from "../../../src/index.js";
+import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { ListPackagesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import {
     GetDarContentsRequest,
     ListDarsRequest,
-    ListKnownPartiesRequest,
-    ListPackagesRequest,
-    TransportKind,
-    UploadDarFileRequest,
-} from "../../../src/index.js";
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import {
     DamlLfPackageLoader,
     DarArchiveLoader,
@@ -30,7 +32,6 @@ export interface LiveSeededContext {
     readonly jsonEnvironment: LiveTestEnvironment;
     readonly jsonAllocatedParty: LiveAllocatedParty;
     readonly uploadedDarBytes: Uint8Array;
-    readonly jsonUploadPackageId?: string;
     readonly mainPackageId: string;
     readonly packageIds: readonly string[];
     readonly participantDarMainPackageId: string;
@@ -65,7 +66,7 @@ export async function seedLiveContextAsync(): Promise<LiveSeededContext> {
         const darMetadata = await loadDarMetadataOrThrowAsync(uploadedDarBytes);
 
         const packagesBefore = await grpcClient.packageService.listPackagesAsync(
-            new ListPackagesRequest(),
+            ListPackagesRequest.create(),
         );
 
         const jsonAllocatedParty = await allocateSeededPartyAsync(
@@ -76,16 +77,15 @@ export async function seedLiveContextAsync(): Promise<LiveSeededContext> {
 
         await assertJsonPartyVisibleAsync(jsonClient, jsonAllocatedParty.identifier);
 
-        const jsonUploadResponse =
-            await jsonClient.packageManagementService.uploadDarFileAsync(
-                new UploadDarFileRequest({
-                    bytes: uploadedDarBytes,
-                }),
-            );
+        await jsonClient.packageManagementService.uploadDarFileAsync(
+            UploadDarFileRequest.create({
+                darFile: uploadedDarBytes,
+            }),
+        );
 
         const packagesAfterFirstUpload =
             await grpcClient.packageService.listPackagesAsync(
-                new ListPackagesRequest(),
+                ListPackagesRequest.create(),
             );
 
         const discoveredPackageVisibility = discoverUploadedPackageVisibility(
@@ -107,7 +107,6 @@ export async function seedLiveContextAsync(): Promise<LiveSeededContext> {
             jsonEnvironment,
             jsonAllocatedParty,
             uploadedDarBytes,
-            jsonUploadPackageId: jsonUploadResponse.packageId,
             mainPackageId: darMetadata.mainPackageId,
             packageIds: discoveredPackageVisibility.packageIds,
             participantDarMainPackageId:
@@ -163,7 +162,7 @@ async function discoverParticipantDarAsync(
     darVersion?: string;
 }> {
     const dars = await client.participantPackageService.listDarsAsync(
-        new ListDarsRequest(),
+        ListDarsRequest.create(),
     );
 
     const selectedDar =
@@ -177,7 +176,7 @@ async function discoverParticipantDarAsync(
     }
 
     const darContents = await client.participantPackageService.getDarContentsAsync(
-        new GetDarContentsRequest({
+        GetDarContentsRequest.create({
             mainPackageId: selectedDar.main,
         }),
     );

@@ -1,19 +1,23 @@
 import {
-    AllocateExternalPartyRequest,
     CantonClient,
-    ExternalPartyCryptoKeyFormat,
-    ExternalPartyOnboardingTransaction,
-    ExternalPartySignature,
-    ExternalPartySignatureFormat,
-    ExternalPartySigningAlgorithmSpec,
-    ExternalPartySigningKeySpec,
-    ExternalPartySigningPublicKey,
-    GenerateExternalPartyTopologyRequest,
-    GetPartiesRequest,
     ListKnownPartiesRequest,
-    PartyDetails,
 } from "../../../src/index.js";
-import { GetParticipantIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import {
+    AllocateExternalPartyRequest,
+    AllocateExternalPartyRequest_SignedTransaction,
+    GenerateExternalPartyTopologyRequest,
+    GetParticipantIdRequest,
+    GetPartiesRequest,
+    type PartyDetails,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import {
+    CryptoKeyFormat,
+    Signature,
+    SignatureFormat,
+    SigningAlgorithmSpec,
+    SigningKeySpec,
+    SigningPublicKey,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/crypto.js";
 import { ListConnectedSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { generateKeyPairSync, sign } from "node:crypto";
 
@@ -62,15 +66,14 @@ export async function allocateLiveExternalPartyAsync(
 
     const generatedTopology =
         await client.partyManagementService.generateExternalPartyTopologyAsync(
-            new GenerateExternalPartyTopologyRequest({
+            GenerateExternalPartyTopologyRequest.create({
                 synchronizer: synchronizerId,
                 partyHint: init.partyHint ?? "ed25519_party",
-                publicKey: new ExternalPartySigningPublicKey({
+                publicKey: SigningPublicKey.create({
                     format:
-                        ExternalPartyCryptoKeyFormat
-                            .derX509SubjectPublicKeyInfo,
+                        CryptoKeyFormat.DER_X509_SUBJECT_PUBLIC_KEY_INFO,
                     keyData: publicKeyBytes,
-                    keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+                    keySpec: SigningKeySpec.EC_CURVE25519,
                 }),
                 localParticipantObservationOnly:
                     init.localParticipantObservationOnly,
@@ -87,22 +90,22 @@ export async function allocateLiveExternalPartyAsync(
 
     const allocation =
         await client.partyManagementService.allocateExternalPartyAsync(
-            new AllocateExternalPartyRequest({
+            AllocateExternalPartyRequest.create({
                 synchronizer: synchronizerId,
                 onboardingTransactions: generatedTopology.topologyTransactions.map(
                     item =>
-                        new ExternalPartyOnboardingTransaction({
+                        AllocateExternalPartyRequest_SignedTransaction.create({
                             transaction: item,
+                            signatures: [],
                         }),
                 ),
                 multiHashSignatures: [
-                    new ExternalPartySignature({
-                        format: ExternalPartySignatureFormat.concat,
+                    Signature.create({
+                        format: SignatureFormat.CONCAT,
                         signature: multiHashSignature,
-                        signedByFingerprint:
+                        signedBy:
                             generatedTopology.publicKeyFingerprint,
-                        signingAlgorithmSpec:
-                            ExternalPartySigningAlgorithmSpec.ed25519,
+                        signingAlgorithmSpec: SigningAlgorithmSpec.ED25519,
                     }),
                 ],
                 waitForAllocation: true,
@@ -149,7 +152,7 @@ export async function createLiveExternalPartyAsync(
     }
 
     const parties = await client.partyManagementService.getPartiesAsync(
-        new GetPartiesRequest({
+        GetPartiesRequest.create({
             parties: [allocation.partyId],
         }),
     );

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     CantonClient,
-    ListPackagesRequest,
     TransportKind,
-    UploadDarFileRequest,
 } from "../../../src/index.js";
+import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { ListPackagesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 import { getLiveSeededContextAsync } from "../runtime/live-seeded-context.js";
@@ -39,14 +39,14 @@ describe("live package management", () => {
 
         await expect(
             jsonClient.packageManagementService.uploadDarFileAsync(
-                new UploadDarFileRequest({
-                    bytes: seeded.uploadedDarBytes,
+                UploadDarFileRequest.create({
+                    darFile: seeded.uploadedDarBytes,
                 }),
             ),
         ).resolves.toBeDefined();
 
         const packages = await grpcClient.packageService.listPackagesAsync(
-            new ListPackagesRequest(),
+            ListPackagesRequest.create(),
         );
 
         expect(packages.packageIds).toEqual(
