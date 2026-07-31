@@ -4,6 +4,7 @@ import {
     TopologyAggregationServiceClient,
     TopologyListPartiesRequest,
     TopologyListPartiesResponse,
+    ValidationError,
     WaitForPartyHostingRequest,
 } from "../../../src";
 import { comDigitalasset } from "../../../src/protobuf/index.js";
@@ -78,6 +79,12 @@ describe("TopologyAggregationServiceClient", () => {
     });
 
     it("validates party-hosting wait requests before transport calls", () => {
+        const topologyListPartiesAsync = vi.fn();
+
+        const client = new TopologyAggregationServiceClient({
+            topologyListPartiesAsync,
+        } as never);
+
         const valid = {
             partyId,
             participantId,
@@ -109,11 +116,15 @@ describe("TopologyAggregationServiceClient", () => {
         ];
 
         for (const invalid of invalidValues) {
-            expect(() => new WaitForPartyHostingRequest({
-                ...valid,
-                ...invalid,
-            })).toThrow();
+            expect(() => client.waitForPartyHostingAsync(
+                new WaitForPartyHostingRequest({
+                    ...valid,
+                    ...invalid,
+                }),
+            )).toThrow(ValidationError);
         }
+
+        expect(topologyListPartiesAsync).not.toHaveBeenCalled();
     });
 
     it("returns an exact filtered hosting match and forwards request options", async () => {
