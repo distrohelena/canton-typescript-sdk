@@ -58,6 +58,7 @@ import {
     AssembleSignedTopologyTransactionsRequest,
     TransportKind,
     VersionServiceClient,
+    WaitForPartyHostingRequest,
 } from "../../../src";
 import {
     GetPackageContentsRequest,
@@ -76,6 +77,7 @@ describe("package surface", () => {
         expect(HealthServiceClient).toBeTypeOf("function");
         expect(HealthCheckStatus.serving).toBe("serving");
         expect(VersionServiceClient).toBeTypeOf("function");
+        expect(WaitForPartyHostingRequest).toBeTypeOf("function");
         expect(PartyManagementServiceClient).toBeTypeOf("function");
         expect(PackageServiceClient).toBeTypeOf("function");
         expect(PackageManagementServiceClient).toBeTypeOf("function");

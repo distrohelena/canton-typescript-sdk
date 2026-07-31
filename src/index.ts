@@ -301,6 +301,7 @@ export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-re
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
 export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
 export { TopologyListPartiesRequest } from "./core/types/requests/topology-list-parties-request.js";
+export { WaitForPartyHostingRequest } from "./core/types/requests/wait-for-party-hosting-request.js";
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
 export type { UserRightAssignment } from "./core/types/requests/grant-user-rights-request.js";
 export { UploadDarFileRequest } from "./core/types/requests/upload-dar-file-request.js";
