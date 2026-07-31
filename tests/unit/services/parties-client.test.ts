@@ -17,6 +17,7 @@ import {
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
     PartyDetails,
+    PreparedTopologyTransaction,
     RequestOptions,
 } from "../../../src";
 import {
@@ -27,6 +28,26 @@ import {
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GenerateTransactionsResponse } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
+
+function decentralizedKey(keyByte: number, withSigner = false) {
+    return {
+        publicKey: new ExternalPartySigningPublicKey({
+            format: ExternalPartyCryptoKeyFormat.raw,
+            keyData: new Uint8Array([keyByte]),
+            keySpec: ExternalPartySigningKeySpec.ecCurve25519,
+        }),
+        ...(withSigner
+            ? {
+                  sign: async (request: { payload: Uint8Array }) => ({
+                      signature: new Uint8Array(request.payload),
+                      format: ExternalPartySignatureFormat.concat,
+                      signingAlgorithmSpec:
+                          ExternalPartySigningAlgorithmSpec.ed25519,
+                  }),
+              }
+            : {}),
+    };
+}
 
 describe("PartyManagementServiceClient", () => {
     it("lists parties through the selected transport", async () => {
@@ -279,10 +300,154 @@ describe("PartyManagementServiceClient", () => {
             decentralizedNamespace: "namespace",
             ownerThreshold: 2,
             partySigningThreshold: 1,
+            identityProviderId: "idp-1",
+            waitForAllocation: false,
+            userId: "user-1",
         });
 
         expect(prepared.partyId).toBe("consortium::namespace");
         expect(prepared.decentralizedNamespace).toBe("namespace");
+        expect(prepared.identityProviderId).toBe("idp-1");
+        expect(prepared.waitForAllocation).toBe(false);
+        expect(prepared.userId).toBe("user-1");
+    });
+
+    it("preserves allocation metadata while preparing decentralized topology", async () => {
+        const generateTransactionsAsync = vi.fn(async () =>
+            GenerateTransactionsResponse.create({
+                generatedTransactions: Array.from({ length: 4 }, (_, index) => ({
+                    serializedTransaction: new Uint8Array([index + 1]),
+                    transactionHash: new Uint8Array([index + 11]),
+                })),
+            }),
+        );
+
+        const client = new PartyManagementServiceClient({
+            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+                participantId: "participant::sandbox",
+            }),
+        } as never, { generateTransactionsAsync } as never);
+
+        const prepared = await client.prepareDecentralizedPartyAsync(
+            new CreateDecentralizedPartyRequest({
+                synchronizer: "sync::sandbox",
+                partyHint: "consortium",
+                owners: [decentralizedKey(1), decentralizedKey(2)],
+                ownerThreshold: 2,
+                partySigningKeys: [decentralizedKey(3)],
+                partySigningThreshold: 1,
+                confirmationThreshold: 1,
+                identityProviderId: "idp-1",
+                waitForAllocation: false,
+                userId: "user-1",
+            }),
+        );
+
+        expect(prepared.identityProviderId).toBe("idp-1");
+        expect(prepared.waitForAllocation).toBe(false);
+        expect(prepared.userId).toBe("user-1");
+    });
+
+    it("forwards prepared allocation metadata during offline finalization", async () => {
+        const allocateExternalPartyAsync = vi.fn(async () =>
+            AllocateExternalPartyResponse.create({
+                partyId: "consortium::namespace",
+            }),
+        );
+        const client = new PartyManagementServiceClient({
+            allocateExternalPartyAsync,
+        } as never);
+        const transactionHash = new Uint8Array([2]);
+        const prepared = new PreparedDecentralizedParty({
+            synchronizer: "sync::sandbox",
+            partyId: "consortium::namespace",
+            decentralizedNamespace: "namespace",
+            ownerThreshold: 1,
+            partySigningThreshold: 1,
+            identityProviderId: "idp-1",
+            waitForAllocation: true,
+            userId: "user-1",
+            transactions: [new PreparedTopologyTransaction({
+                serializedTransaction: new Uint8Array([1]),
+                transactionHash,
+            })],
+            signingRequests: [{
+                id: "0:owner:fingerprint",
+                transactionHash,
+                payload: transactionHash,
+                publicKeyFingerprint: "fingerprint",
+                role: "owner",
+            }],
+        });
+        const options = new RequestOptions({ timeoutMs: 5_000 });
+
+        await client.finalizeDecentralizedPartyAsync(prepared, [{
+            signingRequestId: "0:owner:fingerprint",
+            result: {
+                signature: new Uint8Array([3]),
+                format: ExternalPartySignatureFormat.concat,
+                signingAlgorithmSpec:
+                    ExternalPartySigningAlgorithmSpec.ed25519,
+            },
+        }], options);
+
+        expect(allocateExternalPartyAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                identityProviderId: "idp-1",
+                waitForAllocation: true,
+                userId: "user-1",
+            }),
+            options,
+        );
+    });
+
+    it("preserves false and undefined allocation waits during online creation", async () => {
+        const generateTransactionsAsync = vi.fn(async () =>
+            GenerateTransactionsResponse.create({
+                generatedTransactions: Array.from({ length: 4 }, (_, index) => ({
+                    serializedTransaction: new Uint8Array([index + 1]),
+                    transactionHash: new Uint8Array([index + 11]),
+                })),
+            }),
+        );
+        const allocateExternalPartyAsync = vi.fn(async () =>
+            AllocateExternalPartyResponse.create({
+                partyId: "consortium::namespace",
+            }),
+        );
+        const client = new PartyManagementServiceClient({
+            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+                participantId: "participant::sandbox",
+            }),
+            allocateExternalPartyAsync,
+        } as never, { generateTransactionsAsync } as never);
+
+        const createRequest = (waitForAllocation?: boolean) =>
+            new CreateDecentralizedPartyRequest({
+                synchronizer: "sync::sandbox",
+                partyHint: "consortium",
+                owners: [decentralizedKey(1, true), decentralizedKey(2, true)],
+                ownerThreshold: 2,
+                partySigningKeys: [decentralizedKey(3, true)],
+                partySigningThreshold: 1,
+                confirmationThreshold: 1,
+                identityProviderId: "idp-1",
+                waitForAllocation,
+                userId: "user-1",
+            });
+
+        await client.createDecentralizedPartyAsync(createRequest(false));
+        await client.createDecentralizedPartyAsync(createRequest());
+
+        expect(allocateExternalPartyAsync.mock.calls[0][0]).toEqual(
+            expect.objectContaining({
+                identityProviderId: "idp-1",
+                waitForAllocation: false,
+                userId: "user-1",
+            }),
+        );
+        expect(allocateExternalPartyAsync.mock.calls[1][0].waitForAllocation)
+            .toBeUndefined();
     });
 
     it("prepares decentralized topology through the injected topology writer", async () => {

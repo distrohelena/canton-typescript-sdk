@@ -134,6 +134,9 @@ export class PartyManagementServiceClient {
                 }),
             ),
             multiHashSignatures: [],
+            identityProviderId: prepared.identityProviderId,
+            waitForAllocation: prepared.waitForAllocation,
+            userId: prepared.userId,
         }), _options);
     }
 

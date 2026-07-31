@@ -152,7 +152,18 @@ export async function prepareDecentralizedPartyAsync(
             : ownerRequests;
     });
 
-    return new PreparedDecentralizedParty({ synchronizer: request.synchronizer, partyId, decentralizedNamespace, ownerThreshold: request.ownerThreshold, partySigningThreshold: request.partySigningThreshold, transactions, signingRequests });
+    return new PreparedDecentralizedParty({
+        synchronizer: request.synchronizer,
+        partyId,
+        decentralizedNamespace,
+        ownerThreshold: request.ownerThreshold,
+        partySigningThreshold: request.partySigningThreshold,
+        identityProviderId: request.identityProviderId,
+        waitForAllocation: request.waitForAllocation,
+        userId: request.userId,
+        transactions,
+        signingRequests,
+    });
 }
 
 function fingerprintFor(value: DecentralizedPartyKey): string {

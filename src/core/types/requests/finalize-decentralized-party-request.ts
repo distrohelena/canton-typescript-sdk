@@ -15,6 +15,9 @@ export class PreparedDecentralizedParty {
     public readonly decentralizedNamespace: string;
     public readonly ownerThreshold: number;
     public readonly partySigningThreshold: number;
+    public readonly identityProviderId?: string;
+    public readonly waitForAllocation?: boolean;
+    public readonly userId?: string;
     public readonly transactions: readonly PreparedTopologyTransaction[];
     public readonly signingRequests: readonly PreparedDecentralizedPartySigningRequest[];
 
@@ -24,6 +27,9 @@ export class PreparedDecentralizedParty {
         decentralizedNamespace: string;
         ownerThreshold: number;
         partySigningThreshold: number;
+        identityProviderId?: string;
+        waitForAllocation?: boolean;
+        userId?: string;
         transactions?: readonly PreparedTopologyTransaction[];
         signingRequests?: readonly PreparedDecentralizedPartySigningRequest[];
     }) {
@@ -32,6 +38,9 @@ export class PreparedDecentralizedParty {
         this.decentralizedNamespace = init.decentralizedNamespace;
         this.ownerThreshold = init.ownerThreshold;
         this.partySigningThreshold = init.partySigningThreshold;
+        this.identityProviderId = init.identityProviderId;
+        this.waitForAllocation = init.waitForAllocation;
+        this.userId = init.userId;
         this.transactions = [...(init.transactions ?? [])].map(
             (transaction) => new PreparedTopologyTransaction({
                 serializedTransaction: transaction.serializedTransaction,
