@@ -49,6 +49,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 textLiteral: "ok",
             }),
         });
+
         const compilation = DamlLfCompilation.createOrThrow(
             new DamlLfWorkspace([
                 new DamlLfPackage({
@@ -70,6 +71,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 }),
             ]),
         );
+
         const indexedCompilation = SourceIndexedCompilation.createOrThrow(
             compilation,
             [
@@ -95,6 +97,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 ),
             ],
         );
+
         const updateLoader = new ReplayUpdateLoader({
             updateService: {
                 async getUpdateByOffsetAsync(): Promise<GetUpdateResponse> {
@@ -128,6 +131,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 },
             },
         });
+
         const environmentBuilder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(
@@ -171,6 +175,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
                 },
             },
         });
+
         const sessionLoader = new LedgerReplaySessionLoader({
             updateLoader,
             environmentBuilder,
@@ -182,6 +187,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
             determinismValidator: new ReplayDeterminismValidator(),
             sessionIdFactory: () => "integration-session",
         });
+
         const client = new LedgerReplayDebuggerClient({
             sessionLoader,
             sessionStore: new InMemoryReplaySessionStore(),
@@ -190,6 +196,7 @@ describe("LedgerReplayDebuggerClient integration", () => {
         const session = await client.loadSessionAsync(
             new ReplaySessionRequest({ offset: "42" }),
         );
+
         const trace = await client.getTraceSliceAsync(
             "integration-session",
             0,

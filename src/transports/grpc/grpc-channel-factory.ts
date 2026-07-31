@@ -2236,6 +2236,7 @@ export function createGrpcOperations(
         },
         async submitCommandForTransactionAsync(request: unknown, requestOptions?: RequestOptions): Promise<SubmitAndWaitForTransactionResponse> {
             const callOptions = await buildCallOptionsForLedgerSurfaceAsync(options, requestOptions);
+
             return await unwrapUnaryResponse(commandServiceClient.submitAndWaitForTransaction(request as SubmitAndWaitForTransactionRequest, callOptions));
         },
         async prepareSubmissionAsync(
@@ -2328,9 +2329,7 @@ function wrapGrpcOperations(
 
             if (typeof operation !== "function") {
                 return operation;
-            }
-
-            if (property === "getUpdatesAsync" || property === "getCompletionsAsync") {
+            } else if (property === "getUpdatesAsync" || property === "getCompletionsAsync") {
                 return (...args: unknown[]) => wrapGrpcStream(
                     () => operation.apply(target, args) as AsyncIterable<unknown>,
                     onGrpcError,
@@ -2375,8 +2374,15 @@ async function* wrapGrpcStream<T>(
 
 function notifyGrpcError(error: unknown, onGrpcError?: (error: GrpcTransportError) => void): unknown {
     const parsedError = GrpcTransportError.fromUnknown(error);
-    if (parsedError === undefined) return error;
-    try { onGrpcError?.(parsedError); } catch { /* observers do not replace failures */ }
+
+    if (parsedError === undefined) {
+        return error;
+    }
+
+    try {
+        onGrpcError?.(parsedError);
+    } catch { /* observers do not replace failures */ }
+
     return parsedError;
 }
 
@@ -2414,17 +2420,27 @@ async function* streamServerResponsesAsync<TResponse>(
     createCall: () => Promise<{ call: ServerStreamingCallLike<TResponse> }>,
 ): AsyncIterable<TResponse> {
     let call: ServerStreamingCallLike<TResponse> | undefined;
+
     let exhausted = false;
+
     let iterator: AsyncIterator<TResponse> | undefined;
+
     try {
         ({ call } = await createCall());
+
         const responseIterator = call.responses[Symbol.asyncIterator]();
+
         iterator = responseIterator;
         while (true) {
             const next = await responseIterator.next();
-            if (next.done) break;
+
+            if (next.done) {
+                break;
+            }
+
             yield next.value;
         }
+
         exhausted = true;
         await call.status;
     } finally {

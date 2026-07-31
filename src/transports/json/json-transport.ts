@@ -1244,6 +1244,7 @@ export class JsonTransport implements ITransport {
 
         void request;
         void options;
+
         throw new NotSupportedError(
             "StateService.GetActiveContractsPage is not supported by json transport",
         );

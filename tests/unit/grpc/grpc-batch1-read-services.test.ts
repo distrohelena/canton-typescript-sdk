@@ -52,13 +52,17 @@ import {
 describe("GrpcTransport batch 1 read services", () => {
     it("returns raw generated user-management responses", async () => {
         const getUserResponse = { user: { id: "user-1" } };
+
         const listUsersResponse = { users: [], nextPageToken: "next" };
+
         const listUserRightsResponse = { rights: [] };
+
         const transport = new GrpcTransport({
             getUserAsync: async () => getUserResponse,
             listUsersAsync: async () => listUsersResponse,
             listUserRightsAsync: async () => listUserRightsResponse,
         } as any);
+
         const client = new UserManagementServiceClient(transport);
 
         await expect(
@@ -76,14 +80,17 @@ describe("GrpcTransport batch 1 read services", () => {
 
     it("returns raw generated state read responses", async () => {
         const ledgerEndResponse = { offset: 17n };
+
         const prunedOffsetsResponse = {
             participantPrunedUpToInclusive: 3n,
             allDivulgedContractsPrunedUpToInclusive: 2n,
         };
+
         const transport = new GrpcTransport({
             getLedgerEndAsync: async () => ledgerEndResponse,
             getLatestPrunedOffsetsAsync: async () => prunedOffsetsResponse,
         } as any);
+
         const client = new StateServiceClient(transport);
 
         await expect(
@@ -264,6 +271,7 @@ describe("GrpcTransport batch 1 read services", () => {
                 contractId: "contract-1",
             },
         });
+
         const eventsResponse = ProtobufGetEventsByContractIdResponse.create({
             created: {
                 createdEvent: {
@@ -278,6 +286,7 @@ describe("GrpcTransport batch 1 read services", () => {
                 synchronizerId: "sync-2",
             },
         });
+
         const getUpdateByOffsetAsync = vi.fn(async () => ({
             update: {
                 oneofKind: "transaction",
@@ -365,6 +374,7 @@ describe("GrpcTransport batch 1 read services", () => {
                         queryingParties: ["Alice"],
                     }),
                 );
+
                 return contractResponse;
             },
             getEventsByContractIdAsync: async (request: unknown) => {
@@ -373,6 +383,7 @@ describe("GrpcTransport batch 1 read services", () => {
                         contractId: "contract-1",
                     }),
                 );
+
                 return eventsResponse;
             },
             queryContractsAsync: async () => ({ activeContracts: [] }),

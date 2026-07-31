@@ -39,7 +39,9 @@ const snapshotCreateArguments = {
 describe("LedgerReplayEnvironmentBuilder", () => {
     it("hydrates exercised contract payloads and transaction metadata", async () => {
         const contractRequests: GetContractRequest[] = [];
+
         const eventRequests: GetEventsByContractIdRequest[] = [];
+
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(
@@ -554,7 +556,9 @@ describe("LedgerReplayEnvironmentBuilder", () => {
 
     it("hydrates contracts referenced from normalized replay entrypoint arguments", async () => {
         const contractRequests: string[] = [];
+
         const eventRequests: string[] = [];
+
         const builder = new LedgerReplayEnvironmentBuilder({
             contractService: {
                 async getContractAsync(

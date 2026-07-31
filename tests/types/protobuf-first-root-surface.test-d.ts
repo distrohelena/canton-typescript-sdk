@@ -2,6 +2,7 @@ import * as sdk from "@distrohelena/canton-typescript-sdk";
 import { comDaml } from "@distrohelena/canton-typescript-sdk/protobuf";
 
 const generated = comDaml.ledger.api.v2.VersionService;
+
 void generated;
 
 // @ts-expect-error generated RPC messages are not root SDK constructors

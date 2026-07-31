@@ -61,6 +61,7 @@ describe("live quickstart connectivity harness", () => {
         const environment = createLiveTestEnvironment({
             transportKind: TransportKind.grpc,
         });
+
         const client = createLiveClient(environment);
 
         try {

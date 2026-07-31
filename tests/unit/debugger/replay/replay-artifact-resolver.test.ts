@@ -82,6 +82,7 @@ describe("ReplayArtifactResolver", () => {
 
     it("reuses analyzed dar candidates for contained packages", async () => {
         let getDarCallCount = 0;
+
         const resolver = new ReplayArtifactResolver({
             participantPackageService: {
                 async getPackageReferencesAsync(

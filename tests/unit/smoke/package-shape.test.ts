@@ -60,17 +60,27 @@ import {
 import { comDaml, comDigitalasset, google } from "../../../src/protobuf";
 
 const ledgerApi = comDaml.ledger.api.v2;
+
 const participantAdmin = comDigitalasset.canton.admin.participant.v30;
+
 const grpcHealth = google.grpc.health.v1;
 
 const GetPackageContentsRequest = participantAdmin.GetPackageContentsRequest;
+
 const GetPackageContentsResponse = participantAdmin.GetPackageContentsResponse;
+
 const GetPackageReferencesRequest = participantAdmin.GetPackageReferencesRequest;
+
 const GetPackageReferencesResponse = participantAdmin.GetPackageReferencesResponse;
+
 const ParticipantListPackagesRequest = participantAdmin.ListPackagesRequest;
+
 const ParticipantListPackagesResponse = participantAdmin.ListPackagesResponse;
+
 const ParticipantPackageDescription = participantAdmin.PackageDescription;
+
 const ParticipantStatusRequest = participantAdmin.ParticipantStatusRequest;
+
 const ParticipantStatusResponse = participantAdmin.ParticipantStatusResponse;
 
 describe("package surface", () => {

@@ -39,13 +39,16 @@ export async function createLiveMultiHostPartyToParticipantAsync(
             ...(init.localParticipantObservationOnly ? [0] : []),
         ]),
     ];
+
     const participantUidsByHostIndex = await readParticipantUidsByHostIndexAsync(
         clients,
         involvedHostIndexes,
     );
+
     const expectedConfirmingParticipantUids = init.confirmingHostIndexes.map(
         (hostIndex) => participantUidsByHostIndex.get(hostIndex)!,
     );
+
     const expectedObservingParticipantUids = [
         ...(init.localParticipantObservationOnly ? [participantUidsByHostIndex.get(0)!] : []),
         ...init.observingHostIndexes.map(
@@ -73,7 +76,9 @@ export async function createLiveMultiHostPartyToParticipantAsync(
     ]
         .filter((hostIndex) => hostIndex !== 0)
         .map((hostIndex) => clients.all[hostIndex]);
+
     const activationClient = new ExternalPartyActivationClient(clients.primary);
+
     const activation = await activationClient.activateAsync(
         new ExternalPartyActivationRequest({
             partyId: createdParty.partyId,
@@ -97,6 +102,7 @@ export async function createLiveMultiHostPartyToParticipantAsync(
     );
 
     const explorerUrl = createExplorerUrl(createdParty.partyId);
+
     await appendScenarioExplorerSummaryAsync({
         explorerUrl,
         partyId: createdParty.partyId,
@@ -169,6 +175,7 @@ function assertParticipantPermissions(
             participant.permission,
         ]),
     );
+
     const expectedParticipantCount =
         expectedConfirmingParticipantUids.length
         + expectedObservingParticipantUids.length;
@@ -213,6 +220,7 @@ async function appendScenarioExplorerSummaryAsync(init: {
     const outputPath =
         process.env.SDK_TEST_PARTY_TO_PARTICIPANT_LINKS_FILE
         ?? `${tmpdir()}/canton-typescript-sdk-party-to-participant-links.txt`;
+
     const summaryLine = [
         init.scenarioName,
         `party=${init.partyId}`,

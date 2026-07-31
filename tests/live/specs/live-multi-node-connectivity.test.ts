@@ -22,6 +22,7 @@ const runIfFiveNodesConfigured =
 
 describe("live multi-node connectivity", () => {
     let environment: LiveMultiNodeEnvironment;
+
     let clients: LiveMultiNodeClients;
 
     beforeAll(async () => {

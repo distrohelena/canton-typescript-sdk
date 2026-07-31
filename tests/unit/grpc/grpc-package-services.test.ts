@@ -20,6 +20,7 @@ describe("GrpcTransport package services", () => {
         const listPackagesPayload = {
             packageIds: ["pkg-1", "pkg-2"],
         };
+
         const listPackagesAsync = vi.fn(async () => listPackagesPayload);
 
         const getPackagePayload = {
@@ -27,11 +28,13 @@ describe("GrpcTransport package services", () => {
             archivePayload: new Uint8Array([1, 2, 3]),
             hash: "hash-1",
         };
+
         const getPackageAsync = vi.fn(async () => getPackagePayload);
 
         const getPackageStatusPayload = {
             packageStatus: 1,
         };
+
         const getPackageStatusAsync = vi.fn(async () => getPackageStatusPayload);
 
         const listVettedPackagesPayload = {
@@ -59,6 +62,7 @@ describe("GrpcTransport package services", () => {
             ],
             nextPageToken: "page-2",
         };
+
         const listVettedPackagesAsync = vi.fn(
             async () => listVettedPackagesPayload,
         );
@@ -168,6 +172,7 @@ describe("GrpcTransport package services", () => {
                 },
             ],
         });
+
         const listParticipantPackagesAsync = vi.fn(
             async () => listParticipantPackagesPayload,
         );
@@ -191,6 +196,7 @@ describe("GrpcTransport package services", () => {
             isUtilityPackage: false,
             languageVersion: "2.dev",
         });
+
         const getParticipantPackageContentsAsync = vi.fn(
             async () => getParticipantPackageContentsPayload,
         );
