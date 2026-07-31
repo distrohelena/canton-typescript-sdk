@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
-    GetNoWaitCommitmentsFromRequest,
-    GetParticipantPruningScheduleRequest,
-    GetPruningScheduleRequest,
-    GetSafePruningOffsetRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import {
+    GetNoWaitCommitmentsFromRequest,
+    GetParticipantScheduleRequest,
+    GetScheduleRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
+import { GetSafePruningOffsetRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 
 describe("Batch 5 read services with JSON transport", () => {
     it("rejects unsupported pruning read methods", async () => {
@@ -25,8 +27,8 @@ describe("Batch 5 read services with JSON transport", () => {
                 "PruningService.GetSafePruningOffset",
                 () =>
                     client.pruningService.getSafePruningOffsetAsync(
-                        new GetSafePruningOffsetRequest({
-                            beforeOrAt: new Date("2026-01-01T00:00:00.000Z"),
+                        GetSafePruningOffsetRequest.create({
+                            beforeOrAt: { seconds: "1767225600", nanos: 0 },
                             ledgerEnd: "100",
                         }),
                     ),
@@ -35,21 +37,21 @@ describe("Batch 5 read services with JSON transport", () => {
                 "PruningService.GetSchedule",
                 () =>
                     client.pruningService.getScheduleAsync(
-                        new GetPruningScheduleRequest(),
+                        GetScheduleRequest.create(),
                     ),
             ],
             [
                 "PruningService.GetParticipantSchedule",
                 () =>
                     client.pruningService.getParticipantScheduleAsync(
-                        new GetParticipantPruningScheduleRequest(),
+                        GetParticipantScheduleRequest.create(),
                     ),
             ],
             [
                 "PruningService.GetNoWaitCommitmentsFrom",
                 () =>
                     client.pruningService.getNoWaitCommitmentsFromAsync(
-                        new GetNoWaitCommitmentsFromRequest({
+                        GetNoWaitCommitmentsFromRequest.create({
                             synchronizerIds: ["sync-1"],
                             participantUids: ["participant-1"],
                         }),

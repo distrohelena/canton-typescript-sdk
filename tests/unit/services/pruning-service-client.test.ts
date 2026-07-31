@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetNoWaitCommitmentsFromRequest,
-    GetNoWaitCommitmentsFromResponse,
-    GetParticipantPruningScheduleRequest,
-    GetParticipantPruningScheduleResponse,
-    GetPruningScheduleRequest,
-    GetPruningScheduleResponse,
     PruningServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    GetNoWaitCommitmentsFromRequest,
+    GetNoWaitCommitmentsFromResponse,
+    GetParticipantScheduleRequest,
+    GetParticipantScheduleResponse,
+    GetScheduleRequest,
+    GetScheduleResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import {
     GetSafePruningOffsetRequest,
     GetSafePruningOffsetResponse,
@@ -16,28 +18,29 @@ import {
 
 describe("PruningServiceClient", () => {
     it("forwards pruning read requests through the selected transport", async () => {
-        const getSafePruningOffsetAsync = vi.fn(
-            async () => GetSafePruningOffsetResponse.create({
-                response: { oneofKind: "safePruningOffset", safePruningOffset: "42" },
-            }),
-        );
+        const safePruningOffsetResponse = GetSafePruningOffsetResponse.create({
+            response: { oneofKind: "safePruningOffset", safePruningOffset: "42" },
+        });
 
-        const getPruningScheduleAsync = vi.fn(
-            async () =>
-                new GetPruningScheduleResponse({}),
-        );
+        const getSafePruningOffsetAsync = vi.fn(async () => safePruningOffsetResponse);
+
+        const scheduleResponse = GetScheduleResponse.create();
+
+        const getPruningScheduleAsync = vi.fn(async () => scheduleResponse);
+
+        const participantScheduleResponse = GetParticipantScheduleResponse.create();
 
         const getParticipantPruningScheduleAsync = vi.fn(
-            async () =>
-                new GetParticipantPruningScheduleResponse({}),
+            async () => participantScheduleResponse,
         );
 
+        const noWaitCommitmentsResponse = GetNoWaitCommitmentsFromResponse.create({
+            ignoredParticipants: [],
+            notIgnoredParticipants: [],
+        });
+
         const getNoWaitCommitmentsFromAsync = vi.fn(
-            async () =>
-                new GetNoWaitCommitmentsFromResponse({
-                    ignoredParticipants: [],
-                    notIgnoredParticipants: [],
-                }),
+            async () => noWaitCommitmentsResponse,
         );
 
         const transport = {
@@ -55,46 +58,54 @@ describe("PruningServiceClient", () => {
             timeoutMs: 5_000,
         });
 
+        const safePruningOffsetRequest = GetSafePruningOffsetRequest.create({
+            beforeOrAt: { seconds: "1767225600", nanos: 0 },
+            ledgerEnd: "100",
+        });
+
+        const scheduleRequest = GetScheduleRequest.create();
+
+        const participantScheduleRequest = GetParticipantScheduleRequest.create();
+
+        const noWaitCommitmentsRequest = GetNoWaitCommitmentsFromRequest.create({
+            synchronizerIds: ["sync-1"],
+            participantUids: ["participant-1"],
+        });
+
         await client.getSafePruningOffsetAsync(
-            GetSafePruningOffsetRequest.create({
-                beforeOrAt: { seconds: "1767225600", nanos: 0 },
-                ledgerEnd: "100",
-            }),
+            safePruningOffsetRequest,
             options,
         );
 
         await client.getScheduleAsync(
-            new GetPruningScheduleRequest(),
+            scheduleRequest,
             options,
         );
 
         await client.getParticipantScheduleAsync(
-            new GetParticipantPruningScheduleRequest(),
+            participantScheduleRequest,
             options,
         );
 
         await client.getNoWaitCommitmentsFromAsync(
-            new GetNoWaitCommitmentsFromRequest({
-                synchronizerIds: ["sync-1"],
-                participantUids: ["participant-1"],
-            }),
+            noWaitCommitmentsRequest,
             options,
         );
 
-        expect(getSafePruningOffsetAsync).toHaveBeenLastCalledWith(
-            expect.any(Object),
+        expect(getSafePruningOffsetAsync).toHaveBeenCalledWith(
+            safePruningOffsetRequest,
             options,
         );
-        expect(getPruningScheduleAsync).toHaveBeenLastCalledWith(
-            expect.any(GetPruningScheduleRequest),
+        expect(getPruningScheduleAsync).toHaveBeenCalledWith(
+            scheduleRequest,
             options,
         );
-        expect(getParticipantPruningScheduleAsync).toHaveBeenLastCalledWith(
-            expect.any(GetParticipantPruningScheduleRequest),
+        expect(getParticipantPruningScheduleAsync).toHaveBeenCalledWith(
+            participantScheduleRequest,
             options,
         );
-        expect(getNoWaitCommitmentsFromAsync).toHaveBeenLastCalledWith(
-            expect.any(GetNoWaitCommitmentsFromRequest),
+        expect(getNoWaitCommitmentsFromAsync).toHaveBeenCalledWith(
+            noWaitCommitmentsRequest,
             options,
         );
     });

@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
-    GetLedgerApiVersionResponse,
     ObjectDisposedError,
     TransportKind,
 } from "../../../src";
+import { GetLedgerApiVersionResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import { VersionServiceClient } from "../../../src/services/version/version-service-client.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
@@ -18,8 +18,8 @@ describe("VersionServiceClient with JSON transport", () => {
 
         const client = new VersionServiceClient(transport);
 
-        await expect(client.getLedgerApiVersionAsync()).resolves.toBeInstanceOf(
-            GetLedgerApiVersionResponse,
+        await expect(client.getLedgerApiVersionAsync()).resolves.toEqual(
+            GetLedgerApiVersionResponse.create({ version: "1.0.0" }),
         );
     });
 

@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
     CantonClient,
     CantonClientOptions,
-    GetDarContentsRequest,
-    GetDarRequest,
-    GetHighestOffsetByTimestampRequest,
-    ListDarsRequest,
-    ListPendingOperationsRequest,
     NotSupportedError,
     TransportKind,
 } from "../../../src";
+import {
+    GetDarContentsRequest,
+    GetDarRequest,
+    ListDarsRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import { GetHighestOffsetByTimestampRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
+import { ListPendingOperationsRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_repair_service.js";
 
 describe("Batch 3 read services with JSON transport", () => {
     it("rejects unsupported participant-admin read methods", async () => {
@@ -26,7 +28,7 @@ describe("Batch 3 read services with JSON transport", () => {
                 "ParticipantPackageService.GetDar",
                 () =>
                     client.participantPackageService.getDarAsync(
-                        new GetDarRequest({
+                        GetDarRequest.create({
                             mainPackageId: "pkg-1",
                         }),
                     ),
@@ -35,7 +37,7 @@ describe("Batch 3 read services with JSON transport", () => {
                 "ParticipantPackageService.ListDars",
                 () =>
                     client.participantPackageService.listDarsAsync(
-                        new ListDarsRequest({
+                        ListDarsRequest.create({
                             limit: 10,
                         }),
                     ),
@@ -44,7 +46,7 @@ describe("Batch 3 read services with JSON transport", () => {
                 "ParticipantPackageService.GetDarContents",
                 () =>
                     client.participantPackageService.getDarContentsAsync(
-                        new GetDarContentsRequest({
+                        GetDarContentsRequest.create({
                             mainPackageId: "pkg-1",
                         }),
                     ),
@@ -53,9 +55,9 @@ describe("Batch 3 read services with JSON transport", () => {
                 "ParticipantPartyManagementService.GetHighestOffsetByTimestamp",
                 () =>
                     client.participantPartyManagementService.getHighestOffsetByTimestampAsync(
-                        new GetHighestOffsetByTimestampRequest({
+                        GetHighestOffsetByTimestampRequest.create({
                             synchronizerId: "sync-1",
-                            timestamp: new Date("2026-01-01T00:00:00.000Z"),
+                            timestamp: { seconds: "1767225600", nanos: 0 },
                         }),
                     ),
             ],
@@ -63,7 +65,7 @@ describe("Batch 3 read services with JSON transport", () => {
                 "ParticipantRepairService.ListPendingOperations",
                 () =>
                     client.participantRepairService.listPendingOperationsAsync(
-                        new ListPendingOperationsRequest(),
+                        ListPendingOperationsRequest.create(),
                     ),
             ],
         ] as const;

@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
     GetParticipantStatusRequest,
-    GetPackageContentsRequest,
-    GetPackageReferencesRequest,
     NotSupportedError,
-    ParticipantListPackagesRequest,
     PackageManagementServiceClient,
     ParticipantStatusServiceClient,
 } from "../../../src";
+import {
+    GetPackageContentsRequest,
+    GetPackageReferencesRequest,
+    ListPackagesRequest as ParticipantListPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import {
     GetPackageRequest,
@@ -140,19 +142,19 @@ describe("JSON operational services contract", () => {
         ).resolves.toEqual({});
         await expect(
             participantPackageService.listPackagesAsync(
-                new ParticipantListPackagesRequest(),
+                ParticipantListPackagesRequest.create(),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             participantPackageService.getPackageContentsAsync(
-                new GetPackageContentsRequest({
+                GetPackageContentsRequest.create({
                     packageId: "pkg-1",
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             participantPackageService.getPackageReferencesAsync(
-                new GetPackageReferencesRequest({
+                GetPackageReferencesRequest.create({
                     packageId: "pkg-1",
                 }),
             ),

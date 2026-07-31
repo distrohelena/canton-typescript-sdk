@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-    GetNoWaitCommitmentsFromRequest,
-    GetParticipantPruningScheduleRequest,
-    GetPruningScheduleRequest,
-    GetSafePruningOffsetRequest,
     PruningServiceClient,
     RequestOptions,
-    SafeToPruneCommitmentState,
-    TopologyDuration,
 } from "../../../src";
+import {
+    GetNoWaitCommitmentsFromRequest,
+    GetParticipantScheduleRequest,
+    GetScheduleRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
+import {
+    GetSafePruningOffsetRequest,
+    SafeToPruneCommitmentState,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport batch 5 read services", () => {
@@ -78,46 +81,46 @@ describe("GrpcTransport batch 5 read services", () => {
         const pruning = new PruningServiceClient(transport);
 
         const safeOffset = await pruning.getSafePruningOffsetAsync(
-            new GetSafePruningOffsetRequest({
-                beforeOrAt: new Date("2026-01-01T00:00:00.000Z"),
+            GetSafePruningOffsetRequest.create({
+                beforeOrAt: { seconds: "1767225600", nanos: 0 },
                 ledgerEnd: "100",
                 counterParticipantsCommitmentsState:
-                    SafeToPruneCommitmentState.match,
+                    SafeToPruneCommitmentState.MATCH,
             }),
             options,
         );
 
         const schedule = await pruning.getScheduleAsync(
-            new GetPruningScheduleRequest(),
+            GetScheduleRequest.create(),
             options,
         );
 
         const participantSchedule =
             await pruning.getParticipantScheduleAsync(
-                new GetParticipantPruningScheduleRequest(),
+                GetParticipantScheduleRequest.create(),
                 options,
             );
 
         const noWait = await pruning.getNoWaitCommitmentsFromAsync(
-            new GetNoWaitCommitmentsFromRequest({
+            GetNoWaitCommitmentsFromRequest.create({
                 synchronizerIds: ["sync-1"],
                 participantUids: ["participant-1"],
             }),
             options,
         );
 
-        expect(safeOffset.hasSafePruningOffset).toBe(true);
-        expect(safeOffset.safePruningOffset).toBe("42");
-        expect(schedule.schedule?.maxDuration).toEqual(
-            new TopologyDuration({
-                seconds: "30",
-                nanos: 0,
-            }),
-        );
+        expect(safeOffset.response).toEqual({
+            oneofKind: "safePruningOffset",
+            safePruningOffset: "42",
+        });
+        expect(schedule.schedule?.maxDuration).toEqual({
+            seconds: "30",
+            nanos: 0,
+        });
         expect(participantSchedule.schedule?.pruneInternallyOnly).toBe(true);
         expect(noWait.ignoredParticipants[0]).toMatchObject({
             counterParticipantUid: "participant-1",
-            synchronizerIds: ["sync-1"],
+            synchronizers: { synchronizerIds: ["sync-1"] },
         });
     });
 });

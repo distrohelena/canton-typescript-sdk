@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { GetLedgerApiVersionResponse, ObjectDisposedError } from "../../../src";
+import { ObjectDisposedError } from "../../../src";
+import { GetLedgerApiVersionResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import { VersionServiceClient } from "../../../src/services/version/version-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
@@ -20,8 +21,11 @@ describe("VersionServiceClient with gRPC transport", () => {
         const client = new VersionServiceClient(transport);
 
         expect(transport.features.supportsCommandSigning).toBe(true);
-        await expect(client.getLedgerApiVersionAsync()).resolves.toBeInstanceOf(
-            GetLedgerApiVersionResponse,
+        await expect(client.getLedgerApiVersionAsync()).resolves.toEqual(
+            GetLedgerApiVersionResponse.create({
+                version: "3.4.0",
+                features: {},
+            }),
         );
     });
 

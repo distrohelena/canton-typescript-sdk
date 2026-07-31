@@ -1,40 +1,41 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    AddPartyAsyncRequest,
-    AddPartyAsyncResponse,
-    ClearPartyOnboardingFlagRequest,
-    ClearPartyOnboardingFlagResponse,
-    ParticipantPermission,
     ParticipantPartyManagementServiceClient,
     RequestOptions,
 } from "../../../src";
 import {
+    AddPartyAsyncRequest,
+    AddPartyAsyncResponse,
+    ClearPartyOnboardingFlagRequest,
+    ClearPartyOnboardingFlagResponse,
     GetHighestOffsetByTimestampRequest,
     GetHighestOffsetByTimestampResponse,
+    ParticipantPermission as GeneratedParticipantPermission,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
 
 describe("ParticipantPartyManagementServiceClient", () => {
     it("forwards participant party management requests through the selected transport", async () => {
-        const addPartyAsync = vi.fn(
-            async () =>
-                new AddPartyAsyncResponse({
-                    addPartyRequestId: "request-1",
-                }),
-        );
+        const addPartyResponse = AddPartyAsyncResponse.create({
+            addPartyRequestId: "request-1",
+        });
+
+        const addPartyAsync = vi.fn(async () => addPartyResponse);
+
+        const clearPartyOnboardingFlagResponse =
+            ClearPartyOnboardingFlagResponse.create({
+                onboarded: false,
+                earliestRetryTimestamp: { seconds: "1767225900", nanos: 0 },
+            });
 
         const clearPartyOnboardingFlagAsync = vi.fn(
-            async () =>
-                new ClearPartyOnboardingFlagResponse({
-                    onboarded: false,
-                    earliestRetryTimestamp: new Date(
-                        "2026-01-01T00:05:00.000Z",
-                    ),
-                }),
+            async () => clearPartyOnboardingFlagResponse,
         );
 
-        const getHighestOffsetByTimestampAsync = vi.fn(
-            async () => GetHighestOffsetByTimestampResponse.create({ ledgerOffset: "42" }),
-        );
+        const highestOffsetResponse = GetHighestOffsetByTimestampResponse.create({
+            ledgerOffset: "42",
+        });
+
+        const getHighestOffsetByTimestampAsync = vi.fn(async () => highestOffsetResponse);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -58,17 +59,17 @@ describe("ParticipantPartyManagementServiceClient", () => {
             timeoutMs: 5_000,
         });
 
-        const addPartyRequest = new AddPartyAsyncRequest({
+        const addPartyRequest = AddPartyAsyncRequest.create({
             arguments: {
                 partyId: "Alice",
                 synchronizerId: "sync-1",
                 sourceParticipantUid: "participant::source",
                 topologySerial: 1,
-                participantPermission: ParticipantPermission.confirmation,
+                participantPermission: GeneratedParticipantPermission.CONFIRMATION,
             },
         });
 
-        const clearOnboardingRequest = new ClearPartyOnboardingFlagRequest({
+        const clearOnboardingRequest = ClearPartyOnboardingFlagRequest.create({
             partyId: "Alice",
             synchronizerId: "sync-1",
             beginOffsetExclusive: "42",
@@ -79,19 +80,19 @@ describe("ParticipantPartyManagementServiceClient", () => {
                 addPartyRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(AddPartyAsyncResponse);
+        ).resolves.toEqual(addPartyResponse);
         await expect(
             client.clearPartyOnboardingFlagAsync(
                 clearOnboardingRequest,
                 options,
             ),
-        ).resolves.toBeInstanceOf(ClearPartyOnboardingFlagResponse);
+        ).resolves.toEqual(clearPartyOnboardingFlagResponse);
         await expect(
             client.getHighestOffsetByTimestampAsync(
                 request,
                 options,
             ),
-        ).resolves.toBeDefined();
+        ).resolves.toEqual(highestOffsetResponse);
 
         expect(addPartyAsync).toHaveBeenCalledWith(
             addPartyRequest,
