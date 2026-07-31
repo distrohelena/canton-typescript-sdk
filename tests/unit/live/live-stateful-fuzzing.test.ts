@@ -22,6 +22,7 @@ import {
 import {
     compareLedgerOffsets,
     createLiveFuzzRunContext,
+    executeLiveFuzzCommandAsync,
     formatPollingTimeout,
     matchesLiveFuzzContract,
     summarizeLiveFuzzContract,
@@ -85,6 +86,88 @@ afterEach(() => {
 });
 
 describe("live fuzz configuration", () => {
+    it("maps live snapshot filters to the generated active-contract request", async () => {
+        let capturedRequest: unknown;
+
+        const client = {
+            stateService: {
+                getActiveContractsPageAsync: async (request: unknown) => {
+                    capturedRequest = request;
+
+                    return {
+                        activeContracts: [
+                            {
+                                contractEntry: {
+                                    oneofKind: "activeContract",
+                                    activeContract: {
+                                        createdEvent: {
+                                            contractId: "contract-1",
+                                            templateId: {
+                                                moduleName: "Main",
+                                                entityName: "Iou",
+                                            },
+                                            createArguments: { fields: [] },
+                                        },
+                                    },
+                                },
+                            },
+                        ],
+                    };
+                },
+                getLedgerEndAsync: async () => ({ offset: "1" }),
+            },
+        };
+
+        const context = {
+            fixture: {
+                issuerParty: "issuer::test",
+                ownerParty: "owner::test",
+                issuerClient: client,
+                ownerClient: client,
+            },
+            config: readLiveFuzzConfig(),
+            amountSuffix: 1,
+            campaignNonce: 1n,
+            expectedPayload: {},
+            ledgerEnds: new Map(),
+            lifecycle: { created: [], archived: [] },
+            model: createInitialLiveFuzzModel({
+                templateId: LIVE_IOU_TEMPLATE_ID,
+                payload: {},
+            }),
+        };
+
+        await executeLiveFuzzCommandAsync({
+            context: context as never,
+            command: { kind: "probe", participant: "issuer" },
+        });
+
+        expect(capturedRequest).toMatchObject({
+            eventFormat: {
+                filtersByParty: {
+                    "issuer::test": {
+                        cumulative: [
+                            {
+                                identifierFilter: {
+                                    oneofKind: "templateFilter",
+                                    templateFilter: {
+                                        templateId: {
+                                            packageId: "",
+                                            moduleName: "Main",
+                                            entityName: "Iou",
+                                        },
+                                        includeCreatedEventBlob: true,
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+                verbose: true,
+            },
+        });
+    });
+
     it("creates deterministic per-sequence state from the generated amount and nonce", () => {
         const config = readLiveFuzzConfig();
 

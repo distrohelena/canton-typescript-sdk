@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     NotSupportedError,
 } from "../../../src";
+import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { StateServiceClient } from "../../../src/services/state/state-service-client.js";
 import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
@@ -38,6 +38,8 @@ describe("shared ledger read services contract", () => {
             activeAtOffset: "2",
         };
 
+        let capturedActiveContractsRequest: unknown;
+
         const grpcTransport = new GrpcTransport({
             getHealthAsync: async () => ({ status: "healthy" }),
             createPartyAsync: async () => ({ identifier: "unused" }),
@@ -47,7 +49,11 @@ describe("shared ledger read services contract", () => {
             }),
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
-            queryContractsAsync: async () => activeContractsPageResponse,
+            queryContractsAsync: async request => {
+                capturedActiveContractsRequest = request;
+
+                return activeContractsPageResponse;
+            },
             getUpdatesAsync: () => (async function* () { yield {
                 update: {
                     oneofKind: "transaction",
@@ -64,22 +70,22 @@ describe("shared ledger read services contract", () => {
 
         const grpcUpdateService = new UpdateServiceClient(grpcTransport);
 
+        const activeContractsRequest = GetActiveContractsPageRequest.create({
+            eventFormat: {
+                filtersByParty: {
+                    Alice: { cumulative: [] },
+                },
+                verbose: true,
+            },
+        });
+
         await expect(
-            jsonStateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest({
-                    party: "Alice",
-                    templateId: "Main:Iou",
-                }),
-            ),
+            jsonStateService.getActiveContractsPageAsync(activeContractsRequest),
         ).rejects.toThrow(NotSupportedError);
         await expect(
-            grpcStateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest({
-                    party: "Alice",
-                    templateId: "Main:Iou",
-                }),
-            ),
+            grpcStateService.getActiveContractsPageAsync(activeContractsRequest),
         ).resolves.toBe(activeContractsPageResponse);
+        expect(capturedActiveContractsRequest).toBe(activeContractsRequest);
         await expect(
             grpcStateService.getActiveContractsAsync(
                 new GetActiveContractsRequest({

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     ExerciseCommand,
-    GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     NotSupportedError,
     SubmitCommandRequest,
 } from "../../../src";
+import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 
 describe("json transport entrypoint", () => {
@@ -71,9 +71,11 @@ describe("json transport entrypoint", () => {
         ).rejects.toThrow(NotSupportedError);
         await expect(
             client.stateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest({
-                    party: "Alice",
-                    templateId: "Main:Iou",
+                GetActiveContractsPageRequest.create({
+                    eventFormat: {
+                        filtersByParty: { Alice: { cumulative: [] } },
+                        verbose: true,
+                    },
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
@@ -136,10 +138,11 @@ describe("json transport entrypoint", () => {
 
         await expect(
             client.stateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest({
-                    party: "Alice",
-                    interfaceId: "Main:IAsset",
-                    includeInterfaceView: true,
+                GetActiveContractsPageRequest.create({
+                    eventFormat: {
+                        filtersByParty: { Alice: { cumulative: [] } },
+                        verbose: true,
+                    },
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);

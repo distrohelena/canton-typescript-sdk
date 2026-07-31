@@ -6,16 +6,16 @@ import {
     CreateCommand,
     DamlRecord,
     ExerciseCommand,
-    GetActiveContractsPageRequest,
     GetPartiesRequest,
     GetPackageRequest,
     ListPackagesRequest,
     SubmitCommandRequest,
     TransportKind,
 } from "../../../src/index.js";
+import { mapGrpcQueryContractsRequest } from "../../../src/transports/grpc/mappers/contracts-mapper.js";
 import {
     GetPackageContentsRequest,
-    ParticipantListPackagesRequest,
+    ListPackagesRequest as ParticipantListPackagesRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { DamlLfNodeKind, DamlLfPackageLoader } from "../../../src/daml-lf/index.js";
 import {
@@ -359,7 +359,7 @@ async function assertPartyCanQueryMainIouAsync(
     }
 
     await client.stateService.getActiveContractsPageAsync(
-        new GetActiveContractsPageRequest({
+        mapGrpcQueryContractsRequest({
             party,
             templateId: LIVE_IOU_TEMPLATE_ID,
         }),

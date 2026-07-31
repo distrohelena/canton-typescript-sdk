@@ -1,8 +1,8 @@
 import {
     CantonClient,
-    GetActiveContractsPageRequest,
     GetLedgerEndRequest,
 } from "../../../src/index.js";
+import { mapGrpcQueryContractsRequest } from "../../../src/transports/grpc/mappers/contracts-mapper.js";
 import {
     LiveFuzzCommand,
     LiveFuzzModel,
@@ -1010,7 +1010,7 @@ async function readParticipantSnapshotAsync(
     const client = getClient(fixture, participant);
 
     const response = await client.stateService.getActiveContractsPageAsync(
-        new GetActiveContractsPageRequest({
+        mapGrpcQueryContractsRequest({
             party: getParty(fixture, participant),
             templateId: LIVE_IOU_TEMPLATE_ID,
             includeCreatedEventBlob: true,
@@ -1035,7 +1035,7 @@ async function readParticipantSnapshotAsync(
     ledgerEnds.set(participant, ledgerEnd.offset);
 
     return {
-        contracts: response.contracts.map(summarizeLiveFuzzContract),
+        contracts: response.activeContracts.map(summarizeLiveFuzzContract),
         ledgerEnd: ledgerEnd.offset,
     };
 }
@@ -1123,7 +1123,14 @@ function getParty(fixture: LiveFuzzFixture, participant: LiveFuzzParticipant): s
 }
 
 function getCreatedEvent(value: unknown): Record<string, unknown> {
-    if (isRecord(value) && isRecord(value.createdEvent)) {
+    if (
+        isRecord(value)
+        && isRecord(value.contractEntry)
+        && value.contractEntry.oneofKind === "activeContract"
+        && isRecord(value.contractEntry.activeContract)
+    ) {
+        return getCreatedEvent(value.contractEntry.activeContract);
+    } else if (isRecord(value) && isRecord(value.createdEvent)) {
         return value.createdEvent;
     } else if (isRecord(value)) {
         return value;

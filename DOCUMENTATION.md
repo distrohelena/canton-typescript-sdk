@@ -37,7 +37,6 @@ import {
     GetPackageRequest,
     GetPackageStatusRequest,
     GetParticipantStatusRequest,
-    GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     HealthCheckRequest,
     HealthCheckResponse,
@@ -55,6 +54,7 @@ import {
     UploadDarFileRequest,
     UserRightKind,
 } from "canton-typescript-sdk";
+import { ledgerApiV2 } from "canton-typescript-sdk/protobuf";
 ```
 
 Protocol-specific clients:
@@ -1482,38 +1482,33 @@ Reads a page of active contracts.
 
 Transport support:
 
-- `grpc`: supports template filters, interface filters, created-event blobs, and ACS paging
-- `json`: supports template queries only
+- `grpc`
+- `json`: unsupported; throws `NotSupportedError`
 
 Parameters:
 
-- `request: GetActiveContractsPageRequest`
+- `request: ledgerApiV2.GetActiveContractsPageRequest`
 
 Request fields:
 
-- `party: string`
-- `templateId?: string`
-- `interfaceId?: string`
-- `includeInterfaceView?: boolean`
-- `includeCreatedEventBlob?: boolean`
 - `activeAtOffset?: string`
+- `eventFormat?: ledgerApiV2.EventFormat`
 - `maxPageSize?: number`
 - `pageToken?: Uint8Array`
 
 Notes:
 
-- `templateId` remains the convenience helper for template-scoped ACS reads.
-- If both `templateId` and `interfaceId` are set on gRPC, both filters are applied to the ACS event format.
+- Party, template, interface, and created-event-blob selection belongs in the generated `eventFormat`.
 - `contractService.getContractAsync(...)` cannot return interface views. For interface-view reads, use `stateService` or `updateService`.
 
 Return type:
 
-- `Promise<GetActiveContractsPageResponse<TContract>>`
+- `Promise<ledgerApiV2.GetActiveContractsPageResponse>`
 
 Useful response fields:
 
-- `contracts: readonly TContract[]`
-- `activeAtOffset?: string`
+- `activeContracts: ledgerApiV2.GetActiveContractsResponse[]`
+- `activeAtOffset: string`
 - `nextPageToken?: Uint8Array`
 
 ### `stateService.getActiveContractsAsync(request, observer)`
@@ -1726,7 +1721,7 @@ Transport behavior:
 | `topologyManagerWriteService.assembleSignedTransactions` | SDK Local | Yes | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
-| `stateService.getActiveContractsPageAsync` | Ledger | Yes | Yes |
+| `stateService.getActiveContractsPageAsync` | Ledger | No | Yes |
 | `stateService.getActiveContractsAsync` | Ledger | Yes | No |
 | `updateService.getUpdatesAsync` | Ledger | No | Yes |
 | external signing | Ledger | No | Yes |

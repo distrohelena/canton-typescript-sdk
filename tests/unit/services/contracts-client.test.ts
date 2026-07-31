@@ -1,22 +1,33 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetActiveContractsPageRequest,
-    GetActiveContractsPageResponse,
     GetActiveContractsRequest,
 } from "../../../src";
+import {
+    GetActiveContractsPageRequest,
+    GetActiveContractsPageResponse,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { StateServiceClient } from "../../../src/services/state/state-service-client.js";
 
 describe("StateServiceClient", () => {
     it("reads active contract pages through the selected transport", async () => {
-        const request = new GetActiveContractsPageRequest({
-            party: "Alice",
-            templateId: "Main:Iou",
-            interfaceId: "Main:IAsset",
-            includeInterfaceView: true,
-            includeCreatedEventBlob: true,
+        const request = GetActiveContractsPageRequest.create({
             activeAtOffset: "42",
+            eventFormat: {
+                filtersByParty: {
+                    Alice: { cumulative: [] },
+                },
+                verbose: true,
+            },
             maxPageSize: 25,
             pageToken: new Uint8Array([1, 2, 3]),
+        });
+
+        let capturedRequest: unknown;
+
+        const response = GetActiveContractsPageResponse.create({
+            activeContracts: [],
+            activeAtOffset: "42",
+            nextPageToken: new Uint8Array([9, 8, 7]),
         });
 
         const transport = {
@@ -36,12 +47,11 @@ describe("StateServiceClient", () => {
             uploadDarFileAsync: async () => {
                 throw new Error("not used");
             },
-            getActiveContractsPageAsync: async () =>
-                new GetActiveContractsPageResponse({
-                    contracts: [],
-                    activeAtOffset: "42",
-                    nextPageToken: new Uint8Array([9, 8, 7]),
-                }),
+            getActiveContractsPageAsync: async (forwardedRequest: unknown) => {
+                capturedRequest = forwardedRequest;
+
+                return response;
+            },
             getActiveContractsAsync: async () => {
                 throw new Error("not used");
             },
@@ -55,20 +65,17 @@ describe("StateServiceClient", () => {
 
         const client = new StateServiceClient(transport);
 
-        expect(request.party).toBe("Alice");
-        expect(request.templateId).toBe("Main:Iou");
-        expect(request.interfaceId).toBe("Main:IAsset");
-        expect(request.includeInterfaceView).toBe(true);
-        expect(request.includeCreatedEventBlob).toBe(true);
         expect(request.activeAtOffset).toBe("42");
+        expect(request.eventFormat?.filtersByParty).toHaveProperty("Alice");
         expect(request.maxPageSize).toBe(25);
         expect(request.pageToken).toEqual(new Uint8Array([1, 2, 3]));
 
-        const response = await client.getActiveContractsPageAsync(request);
+        const result = await client.getActiveContractsPageAsync(request);
 
-        expect(response).toBeInstanceOf(GetActiveContractsPageResponse);
-        expect(response.activeAtOffset).toBe("42");
-        expect(response.nextPageToken).toEqual(new Uint8Array([9, 8, 7]));
+        expect(capturedRequest).toBe(request);
+        expect(result).toBe(response);
+        expect(result.activeAtOffset).toBe("42");
+        expect(result.nextPageToken).toEqual(new Uint8Array([9, 8, 7]));
     });
 
     it("reads active contracts through the selected transport", async () => {

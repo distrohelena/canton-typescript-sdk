@@ -363,11 +363,11 @@ import {
     BearerTokenAuthProvider,
     CantonClient,
     CantonClientOptions,
-    GetActiveContractsPageRequest,
     HealthCheckRequest,
     GetLedgerApiVersionRequest,
     TransportKind,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 
 const client = new CantonClient(
     new CantonClientOptions({
@@ -400,14 +400,18 @@ const party = await client.partyManagementService.allocatePartyAsync(
     }),
 );
 const contracts = await client.stateService.getActiveContractsPageAsync(
-    new GetActiveContractsPageRequest({
-        party: "Alice",
-        templateId: "Main:Iou",
+    ledgerApiV2.GetActiveContractsPageRequest.create({
+        eventFormat: {
+            filtersByParty: {
+                Alice: { cumulative: [] },
+            },
+            verbose: true,
+        },
     }),
 );
 ```
 
-`stateService.getActiveContractsPageAsync(...)` keeps `templateId` as the simple helper path, and on gRPC also supports interface-based ACS reads with `interfaceId`, `includeInterfaceView`, `includeCreatedEventBlob`, `activeAtOffset`, `maxPageSize`, and `pageToken`. JSON remains template-query only.
+`stateService.getActiveContractsPageAsync(...)` accepts the generated Ledger API request on gRPC, including its `eventFormat`, `activeAtOffset`, `maxPageSize`, and `pageToken` fields. Build party, template, and interface filters in `eventFormat`. JSON does not implement this paginated RPC; use `getActiveContractsAsync(...)` for JSON streaming reads.
 
 For interface views, do not use `contractService.getContractAsync(...)`. That contract lookup surface cannot return interface views; use `stateService` or `updateService` instead.
 
@@ -554,7 +558,7 @@ unsupported query features reject with `QueryCapabilityError`.
 - `packageService.listVettedPackagesAsync(...)`: `grpc` only
 - `commandService.submitAndWaitAsync(...)`: `json`, `grpc`
 - `commandSubmissionService.submitAsync(...)`: reserved, currently unsupported
-- `stateService.getActiveContractsPageAsync(...)`: `json`, `grpc`
+- `stateService.getActiveContractsPageAsync(...)`: `grpc` only
 - `stateService.getActiveContractsAsync(...)`: `json` only
 - `updateService.getUpdatesAsync(...)`: `grpc` only
 - `commandCompletionService`: placeholder, no methods yet

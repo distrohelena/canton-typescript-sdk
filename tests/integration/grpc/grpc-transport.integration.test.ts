@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
     ExerciseCommand,
-    GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     NotSupportedError,
     SignCommandResult,
     SubmitCommandRequest,
 } from "../../../src";
+import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 
@@ -14,19 +14,25 @@ describe("grpc transport entrypoint", () => {
     it("exports protocol-specific entrypoints", async () => {
         const grpcModule = await import("../../../src/grpc/index.js");
 
+        let capturedActiveContractsRequest: unknown;
+
         const client = new grpcModule.GrpcLedgerClient(
             createFakeGrpcOperations({
                 checkHealthAsync: async () => ({ status: 1 }),
-                queryContractsAsync: async () => ({
-                    activeContracts: [
-                        {
-                            contractEntry: {
-                                oneofKind: "activeContract",
-                                activeContract: { contractId: "c2" },
+                queryContractsAsync: async request => {
+                    capturedActiveContractsRequest = request;
+
+                    return {
+                        activeContracts: [
+                            {
+                                contractEntry: {
+                                    oneofKind: "activeContract",
+                                    activeContract: { contractId: "c2" },
+                                },
                             },
-                        },
-                    ],
-                }),
+                        ],
+                    };
+                },
             }),
         );
 
@@ -58,14 +64,20 @@ describe("grpc transport entrypoint", () => {
         ).resolves.toMatchObject({
             status: 1,
         });
+
+        const activeContractsRequest = GetActiveContractsPageRequest.create({
+            eventFormat: {
+                filtersByParty: {
+                    Alice: { cumulative: [] },
+                },
+                verbose: true,
+            },
+        });
+
         await expect(
-            client.stateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest({
-                    party: "Alice",
-                    templateId: "Main:Iou",
-                }),
-            ),
+            client.stateService.getActiveContractsPageAsync(activeContractsRequest),
         ).resolves.toBeDefined();
+        expect(capturedActiveContractsRequest).toBe(activeContractsRequest);
         await expect(
             client.stateService.getActiveContractsAsync(
                 new GetActiveContractsRequest({
