@@ -81,6 +81,11 @@ not an exact Numeric value.
 
 The repository also supports a live SDK validation suite against an already-running CN quickstart localnet.
 
+The current party-creation flows were developed and live-tested against Canton
+Participant 3.5.7. In particular, external-party allocation signs the generated
+combined topology hash (`multi_hash`) rather than each topology transaction
+individually.
+
 ## Localnet launchers
 
 The published package includes launchers for an existing CN Quickstart checkout.
