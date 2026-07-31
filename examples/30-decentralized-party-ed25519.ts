@@ -1,19 +1,15 @@
 import {
     CreateDecentralizedPartyRequest,
     GetParticipantIdRequest,
+    WaitForPartyHostingRequest,
 } from "@distrohelena/canton-typescript-sdk";
-import { comDigitalasset } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
     createExampleClient,
     createPartyHint,
     discoverSynchronizerIdAsync,
 } from "./shared/localnet.js";
 import { createExampleEd25519Key } from "./shared/party-keys.js";
-import { waitForPartyHostingAsync } from "./shared/party-hosting.js";
 import { runExampleAsync } from "./shared/run.js";
-
-const ListPartiesRequest =
-    comDigitalasset.canton.topology.admin.v30.ListPartiesRequest;
 
 runExampleAsync("decentralized-party-ed25519", async () => {
     const client = createExampleClient();
@@ -63,18 +59,12 @@ runExampleAsync("decentralized-party-ed25519", async () => {
                 new GetParticipantIdRequest(),
             );
 
-        await waitForPartyHostingAsync(
-            {
+        await client.topologyAggregationService.waitForPartyHostingAsync(
+            new WaitForPartyHostingRequest({
                 partyId,
-                expectedParticipantId: localParticipant.participantId,
-                expectedSynchronizerId: synchronizer,
-                readPartiesAsync: async () =>
-                    (
-                        await client.topologyAggregationService.listPartiesAsync(
-                            ListPartiesRequest.create({ limit: 1_000 }),
-                        )
-                    ).results,
-            },
+                participantId: localParticipant.participantId,
+                synchronizerId: synchronizer,
+            }),
         );
 
         console.log(`Decentralized party: ${partyId}`);

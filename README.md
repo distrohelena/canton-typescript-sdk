@@ -92,6 +92,13 @@ topology shape: a serial-1 decentralized namespace definition, one self-root
 namespace certificate per owner, and a PartyToParticipant containing the party
 signing key. No deprecated PartyToKeyMapping is created.
 
+The SDK preserves `identityProviderId`, `userId`, and `waitForAllocation`
+through decentralized prepare/finalize. Canton ignores `waitForAllocation` for
+decentralized parties, so the example explicitly calls
+`topologyAggregationService.waitForPartyHostingAsync(...)` to prove that the
+expected participant is hosting the party on the expected synchronizer. That
+aggregate topology check is the same on Participant 3.5.7 and 3.5.8.
+
 ## Localnet launchers
 
 The published package includes launchers for an existing CN Quickstart checkout.
