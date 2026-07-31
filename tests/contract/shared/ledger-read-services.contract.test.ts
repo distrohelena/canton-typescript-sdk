@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    GetActiveContractsPageRequest,
     GetActiveContractsRequest,
     NotSupportedError,
 } from "../../../src";
-import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { StateServiceClient } from "../../../src/services/state/state-service-client.js";
 import { UpdateServiceClient } from "../../../src/services/update/update-service-client.js";
@@ -46,7 +46,7 @@ describe("shared ledger read services contract", () => {
             }),
             grantUserRightsAsync: async () => ({ rights: [] }),
             uploadPackageAsync: async () => ({ packageId: "unused" }),
-            getActiveContractsPageAsync: async () => activeContractsPageResponse,
+            queryContractsAsync: async () => activeContractsPageResponse,
             getUpdatesAsync: () => (async function* () { yield {
                 update: {
                     oneofKind: "transaction",
@@ -65,12 +65,18 @@ describe("shared ledger read services contract", () => {
 
         await expect(
             jsonStateService.getActiveContractsPageAsync(
-                GetActiveContractsPageRequest.create(),
+                new GetActiveContractsPageRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
             ),
         ).rejects.toThrow(NotSupportedError);
         await expect(
             grpcStateService.getActiveContractsPageAsync(
-                GetActiveContractsPageRequest.create(),
+                new GetActiveContractsPageRequest({
+                    party: "Alice",
+                    templateId: "Main:Iou",
+                }),
             ),
         ).resolves.toBe(activeContractsPageResponse);
         await expect(
