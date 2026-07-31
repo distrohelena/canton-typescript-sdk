@@ -9,8 +9,6 @@ import {
     CantonClientOptions,
     ConnectedSynchronizerHealth,
     ConnectedSynchronizerStatus,
-    GetParticipantStatusRequest,
-    GetParticipantStatusResponse,
     GetPackageRequest,
     GetPackageResponse,
     GetPackageStatusRequest,
@@ -24,7 +22,6 @@ import {
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
     HashFunction,
-    HealthCheckStatus,
     HealthServiceClient,
     ListPackagesRequest,
     ListPackagesResponse,
@@ -60,22 +57,28 @@ import {
     VersionServiceClient,
     WaitForPartyHostingRequest,
 } from "../../../src";
-import {
-    GetPackageContentsRequest,
-    GetPackageContentsResponse,
-    GetPackageReferencesRequest,
-    GetPackageReferencesResponse,
-    ListPackagesRequest as ParticipantListPackagesRequest,
-    ListPackagesResponse as ParticipantListPackagesResponse,
-    PackageDescription as ParticipantPackageDescription,
-} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import { comDaml, comDigitalasset, google } from "../../../src/protobuf";
+
+const ledgerApi = comDaml.ledger.api.v2;
+const participantAdmin = comDigitalasset.canton.admin.participant.v30;
+const grpcHealth = google.grpc.health.v1;
+
+const GetPackageContentsRequest = participantAdmin.GetPackageContentsRequest;
+const GetPackageContentsResponse = participantAdmin.GetPackageContentsResponse;
+const GetPackageReferencesRequest = participantAdmin.GetPackageReferencesRequest;
+const GetPackageReferencesResponse = participantAdmin.GetPackageReferencesResponse;
+const ParticipantListPackagesRequest = participantAdmin.ListPackagesRequest;
+const ParticipantListPackagesResponse = participantAdmin.ListPackagesResponse;
+const ParticipantPackageDescription = participantAdmin.PackageDescription;
+const ParticipantStatusRequest = participantAdmin.ParticipantStatusRequest;
+const ParticipantStatusResponse = participantAdmin.ParticipantStatusResponse;
 
 describe("package surface", () => {
     it("exports the grpc-shaped root client types", () => {
         expect(CantonClient).toBeTypeOf("function");
         expect(CantonClientOptions).toBeTypeOf("function");
         expect(HealthServiceClient).toBeTypeOf("function");
-        expect(HealthCheckStatus.serving).toBe("serving");
+        expect(grpcHealth.HealthCheckResponse_ServingStatus.SERVING).toBe(1);
         expect(VersionServiceClient).toBeTypeOf("function");
         expect(WaitForPartyHostingRequest).toBeTypeOf("function");
         expect(PartyManagementServiceClient).toBeTypeOf("function");
@@ -91,6 +94,8 @@ describe("package surface", () => {
         expect(AdminComponentHealthKind.ok).toBe("ok");
         expect(AdminNotInitializedExternalInputKind.id).toBe("id");
         expect(ConnectedSynchronizerHealth.healthy).toBe("healthy");
+        expect(ConnectedSynchronizerStatus).toBeTypeOf("function");
+        expect(ParticipantNodeStatus).toBeTypeOf("function");
         expect(TopologyBaseQuery).toBeTypeOf("function");
         expect(TopologyBaseResult).toBeTypeOf("function");
         expect(TopologyMappingResult).toBeTypeOf("function");
@@ -124,7 +129,17 @@ describe("package surface", () => {
 
         const listPackagesRequest = new ListPackagesRequest();
 
-        const getParticipantStatusRequest = new GetParticipantStatusRequest();
+        const getLedgerApiVersionRequest =
+            ledgerApi.GetLedgerApiVersionRequest.create();
+
+        const healthCheckRequest = grpcHealth.HealthCheckRequest.create({
+            service: "",
+        });
+
+        const getParticipantStatusRequest = ParticipantStatusRequest.create();
+
+        const getParticipantIdRequest =
+            ledgerApi.admin.GetParticipantIdRequest.create();
 
         const getPackageContentsRequest = GetPackageContentsRequest.create({
             packageId: "pkg-1",
@@ -146,27 +161,25 @@ describe("package surface", () => {
             limit: 25,
         });
 
-        const getParticipantStatusResponse = new GetParticipantStatusResponse({
-            status: new ParticipantNodeStatus({
-                uid: "participant::sandbox",
-                active: true,
-                version: "3.4.0",
-                connectedSynchronizers: [
-                    new ConnectedSynchronizerStatus({
+        const getParticipantStatusResponse = ParticipantStatusResponse.create({
+            kind: {
+                oneofKind: "status",
+                status: {
+                    active: true,
+                    connectedSynchronizers: [{
                         physicalSynchronizerId: "sync::sandbox",
-                        health: ConnectedSynchronizerHealth.healthy,
-                    }),
-                ],
-                supportedProtocolVersions: [30],
-                components: [],
-                ports: {},
-            }),
+                        health: participantAdmin.ConnectedSynchronizer_Health.HEALTHY,
+                    }],
+                    supportedProtocolVersions: [30],
+                },
+            },
         });
 
         expect(listPackagesRequest).toBeInstanceOf(ListPackagesRequest);
-        expect(getParticipantStatusRequest).toBeInstanceOf(
-            GetParticipantStatusRequest,
-        );
+        expect(getLedgerApiVersionRequest).toEqual({});
+        expect(healthCheckRequest).toEqual({ service: "" });
+        expect(getParticipantStatusRequest).toEqual({});
+        expect(getParticipantIdRequest).toEqual({});
         expect(getPackageContentsRequest.packageId).toBe("pkg-1");
         expect(getPackageReferencesRequest.packageId).toBe("pkg-1");
         expect(getPackageRequest.packageId).toBe("pkg-1");
@@ -175,7 +188,15 @@ describe("package surface", () => {
             ListVettedPackagesRequest,
         );
         expect(participantListPackagesRequest.limit).toBe(25);
-        expect(getParticipantStatusResponse.status?.active).toBe(true);
+        expect(getParticipantStatusResponse).toMatchObject({
+            kind: {
+                oneofKind: "status",
+                status: {
+                    active: true,
+                    supportedProtocolVersions: [30],
+                },
+            },
+        });
         expect(new ListPackagesResponse({ packageIds: ["pkg-1"] })).toBeInstanceOf(
             ListPackagesResponse,
         );
@@ -269,5 +290,16 @@ describe("package surface", () => {
         expect(sdkModule).not.toHaveProperty("StreamTransactionsRequest");
         expect(sdkModule).not.toHaveProperty("HealthStatusResponse");
         expect(sdkModule).not.toHaveProperty("LedgerReplayDebuggerClient");
+        expect(sdkModule).not.toHaveProperty("GetLedgerApiVersionResponse");
+        expect(sdkModule).not.toHaveProperty("HealthCheckRequest");
+        expect(sdkModule).not.toHaveProperty("GetParticipantStatusRequest");
+        expect(sdkModule).not.toHaveProperty("GetParticipantIdRequest");
+        expect(sdkModule).not.toHaveProperty("GetPackageReferencesRequest");
+        expect(sdkModule).not.toHaveProperty("HealthCheckResponse");
+        expect(sdkModule).not.toHaveProperty("GetLedgerApiVersionRequest");
+        expect(sdkModule).not.toHaveProperty("GetParticipantStatusResponse");
+        expect(sdkModule).not.toHaveProperty("GetParticipantIdResponse");
+        expect(sdkModule).not.toHaveProperty("GetPackageReferencesResponse");
+        expect(sdkModule).not.toHaveProperty("HealthCheckStatus");
     });
 });

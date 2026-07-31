@@ -3,10 +3,10 @@ import {
     ExerciseCommand,
     GetActiveContractsPageRequest,
     GetActiveContractsRequest,
-    HealthCheckRequest,
     NotSupportedError,
     SubmitCommandRequest,
 } from "../../../src";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 
 describe("json transport entrypoint", () => {
     it("exports protocol-specific entrypoints", async () => {
@@ -64,7 +64,7 @@ describe("json transport entrypoint", () => {
 
         await expect(
             client.healthService.checkAsync(
-                new HealthCheckRequest({
+                HealthCheckRequest.create({
                     service: "grpc.health.v1.Health",
                 }),
             ),

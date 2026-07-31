@@ -1,28 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    GetParticipantStatusRequest,
-    GetParticipantStatusResponse,
-    ParticipantNodeStatus,
     ParticipantStatusServiceClient,
     RequestOptions,
 } from "../../../src";
+import {
+    ParticipantStatusRequest,
+    ParticipantStatusResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 
 describe("ParticipantStatusServiceClient", () => {
     it("forwards participant status requests through the selected transport", async () => {
-        const getParticipantStatusAsync = vi.fn(
-            async () =>
-                new GetParticipantStatusResponse({
-                    status: new ParticipantNodeStatus({
-                        uid: "participant::sandbox",
-                        active: true,
-                        version: "3.4.0",
-                        connectedSynchronizers: [],
-                        supportedProtocolVersions: [30],
-                        components: [],
-                        ports: {},
-                    }),
-                }),
-        );
+        const response = ParticipantStatusResponse.create({
+            kind: {
+                oneofKind: "status",
+                status: {
+                    active: true,
+                    connectedSynchronizers: [],
+                    supportedProtocolVersions: [30],
+                },
+            },
+        });
+
+        const getParticipantStatusAsync = vi.fn(async () => response);
 
         const transport = {
             features: { supportsCommandSigning: false },
@@ -83,7 +82,7 @@ describe("ParticipantStatusServiceClient", () => {
 
         const client = new ParticipantStatusServiceClient(transport as never);
 
-        const request = new GetParticipantStatusRequest();
+        const request = ParticipantStatusRequest.create();
 
         const options = new RequestOptions({
             timeoutMs: 5_000,
@@ -94,7 +93,7 @@ describe("ParticipantStatusServiceClient", () => {
                 request,
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
+        ).resolves.toEqual(response);
 
         expect(getParticipantStatusAsync).toHaveBeenCalledWith(
             request,

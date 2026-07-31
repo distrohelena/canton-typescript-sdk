@@ -17,7 +17,6 @@ import type {
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocatePartyRequest } from "../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../core/types/requests/get-active-contracts-request.js";
-import { GetParticipantIdRequest } from "../core/types/requests/get-participant-id-request.js";
 import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
@@ -45,6 +44,8 @@ import type {
     AllocateExternalPartyResponse,
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
+    GetParticipantIdRequest,
+    GetParticipantIdResponse,
 } from "../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import type {
     GetContractRequest,
@@ -68,7 +69,6 @@ import type {
     GetIdRequest,
     GetIdResponse,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/initialization_service.js";
-import { GetParticipantIdResponse } from "../core/types/responses/get-participant-id-response.js";
 import type {
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,

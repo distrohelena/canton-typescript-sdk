@@ -5,7 +5,6 @@ import {
     GetConnectedSynchronizersRequest,
     GetLatestPrunedOffsetsRequest,
     GetLedgerEndRequest,
-    GetParticipantIdRequest,
     GetPartiesRequest,
     GetUserRequest,
     ListKnownPackagesRequest,
@@ -17,6 +16,7 @@ import {
 import { GetCompletionsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { GetContractRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import { GetEventsByContractIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
+import { GetParticipantIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -39,7 +39,7 @@ describe("Batch 1 read services with JSON transport", () => {
                 "PartyManagementService.GetParticipantId",
                 () =>
                     client.partyManagementService.getParticipantIdAsync(
-                        new GetParticipantIdRequest(),
+                        GetParticipantIdRequest.create(),
                     ),
             ],
             [

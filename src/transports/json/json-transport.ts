@@ -1,6 +1,5 @@
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
-import { GetParticipantIdRequest } from "../../core/types/requests/get-participant-id-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
@@ -88,8 +87,12 @@ import type {
     ListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse,
 } from "../grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
-import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
-import type { GetPartiesRequest, GetPartiesResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import type {
+    GetParticipantIdRequest,
+    GetParticipantIdResponse,
+    GetPartiesRequest,
+    GetPartiesResponse,
+} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import type {
     GetResourceLimitsRequest,
     GetResourceLimitsResponse,

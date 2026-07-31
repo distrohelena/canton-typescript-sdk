@@ -39,8 +39,6 @@ import {
 import {
 } from "./mappers/identity-provider-config-mapper.js";
 import {
-} from "./mappers/participant-status-mapper.js";
-import {
 } from "./mappers/pruning-mapper.js";
 import { mapGrpcCreateParty, mapGrpcCreatePartyRequest, mapGrpcListParties, mapGrpcListPartiesRequest } from "./mappers/parties-mapper.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";

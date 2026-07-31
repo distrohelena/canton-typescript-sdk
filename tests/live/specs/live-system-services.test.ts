@@ -1,10 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     CantonClient,
-    HealthCheckStatus,
     TransportKind,
 } from "../../../src/index.js";
-import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
+import {
+    HealthCheckRequest,
+    HealthCheckResponse_ServingStatus,
+} from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 
@@ -49,7 +51,7 @@ describe("live system services", () => {
             HealthCheckRequest.create(),
         );
 
-        expect(response.status).toBe(HealthCheckStatus.serving);
+        expect(response.status).toBe(HealthCheckResponse_ServingStatus.SERVING);
     });
 
     it("disposes a live grpc client idempotently", async () => {

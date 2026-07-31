@@ -4,8 +4,8 @@ import { CantonHashPurpose } from "../../core/types/canton-hash-purpose.js";
 import { CreateDecentralizedPartyRequest, DecentralizedPartyKey } from "../../core/types/requests/create-decentralized-party-request.js";
 import { PreparedDecentralizedParty } from "../../core/types/requests/finalize-decentralized-party-request.js";
 import { PreparedTopologyTransaction } from "../../core/types/topology/prepared-topology-transaction.js";
-import { GetParticipantIdResponse } from "../../core/types/responses/get-participant-id-response.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import type { GetParticipantIdResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
     CryptoKeyFormat,
     SigningKeyScheme,

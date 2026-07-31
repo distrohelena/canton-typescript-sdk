@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
     GetDarContentsRequest,
     GetDarRequest,
-    GetPackageReferencesRequest,
     ListDarsRequest,
     GetDarContentsResponse,
     GetDarResponse,
@@ -12,6 +11,7 @@ import {
 } from "../../../src";
 import {
     GetPackageContentsRequest,
+    GetPackageReferencesRequest,
     ListPackagesRequest as ParticipantListPackagesRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 
@@ -126,7 +126,7 @@ describe("ParticipantPackageServiceClient", () => {
             options,
         );
         await client.getPackageReferencesAsync(
-            new GetPackageReferencesRequest({
+            GetPackageReferencesRequest.create({
                 packageId: "pkg-1",
             }),
             options,
@@ -159,7 +159,7 @@ describe("ParticipantPackageServiceClient", () => {
             options,
         );
         expect(getParticipantPackageReferencesAsync).toHaveBeenLastCalledWith(
-            expect.any(GetPackageReferencesRequest),
+            GetPackageReferencesRequest.create({ packageId: "pkg-1" }),
             options,
         );
         expect(getParticipantDarAsync).toHaveBeenLastCalledWith(

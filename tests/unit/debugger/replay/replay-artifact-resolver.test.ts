@@ -1,10 +1,12 @@
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vitest";
-import { GetDarRequest } from "../../../../src/core/types/requests/get-dar-request.js";
-import { GetPackageReferencesRequest } from "../../../../src/core/types/requests/get-package-references-request.js";
-import { ParticipantDarDescription } from "../../../../src/core/types/participant-dar-description.js";
-import { GetDarResponse } from "../../../../src/core/types/responses/get-dar-response.js";
-import { GetPackageReferencesResponse } from "../../../../src/core/types/responses/get-package-references-response.js";
+import {
+    DarDescription,
+    GetDarRequest,
+    GetDarResponse,
+    GetPackageReferencesRequest,
+    GetPackageReferencesResponse,
+} from "../../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { ReplayMissingSourceException } from "../../../../src/debugger/index.js";
 import { ReplayArtifactResolver } from "../../../../src/debugger/replay/replay-artifact-resolver.js";
 import { SampleLfPackageFixture } from "../../../fixtures/daml-lf/sample-lf-package-fixture.js";
@@ -89,12 +91,12 @@ describe("ReplayArtifactResolver", () => {
                         request.packageId !== "pkg-main"
                         && request.packageId !== "sample-hash"
                     ) {
-                        return new GetPackageReferencesResponse({ dars: [] });
+                        return GetPackageReferencesResponse.create({ dars: [] });
                     }
 
-                    return new GetPackageReferencesResponse({
+                    return GetPackageReferencesResponse.create({
                         dars: [
-                            new ParticipantDarDescription({
+                            DarDescription.create({
                                 main: "pkg-main",
                                 name: "pkg-main.dar",
                                 version: "1.0.0",
@@ -110,7 +112,7 @@ describe("ReplayArtifactResolver", () => {
 
                     expect(request.mainPackageId).toBe("pkg-main");
 
-                    return new GetDarResponse({
+                    return GetDarResponse.create({
                         payload: createSourceMappedDarFixture({
                             packageId: "pkg-main",
                             additionalEntries: {
@@ -147,18 +149,18 @@ describe("ReplayArtifactResolver", () => {
                     request: GetPackageReferencesRequest,
                 ): Promise<GetPackageReferencesResponse> {
                     if (request.packageId !== "pkg-main") {
-                        return new GetPackageReferencesResponse({ dars: [] });
+                        return GetPackageReferencesResponse.create({ dars: [] });
                     }
 
-                    return new GetPackageReferencesResponse({
+                    return GetPackageReferencesResponse.create({
                         dars: [
-                            new ParticipantDarDescription({
+                            DarDescription.create({
                                 main: "pkg-main.dar",
                                 name: "pkg-main.dar",
                                 version: "1.0.0",
                                 description: "standard",
                             }),
-                            new ParticipantDarDescription({
+                            DarDescription.create({
                                 main: "pkg-main-debug.dar",
                                 name: "pkg-main-debug.dar",
                                 version: "1.0.0",
@@ -168,7 +170,7 @@ describe("ReplayArtifactResolver", () => {
                     });
                 },
                 async getDarAsync(request: GetDarRequest): Promise<GetDarResponse> {
-                    return new GetDarResponse({
+                    return GetDarResponse.create({
                         payload: packagesByDarName[request.mainPackageId],
                     });
                 },
@@ -189,18 +191,18 @@ describe("ReplayArtifactResolver", () => {
                     request: GetPackageReferencesRequest,
                 ): Promise<GetPackageReferencesResponse> {
                     if (request.packageId !== "pkg-main") {
-                        return new GetPackageReferencesResponse({ dars: [] });
+                        return GetPackageReferencesResponse.create({ dars: [] });
                     }
 
-                    return new GetPackageReferencesResponse({
+                    return GetPackageReferencesResponse.create({
                         dars: [
-                            new ParticipantDarDescription({
+                            DarDescription.create({
                                 main: "pkg-main-a",
                                 name: "main-a",
                                 version: "1.0.0",
                                 description: "a",
                             }),
-                            new ParticipantDarDescription({
+                            DarDescription.create({
                                 main: "pkg-main-b",
                                 name: "main-b",
                                 version: "1.0.0",
@@ -210,7 +212,7 @@ describe("ReplayArtifactResolver", () => {
                     });
                 },
                 async getDarAsync(request: GetDarRequest): Promise<GetDarResponse> {
-                    return new GetDarResponse({
+                    return GetDarResponse.create({
                         payload: createSourceMappedDarFixture({
                             packageId: "pkg-main",
                             definitionName:
@@ -250,12 +252,12 @@ function createResolver(
                 request: GetPackageReferencesRequest,
             ): Promise<GetPackageReferencesResponse> {
                 if (!(request.packageId in packagesByMainPackageId)) {
-                    return new GetPackageReferencesResponse({ dars: [] });
+                    return GetPackageReferencesResponse.create({ dars: [] });
                 }
 
-                return new GetPackageReferencesResponse({
+                return GetPackageReferencesResponse.create({
                     dars: [
-                        new ParticipantDarDescription({
+                        DarDescription.create({
                             main: request.packageId,
                             name: `${request.packageId}.dar`,
                             version: "1.0.0",
@@ -265,7 +267,7 @@ function createResolver(
                 });
             },
             async getDarAsync(request: GetDarRequest): Promise<GetDarResponse> {
-                return new GetDarResponse({
+                return GetDarResponse.create({
                     payload: packagesByMainPackageId[request.mainPackageId],
                 });
             },

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
-    GetParticipantStatusRequest,
     PackageManagementServiceClient,
     ParticipantStatusServiceClient,
 } from "../../../src";
+import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import {
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
@@ -269,7 +269,7 @@ describe("gRPC operational services contract", () => {
         });
         await expect(
             participantStatusService.getParticipantStatusAsync(
-                new GetParticipantStatusRequest(),
+                ParticipantStatusRequest.create(),
             ),
         ).resolves.toMatchObject({
             kind: {

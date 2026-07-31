@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
-    GetParticipantStatusRequest,
     NotSupportedError,
     PackageManagementServiceClient,
     ParticipantStatusServiceClient,
 } from "../../../src";
+import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import {
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
@@ -161,7 +161,7 @@ describe("JSON operational services contract", () => {
         ).rejects.toThrow(NotSupportedError);
         await expect(
             participantStatusService.getParticipantStatusAsync(
-                new GetParticipantStatusRequest(),
+                ParticipantStatusRequest.create(),
             ),
         ).rejects.toThrow(NotSupportedError);
     });

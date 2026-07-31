@@ -10,8 +10,6 @@ import {
     ExternalPartySigningPublicKey,
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
-    GetParticipantIdRequest,
-    GetParticipantIdResponse,
     GetPartiesRequest,
     GetPartiesResponse,
     ListKnownPartiesRequest,
@@ -25,6 +23,8 @@ import {
     AllocateExternalPartyResponse,
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
+    GetParticipantIdRequest,
+    GetParticipantIdResponse,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GenerateTransactionsResponse } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { PartyManagementServiceClient } from "../../../src/services/party-management/party-management-service-client.js";
@@ -53,7 +53,7 @@ describe("PartyManagementServiceClient", () => {
     it("lists parties through the selected transport", async () => {
         const getParticipantIdAsync = vi.fn(
             async () =>
-                new GetParticipantIdResponse({
+                GetParticipantIdResponse.create({
                     participantId: "participant::sandbox",
                 }),
         );
@@ -170,10 +170,12 @@ describe("PartyManagementServiceClient", () => {
         await client.listKnownPartiesAsync(request, options);
         await expect(
             client.getParticipantIdAsync(
-                new GetParticipantIdRequest(),
+                GetParticipantIdRequest.create(),
                 options,
             ),
-        ).resolves.toBeInstanceOf(GetParticipantIdResponse);
+        ).resolves.toEqual(GetParticipantIdResponse.create({
+            participantId: "participant::sandbox",
+        }));
         await expect(
             client.getPartiesAsync(
                 new GetPartiesRequest({
@@ -202,7 +204,7 @@ describe("PartyManagementServiceClient", () => {
             options,
         );
         expect(getParticipantIdAsync).toHaveBeenLastCalledWith(
-            expect.any(GetParticipantIdRequest),
+            GetParticipantIdRequest.create(),
             options,
         );
         expect(getPartiesAsync).toHaveBeenLastCalledWith(
@@ -323,7 +325,7 @@ describe("PartyManagementServiceClient", () => {
         );
 
         const client = new PartyManagementServiceClient({
-            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+            getParticipantIdAsync: async () => GetParticipantIdResponse.create({
                 participantId: "participant::sandbox",
             }),
         } as never, { generateTransactionsAsync } as never);
@@ -422,7 +424,7 @@ describe("PartyManagementServiceClient", () => {
         );
 
         const client = new PartyManagementServiceClient({
-            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+            getParticipantIdAsync: async () => GetParticipantIdResponse.create({
                 participantId: "participant::sandbox",
             }),
             allocateExternalPartyAsync,
@@ -469,7 +471,7 @@ describe("PartyManagementServiceClient", () => {
         );
 
         const client = new PartyManagementServiceClient({
-            getParticipantIdAsync: async () => new GetParticipantIdResponse({
+            getParticipantIdAsync: async () => GetParticipantIdResponse.create({
                 participantId: "participant::sandbox",
             }),
         } as never, { generateTransactionsAsync } as never);

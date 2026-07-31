@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-    GetPackageReferencesRequest,
-    RequestOptions,
-} from "../../../src";
+import { RequestOptions } from "../../../src";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 import {
     GetPackageContentsRequest as ParticipantGetPackageContentsRequest,
     GetPackageContentsResponse as ParticipantGetPackageContentsResponse,
+    GetPackageReferencesRequest,
     ListPackagesRequest as ParticipantListPackagesRequest,
     ListPackagesResponse as ParticipantListPackagesResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
@@ -254,7 +252,7 @@ describe("GrpcTransport package services", () => {
 
         const getPackageReferencesResponse =
             await transport.getParticipantPackageReferencesAsync(
-                new GetPackageReferencesRequest({
+                GetPackageReferencesRequest.create({
                     packageId: "pkg-1",
                 }),
                 options,

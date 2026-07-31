@@ -6,7 +6,6 @@ import {
     GetConnectedSynchronizersRequest,
     GetLatestPrunedOffsetsRequest,
     GetLedgerEndRequest,
-    GetParticipantIdRequest,
     GetPartiesRequest,
     GetUserRequest,
     ListKnownPackagesRequest,
@@ -19,6 +18,9 @@ import {
     UpdateServiceClient,
     UserManagementServiceClient,
 } from "../../../src";
+import {
+    GetParticipantIdRequest,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import {
     GetCompletionsRequest,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
@@ -192,7 +194,7 @@ describe("GrpcTransport batch 1 read services", () => {
         const packageManagement = new PackageManagementServiceClient(transport);
 
         const participantId = await partyManagement.getParticipantIdAsync(
-            new GetParticipantIdRequest(),
+            GetParticipantIdRequest.create(),
             options,
         );
 

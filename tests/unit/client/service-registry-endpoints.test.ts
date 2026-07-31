@@ -5,14 +5,11 @@ import {
     ExternalPartyCryptoKeyFormat,
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
-    GetParticipantStatusRequest,
-    GetParticipantStatusResponse,
     ParticipantPermission,
     UploadDarFileRequest,
     UploadDarFileResponse,
     ListKnownPartiesRequest,
     ListKnownPartiesResponse,
-    ParticipantNodeStatus,
     TopologyListPartiesRequest,
     TopologyListPartiesResponse,
     TransportKind,
@@ -23,7 +20,7 @@ import {
     GenerateExternalPartyTopologyRequest,
     GenerateExternalPartyTopologyResponse,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
-import { GetLedgerApiVersionResponse } from "../../../src/core/types/responses/get-ledger-api-version-response.js";
+import { GetLedgerApiVersionResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import {
     GenerateTransactionsRequest,
     GenerateTransactionsResponse,
@@ -38,6 +35,10 @@ import {
     ClearPartyOnboardingFlagRequest,
     ClearPartyOnboardingFlagResponse,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/party_management_service.js";
+import {
+    ParticipantStatusRequest,
+    ParticipantStatusResponse,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { createServiceRegistry } from "../../../src/client/service-registry.js";
 import { createJsonTransport } from "../../../src/transports/json/json-transport-factory.js";
 
@@ -53,7 +54,7 @@ describe("service registry endpoint routing", () => {
     it("routes ledger, ledger admin, and participant admin services through separate transports", async () => {
         const ledgerTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
-                return new GetLedgerApiVersionResponse({
+                return GetLedgerApiVersionResponse.create({
                     version: "3.4.0",
                 });
             }),
@@ -152,16 +153,22 @@ describe("service registry endpoint routing", () => {
                 );
             }),
             getParticipantStatusAsync: vi.fn(async () => {
-                return new GetParticipantStatusResponse({
-                    status: new ParticipantNodeStatus({
-                        uid: "participant::sandbox",
-                        active: true,
-                        version: "3.4.0",
-                        connectedSynchronizers: [],
-                        supportedProtocolVersions: [30],
-                        components: [],
-                        ports: {},
-                    }),
+                return ParticipantStatusResponse.create({
+                    kind: {
+                        oneofKind: "status",
+                        status: {
+                            commonStatus: {
+                                uid: "participant::sandbox",
+                                ports: {},
+                                active: true,
+                                components: [],
+                                version: "3.4.0",
+                            },
+                            active: true,
+                            connectedSynchronizers: [],
+                            supportedProtocolVersions: [30],
+                        },
+                    },
                 });
             }),
             listAvailableStoresAsync: vi.fn(async () => {
@@ -254,9 +261,17 @@ describe("service registry endpoint routing", () => {
         ).resolves.toEqual(AllocateExternalPartyResponse.create({ partyId: "ed25519_party::fingerprint" }));
         await expect(
             services.participantStatusService.getParticipantStatusAsync(
-                new GetParticipantStatusRequest(),
+                ParticipantStatusRequest.create(),
             ),
-        ).resolves.toBeInstanceOf(GetParticipantStatusResponse);
+        ).resolves.toMatchObject({
+            kind: {
+                oneofKind: "status",
+                status: {
+                    active: true,
+                    supportedProtocolVersions: [30],
+                },
+            },
+        });
         await expect(
             services.topologyManagerReadService.listAvailableStoresAsync(
                 ListAvailableStoresRequest.create(),
@@ -331,7 +346,7 @@ describe("service registry endpoint routing", () => {
     it("fails lazily when the ledger admin and participant admin endpoints are missing", async () => {
         const ledgerTransport = {
             getLedgerApiVersionAsync: vi.fn(async () => {
-                return new GetLedgerApiVersionResponse({
+                return GetLedgerApiVersionResponse.create({
                     version: "3.4.0",
                 });
             }),
@@ -421,7 +436,7 @@ describe("service registry endpoint routing", () => {
 
         await expect(
             services.participantStatusService.getParticipantStatusAsync(
-                new GetParticipantStatusRequest(),
+                ParticipantStatusRequest.create(),
             ),
         ).rejects.toThrow(
             "The participant admin endpoint is not configured for participantStatusService.",
