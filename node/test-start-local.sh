@@ -42,8 +42,9 @@ run_case() {
   local quickstart_root_dir="$tmpdir/cn-quickstart"
   local stubbin="$tmpdir/bin"
   local generated_dir="$tmpdir/generated"
+  local docker_state_dir="$tmpdir/docker-state"
 
-  rm -rf "$quickstart_dir" "$quickstart_root_dir" "$stubbin" "$generated_dir" "$tmpdir/tls"
+  rm -rf "$quickstart_dir" "$quickstart_root_dir" "$stubbin" "$generated_dir" "$docker_state_dir" "$tmpdir/tls"
   mkdir -p \
     "$quickstart_root_dir" \
     "$quickstart_dir/docker/modules/localnet/env" \
@@ -51,7 +52,9 @@ run_case() {
     "$quickstart_dir/docker/modules/splice-onboarding" \
     "$quickstart_dir/docker/modules/keycloak" \
     "$stubbin" \
-    "$generated_dir"
+    "$generated_dir" \
+    "$docker_state_dir"
+  printf '0\n' > "$docker_state_dir/readiness-seconds"
   ln -s "$quickstart_dir" "$quickstart_root_dir/quickstart"
   printf '%s\n' "$makefile_targets" > "$quickstart_dir/Makefile"
   printf '%s\n' \
@@ -132,11 +135,68 @@ printf 'stub env SV_PROFILE=%s\n' "${SV_PROFILE:-}"
 printf 'stub env PQS_SV_PROFILE=%s\n' "${PQS_SV_PROFILE:-}"
 printf 'stub env AUTH_MODE=%s\n' "${AUTH_MODE:-}"
 if [[ "${1:-}" == "inspect" ]]; then
-  printf 'healthy\n'
+  container="${!#}"
+  state_file="${START_LOCAL_TEST_DOCKER_STATE_DIR}/${docker_mode}-${container}.count"
+  count=0
+  if [[ -f "$state_file" ]]; then
+    count="$(<"$state_file")"
+  fi
+  count=$((count + 1))
+  printf '%s\n' "$count" > "$state_file"
+
+  lifecycle=running
+  health=healthy
+  case "$docker_mode:$container" in
+    slow-canton:canton)
+      if (( count <= 31 )); then health=starting; fi
+      ;;
+    slow-splice:splice)
+      if (( count <= 61 )); then health=starting; fi
+      ;;
+    restarting-canton:canton)
+      if (( count == 1 )); then
+        lifecycle=restarting
+        health=unhealthy
+      fi
+      ;;
+    restarting-healthy-canton:canton)
+      if (( count == 1 )); then
+        lifecycle=restarting
+        health=healthy
+      fi
+      ;;
+    exited-canton:canton)
+      lifecycle=exited
+      health=unhealthy
+      ;;
+  esac
+
+  if [[ "$*" == *'.State.Status'* ]]; then
+    printf '%s %s\n' "$lifecycle" "$health"
+  else
+    printf '%s\n' "$health"
+  fi
   exit 0
 fi
-  if [[ "${1:-}" == "exec" ]]; then
-    extra_pqs_config_file=""
+if [[ "${1:-}" == "logs" ]]; then
+  printf 'stub log tail for %s\n' "${!#}"
+  exit 0
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  if [[ "$*" == *"http://localhost:"* ]]; then
+    printf '%s\n' "$*" > "${START_LOCAL_TEST_DOCKER_STATE_DIR}/extra-healthcheck-command"
+    healthcheck_state_file="${START_LOCAL_TEST_DOCKER_STATE_DIR}/${docker_mode}-extra-healthcheck.count"
+    healthcheck_count=0
+    if [[ -f "$healthcheck_state_file" ]]; then
+      healthcheck_count="$(<"$healthcheck_state_file")"
+    fi
+    healthcheck_count=$((healthcheck_count + 1))
+    printf '%s\n' "$healthcheck_count" > "$healthcheck_state_file"
+    if [[ "$docker_mode" == "slow-extra-health" && "$healthcheck_count" == "1" ]]; then
+      exit 1
+    fi
+  fi
+  extra_pqs_config_file=""
     while (( "$#" )); do
       if [[ "${1:-}" == "-e" && "${2:-}" == EXTRA_PQS_CONFIG_FILE=* ]]; then
         extra_pqs_config_file="${2#EXTRA_PQS_CONFIG_FILE=}"
@@ -160,6 +220,9 @@ if [[ "${1:-}" == "compose" && "${2:-}" == "version" ]]; then
   exit 0
 fi
 printf 'stub docker %s\n' "$*"
+if [[ "$*" == *" up -d --no-recreate pqs-extra-1"* ]]; then
+  printf 'stub extra pqs startup\n'
+fi
   if [[ "$docker_mode" == "staged-start" ]]; then
   if [[ "${1:-}" == "compose" && "$*" == *" down -v --remove-orphans"* ]]; then
     exit 0
@@ -188,6 +251,16 @@ fi
 EOF
   sed -i "s|__DOCKER_MODE__|$docker_mode|" "$stubbin/docker"
   chmod +x "$stubbin/docker"
+
+cat > "$stubbin/sleep" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -n "${START_LOCAL_TEST_READINESS_CLOCK_FILE:-}" ]]; then
+  current="$(<"$START_LOCAL_TEST_READINESS_CLOCK_FILE")"
+  printf '%s\n' "$((current + ${1:-0}))" > "$START_LOCAL_TEST_READINESS_CLOCK_FILE"
+fi
+EOF
+  chmod +x "$stubbin/sleep"
 
   cat > "$stubbin/docker-compose" <<'EOF'
 #!/usr/bin/env bash
@@ -226,6 +299,8 @@ EOF
         LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
         LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
         LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
+        START_LOCAL_TEST_DOCKER_STATE_DIR="$docker_state_dir" \
+        START_LOCAL_TEST_READINESS_CLOCK_FILE="$docker_state_dir/readiness-seconds" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
         bash ./start-local.sh 2>&1
@@ -240,6 +315,8 @@ EOF
         LOCALNET_TLS_CERT_CHAIN_PATH="$tls_cert_chain_path" \
         LOCALNET_TLS_PRIVATE_KEY_PATH="$tls_private_key_path" \
         LOCALNET_TLS_CA_CERT_PATH="$tls_ca_cert_path" \
+        START_LOCAL_TEST_DOCKER_STATE_DIR="$docker_state_dir" \
+        START_LOCAL_TEST_READINESS_CLOCK_FILE="$docker_state_dir/readiness-seconds" \
         EXTRA_PARTICIPANTS="$extra_participants" \
         PATH="$stubbin:$PATH" \
         bash ./start-local.sh 2>&1
@@ -353,7 +430,11 @@ printf 'stub env SV_PROFILE=%s\n' "${SV_PROFILE:-}"
 printf 'stub env PQS_SV_PROFILE=%s\n' "${PQS_SV_PROFILE:-}"
 printf 'stub env AUTH_MODE=%s\n' "${AUTH_MODE:-}"
 if [[ "${1:-}" == "inspect" ]]; then
-  printf 'healthy\n'
+  if [[ "$*" == *'.State.Status'* ]]; then
+    printf 'running healthy\n'
+  else
+    printf 'healthy\n'
+  fi
   exit 0
 fi
 if [[ "${1:-}" == "exec" ]]; then
@@ -390,6 +471,15 @@ run_case $'.PHONY: start\nstart:\n' 'stub env APP_USER_PROFILE=off'
 run_case $'.PHONY: start\nstart:\n' 'stub env SV_PROFILE=on'
 run_case $'.PHONY: start\nstart:\n' 'stub env PQS_SV_PROFILE=on'
 run_case $'.PHONY: start\nstart:\n' 'stub env AUTH_MODE=oauth2' oauth2
+run_case $'.PHONY: start\nstart:\n' 'canton readiness: running/starting' shared-secret slow-canton
+run_case $'.PHONY: start\nstart:\n' 'canton is still not ready (state: running, health: starting).' shared-secret slow-canton
+run_case $'.PHONY: start\nstart:\n' 'stub log tail for canton' shared-secret slow-canton
+run_case $'.PHONY: start\nstart:\n' 'canton readiness: restarting/unhealthy' shared-secret restarting-canton
+run_case $'.PHONY: start\nstart:\n' 'canton readiness: running/healthy' shared-secret restarting-healthy-canton
+run_case $'.PHONY: start\nstart:\n' 'canton is not running (state: exited).' shared-secret exited-canton '' '' '' 0 0 '' '' '' 1
+run_case $'.PHONY: start\nstart:\n' 'stub log tail for canton' shared-secret exited-canton '' '' '' 0 0 '' '' '' 1
+run_case $'.PHONY: start\nstart:\n' 'splice readiness: running/starting' shared-secret slow-splice 1
+run_case $'.PHONY: start\nstart:\n' 'stub extra pqs startup' shared-secret slow-splice 1
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans'
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv up -d --no-recreate postgres canton'
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.yaml --env-file '"$tmpdir"'/quickstart/docker/modules/keycloak/compose.env --profile keycloak down -v --remove-orphans' oauth2
@@ -398,6 +488,9 @@ run_case $'.PHONY: start\nstart:\n' 'stub docker-compose -f compose.yaml -f '"$t
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env down -v --remove-orphans' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate pqs-extra-1 pqs-extra-2 pqs-extra-3' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/es256/ledger-api-user.token' shared-secret default 3 '' '' 1
+assert_file_contains_text "$tmpdir/docker-state/extra-healthcheck-command" 'wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:5900/health'
+assert_file_contains_text "$tmpdir/docker-state/extra-healthcheck-command" 'wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:6900/health'
+assert_file_contains_text "$tmpdir/docker-state/extra-healthcheck-command" 'wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:7900/health'
 assert_file_contains "$tmpdir/es256/canton-es256.conf" 'canton.participants.app-provider.ledger-api.auth-services = ['
 assert_file_contains "$tmpdir/es256/canton-es256.conf" '    type = jwt-es-256-crt'
 assert_file_contains "$tmpdir/es256/canton-es256.conf" '    certificate = "/app/es256-certificate.pem"'
@@ -418,6 +511,8 @@ assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_VALIDATOR
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_VALIDATOR_1_WALLET_ADMIN_USER_NAME=extra-1'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_VALIDATOR_1_AUTH_AUDIENCE=https://canton.network.global'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'CREATE_DATABASE_EXTRA_PQS_1=pqs-extra-1'
+run_case $'.PHONY: start\nstart:\n' 'stub extra pqs startup' shared-secret slow-extra-health 3
+assert_file_contains "$tmpdir/docker-state/slow-extra-health-extra-healthcheck.count" '2'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_PQS_1_POSTGRES_PUBLISHED_PORT=5541'
 assert_file_contains "$tmpdir/generated/extra-participants.env" 'EXTRA_PQS_3_POSTGRES_PUBLISHED_PORT=5543'
 assert_file_contains "$tmpdir/generated/compose-extra-participants.yaml" '      ADDITIONAL_CONFIG_EXTRA_PARTICIPANTS: |'

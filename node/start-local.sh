@@ -911,7 +911,7 @@ extra_participants_healthy() {
     local prefix=$((index + 4))
     local health_port
     health_port="$(participant_port "$prefix" "$CANTON_HTTP_HEALTHCHECK_PORT_SUFFIX")"
-    checks+=("curl -sf --max-time 2 http://localhost:${health_port}/health > /dev/null")
+    checks+=("wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:${health_port}/health")
   done
 
   local joined_checks
@@ -958,40 +958,88 @@ extra_pqs_services() {
   done
 }
 
-wait_for_container_health() {
+container_readiness_state() {
   local container="$1"
-  local attempts="${2:-30}"
-  local delay_seconds="${3:-2}"
-  local status
+  docker inspect --format '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" \
+    2>/dev/null | tail -n 1 || true
+}
 
-  for ((i = 1; i <= attempts; i++)); do
-    status="$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null | tail -n 1 || true)"
-    if [[ "$status" == "healthy" ]]; then
+container_health_is_ready() {
+  local _container="$1"
+  local _lifecycle_state="$2"
+  local health_status="$3"
+  [[ "$lifecycle_state" == "running" && "$health_status" == "healthy" ]]
+}
+
+canton_and_extras_are_ready() {
+  local _container="$1"
+  local _lifecycle_state="$2"
+  local health_status="$3"
+  local extra_participants="$4"
+  [[ "$lifecycle_state" == "running" && "$health_status" == "healthy" ]] \
+    && extra_participants_healthy "$extra_participants"
+}
+
+print_container_logs() {
+  local container="$1"
+  echo "Recent logs for $container:" >&2
+  docker logs --tail 40 "$container" >&2 || true
+}
+
+readiness_elapsed_seconds() {
+  if [[ -n "${START_LOCAL_TEST_READINESS_CLOCK_FILE:-}" ]]; then
+    cat "$START_LOCAL_TEST_READINESS_CLOCK_FILE"
+    return 0
+  fi
+  printf '%s\n' "$SECONDS"
+}
+
+wait_for_container_readiness() {
+  local container="$1"
+  local readiness_predicate="$2"
+  shift 2
+
+  local last_readiness_state=""
+  local last_diagnostic_at
+  last_diagnostic_at="$(readiness_elapsed_seconds)"
+
+  while true; do
+    local lifecycle_state health_status readiness_state
+    read -r lifecycle_state health_status <<< "$(container_readiness_state "$container")"
+    lifecycle_state="${lifecycle_state:-missing}"
+    health_status="${health_status:-unknown}"
+
+    if [[ "$lifecycle_state" != "running" && "$lifecycle_state" != "restarting" ]]; then
+      echo "$container is not running (state: $lifecycle_state)." >&2
+      print_container_logs "$container"
+      return 1
+    fi
+
+    readiness_state="$lifecycle_state/$health_status"
+    if [[ "$readiness_state" != "$last_readiness_state" ]]; then
+      echo "$container readiness: $readiness_state"
+      last_readiness_state="$readiness_state"
+    fi
+
+    if "$readiness_predicate" "$container" "$lifecycle_state" "$health_status" "$@"; then
       return 0
     fi
-    sleep "$delay_seconds"
-  done
 
-  echo "$container did not become healthy after $((attempts * delay_seconds)) seconds." >&2
-  return 1
+    local now
+    now="$(readiness_elapsed_seconds)"
+    if (( now - last_diagnostic_at >= 30 )); then
+      echo "$container is still not ready (state: $lifecycle_state, health: $health_status)." >&2
+      print_container_logs "$container"
+      last_diagnostic_at="$now"
+    fi
+
+    sleep 2
+  done
 }
 
 wait_for_canton_health() {
   local extra_participants="${1:-0}"
-  local attempts=30
-  local delay_seconds=2
-  local status
-
-  for ((i = 1; i <= attempts; i++)); do
-    status="$(docker inspect --format '{{.State.Health.Status}}' canton 2>/dev/null | tail -n 1 || true)"
-    if [[ "$status" == "healthy" ]] && extra_participants_healthy "$extra_participants"; then
-      return 0
-    fi
-    sleep "$delay_seconds"
-  done
-
-  echo "canton did not become healthy after $((attempts * delay_seconds)) seconds." >&2
-  return 1
+  wait_for_container_readiness canton canton_and_extras_are_ready "$extra_participants"
 }
 
 provision_extra_pqs() {
@@ -1190,8 +1238,8 @@ start_ledger_stack() {
   docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
 
   if (( extra_participants > 0 )); then
-    wait_for_container_health splice 60 2
-    wait_for_container_health splice-onboarding 60 2
+    wait_for_container_readiness splice container_health_is_ready
+    wait_for_container_readiness splice-onboarding container_health_is_ready
     if [[ "$auth_mode" == "shared-secret" ]]; then
       grant_localnet_validator_read_rights "$extra_participants"
     fi
