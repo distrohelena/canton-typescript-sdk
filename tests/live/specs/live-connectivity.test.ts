@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
     GrpcChannelSecurity,
-    ListUsersRequest,
     TransportKind,
 } from "../../../src/index.js";
+import { ListUsersRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { assertLiveConnectivityAsync } from "../runtime/live-connectivity-preflight.js";
@@ -66,7 +66,7 @@ describe("live quickstart connectivity harness", () => {
         try {
             await expect(
                 client.userManagementService.listUsersAsync(
-                    new ListUsersRequest({ pageSize: 1 }),
+                    ListUsersRequest.create({ pageSize: 1 }),
                 ),
             ).resolves.toBeDefined();
         } finally {

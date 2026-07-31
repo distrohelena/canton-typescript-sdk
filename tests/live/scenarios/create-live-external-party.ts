@@ -9,11 +9,11 @@ import {
     ExternalPartySigningKeySpec,
     ExternalPartySigningPublicKey,
     GenerateExternalPartyTopologyRequest,
-    GetParticipantIdRequest,
     GetPartiesRequest,
     ListKnownPartiesRequest,
     PartyDetails,
 } from "../../../src/index.js";
+import { GetParticipantIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { ListConnectedSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { generateKeyPairSync, sign } from "node:crypto";
 
@@ -46,7 +46,7 @@ export async function allocateLiveExternalPartyAsync(
 ): Promise<LiveExternalPartyAllocationResult> {
     const participantIdResponse =
         await client.partyManagementService.getParticipantIdAsync(
-            new GetParticipantIdRequest(),
+            GetParticipantIdRequest.create(),
         );
 
     const synchronizerId = await discoverSingleHealthySynchronizerIdAsync(client);

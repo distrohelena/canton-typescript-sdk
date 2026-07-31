@@ -3,13 +3,15 @@ import {
     CantonClient,
     GetDarContentsRequest,
     GetDarRequest,
-    GetPackageContentsRequest,
-    GetPackageReferencesRequest,
-    GetParticipantStatusRequest,
     ListDarsRequest,
-    ParticipantListPackagesRequest,
     TransportKind,
 } from "../../../src/index.js";
+import {
+    GetPackageContentsRequest,
+    GetPackageReferencesRequest,
+    ParticipantListPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
+import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 import { getLiveSeededContextAsync } from "../runtime/live-seeded-context.js";
@@ -32,12 +34,18 @@ describe("live participant services", () => {
     it("reads participant status", async () => {
         const response =
             await grpcClient.participantStatusService.getParticipantStatusAsync(
-                new GetParticipantStatusRequest(),
+                ParticipantStatusRequest.create(),
             );
 
-        expect(response.status?.uid.length).toBeGreaterThan(0);
-        expect(response.status?.version.length).toBeGreaterThan(0);
-        expect(response.status?.active).toBe(true);
+        expect(response.kind.oneofKind).toBe("status");
+
+        if (response.kind.oneofKind !== "status") {
+            throw new Error("participant did not return an initialized status");
+        }
+
+        expect(response.kind.status.commonStatus?.uid.length).toBeGreaterThan(0);
+        expect(response.kind.status.commonStatus?.version.length).toBeGreaterThan(0);
+        expect(response.kind.status.active).toBe(true);
     });
 
     it("lists participant packages and reads package contents", async () => {
@@ -45,14 +53,14 @@ describe("live participant services", () => {
 
         const listResponse =
             await grpcClient.participantPackageService.listPackagesAsync(
-                new ParticipantListPackagesRequest(),
+                ParticipantListPackagesRequest.create(),
             );
 
         const packageId = seeded.participantPackageIds[0];
 
         const contentsResponse =
             await grpcClient.participantPackageService.getPackageContentsAsync(
-                new GetPackageContentsRequest({
+                GetPackageContentsRequest.create({
                     packageId,
                 }),
             );
@@ -69,7 +77,7 @@ describe("live participant services", () => {
 
         const referencesResponse =
             await grpcClient.participantPackageService.getPackageReferencesAsync(
-                new GetPackageReferencesRequest({
+                GetPackageReferencesRequest.create({
                     packageId: seeded.participantPackageIds[0],
                 }),
             );

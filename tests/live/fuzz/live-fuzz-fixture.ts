@@ -8,13 +8,15 @@ import {
     ExerciseCommand,
     GetActiveContractsPageRequest,
     GetPartiesRequest,
-    GetPackageContentsRequest,
     GetPackageRequest,
     ListPackagesRequest,
-    ParticipantListPackagesRequest,
     SubmitCommandRequest,
     TransportKind,
 } from "../../../src/index.js";
+import {
+    GetPackageContentsRequest,
+    ParticipantListPackagesRequest,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { DamlLfNodeKind, DamlLfPackageLoader } from "../../../src/daml-lf/index.js";
 import {
     assertLiveMultiNodeConnectivityAsync,
@@ -292,7 +294,7 @@ async function assertMainIouPackageAsync(client: CantonClient): Promise<void> {
 
     const participantPackages =
         await client.participantPackageService.listPackagesAsync(
-            new ParticipantListPackagesRequest(),
+            ParticipantListPackagesRequest.create(),
         );
 
     const participantPackageIds = new Set(
@@ -308,7 +310,7 @@ async function assertMainIouPackageAsync(client: CantonClient): Promise<void> {
     for (const packageId of candidatePackageIds) {
         const contents =
             await client.participantPackageService.getPackageContentsAsync(
-                new GetPackageContentsRequest({ packageId }),
+                GetPackageContentsRequest.create({ packageId }),
             );
 
         if (!contents.modules.some((module) => module.name === "Main")) {

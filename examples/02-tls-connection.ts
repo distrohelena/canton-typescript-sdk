@@ -1,4 +1,4 @@
-import { GetLedgerApiVersionRequest } from "@distrohelena/canton-typescript-sdk";
+import { GetLedgerApiVersionRequest } from "../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import { createExampleClient } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 
@@ -9,7 +9,7 @@ runExampleAsync("tls-connection", async () => {
     try {
         const response =
             await client.versionService.getLedgerApiVersionAsync(
-                new GetLedgerApiVersionRequest(),
+                GetLedgerApiVersionRequest.create(),
             );
 
         console.log(`Ledger API version: ${response.version}`);

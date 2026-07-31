@@ -5,10 +5,10 @@ import { allocateLiveExternalPartyAsync } from "./create-live-external-party.js"
 import {
     ExternalPartyActivationClient,
     ExternalPartyActivationRequest,
-    GetParticipantStatusRequest,
     ParticipantPermission,
     PartyToParticipant,
 } from "../../../src/index.js";
+import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { LiveMultiNodeClients } from "../runtime/live-multi-node-client-factory.js";
 import {
     LivePartyToParticipantScenario,
@@ -134,16 +134,24 @@ async function readParticipantUidsByHostIndexAsync(
 
             const response =
                 await client.participantStatusService.getParticipantStatusAsync(
-                    new GetParticipantStatusRequest(),
+                    ParticipantStatusRequest.create(),
                 );
 
-            if (response.status === undefined) {
+            if (response.kind.oneofKind !== "status") {
                 throw new Error(
                     "Live multi-host PartyToParticipant helper could not read participant status uid from participant-admin.",
                 );
             }
 
-            result.set(hostIndex, response.status.uid);
+            const participantUid = response.kind.status.commonStatus?.uid;
+
+            if (participantUid === undefined || participantUid.length === 0) {
+                throw new Error(
+                    "Live multi-host PartyToParticipant helper could not read participant status uid from participant-admin.",
+                );
+            }
+
+            result.set(hostIndex, participantUid);
         }),
     );
 

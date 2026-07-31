@@ -1,10 +1,10 @@
 import {
-    GetParticipantIdRequest,
-    GetParticipantStatusRequest,
-    HealthCheckRequest,
     ListKnownPartiesRequest,
     TransportKind,
 } from "../../../src/index.js";
+import { GetParticipantIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import { ListConnectedSynchronizersRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { createLiveClient } from "./live-client-factory.js";
 import { LiveMultiNodeEnvironment } from "./live-multi-node-test-environment.js";
@@ -99,7 +99,7 @@ async function assertGrpcLedgerConnectivityAsync(
     client: ReturnType<typeof createLiveClient>,
 ): Promise<void> {
     try {
-        await client.healthService.checkAsync(new HealthCheckRequest());
+        await client.healthService.checkAsync(HealthCheckRequest.create());
     } catch (error) {
         throw createConnectivityError(
             "ledger",
@@ -134,7 +134,7 @@ async function assertGrpcLedgerAdminConnectivityAsync(
 ): Promise<void> {
     try {
         await client.partyManagementService.getParticipantIdAsync(
-            new GetParticipantIdRequest(),
+            GetParticipantIdRequest.create(),
         );
     } catch (error) {
         throw createConnectivityError(
@@ -151,7 +151,7 @@ async function assertParticipantAdminConnectivityAsync(
 ): Promise<void> {
     try {
         await client.participantStatusService.getParticipantStatusAsync(
-            new GetParticipantStatusRequest(),
+            ParticipantStatusRequest.create(),
         );
     } catch (error) {
         throw createConnectivityError(

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     CantonClient,
-    HealthCheckRequest,
     HealthCheckStatus,
     TransportKind,
 } from "../../../src/index.js";
+import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 
@@ -46,7 +46,7 @@ describe("live system services", () => {
 
     it("checks grpc health", async () => {
         const response = await grpcClient.healthService.checkAsync(
-            new HealthCheckRequest(),
+            HealthCheckRequest.create(),
         );
 
         expect(response.status).toBe(HealthCheckStatus.serving);
