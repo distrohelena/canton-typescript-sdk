@@ -1,7 +1,5 @@
 import {
-    type CantonClient,
     CreateDecentralizedPartyRequest,
-    ExternalPartyCryptoKeyFormat,
     GetParticipantIdRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { comDigitalasset } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -11,11 +9,8 @@ import {
     discoverSynchronizerIdAsync,
 } from "./shared/localnet.js";
 import { createExampleEd25519Key } from "./shared/party-keys.js";
+import { waitForPartyToParticipantAsync } from "./shared/party-to-participant.js";
 import { runExampleAsync } from "./shared/run.js";
-
-const topologyPollIntervalMs = 500;
-
-const topologyPollTimeoutMs = 30_000;
 
 const ListPartyToParticipantRequest =
     comDigitalasset.canton.topology.admin.v30.ListPartyToParticipantRequest;
@@ -68,11 +63,27 @@ runExampleAsync("decentralized-party-ed25519", async () => {
             );
 
         await waitForPartyToParticipantAsync(
-            client,
-            partyId,
-            localParticipant.participantId,
-            partySigningKeyFingerprint,
-            partySigningKey.publicKey.format,
+            {
+                partyId,
+                expectedParticipantId: localParticipant.participantId,
+                expectedSigningKeyFingerprint: partySigningKeyFingerprint,
+                expectedSigningThreshold: 1,
+                readMappingsAsync: async () =>
+                    (
+                        await client.topologyManagerReadService.listPartyToParticipantAsync(
+                            ListPartyToParticipantRequest.create({
+                                filterParty: partyId,
+                            }),
+                        )
+                    ).results.flatMap(result =>
+                        result.item === undefined ? [] : [result.item],
+                    ),
+                computePublicKeyFingerprint: publicKey =>
+                    client.hashing.computePublicKeyFingerprint(
+                        publicKey,
+                        partySigningKey.publicKey.format,
+                    ),
+            },
         );
 
         console.log(`Decentralized party: ${partyId}`);
@@ -83,53 +94,3 @@ runExampleAsync("decentralized-party-ed25519", async () => {
         await client.disposeAsync();
     }
 });
-
-async function waitForPartyToParticipantAsync(
-    client: Pick<
-        CantonClient,
-        "hashing" | "topologyManagerReadService"
-    >,
-    partyId: string,
-    expectedParticipantId: string,
-    partySigningKeyFingerprint: string,
-    partySigningKeyFormat: ExternalPartyCryptoKeyFormat,
-): Promise<void> {
-    const deadline = Date.now() + topologyPollTimeoutMs;
-
-    while (Date.now() <= deadline) {
-        const response =
-            await client.topologyManagerReadService.listPartyToParticipantAsync(
-                ListPartyToParticipantRequest.create({ filterParty: partyId }),
-            );
-
-        const mapping = response.results
-            .map(result => result.item)
-            .find(item => item?.party === partyId);
-
-        const partySigningKeys = mapping?.partySigningKeys;
-
-        if (
-            mapping !== undefined &&
-            mapping.participants.some(
-                participant => participant.participantUid === expectedParticipantId,
-            ) &&
-            partySigningKeys !== undefined &&
-            partySigningKeys.threshold === 1 &&
-            partySigningKeys.keys.some(
-                key =>
-                    client.hashing.computePublicKeyFingerprint(
-                        key.publicKey,
-                        partySigningKeyFormat,
-                    ) === partySigningKeyFingerprint,
-            )
-        ) {
-            return;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, topologyPollIntervalMs));
-    }
-
-    throw new Error(
-        `Timed out waiting for PartyToParticipant topology for ${partyId}.`,
-    );
-}

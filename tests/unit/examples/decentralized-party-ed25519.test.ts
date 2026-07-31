@@ -18,9 +18,9 @@ describe("decentralized party example", () => {
         expect(example).toContain("getParticipantIdAsync");
         expect(example).toContain("listPartyToParticipantAsync");
         expect(example).toContain("ListPartyToParticipantRequest.create({");
-        expect(example).toContain("partySigningKeys.threshold === 1");
+        expect(example).toContain("waitForPartyToParticipantAsync(");
+        expect(example).toContain("expectedSigningThreshold: 1");
         expect(example).toContain("computePublicKeyFingerprint(");
-        expect(example).toContain("key.publicKey,");
         expect(example).not.toContain("PartyToKeyMapping");
     });
 });
