@@ -1,6 +1,6 @@
 {
     "name": "@distrohelena/canton-typescript-sdk",
-    "version": "0.1.30",
+    "version": "0.1.32",
     "license": "Apache-2.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -13,7 +13,9 @@
     ],
     "bin": {
         "canton-localnet-start": "node/start-local.sh",
-        "canton-localnet-stop": "node/stop-local.sh"
+        "canton-localnet-stop": "node/stop-local.sh",
+        "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
+        "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh"
     },
     "keywords": [
         "canton",
@@ -90,8 +92,12 @@
         "lint:fix": "eslint . --fix --max-warnings=0",
         "start:local-ledger": "bash node/start-local.sh",
         "stop:local-ledger": "bash node/stop-local.sh",
+        "start:local-participant-358": "bash node/start-local-participant-358.sh",
+        "stop:local-participant-358": "bash node/stop-local-participant-358.sh",
         "test:start-local-script": "bash node/test-start-local.sh",
         "test:stop-local-script": "bash node/test-stop-local.sh",
+        "test:participant-358-sidecar-script": "bash node/test-participant-358-sidecar.sh",
+        "test:participant-358-sidecar-smoke": "bash node/test-participant-358-sidecar-smoke.sh",
         "test": "vitest run --maxWorkers=1 --testTimeout=15000",
         "test:property": "vitest run tests/property --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run tests/live --maxWorkers=1 --testTimeout=15000",

@@ -18,13 +18,20 @@ const expectedExportKeys = [
 const expectedLocalnetBinEntries = Object.freeze({
     "canton-localnet-start": "node/start-local.sh",
     "canton-localnet-stop": "node/stop-local.sh",
+    "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
+    "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
 });
 const requiredLocalnetPackedPaths = Object.freeze([
     "package/node/start-local.sh",
     "package/node/stop-local.sh",
+    "package/node/start-local-participant-358.sh",
+    "package/node/stop-local-participant-358.sh",
     "package/node/test-start-local.sh",
     "package/node/test-stop-local.sh",
+    "package/node/test-participant-358-sidecar.sh",
+    "package/node/test-participant-358-sidecar-smoke.sh",
     "package/node/es256-jwt.mjs",
+    "package/node/participant-358-synchronizer.mjs",
 ]);
 const helpText =
     "Runs npm package verification against the packed tarball surface.";

@@ -110,6 +110,47 @@ npm exec --package @distrohelena/canton-typescript-sdk canton-localnet-stop
 These commands launch and stop CN Quickstart; they do not provision a
 Quickstart checkout.
 
+### Optional Canton 3.5.8 participant sidecar
+
+For SDK compatibility work, an isolated Canton 3.5.8 participant can join an
+already-running CN Quickstart localnet without changing its files or Compose
+project:
+
+```bash
+canton-localnet-participant-358-start
+canton-localnet-participant-358-stop
+```
+
+The sidecar owns `.generated/participant-358`, its `canton-participant-358`
+Compose project, its Postgres container, and host ports `8901` (Ledger), `8902`
+(Admin), and `8975` (JSON). The start launcher reads the existing localnet's
+registered synchronizer via its Admin API, stores the exported connection
+configuration in the sidecar runtime directory, and connects the sidecar with
+its own Admin API. It prints the SDK endpoint exports when that connection is
+healthy. `cn-quickstart` is strictly read-only: this launcher never writes to,
+starts, or stops the normal Quickstart stack.
+
+The defaults target the normal insecure shared-secret localnet at
+`localhost:3902` on its `quickstart` Docker network. Override them when your
+localnet differs:
+
+```bash
+PARTICIPANT_358_SOURCE_ADMIN_ENDPOINT=localhost:3902 \
+PARTICIPANT_358_SOURCE_ADMIN_BEARER_TOKEN="$TOKEN" \
+PARTICIPANT_358_NETWORK=quickstart \
+canton-localnet-participant-358-start
+```
+
+Use `PARTICIPANT_358_CANTON_IMAGE`, `PARTICIPANT_358_PROJECT_NAME`,
+`PARTICIPANT_358_RUNTIME_DIR`, `PARTICIPANT_358_LEDGER_PORT`,
+`PARTICIPANT_358_ADMIN_PORT`, and `PARTICIPANT_358_JSON_PORT` to make an
+explicitly isolated variant. The opt-in Docker check requires a running
+localnet and is never part of the normal test suite:
+
+```bash
+PARTICIPANT_358_SMOKE_TEST=1 npm run test:participant-358-sidecar-smoke
+```
+
 ### Optional ES256 bearer tokens
 
 Set `LOCALNET_ES256_JWT=1` when starting the localnet to add ES256 JWT

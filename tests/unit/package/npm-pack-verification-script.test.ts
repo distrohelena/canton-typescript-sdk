@@ -70,6 +70,8 @@ describe("npm publish metadata", () => {
         expect(packageJson.bin).toEqual({
             "canton-localnet-start": "node/start-local.sh",
             "canton-localnet-stop": "node/stop-local.sh",
+            "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
+            "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
         });
         expect(packageJson.scripts?.build).toBe(
             "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/write-cjs-package.mjs",
@@ -113,6 +115,8 @@ describe("npm pack verifier", () => {
         expect(verifyPackModule.getExpectedLocalnetBinEntries()).toEqual({
             "canton-localnet-start": "node/start-local.sh",
             "canton-localnet-stop": "node/stop-local.sh",
+            "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
+            "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
         });
     });
 
