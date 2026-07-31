@@ -7,6 +7,9 @@ STOP_SCRIPT="$REPO_ROOT/node/stop-local-participant-358.sh"
 
 [[ -x "$START_SCRIPT" ]]
 [[ -x "$STOP_SCRIPT" ]]
+grep -Fq 'export SDK_EXAMPLE_LEDGER_ENDPOINT=localhost:$LEDGER_PORT' "$START_SCRIPT"
+grep -Fq 'export SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT=localhost:$LEDGER_PORT' "$START_SCRIPT"
+grep -Fq 'export SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT=localhost:$ADMIN_PORT' "$START_SCRIPT"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
@@ -49,6 +52,17 @@ grep -Fqx '      - "127.0.0.1:8901:5001"' "$runtime_dir/compose.yaml"
 grep -Fqx '      port = 5002' "$runtime_dir/canton.conf"
 grep -Fqx '      port = 7575' "$runtime_dir/canton.conf"
 grep -Fq 'PARTICIPANT_358_SYNCHRONIZER_CONFIG=' "$runtime_dir/participant-358.env"
+grep -Fq 'PARTICIPANT_358_LEDGER_TOKEN_FILE=' "$runtime_dir/participant-358.env"
+test -s "$runtime_dir/ledger-api-user.token"
+node -e '
+const token = require("node:fs").readFileSync(process.argv[1], "utf8").trim();
+const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64url"));
+if (payload.sub !== "ledger-api-user") throw new Error("unexpected token subject");
+if (payload.aud !== "https://canton.network.global") throw new Error("unexpected token audience");
+if (!Number.isInteger(payload.iat)) throw new Error("token is missing iat");
+if (!Number.isInteger(payload.exp) || payload.exp <= payload.iat) throw new Error("token is missing a future exp");
+if (payload.exp - payload.iat !== 300) throw new Error("token lifetime must be 300 seconds");
+' "$runtime_dir/ledger-api-user.token"
 grep -F -- '--project-name canton-participant-358' "$docker_log"
 grep -Fqx '    name: quickstart' "$runtime_dir/compose.yaml"
 

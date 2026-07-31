@@ -17,10 +17,14 @@ describe("decentralized party example", () => {
         expect(example).toContain("partySigningThreshold: 1");
         expect(example).toContain("confirmationThreshold: 1");
         expect(example).toContain("getParticipantIdAsync");
-        expect(example).toContain("listPartyToParticipantAsync");
-        expect(example).toContain("ListPartyToParticipantRequest.create({");
-        expect(example).toContain("waitForPartyToParticipantAsync(");
-        expect(example).toContain("expectedSigningThreshold: 1");
+        expect(example).toContain("topologyAggregationService.listPartiesAsync");
+        expect(example).toContain("ListPartiesRequest.create({");
+        expect(example).toContain("waitForPartyHostingAsync(");
+        expect(example).toContain("expectedSynchronizerId: synchronizer");
+        expect(example).toContain("ListPartiesRequest.create({ limit: 1_000 })");
+        expect(example).not.toContain("filterParty: partyId");
+        expect(example).not.toContain("synchronizerIds: [synchronizer]");
+        expect(example).not.toContain("listPartyToParticipantAsync");
         expect(example).toContain("computePublicKeyFingerprint(");
         expect(example).not.toContain("PartyToKeyMapping");
     });

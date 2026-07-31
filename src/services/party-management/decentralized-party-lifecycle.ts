@@ -81,7 +81,7 @@ export async function prepareDecentralizedPartyAsync(
                         },
                     },
                 },
-                ...owners.map((targetKey) => ({
+                ...owners.map((targetKey, index) => ({
                     operation: Enums_TopologyChangeOp.ADD_REPLACE,
                     serial: 1,
                     store,
@@ -89,7 +89,7 @@ export async function prepareDecentralizedPartyAsync(
                         mapping: {
                             oneofKind: "namespaceDelegation" as const,
                             namespaceDelegation: {
-                                namespace: decentralizedNamespace,
+                                namespace: ownerFingerprints[index],
                                 targetKey,
                                 isRootDelegation: true,
                                 restriction: { oneofKind: undefined },

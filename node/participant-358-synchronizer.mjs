@@ -19,12 +19,30 @@ function createSharedSecretToken() {
         ?? "https://canton.network.global";
     const subject = process.env.PARTICIPANT_358_SOURCE_AUTH_SUBJECT
         ?? "ledger-api-user";
+    const ttlSeconds = Number.parseInt(
+        process.env.PARTICIPANT_358_TOKEN_TTL_SECONDS ?? "300",
+        10,
+    );
+    if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) {
+        throw new Error("PARTICIPANT_358_TOKEN_TTL_SECONDS must be a positive integer.");
+    }
+    const issuedAt = Math.floor(Date.now() / 1000);
     const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-    const payload = Buffer.from(JSON.stringify({ aud: audience, sub: subject })).toString("base64url");
+    const payload = Buffer.from(JSON.stringify({
+        aud: audience,
+        sub: subject,
+        iat: issuedAt,
+        exp: issuedAt + ttlSeconds,
+    })).toString("base64url");
     const signature = createHmac("sha256", secret)
         .update(`${header}.${payload}`)
         .digest("base64url");
     return `${header}.${payload}.${signature}`;
+}
+
+async function writeLedgerToken() {
+    const targetFile = getRequiredEnvironment("PARTICIPANT_358_LEDGER_TOKEN_FILE");
+    await writeFile(targetFile, `${createSharedSecretToken()}\n`, { mode: 0o600 });
 }
 
 function createClient(endpoint, token) {
@@ -117,6 +135,8 @@ if (command === "export") {
     await connectSynchronizer();
 } else if (command === "ledger-api-version") {
     await readLedgerApiVersion();
+} else if (command === "mint-ledger-token") {
+    await writeLedgerToken();
 } else {
-    throw new Error("Expected 'export', 'connect', or 'ledger-api-version'.");
+    throw new Error("Expected 'export', 'connect', 'ledger-api-version', or 'mint-ledger-token'.");
 }

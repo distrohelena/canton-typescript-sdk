@@ -86,6 +86,12 @@ Participant 3.5.7. In particular, external-party allocation signs the generated
 combined topology hash (`multi_hash`) rather than each topology transaction
 individually.
 
+The decentralized Ed25519 example was also run end-to-end against an isolated
+Canton Participant 3.5.8 sidecar. On both 3.5.7 and 3.5.8 it creates the same
+topology shape: a serial-1 decentralized namespace definition, one self-root
+namespace certificate per owner, and a PartyToParticipant containing the party
+signing key. No deprecated PartyToKeyMapping is created.
+
 ## Localnet launchers
 
 The published package includes launchers for an existing CN Quickstart checkout.
@@ -126,9 +132,18 @@ Compose project, its Postgres container, and host ports `8901` (Ledger), `8902`
 (Admin), and `8975` (JSON). The start launcher reads the existing localnet's
 registered synchronizer via its Admin API, stores the exported connection
 configuration in the sidecar runtime directory, and connects the sidecar with
-its own Admin API. It prints the SDK endpoint exports when that connection is
-healthy. `cn-quickstart` is strictly read-only: this launcher never writes to,
-starts, or stops the normal Quickstart stack.
+its own Admin API. It generates a five-minute 3.5.8-compatible development JWT
+at `.generated/participant-358/ledger-api-user.token` and prints both live-test
+and example endpoint/token exports when the connection is healthy.
+`cn-quickstart` is strictly read-only: this launcher never writes to, starts,
+or stops the normal Quickstart stack.
+
+After copying the printed `SDK_EXAMPLE_*` exports into the current shell, run
+the standalone decentralized-party comparison example with:
+
+```bash
+npm run example:party:decentralized
+```
 
 The defaults target the normal insecure shared-secret localnet at
 `localhost:3902` on its `quickstart` Docker network. Override them when your

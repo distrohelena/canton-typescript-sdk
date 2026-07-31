@@ -344,6 +344,32 @@ describe("PartyManagementServiceClient", () => {
                     proposal.store.store.synchronizer.kind.id === "sync::sandbox",
             ),
         ).toBe(true);
+
+        const mappings = generateTransactionsAsync.mock.calls[0][0].proposals.map(
+            proposal => proposal.mapping?.mapping,
+        );
+
+        const decentralizedNamespaceDefinition = mappings.find(
+            mapping => mapping?.oneofKind === "decentralizedNamespaceDefinition",
+        );
+
+        const ownerRootNamespaces = mappings.flatMap(mapping =>
+            mapping?.oneofKind === "namespaceDelegation"
+                ? [mapping.namespaceDelegation.namespace]
+                : [],
+        );
+
+        expect(decentralizedNamespaceDefinition?.oneofKind).toBe(
+            "decentralizedNamespaceDefinition",
+        );
+
+        if (decentralizedNamespaceDefinition?.oneofKind !== "decentralizedNamespaceDefinition") {
+            throw new Error("missing decentralized namespace definition proposal");
+        }
+
+        expect(ownerRootNamespaces).toEqual(
+            decentralizedNamespaceDefinition.decentralizedNamespaceDefinition.owners,
+        );
     });
 
     it("rejects decentralized finalization with missing signatures", async () => {

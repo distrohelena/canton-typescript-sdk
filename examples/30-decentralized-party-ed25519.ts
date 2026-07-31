@@ -9,11 +9,11 @@ import {
     discoverSynchronizerIdAsync,
 } from "./shared/localnet.js";
 import { createExampleEd25519Key } from "./shared/party-keys.js";
-import { waitForPartyToParticipantAsync } from "./shared/party-to-participant.js";
+import { waitForPartyHostingAsync } from "./shared/party-hosting.js";
 import { runExampleAsync } from "./shared/run.js";
 
-const ListPartyToParticipantRequest =
-    comDigitalasset.canton.topology.admin.v30.ListPartyToParticipantRequest;
+const ListPartiesRequest =
+    comDigitalasset.canton.topology.admin.v30.ListPartiesRequest;
 
 runExampleAsync("decentralized-party-ed25519", async () => {
     const client = createExampleClient();
@@ -63,33 +63,23 @@ runExampleAsync("decentralized-party-ed25519", async () => {
                 new GetParticipantIdRequest(),
             );
 
-        await waitForPartyToParticipantAsync(
+        await waitForPartyHostingAsync(
             {
                 partyId,
                 expectedParticipantId: localParticipant.participantId,
-                expectedSigningKeyFingerprint: partySigningKeyFingerprint,
-                expectedSigningThreshold: 1,
-                readMappingsAsync: async () =>
+                expectedSynchronizerId: synchronizer,
+                readPartiesAsync: async () =>
                     (
-                        await client.topologyManagerReadService.listPartyToParticipantAsync(
-                            ListPartyToParticipantRequest.create({
-                                filterParty: partyId,
-                            }),
+                        await client.topologyAggregationService.listPartiesAsync(
+                            ListPartiesRequest.create({ limit: 1_000 }),
                         )
-                    ).results.flatMap(result =>
-                        result.item === undefined ? [] : [result.item],
-                    ),
-                computePublicKeyFingerprint: publicKey =>
-                    client.hashing.computePublicKeyFingerprint(
-                        publicKey,
-                        partySigningKey.publicKey.format,
-                    ),
+                    ).results,
             },
         );
 
         console.log(`Decentralized party: ${partyId}`);
         console.log(
-            `PartyToParticipant confirmed for ${localParticipant.participantId} with signing-key fingerprint: ${partySigningKeyFingerprint}`,
+            `PartyToParticipant confirmed for ${localParticipant.participantId} on ${synchronizer}; submitted signing-key fingerprint: ${partySigningKeyFingerprint}`,
         );
     } finally {
         await client.disposeAsync();
