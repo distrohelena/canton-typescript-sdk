@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { CantonClient, TransportKind } from "../../../src/index.js";
 import {
-    CantonClient,
     GetPackageRequest,
     GetPackageStatusRequest,
     ListPackagesRequest,
     PackageStatus,
-    TransportKind,
-} from "../../../src/index.js";
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
 import { createLiveTestEnvironment } from "../runtime/live-test-environment.js";
 import { getLiveSeededContextAsync } from "../runtime/live-seeded-context.js";
@@ -30,7 +29,7 @@ describe("live package services", () => {
         const seeded = await getLiveSeededContextAsync();
 
         const response = await grpcClient.packageService.listPackagesAsync(
-            new ListPackagesRequest(),
+            ListPackagesRequest.create(),
         );
 
         expect(response.packageIds).toEqual(
@@ -42,7 +41,7 @@ describe("live package services", () => {
         const seeded = await getLiveSeededContextAsync();
 
         const response = await grpcClient.packageService.getPackageAsync(
-            new GetPackageRequest({
+            GetPackageRequest.create({
                 packageId: seeded.packageIds[0],
             }),
         );
@@ -55,11 +54,11 @@ describe("live package services", () => {
         const seeded = await getLiveSeededContextAsync();
 
         const response = await grpcClient.packageService.getPackageStatusAsync(
-            new GetPackageStatusRequest({
+            GetPackageStatusRequest.create({
                 packageId: seeded.packageIds[0],
             }),
         );
 
-        expect(response.packageStatus).toBe(PackageStatus.registered);
+        expect(response.packageStatus).toBe(PackageStatus.REGISTERED);
     });
 });

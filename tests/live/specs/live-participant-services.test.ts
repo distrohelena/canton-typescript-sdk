@@ -1,15 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { CantonClient, TransportKind } from "../../../src/index.js";
 import {
-    CantonClient,
     GetDarContentsRequest,
     GetDarRequest,
-    ListDarsRequest,
-    TransportKind,
-} from "../../../src/index.js";
-import {
     GetPackageContentsRequest,
     GetPackageReferencesRequest,
-    ParticipantListPackagesRequest,
+    ListDarsRequest,
+    ListPackagesRequest as ParticipantListPackagesRequest,
 } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/package_service.js";
 import { ParticipantStatusRequest } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
 import { createLiveClient } from "../runtime/live-client-factory.js";
@@ -94,18 +91,18 @@ describe("live participant services", () => {
 
         const listResponse =
             await grpcClient.participantPackageService.listDarsAsync(
-                new ListDarsRequest(),
+                ListDarsRequest.create(),
             );
 
         const contentsResponse =
             await grpcClient.participantPackageService.getDarContentsAsync(
-                new GetDarContentsRequest({
+                GetDarContentsRequest.create({
                     mainPackageId: seeded.participantDarMainPackageId,
                 }),
             );
 
         const darResponse = await grpcClient.participantPackageService.getDarAsync(
-            new GetDarRequest({
+            GetDarRequest.create({
                 mainPackageId: seeded.participantDarMainPackageId,
             }),
         );
