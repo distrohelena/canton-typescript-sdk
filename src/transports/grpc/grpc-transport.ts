@@ -34,7 +34,6 @@ import {
 } from "./mappers/interactive-command-mapper.js";
 import {
     mapGrpcQueryContracts,
-    mapGrpcQueryContractsRequest,
 } from "./mappers/contracts-mapper.js";
 import {
 } from "./mappers/identity-provider-config-mapper.js";
@@ -1388,7 +1387,7 @@ export class GrpcTransport implements ITransport {
         this.throwIfDisposed();
 
         return (await this.operations.queryContractsAsync!(
-            mapGrpcQueryContractsRequest(request),
+            request,
             options,
         )) as GetActiveContractsPageResponse;
     }

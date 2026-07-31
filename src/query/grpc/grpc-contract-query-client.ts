@@ -1,5 +1,5 @@
-import { GetActiveContractsPageRequest } from "../../core/types/requests/get-active-contracts-page-request.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
+import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
 import { QueryCacheStore } from "../cache/query-cache-store.js";
 import {
     ContractCountArgs,
@@ -91,7 +91,10 @@ export class GrpcContractQueryClient implements QueryClient {
                 ? true
                 : row.contractId === args.where.contractId.equals,
         );
-        if (args.where?.payload !== undefined) rows = rows.filter((row) => matchesPayload(row.payload, args.where!.payload!));
+
+        if (args.where?.payload !== undefined) {
+            rows = rows.filter((row) => matchesPayload(row.payload, args.where!.payload!));
+        }
 
         return rows;
     }
@@ -135,7 +138,7 @@ export class GrpcContractQueryClient implements QueryClient {
 
         do {
             const response = await this.stateService.getActiveContractsPageAsync(
-                new GetActiveContractsPageRequest(
+                mapGrpcQueryContractsRequest(
                     parties === undefined
                         ? { allParties: true, activeAtOffset, pageToken }
                         : { parties, activeAtOffset, pageToken },
@@ -164,12 +167,20 @@ export class GrpcContractQueryClient implements QueryClient {
 }
 
 function hasUnsupportedFilter(where: Record<string, unknown> | undefined): boolean {
-    if (where === undefined) return false;
-    if ("and" in where || "or" in where || "not" in where || "createdEventOffset" in where || "createdAt" in where || "archivedEventOffset" in where || "archivedAt" in where) return true;
+    if (where === undefined) {
+        return false;
+    } else if ("and" in where || "or" in where || "not" in where || "createdEventOffset" in where || "createdAt" in where || "archivedEventOffset" in where || "archivedAt" in where) {
+        return true;
+    }
+
     for (const field of ["contractId", "templateId"] as const) {
         const filter = where[field] as Record<string, unknown> | undefined;
-        if (filter !== undefined && Object.keys(filter).some((key) => key !== "equals")) return true;
+
+        if (filter !== undefined && Object.keys(filter).some((key) => key !== "equals")) {
+            return true;
+        }
     }
+
     return false;
 }
 
@@ -198,13 +209,39 @@ function mapGrpcContract(value: unknown): ContractRow {
 
 function matchesPayload(value: unknown, filter: Record<string, unknown>): boolean {
     const match = filter.match as Record<string, unknown> | undefined;
-    if (match === undefined) return false;
+
+    if (match === undefined) {
+        return false;
+    }
+
     const visit = (current: unknown, node: Record<string, unknown>): boolean => Object.entries(node).every(([key, child]) => {
         const next = current !== null && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined;
+
         const predicate = child as Record<string, unknown>;
-        if (Object.keys(predicate).some((name) => ["equals", "lt", "lte", "gt", "gte", "like", "ilike"].includes(name))) return compare(String(next ?? ""), predicate);
+
+        if (Object.keys(predicate).some((name) => ["equals", "lt", "lte", "gt", "gte", "like", "ilike"].includes(name))) {
+            return compare(String(next ?? ""), predicate);
+        }
+
         return visit(next, predicate);
     });
+
     return visit(value, match);
 }
-function compare(value: string, filter: Record<string, unknown>): boolean { if (filter.equals !== undefined) return value === filter.equals; if (filter.like !== undefined || filter.ilike !== undefined) { const pattern = String(filter.like ?? filter.ilike).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replaceAll("%", ".*").replaceAll("_", "."); return new RegExp(`^${pattern}$`, filter.ilike === undefined ? "" : "i").test(value); } if (filter.lt !== undefined) return value < String(filter.lt); if (filter.lte !== undefined) return value <= String(filter.lte); if (filter.gt !== undefined) return value > String(filter.gt); return value >= String(filter.gte); }
+function compare(value: string, filter: Record<string, unknown>): boolean {
+    if (filter.equals !== undefined) {
+        return value === filter.equals;
+    } else if (filter.like !== undefined || filter.ilike !== undefined) {
+        const pattern = String(filter.like ?? filter.ilike).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replaceAll("%", ".*").replaceAll("_", ".");
+
+        return new RegExp(`^${pattern}$`, filter.ilike === undefined ? "" : "i").test(value);
+    } else if (filter.lt !== undefined) {
+        return value < String(filter.lt);
+    } else if (filter.lte !== undefined) {
+        return value <= String(filter.lte);
+    } else if (filter.gt !== undefined) {
+        return value > String(filter.gt);
+    }
+
+    return value >= String(filter.gte);
+}

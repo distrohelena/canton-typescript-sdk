@@ -37,7 +37,24 @@ describe("gRPC contract query client", () => {
         await client.contracts.count();
 
         expect(getActiveContractsPageAsync).toHaveBeenCalledOnce();
-        expect(getActiveContractsPageAsync.mock.calls[0][0]).toMatchObject({ allParties: true });
+        expect(getActiveContractsPageAsync.mock.calls[0][0]).toMatchObject({
+            eventFormat: {
+                filtersByParty: {},
+                filtersForAnyParty: {
+                    cumulative: [
+                        {
+                            identifierFilter: {
+                                oneofKind: "wildcardFilter",
+                                wildcardFilter: {
+                                    includeCreatedEventBlob: false,
+                                },
+                            },
+                        },
+                    ],
+                },
+                verbose: true,
+            },
+        });
     });
 
     it("rejects query features that the active-contracts API cannot represent", async () => {

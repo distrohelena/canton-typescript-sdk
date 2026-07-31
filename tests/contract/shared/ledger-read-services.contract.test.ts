@@ -37,6 +37,7 @@ describe("shared ledger read services contract", () => {
             activeContracts: [],
             activeAtOffset: "2",
         };
+
         const grpcTransport = new GrpcTransport({
             getHealthAsync: async () => ({ status: "healthy" }),
             createPartyAsync: async () => ({ identifier: "unused" }),
@@ -101,10 +102,14 @@ describe("shared ledger read services contract", () => {
                 GetUpdatesRequest.create({ beginExclusive: "0" }),
             )) {} })(),
         ).rejects.toThrow(NotSupportedError);
+
         const grpcUpdates = [];
+
         for await (const update of grpcUpdateService.getUpdatesAsync(
             GetUpdatesRequest.create({ beginExclusive: "0" }),
-        )) grpcUpdates.push(update);
+        )) {
+            grpcUpdates.push(update);
+        }
 
         expect(capturedJsonBodies["/v1/query"]).toBeUndefined();
         expect(capturedJsonBodies["/v1/stream/query"]).toEqual({

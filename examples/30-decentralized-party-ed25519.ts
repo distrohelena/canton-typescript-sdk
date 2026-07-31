@@ -2,7 +2,7 @@ import {
     CreateDecentralizedPartyRequest,
     WaitForPartyHostingRequest,
 } from "@distrohelena/canton-typescript-sdk";
-import { GetParticipantIdRequest } from "../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
     createExampleClient,
     createPartyHint,
@@ -56,7 +56,7 @@ runExampleAsync("decentralized-party-ed25519", async () => {
 
         const localParticipant =
             await client.partyManagementService.getParticipantIdAsync(
-                GetParticipantIdRequest.create(),
+                ledgerApiV2.admin.GetParticipantIdRequest.create(),
             );
 
         await client.topologyAggregationService.waitForPartyHostingAsync(

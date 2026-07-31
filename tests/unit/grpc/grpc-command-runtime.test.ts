@@ -4,14 +4,43 @@ import {
     DamlRecord,
     ExerciseCommand,
     SignCommandResult,
-    GetActiveContractsPageRequest,
     SubmitCommandRequest,
 } from "../../../src";
 import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
+import { GetActiveContractsPageRequest as ProtobufGetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { createFakeGrpcOperations } from "../../fixtures/fake-grpc-services.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("GrpcTransport live ledger shapes", () => {
+    it("forwards generated active-contract requests unchanged", async () => {
+        let capturedRequest: unknown;
+
+        const transport = new GrpcTransport(
+            createFakeGrpcOperations({
+                queryContractsAsync: async request => {
+                    capturedRequest = request;
+
+                    return { activeContracts: [] };
+                },
+            }),
+        );
+
+        const request = ProtobufGetActiveContractsPageRequest.create({
+            activeAtOffset: "42",
+            eventFormat: {
+                filtersByParty: {},
+                filtersForAnyParty: { cumulative: [] },
+                verbose: true,
+            },
+            maxPageSize: 100,
+            pageToken: new Uint8Array([9, 8, 7]),
+        });
+
+        await transport.getActiveContractsPageAsync(request);
+
+        expect(capturedRequest).toBe(request);
+    });
+
     it("exposes interactive submission operations on fake grpc services", () => {
         const operations = createFakeGrpcOperations();
 
@@ -37,6 +66,7 @@ describe("GrpcTransport live ledger shapes", () => {
                 },
                 getUpdatesAsync: request => {
                     capturedStream = request;
+
                     return (async function* () {})();
                 },
                 submitCommandAsync: async request => {
@@ -48,13 +78,43 @@ describe("GrpcTransport live ledger shapes", () => {
         );
 
         const activeContractsPage = await transport.getActiveContractsPageAsync(
-            new GetActiveContractsPageRequest({
-                party: "Alice",
-                templateId: "Main:Iou",
-                interfaceId: "Main:IAsset",
-                includeInterfaceView: true,
-                includeCreatedEventBlob: true,
+            ProtobufGetActiveContractsPageRequest.create({
                 activeAtOffset: "42",
+                eventFormat: {
+                    filtersByParty: {
+                        Alice: {
+                            cumulative: [
+                                {
+                                    identifierFilter: {
+                                        oneofKind: "templateFilter",
+                                        templateFilter: {
+                                            templateId: {
+                                                packageId: "",
+                                                moduleName: "Main",
+                                                entityName: "Iou",
+                                            },
+                                            includeCreatedEventBlob: true,
+                                        },
+                                    },
+                                },
+                                {
+                                    identifierFilter: {
+                                        oneofKind: "interfaceFilter",
+                                        interfaceFilter: {
+                                            interfaceId: {
+                                                packageId: "",
+                                                moduleName: "Main",
+                                                entityName: "IAsset",
+                                            },
+                                            includeInterfaceView: true,
+                                            includeCreatedEventBlob: true,
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
                 maxPageSize: 100,
                 pageToken: new Uint8Array([9, 8, 7]),
             }),
