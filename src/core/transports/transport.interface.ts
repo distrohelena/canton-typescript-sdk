@@ -726,7 +726,7 @@ export interface ITransport {
         options?: RequestOptions,
     ): Promise<ListKeyOwnersResponse>;
 
-    /** Reads a page of active contracts. Supported on JSON and gRPC. */
+    /** Reads a page of active contracts. Supported on gRPC; JSON rejects it. */
     getActiveContractsPageAsync(
         request: GetActiveContractsPageRequest,
         options?: RequestOptions,

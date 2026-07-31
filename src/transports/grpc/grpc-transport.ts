@@ -1389,8 +1389,8 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetActiveContractsPageResponse> {
         this.throwIfDisposed();
 
-        return (await this.operations.getActiveContractsPageAsync!(
-            request,
+        return (await this.operations.queryContractsAsync!(
+            mapGrpcQueryContractsRequest(request),
             options,
         )) as GetActiveContractsPageResponse;
     }

@@ -76,7 +76,7 @@ describe("json transport entrypoint", () => {
                     templateId: "Main:Iou",
                 }),
             ),
-        ).resolves.toBeDefined();
+        ).rejects.toThrow(NotSupportedError);
         await client.stateService.getActiveContractsAsync(
             new GetActiveContractsRequest({
                 party: "Alice",

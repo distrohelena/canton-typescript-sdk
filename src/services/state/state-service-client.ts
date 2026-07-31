@@ -18,7 +18,7 @@ export class StateServiceClient {
         void this.transport;
     }
 
-    /** Reads a page of active contracts. gRPC supports template and interface filters; JSON supports template queries only. */
+    /** Reads a page of active contracts. Supported on gRPC; JSON rejects it. */
     public getActiveContractsPageAsync(
         request: GetActiveContractsPageRequest,
         options?: RequestOptions,
