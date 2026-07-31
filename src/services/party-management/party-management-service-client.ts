@@ -3,7 +3,6 @@ import { RequestOptions } from "../../core/types/request-options.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { CreateExternalPartyRequest } from "../../core/types/requests/create-external-party-request.js";
 import { CreateDecentralizedPartyRequest } from "../../core/types/requests/create-decentralized-party-request.js";
-import { ExternalPartyOnboardingTransaction } from "../../core/types/external-party/external-party-onboarding-transaction.js";
 import { ExternalPartySignature } from "../../core/types/external-party/external-party-signature.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
@@ -245,25 +244,6 @@ export class PartyManagementServiceClient {
             options,
         );
 
-        const onboardingTransactions: ExternalPartyOnboardingTransaction[] = [];
-
-        for (const transaction of generated.topologyTransactions) {
-            onboardingTransactions.push(
-                new ExternalPartyOnboardingTransaction({
-                    transaction,
-                    signatures: [
-                        await this.signExternalPartyPayloadAsync(
-                            request,
-                            transaction,
-                            "topology-transaction",
-                            generated.partyId,
-                            generated.publicKeyFingerprint,
-                        ),
-                    ],
-                }),
-            );
-        }
-
         const multiHashSignature = await this.signExternalPartyPayloadAsync(
             request,
             generated.multiHash,
@@ -275,9 +255,9 @@ export class PartyManagementServiceClient {
         return this.allocateExternalPartyAsync(
             AllocateExternalPartyRequest.create({
                 synchronizer: request.synchronizer,
-                onboardingTransactions: onboardingTransactions.map((transaction) => ({
-                    transaction: transaction.transaction,
-                    signatures: transaction.signatures.map(toGeneratedSignature),
+                onboardingTransactions: generated.topologyTransactions.map((transaction) => ({
+                    transaction,
+                    signatures: [],
                 })),
                 multiHashSignatures: [toGeneratedSignature(multiHashSignature)],
                 identityProviderId: request.identityProviderId,

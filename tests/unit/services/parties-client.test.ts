@@ -336,7 +336,7 @@ describe("PartyManagementServiceClient", () => {
         )).rejects.toThrow(/missing/i);
     });
 
-    it("creates an external party with caller-provided signatures", async () => {
+    it("creates an external party by signing only its multi-hash", async () => {
         const generated = GenerateExternalPartyTopologyResponse.create({
             partyId: "alice::fingerprint",
             publicKeyFingerprint: "fingerprint",
@@ -424,19 +424,8 @@ describe("PartyManagementServiceClient", () => {
             }),
             options,
         );
-        expect(sign).toHaveBeenNthCalledWith(1, expect.objectContaining({
-            payload: new Uint8Array([1, 2, 3]),
-            kind: "topology-transaction",
-            partyId: generated.partyId,
-            publicKeyFingerprint: "fingerprint",
-        }));
-        expect(sign).toHaveBeenNthCalledWith(2, expect.objectContaining({
-            payload: new Uint8Array([4, 5, 6]),
-            kind: "topology-transaction",
-            partyId: generated.partyId,
-            publicKeyFingerprint: "fingerprint",
-        }));
-        expect(sign).toHaveBeenNthCalledWith(3, expect.objectContaining({
+        expect(sign).toHaveBeenCalledTimes(1);
+        expect(sign).toHaveBeenCalledWith(expect.objectContaining({
             payload: new Uint8Array([7, 8, 9]),
             kind: "multi-hash",
             partyId: generated.partyId,
@@ -452,12 +441,11 @@ describe("PartyManagementServiceClient", () => {
                 onboardingTransactions: [
                     expect.objectContaining({
                         transaction: new Uint8Array([1, 2, 3]),
-                        signatures: [expect.objectContaining({
-                            signedBy: "fingerprint",
-                        })],
+                        signatures: [],
                     }),
                     expect.objectContaining({
                         transaction: new Uint8Array([4, 5, 6]),
+                        signatures: [],
                     }),
                 ],
             }),
