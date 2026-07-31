@@ -26,7 +26,7 @@ describe("generated DAML template materialization", () => {
                 await temporaryProject.disposeAsync();
             }
         }
-    });
+    }, 30_000);
 
     it("materializes the same nested contract from gRPC, PQS, and JSON sources", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(

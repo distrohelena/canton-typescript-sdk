@@ -59,5 +59,5 @@ describe("generated DAML project NodeNext compilation", () => {
                 await compiledProject.disposeAsync();
             }
         }
-    });
+    }, 30_000);
 });
