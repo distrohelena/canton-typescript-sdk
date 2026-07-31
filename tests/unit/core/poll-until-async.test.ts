@@ -4,6 +4,7 @@ import { pollUntilAsync } from "../../../src/core/polling/poll-until-async.js";
 describe("pollUntilAsync", () => {
     it("returns an immediate match without sleeping", async () => {
         const readAsync = vi.fn(async () => "ready");
+
         const sleepAsync = vi.fn(async () => {});
 
         await expect(pollUntilAsync({
@@ -22,7 +23,9 @@ describe("pollUntilAsync", () => {
 
     it("retries until a later value matches", async () => {
         let now = 0;
+
         let attempt = 0;
+
         const sleeps: number[] = [];
 
         await expect(pollUntilAsync({
@@ -43,6 +46,7 @@ describe("pollUntilAsync", () => {
 
     it("supports a zero interval when reads make progress", async () => {
         let attempt = 0;
+
         const sleepAsync = vi.fn(async () => {});
 
         await expect(pollUntilAsync({
@@ -60,7 +64,9 @@ describe("pollUntilAsync", () => {
 
     it("clamps sleep to the deadline and starts no read at the deadline", async () => {
         let now = 0;
+
         let attempt = 0;
+
         const sleeps: number[] = [];
 
         await expect(pollUntilAsync({
@@ -82,10 +88,13 @@ describe("pollUntilAsync", () => {
 
     it("lets an in-flight read finish after the deadline without another sleep or read", async () => {
         let now = 0;
+
         const readAsync = vi.fn(async () => {
             now = 11;
+
             return "late";
         });
+
         const sleepAsync = vi.fn(async () => {});
 
         await expect(pollUntilAsync({

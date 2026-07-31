@@ -12,9 +12,13 @@ export async function pollUntilAsync<T>(
     init: PollUntilInit<T>,
 ): Promise<T> {
     const now = init.now ?? Date.now;
+
     const sleepAsync = init.sleepAsync ?? defaultSleepAsync;
+
     const deadline = now() + init.timeoutMs;
+
     let lastObserved: T | undefined;
+
     let firstRead = true;
 
     while (firstRead || now() < deadline) {

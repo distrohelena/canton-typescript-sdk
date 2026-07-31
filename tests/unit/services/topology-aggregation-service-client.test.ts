@@ -10,13 +10,17 @@ import { comDigitalasset } from "../../../src/protobuf/index.js";
 
 const ListPartiesResponse =
     comDigitalasset.canton.topology.admin.v30.ListPartiesResponse;
+
 const ListPartiesResponseResult =
     comDigitalasset.canton.topology.admin.v30.ListPartiesResponse_Result;
+
 const ParticipantPermission =
     comDigitalasset.canton.protocol.v30.Enums_ParticipantPermission;
 
 const partyId = "party::namespace";
+
 const participantId = "participant::namespace";
+
 const synchronizerId = "sync::namespace";
 
 function hostingResult(init: {
@@ -114,12 +118,15 @@ describe("TopologyAggregationServiceClient", () => {
 
     it("returns an exact filtered hosting match and forwards request options", async () => {
         const result = hostingResult();
+
         const topologyListPartiesAsync = vi.fn(async () =>
             ListPartiesResponse.create({ results: [result] }),
         );
+
         const client = new TopologyAggregationServiceClient({
             topologyListPartiesAsync,
         } as never);
+
         const options = new RequestOptions({ timeoutMs: 5_000 });
 
         await expect(client.waitForPartyHostingAsync(
@@ -144,18 +151,25 @@ describe("TopologyAggregationServiceClient", () => {
 
     it("rejects a decoy party and retries until the exact hosting appears", async () => {
         vi.useFakeTimers();
+
         const decoy = hostingResult({ party: "party::decoy" });
+
         const wrongSynchronizer = hostingResult({ synchronizer: "sync::other" });
+
         const expected = hostingResult();
+
         const responses = [decoy, wrongSynchronizer, expected];
+
         const topologyListPartiesAsync = vi.fn(async () =>
             ListPartiesResponse.create({
                 results: [responses.shift() ?? expected],
             }),
         );
+
         const client = new TopologyAggregationServiceClient({
             topologyListPartiesAsync,
         } as never);
+
         const options = new RequestOptions({ timeoutMs: 1_000 });
 
         const waiting = client.waitForPartyHostingAsync(
@@ -179,11 +193,13 @@ describe("TopologyAggregationServiceClient", () => {
 
     it("reports the last observed hosting when the wait times out", async () => {
         vi.useFakeTimers();
+
         const observed = hostingResult({
             party: "party::observed",
             participant: "participant::observed",
             synchronizer: "sync::observed",
         });
+
         const client = new TopologyAggregationServiceClient({
             topologyListPartiesAsync: async () =>
                 ListPartiesResponse.create({ results: [observed] }),
@@ -207,6 +223,7 @@ describe("TopologyAggregationServiceClient", () => {
 
     it("reports that no hosting was observed after empty responses", async () => {
         vi.useFakeTimers();
+
         const client = new TopologyAggregationServiceClient({
             topologyListPartiesAsync: async () =>
                 ListPartiesResponse.create({ results: [] }),
@@ -228,6 +245,7 @@ describe("TopologyAggregationServiceClient", () => {
 
     it("propagates topology transport failures unchanged", async () => {
         const transportError = new Error("topology unavailable");
+
         const client = new TopologyAggregationServiceClient({
             topologyListPartiesAsync: async () => {
                 throw transportError;

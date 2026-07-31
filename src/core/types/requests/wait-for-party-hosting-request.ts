@@ -15,9 +15,13 @@ export class WaitForPartyHostingRequest {
         timeoutMs?: number;
     }) {
         const partyId = init.partyId.trim();
+
         const participantId = init.participantId.trim();
+
         const synchronizerId = init.synchronizerId.trim();
+
         const pollIntervalMs = init.pollIntervalMs ?? 500;
+
         const timeoutMs = init.timeoutMs ?? 30_000;
 
         if (!partyId) {

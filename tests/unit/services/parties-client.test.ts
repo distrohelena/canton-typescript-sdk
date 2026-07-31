@@ -354,10 +354,13 @@ describe("PartyManagementServiceClient", () => {
                 partyId: "consortium::namespace",
             }),
         );
+
         const client = new PartyManagementServiceClient({
             allocateExternalPartyAsync,
         } as never);
+
         const transactionHash = new Uint8Array([2]);
+
         const prepared = new PreparedDecentralizedParty({
             synchronizer: "sync::sandbox",
             partyId: "consortium::namespace",
@@ -379,6 +382,7 @@ describe("PartyManagementServiceClient", () => {
                 role: "owner",
             }],
         });
+
         const options = new RequestOptions({ timeoutMs: 5_000 });
 
         await client.finalizeDecentralizedPartyAsync(prepared, [{
@@ -410,11 +414,13 @@ describe("PartyManagementServiceClient", () => {
                 })),
             }),
         );
+
         const allocateExternalPartyAsync = vi.fn(async () =>
             AllocateExternalPartyResponse.create({
                 partyId: "consortium::namespace",
             }),
         );
+
         const client = new PartyManagementServiceClient({
             getParticipantIdAsync: async () => new GetParticipantIdResponse({
                 participantId: "participant::sandbox",
