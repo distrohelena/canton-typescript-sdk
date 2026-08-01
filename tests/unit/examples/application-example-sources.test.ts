@@ -155,6 +155,90 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(prohibitedCreateExerciseWorkarounds);
     });
 
+    it("proves atomic create-and-exercise failure and success under one workflow deadline", () => {
+        const source = readExampleSource("90-atomic-create-and-exercise.ts");
+
+        expectStandaloneCleanup(source);
+        expect(source).toContain("loadExampleApplicationFixtureAsync()");
+        expect(source).toMatch(
+            /const\s+deadline\s*=\s*createWorkflowDeadline\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\),\s*\}\s*\);/s,
+        );
+        expect(source).toMatch(
+            /ensureExampleDarUploadedAsync\(\s*client,\s*fixture,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+        );
+        expect(source).toMatch(
+            /resolveExamplePartyAsync\(\s*client,\s*process\.env,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+        );
+        expect(source).toMatch(
+            /readWorkflowCompatibilityAsync\(\s*client,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+        );
+
+        const deadline = source.indexOf("const deadline = createWorkflowDeadline(");
+
+        const ensureDar = source.indexOf("ensureExampleDarUploadedAsync(");
+
+        const resolveParty = source.indexOf("resolveExamplePartyAsync(");
+
+        const compatibility = source.indexOf("readWorkflowCompatibilityAsync(");
+
+        const invalidSubmission = source.indexOf("atomic-invalid-");
+
+        const validSubmission = source.indexOf(
+            "buildCreateAndReplaceMessageTextRequest(",
+        );
+
+        expect(deadline).toBeGreaterThan(source.indexOf("loadExampleApplicationFixtureAsync()"));
+        expect(ensureDar).toBeGreaterThan(deadline);
+        expect(resolveParty).toBeGreaterThan(ensureDar);
+        expect(compatibility).toBeGreaterThan(resolveParty);
+        expect(invalidSubmission).toBeGreaterThan(compatibility);
+        expect(validSubmission).toBeGreaterThan(invalidSubmission);
+
+        expect(source).toMatch(/randomBytes\(\d+\)\.toString\("hex"\)/);
+        expect(source).toContain("atomic-invalid-${runId}");
+        expect(source).toContain("atomic-valid-${runId}");
+        expect(source).toMatch(
+            /new\s+CreateAndExerciseCommand\(\s*\{[\s\S]*?choice:\s*"UnknownChoice",/s,
+        );
+        expect(source).toMatch(
+            /classifyWorkflowFailure\(\s*\{\s*error,\s*kind:\s*"invalidChoice",\s*operation:\s*"commandSubmission",\s*compatibility,\s*\}\s*\)/s,
+        );
+        expect(source).toMatch(
+            /buildCreateAndReplaceMessageTextRequest\(\s*\{[\s\S]*?text:\s*initialText,[\s\S]*?replacement:\s*replacementText,[\s\S]*?commandId:\s*validCommandId,/s,
+        );
+        expect(source).toMatch(
+            /submitAndWaitForTransactionAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
+        );
+        expect(source).toMatch(/extractReplacementContracts\(validResponse\)/);
+        expect(source).toMatch(
+            /!archivedContractId\.trim\(\)[\s\S]*?!replacementContractId\.trim\(\)[\s\S]*?archivedContractId\s*===\s*replacementContractId/s,
+        );
+        expect(source).toContain("buildActiveContractsRequest({");
+        expect(source).toMatch(
+            /findActiveMessageAcrossPagesAsync\(\s*\{[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
+        );
+        expect(source).toMatch(/readCreatedMessageText\(replacement\)/);
+        expect(source).toMatch(/replacementText\s*!==\s*actualReplacementText/);
+        expect(source).toContain("Actor party: ${actor.party}");
+        expect(source).toContain("Participant version: ${compatibility.participantVersion}");
+        expect(source).toContain("Release core: ${compatibility.releaseCore}");
+        expect(source).toContain("Compatibility path: ${compatibility.path}");
+        expect(source).toContain("Invalid choice kind: ${invalidChoiceKind}");
+        expect(source).toContain("Archived transient contract: ${archivedContractId}");
+        expect(source).toContain("Replacement contract: ${replacementContractId}");
+        expect(source).toContain("Replacement payload: ${replacementPayload}");
+        expect(source).toContain("Replacement text: ${actualReplacementText}");
+        expect(source).toContain(
+            "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
+        );
+        expect(source).toContain(
+            "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
+        );
+        expect(source).not.toMatch(/\b(?:sleep|setTimeout)\b/i);
+        expect(source).not.toMatch(/error\.message|RegExp|match\s*\(/);
+        expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+    });
+
     it("queries the exact created Message with a generated active-contract request", () => {
         const source = readExampleSource("60-query-active-contracts.ts");
 
