@@ -30,9 +30,15 @@ chmod +x "$stubbin/docker"
 
 runtime_dir="$tmpdir/runtime"
 docker_log="$tmpdir/docker.log"
+test_ledger_port=18901
+test_admin_port=18902
+test_json_port=18975
 PATH="$stubbin:$PATH" \
 DOCKER_LOG="$docker_log" \
 PARTICIPANT_358_RUNTIME_DIR="$runtime_dir" \
+PARTICIPANT_358_LEDGER_PORT="$test_ledger_port" \
+PARTICIPANT_358_ADMIN_PORT="$test_admin_port" \
+PARTICIPANT_358_JSON_PORT="$test_json_port" \
 PARTICIPANT_358_SKIP_SYNCHRONIZER_CONNECT=1 \
 "$START_SCRIPT"
 
@@ -50,7 +56,9 @@ grep -Fqx '          databaseName = participant358' "$runtime_dir/canton.conf"
 grep -Fqx '    admin-api {' "$runtime_dir/canton.conf"
 grep -Fqx '      address = "0.0.0.0"' "$runtime_dir/canton.conf"
 grep -Fqx '      port = 5002' "$runtime_dir/canton.conf"
-grep -Fqx '      - "127.0.0.1:8901:5001"' "$runtime_dir/compose.yaml"
+grep -Fqx "      - \"127.0.0.1:$test_ledger_port:5001\"" "$runtime_dir/compose.yaml"
+grep -Fqx "      - \"127.0.0.1:$test_admin_port:5002\"" "$runtime_dir/compose.yaml"
+grep -Fqx "      - \"127.0.0.1:$test_json_port:7575\"" "$runtime_dir/compose.yaml"
 grep -Fqx '      port = 5002' "$runtime_dir/canton.conf"
 grep -Fqx '      port = 7575' "$runtime_dir/canton.conf"
 grep -Fq 'PARTICIPANT_358_SYNCHRONIZER_CONFIG=' "$runtime_dir/participant-358.env"
