@@ -22,6 +22,7 @@ export const EXAMPLE_DAR_SHA256 =
 
 export interface ExampleTemplateId {
     readonly packageId: string;
+    readonly packageName: string;
     readonly moduleName: string;
     readonly entityName: string;
 }
@@ -228,6 +229,7 @@ export async function loadExampleApplicationFixtureAsync(
 
     const templateId: ExampleTemplateId = {
         packageId: mainPackageId,
+        packageName: mainPackage.packageName,
         moduleName: "DebugPlayground",
         entityName: "Message",
     };

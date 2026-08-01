@@ -10,6 +10,7 @@ import {
 
 const templateId = {
     packageId: "package",
+    packageName: "package-name",
     moduleName: "DebugPlayground",
     entityName: "Message",
 };
@@ -27,7 +28,11 @@ describe("application example ledger requests", () => {
                 identifierFilter: {
                     oneofKind: "templateFilter",
                     templateFilter: {
-                        templateId,
+                        templateId: {
+                            packageId: "package-name",
+                            moduleName: "DebugPlayground",
+                            entityName: "Message",
+                        },
                         includeCreatedEventBlob: false,
                     },
                 },
@@ -302,7 +307,11 @@ describe("application example ledger requests", () => {
                                     identifierFilter: {
                                         oneofKind: "templateFilter",
                                         templateFilter: {
-                                            templateId,
+                                            templateId: {
+                                                packageId: "package-name",
+                                                moduleName: "DebugPlayground",
+                                                entityName: "Message",
+                                            },
                                             includeCreatedEventBlob: false,
                                         },
                                     },

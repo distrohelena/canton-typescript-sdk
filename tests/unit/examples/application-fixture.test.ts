@@ -40,6 +40,7 @@ describe("loadExampleApplicationFixtureAsync", () => {
         );
         expect(fixture.templateId).toEqual({
             packageId: fixture.mainPackageId,
+            packageName: "canton-explorer-debug-playground",
             moduleName: "DebugPlayground",
             entityName: "Message",
         });
@@ -145,6 +146,7 @@ describe("example application command helpers", () => {
 
     const templateId = {
         packageId: "package",
+        packageName: "package-name",
         moduleName: "DebugPlayground",
         entityName: "Message",
     };

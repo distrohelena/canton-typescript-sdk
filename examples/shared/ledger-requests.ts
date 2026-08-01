@@ -206,6 +206,7 @@ function buildMessageEventFormat(init: {
 }): ledgerApiV2.EventFormat {
     requireNonEmpty("party", init.party);
     requireNonEmpty("template package ID", init.templateId.packageId);
+    requireNonEmpty("template package name", init.templateId.packageName);
     requireNonEmpty("template module name", init.templateId.moduleName);
     requireNonEmpty("template entity name", init.templateId.entityName);
 
@@ -217,7 +218,11 @@ function buildMessageEventFormat(init: {
                         identifierFilter: {
                             oneofKind: "templateFilter",
                             templateFilter: {
-                                templateId: init.templateId,
+                                templateId: {
+                                    packageId: init.templateId.packageName,
+                                    moduleName: init.templateId.moduleName,
+                                    entityName: init.templateId.entityName,
+                                },
                                 includeCreatedEventBlob: false,
                             },
                         },
