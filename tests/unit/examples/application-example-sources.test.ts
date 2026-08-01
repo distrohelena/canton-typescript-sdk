@@ -60,6 +60,10 @@ function readRootPackageJson(): {
     ) as { scripts: Record<string, string>; files: string[] };
 }
 
+function readReadme(): string {
+    return readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+}
+
 function expectStandaloneCleanup(source: string): void {
     const runExampleWithCleanup =
         /runExampleAsync\(\s*"[^"]+",\s*async\s*\(\)\s*=>\s*\{[\s\S]*?const\s+client\s*=\s*createExampleClient\(\);[\s\S]*?try\s*\{[\s\S]*?\}\s*finally\s*\{\s*await\s+client\.disposeAsync\(\);\s*\}[\s\S]*?\}\s*\);/;
@@ -175,6 +179,46 @@ describe("application example source contracts", () => {
         ]);
         expect(packageJson.files).not.toContain("examples");
         expect(packageJson.files).not.toContain("examples/assets");
+    });
+
+    it("documents the standalone workflow examples and their compatibility policy", () => {
+        const packageJson = readRootPackageJson();
+
+        const readme = readReadme().replace(/\s+/g, " ");
+
+        expect({
+            "example:workflow:atomic": packageJson.scripts["example:workflow:atomic"],
+            "example:workflow:retry": packageJson.scripts["example:workflow:retry"],
+            "example:workflow:resume": packageJson.scripts["example:workflow:resume"],
+            "example:workflow:stale-contract": packageJson.scripts["example:workflow:stale-contract"],
+        }).toEqual({
+            "example:workflow:atomic":
+                "npm run build && node --loader ts-node/esm examples/90-atomic-create-and-exercise.ts",
+            "example:workflow:retry":
+                "npm run build && node --loader ts-node/esm examples/91-idempotent-command-retry.ts",
+            "example:workflow:resume":
+                "npm run build && node --loader ts-node/esm examples/92-resume-update-stream.ts",
+            "example:workflow:stale-contract":
+                "npm run build && node --loader ts-node/esm examples/93-archive-and-stale-contract.ts",
+        });
+        expect(packageJson.files).toEqual(["dist", "node", "README.md", "LICENSE"]);
+        expect(readme).toContain("### Workflow examples");
+        expect(readme).toContain("npm run example:workflow:atomic");
+        expect(readme).toContain("npm run example:workflow:retry");
+        expect(readme).toContain("npm run example:workflow:resume");
+        expect(readme).toContain("npm run example:workflow:stale-contract");
+        expect(readme).toContain("exact same request");
+        expect(readme).toContain("saved offset");
+        expect(readme).toContain("structured");
+        expect(readme).toContain("full participant version");
+        expect(readme).toContain("Participant version:");
+        expect(readme).toContain("Release core:");
+        expect(readme).toContain("Compatibility path:");
+        expect(readme).toContain("--refresh-token");
+        expect(readme).toContain("never prints the token");
+        expect(readme).toContain("SDK_EXAMPLE_PARTY");
+        expect(readme).toContain("3.5.7");
+        expect(readme).toContain("3.5.8");
     });
 
     it("keeps both DAR package listings and upload calls explicit", () => {

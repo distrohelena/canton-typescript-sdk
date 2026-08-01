@@ -159,6 +159,16 @@ describe("npm pack verifier", () => {
         expect(verifyPackModule.isAllowedPackedPath("package/src/index.ts")).toBe(
             false,
         );
+        expect(
+            verifyPackModule.isAllowedPackedPath(
+                "package/examples/90-atomic-create-and-exercise.ts",
+            ),
+        ).toBe(false);
+        expect(
+            verifyPackModule.isAllowedPackedPath(
+                "package/node/.generated/participant-358/ledger-api-user.token",
+            ),
+        ).toBe(false);
     });
 
     it("forces npm pack to use an explicit cache directory", async () => {

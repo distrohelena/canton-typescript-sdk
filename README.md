@@ -130,6 +130,69 @@ npm run example:user:rights
 npm run example:topology:party-hosting
 ```
 
+### Workflow examples
+
+The four workflow examples are standalone proofs, not a sequence: each uploads
+or verifies the fixture DAR, resolves a party, reads the participant status,
+and creates its own run-scoped data. First make a Canton participant available
+and verify the source with `npm run examples:check`; the default endpoints and
+authentication environment variables are documented below. Run any example
+independently:
+
+```bash
+npm run example:workflow:atomic
+npm run example:workflow:retry
+npm run example:workflow:resume
+npm run example:workflow:stale-contract
+```
+
+They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
+causes fallback party allocation, which creates durable topology state; every
+workflow also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
+party to rerun all four against that party and avoid fallback allocation. The
+fixture DAR remains installed after a run.
+
+Each program prints its actor plus the full participant version returned by the
+authenticated status API, its parsed release core, and its selected path:
+`Participant version:`, `Release core:`, and `Compatibility path:`. The current
+implementation uses one common-code path for release cores 3.5.7 and 3.5.8. It
+adds a version-specific behavioral difference only after live evidence proves
+one; it does not infer compatibility from a container tag or endpoint.
+
+- `example:workflow:atomic` first proves that an invalid choice is rejected,
+  then proves an atomic create-and-exercise by reading the created replacement
+  and its exact text.
+- `example:workflow:retry` submits a caller-controlled command ID with a
+  deduplication duration, retries the exact same request, classifies the
+  duplicate outcome, and proves that exactly one matching contract is active.
+- `example:workflow:resume` saves the ledger end before its post-offset create,
+  proves the intentionally idle stream timeout, then resumes exclusively after
+  that saved offset and rejects a pre-offset contract if it appears.
+- `example:workflow:stale-contract` proves archive/replacement state and then
+  proves that exercising the archived contract is rejected.
+
+Expected failures are accepted only through structured error classification:
+gRPC status code, decoded status, operation, and the selected compatibility
+path—not prose matching. The retry example uses one explicit command ID and
+deduplication period for the exact same request; changing either value is a new
+request and is not a retry proof. The resume example treats the saved offset as
+exclusive, so its resumed stream must observe only updates after the saved
+ledger end.
+
+The workflow source and unit contracts were developed for the common
+Participant 3.5.7/3.5.8 path, but this section does not claim live acceptance
+for either version until the separate 3.5.7 and 3.5.8 workflow matrices have
+run on the final tree. For the isolated 3.5.8 sidecar, refresh and load its
+short-lived credentials before a run:
+
+```bash
+eval "$(canton-localnet-participant-358-start --refresh-token)"
+```
+
+Refresh mode reads the token from its protected runtime file and never prints
+the token. Use only the resulting `SDK_EXAMPLE_*` environment variables when
+running the workflow commands.
+
 By default, Ledger and Ledger Admin use `localhost:3901`; Participant Admin
 uses `localhost:3902`. Override them with
 `SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, and
@@ -157,11 +220,12 @@ its SHA-256 is
 `307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29`.
 
 The examples and their DAR are repository-only and excluded from the npm
-tarball. They were developed and live-tested against Participant 3.5.7, then
-live-tested unchanged against the isolated
-[Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar). The
-sidecar launcher prints the `SDK_EXAMPLE_*` exports needed to run them against
-the sidecar.
+tarball. The existing setup and decentralized-party examples were developed
+and live-tested against Participant 3.5.7, then live-tested unchanged against
+the isolated [Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar).
+The sidecar launcher prints the `SDK_EXAMPLE_*` exports needed to run them
+against the sidecar; the workflow examples make no live-proof claim here until
+their dedicated matrices have run.
 
 ## Localnet launchers
 
