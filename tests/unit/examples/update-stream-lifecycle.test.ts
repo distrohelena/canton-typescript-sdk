@@ -252,6 +252,67 @@ describe("update stream lifecycle", () => {
         expect(events).toEqual(["next", "dispose", "return"]);
     });
 
+    it("preserves an expected idle timeout when cancellation rejects", async () => {
+        const deadline = grpcError("DEADLINE_EXCEEDED");
+
+        const cancellationFailure = new Error("cancel failed");
+
+        let cancellationObserved = false;
+
+        const iterator = createIterator({
+            next: async () => {
+                throw deadline;
+            },
+        });
+
+        const firstNextPromise = iterator.next();
+
+        await expect(
+            expectIdleUpdateStreamTimeoutAsync({
+                iterator,
+                firstNextPromise,
+                cancelAsync: async () => {
+                    cancellationObserved = true;
+
+                    throw cancellationFailure;
+                },
+            }),
+        ).resolves.toBe("idle-timeout");
+
+        expect(cancellationObserved).toBe(true);
+    });
+
+    it("preserves an expected idle timeout when iterator cleanup rejects", async () => {
+        const deadline = grpcError("DEADLINE_EXCEEDED");
+
+        const returnFailure = new Error("return failed");
+
+        let returnObserved = false;
+
+        const iterator = createIterator({
+            next: async () => {
+                throw deadline;
+            },
+            onReturn: async () => {
+                returnObserved = true;
+
+                throw returnFailure;
+            },
+        });
+
+        const firstNextPromise = iterator.next();
+
+        await expect(
+            expectIdleUpdateStreamTimeoutAsync({
+                iterator,
+                firstNextPromise,
+                cancelAsync: async () => undefined,
+            }),
+        ).resolves.toBe("idle-timeout");
+
+        expect(returnObserved).toBe(true);
+    });
+
     it("does not mistake an ordinary update-stream deadline for an expected idle timeout", async () => {
         const deadline = grpcError("DEADLINE_EXCEEDED");
 

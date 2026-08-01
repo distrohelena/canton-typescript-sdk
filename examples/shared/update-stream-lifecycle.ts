@@ -80,6 +80,8 @@ export async function expectIdleUpdateStreamTimeoutAsync<TUpdate>(init: {
         throw new Error("The idle update stream yielded an update before its expected timeout.");
     } catch (error) {
         if (isDeadlineExceededError(error)) {
+            primaryFailed = true;
+
             return "idle-timeout";
         }
 
