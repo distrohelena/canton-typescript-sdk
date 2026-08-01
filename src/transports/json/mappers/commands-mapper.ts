@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { TransportError } from "../../../core/errors/transport-error.js";
 import { ValidationError } from "../../../core/errors/validation-error.js";
 import { CreateAndExerciseCommand } from "../../../core/types/commands/create-and-exercise-command.js";
 import { CreateCommand } from "../../../core/types/commands/create-command.js";
@@ -20,8 +21,14 @@ export function mapJsonSubmitCommandRequest(
     commands: unknown[];
     applicationId?: string;
 } {
+    if (request.deduplicationPeriod !== undefined) {
+        throw new TransportError(
+            "command deduplication periods are not supported by the JSON transport",
+        );
+    }
+
     return {
-        commandId: randomUUID(),
+        commandId: request.commandId ?? randomUUID(),
         actAs: request.actAs,
         readAs: request.readAs,
         commands: [mapJsonCommand(request.command)],

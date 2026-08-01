@@ -13,6 +13,8 @@ import {
     mapJsonSubmitCommand,
     mapJsonSubmitCommandRequest,
 } from "../../../src/transports/json/mappers/commands-mapper.js";
+import { TransportError } from "../../../src/core/errors/transport-error.js";
+import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
 describe("json command submission mapper", () => {
     it("maps create commands to the V2 JsCommands payload", () => {
@@ -47,6 +49,94 @@ describe("json command submission mapper", () => {
                 },
             ],
         });
+    });
+
+    it("preserves explicit command IDs", () => {
+        const payload = mapJsonSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                commandId: "retry-command-1",
+                command: new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({}),
+                }),
+            }),
+        );
+
+        expect(payload.commandId).toBe("retry-command-1");
+    });
+
+    it("generates a nonempty command ID when none is provided", () => {
+        const payload = mapJsonSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                command: new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({}),
+                }),
+            }),
+        );
+
+        expect(payload.commandId).toMatch(
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+        );
+    });
+
+    it.each([
+        { kind: "duration" as const, seconds: 30 },
+        { kind: "offset" as const, offset: "10" },
+    ])("rejects unsupported command deduplication periods: %o", deduplicationPeriod => {
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            deduplicationPeriod,
+            command: new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
+            }),
+        });
+
+        expect(() => mapJsonSubmitCommandRequest(request)).toThrow(TransportError);
+        expect(() => mapJsonSubmitCommandRequest(request)).toThrow(
+            "command deduplication periods are not supported by the JSON transport",
+        );
+    });
+
+    it("rejects deduplication before issuing JSON HTTP requests", async () => {
+        let postAsyncCalls = 0;
+
+        const transport = new JsonTransport({
+            getAsync: async () => ({}),
+            postAsync: async () => {
+                postAsyncCalls += 1;
+
+                return {};
+            },
+        });
+
+        const submission = transport.submitCommandAsync(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                deduplicationPeriod: { kind: "duration", seconds: 30 },
+                command: new CreateCommand({
+                    templateId: {
+                        packageId: "",
+                        moduleName: "Main",
+                        entityName: "Iou",
+                    },
+                    createArguments: new DamlRecord({}),
+                }),
+            }),
+        );
+
+        await expect(submission).rejects.toThrow(TransportError);
+        await expect(submission).rejects.toThrow(
+            "command deduplication periods are not supported by the JSON transport",
+        );
+        expect(postAsyncCalls).toBe(0);
     });
 
     it("unwraps explicit DAML party and numeric values for JSON commands", () => {
