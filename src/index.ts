@@ -125,6 +125,7 @@ export { ConnectedSynchronizerHealth } from "./core/types/connected-synchronizer
 export { ConnectedSynchronizer } from "./core/types/connected-synchronizer.js";
 export { ConnectedSynchronizerStatus } from "./core/types/connected-synchronizer-status.js";
 export { CommandInspectionContract } from "./core/types/command-inspection-contract.js";
+export type { CommandDeduplicationPeriod } from "./core/types/command-deduplication-period.js";
 export { CommandRequestStatistics } from "./core/types/command-request-statistics.js";
 export { CommandState } from "./core/types/command-state.js";
 export { CommandStatus } from "./core/types/command-status.js";
