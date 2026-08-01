@@ -7,6 +7,11 @@ runExampleAsync("hosted-party", async () => {
 
     try {
         const partyHint = createPartyHint();
+        const userId = (process.env.SDK_EXAMPLE_USER_ID ?? "ledger-api-user").trim();
+
+        if (process.env.SDK_EXAMPLE_USER_ID !== undefined && !userId) {
+            throw new Error("SDK_EXAMPLE_USER_ID must not be empty.");
+        }
 
         console.warn(
             "Warning: party allocation creates durable localnet topology state and is not cleaned up.",
@@ -16,6 +21,7 @@ runExampleAsync("hosted-party", async () => {
             new AllocatePartyRequest({
                 partyIdHint: partyHint,
                 displayName: partyHint,
+                userId,
             }),
         );
 

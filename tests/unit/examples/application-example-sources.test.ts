@@ -114,6 +114,20 @@ describe("application example source contracts", () => {
         expect(source).toContain("newly visible");
     });
 
+    it("assigns a hosted party to the configured ledger user", () => {
+        const source = readExampleSource("10-hosted-party.ts");
+
+        expect(source).toMatch(
+            /const\s+userId\s*=\s*\(process\.env\.SDK_EXAMPLE_USER_ID\s*\?\?\s*"ledger-api-user"\)\.trim\(\);/,
+        );
+        expect(source).toMatch(
+            /if\s*\(\s*process\.env\.SDK_EXAMPLE_USER_ID\s*!==\s*undefined\s*&&\s*!userId\s*\)\s*\{/s,
+        );
+        expect(source).toMatch(
+            /new\s+AllocatePartyRequest\(\s*\{\s*partyIdHint:\s*partyHint,\s*displayName:\s*partyHint,\s*userId,\s*\}\s*\)/s,
+        );
+    });
+
     it("submits and proves the create and ReplaceText lifecycle directly", () => {
         const source = readExampleSource("50-create-and-exercise.ts");
 
