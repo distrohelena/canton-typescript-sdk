@@ -169,7 +169,7 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(prohibitedCreateExerciseWorkarounds);
     });
 
-    it("proves atomic create-and-exercise failure and success under one workflow deadline", () => {
+    it("proves atomic create-and-exercise failure and active replacement under one workflow deadline", () => {
         const source = readExampleSource("90-atomic-create-and-exercise.ts");
 
         expectStandaloneCleanup(source);
@@ -254,13 +254,14 @@ describe("application example source contracts", () => {
         expect(source).toMatch(
             /buildCreateAndReplaceMessageTextRequest\(\s*\{[\s\S]*?text:\s*initialText,[\s\S]*?replacement:\s*replacementText,[\s\S]*?commandId:\s*validCommandId,/s,
         );
-        expect(source).toMatch(/extractReplacementContracts\(validResponse\)/);
         expect(source).toMatch(
-            /!archivedContractId\.trim\(\)[\s\S]*?!replacementContractId\.trim\(\)[\s\S]*?archivedContractId\s*===\s*replacementContractId/s,
+            /const\s+submittedReplacement\s*=\s*extractCreatedContract\(validResponse\);/,
         );
+        expect(source).not.toMatch(/extractReplacementContracts/);
+        expect(source).not.toMatch(/archivedContractId|Archived transient contract/);
         expect(source).toContain("buildActiveContractsRequest({");
         expect(source).toMatch(
-            /findActiveMessageAcrossPagesAsync\(\s*\{[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
+            /findActiveMessageAcrossPagesAsync\(\s*\{[\s\S]*?contractId:\s*submittedReplacement\.contractId,[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
         );
         expect(source).toMatch(/readCreatedMessageText\(replacement\)/);
         expect(source).toMatch(/replacementText\s*!==\s*actualReplacementText/);
@@ -269,8 +270,9 @@ describe("application example source contracts", () => {
         expect(source).toContain("Release core: ${compatibility.releaseCore}");
         expect(source).toContain("Compatibility path: ${compatibility.path}");
         expect(source).toContain("Invalid choice kind: ${invalidChoiceKind}");
-        expect(source).toContain("Archived transient contract: ${archivedContractId}");
-        expect(source).toContain("Replacement contract: ${replacementContractId}");
+        expect(source).toContain(
+            "Replacement contract: ${submittedReplacement.contractId}",
+        );
         expect(source).toContain("Replacement payload: ${replacementPayload}");
         expect(source).toContain("Replacement text: ${actualReplacementText}");
         expect(source).toContain(

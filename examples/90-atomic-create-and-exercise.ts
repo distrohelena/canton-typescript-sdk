@@ -9,7 +9,7 @@ import {
 import {
     buildCreateAndReplaceMessageTextRequest,
     ensureExampleDarUploadedAsync,
-    extractReplacementContracts,
+    extractCreatedContract,
     loadExampleApplicationFixtureAsync,
     readCreatedMessageText,
     resolveExamplePartyAsync,
@@ -116,18 +116,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
                 new RequestOptions({ timeoutMs: deadline.remainingMs() }),
             );
 
-        const { archivedContractId, replacementContractId } =
-            extractReplacementContracts(validResponse);
-
-        if (
-            !archivedContractId.trim()
-            || !replacementContractId.trim()
-            || archivedContractId === replacementContractId
-        ) {
-            throw new Error(
-                "CreateAndExercise must archive a non-empty transient contract and create a distinct non-empty replacement contract.",
-            );
-        }
+        const submittedReplacement = extractCreatedContract(validResponse);
 
         const request = buildActiveContractsRequest({
             party: actor.party,
@@ -136,7 +125,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         const replacement = await findActiveMessageAcrossPagesAsync({
             request,
-            contractId: replacementContractId,
+            contractId: submittedReplacement.contractId,
             timeoutMs: deadline.remainingMs(),
             readPageAsync: pageRequest =>
                 client.stateService.getActiveContractsPageAsync(
@@ -147,7 +136,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         if (replacement === undefined) {
             throw new Error(
-                `Replacement Message '${replacementContractId}' was not present in the active-contract snapshot.`,
+                `Replacement Message '${submittedReplacement.contractId}' was not present in the active-contract snapshot.`,
             );
         }
 
@@ -155,7 +144,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         if (replacementText !== actualReplacementText) {
             throw new Error(
-                `Replacement Message '${replacementContractId}' did not retain the requested replacement text.`,
+                `Replacement Message '${submittedReplacement.contractId}' did not retain the requested replacement text.`,
             );
         }
 
@@ -163,7 +152,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         if (replacementPayload === undefined) {
             throw new Error(
-                `Replacement Message '${replacementContractId}' has a create payload that cannot be rendered.`,
+                `Replacement Message '${submittedReplacement.contractId}' has a create payload that cannot be rendered.`,
             );
         }
 
@@ -172,8 +161,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
         console.log(`Release core: ${compatibility.releaseCore}`);
         console.log(`Compatibility path: ${compatibility.path}`);
         console.log(`Invalid choice kind: ${invalidChoiceKind}`);
-        console.log(`Archived transient contract: ${archivedContractId}`);
-        console.log(`Replacement contract: ${replacementContractId}`);
+        console.log(`Replacement contract: ${submittedReplacement.contractId}`);
         console.log(`Replacement payload: ${replacementPayload}`);
         console.log(`Replacement text: ${actualReplacementText}`);
     } finally {

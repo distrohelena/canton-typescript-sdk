@@ -302,6 +302,13 @@ describe("transaction event extraction", () => {
         });
     });
 
+    it("extracts the active replacement from an atomic ACS-delta response without a transient archive", () => {
+        expect(extractCreatedContract({ events: [replacementCreated] })).toEqual({
+            contractId: "#replacement",
+            event: replacementCreated.event.created,
+        });
+    });
+
     it("rejects absent or malformed created contract events", () => {
         expect(() => extractCreatedContract({ events: [] })).toThrow(
             /created event/i,
