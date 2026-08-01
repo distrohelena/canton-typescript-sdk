@@ -139,7 +139,8 @@ shared bearer token, or set `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`,
 `SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN` per surface. The examples also
 accept `SDK_EXAMPLE_PARTY`, `SDK_EXAMPLE_USER_ID`, `SDK_EXAMPLE_SYNCHRONIZER`,
 and `SDK_EXAMPLE_TIMEOUT_MS`; generated fallback party names use
-`SDK_EXAMPLE_PARTY_PREFIX` when supplied.
+`SDK_EXAMPLE_PARTY_PREFIX` when supplied. For TLS, set
+`SDK_EXAMPLE_TLS_ROOT_CERTIFICATE` to a custom CA certificate path.
 
 Some commands intentionally create durable localnet state: DAR upload installs
 a package; create/exercise, query, and stream may allocate a fallback party and
