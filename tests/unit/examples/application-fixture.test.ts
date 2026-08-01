@@ -1,16 +1,24 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
     EXAMPLE_DAR_SHA256,
     loadExampleApplicationFixtureAsync,
 } from "../../../examples/shared/application-fixture.js";
 
+const EXPECTED_DAR_SHA256 =
+    "307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29";
+
 describe("loadExampleApplicationFixtureAsync", () => {
     it("loads the pinned Canton Explorer Debug Playground application", async () => {
         const fixture = await loadExampleApplicationFixtureAsync();
 
-        expect(EXAMPLE_DAR_SHA256).toBe(
-            "307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29",
-        );
+        const darSha256 = createHash("sha256")
+            .update(fixture.darBytes)
+            .digest("hex");
+
+        expect(EXAMPLE_DAR_SHA256).toBe(EXPECTED_DAR_SHA256);
+        expect(darSha256).toBe(EXAMPLE_DAR_SHA256);
+        expect(darSha256).toBe(EXPECTED_DAR_SHA256);
         expect(fixture.mainPackageId).toBe(
             "4c71b7db4631a5573c96bba609474b2b3e544c2aae7851124403c8ae5169a687",
         );

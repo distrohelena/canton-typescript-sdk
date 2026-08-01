@@ -1,7 +1,7 @@
 # Canton Explorer Debug Playground DAR
 
 This directory contains the normal Canton Explorer Debug Playground DAR from
-`/home/helena/dev/daml/canton-explorer/debug-playground`.
+`/home/helena/dev/daml/canton-explorer/debug-playground/.daml/dist/canton-explorer-debug-playground-0.1.0.dar`.
 It is intentionally not the debug DAR.
 
 - Canton Explorer checkout HEAD: `750b28dd0ce4674e4368c12a6da1b5b5cbb00f88`
