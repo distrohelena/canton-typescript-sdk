@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
     cleanupWithoutMaskingAsync,
     createClientDisposalLifecycle,
+    expectIdleUpdateStreamTimeoutAsync,
     mapUpdateStreamError,
+    matchResumedUpdateAsync,
     submitAndMatchUpdateAsync,
 } from "../../../examples/shared/update-stream-lifecycle.js";
 
@@ -210,6 +212,227 @@ describe("update stream lifecycle", () => {
                 cancelAsync: async () => undefined,
             }),
         ).rejects.toBe(submissionDeadline);
+    });
+
+    it("recognizes a structured idle deadline and disposes its lazy stream exactly once", async () => {
+        const deadline = grpcError("DEADLINE_EXCEEDED");
+
+        const events: string[] = [];
+
+        const first = deferred<IteratorResult<Update>>();
+
+        const clientDisposal = createClientDisposalLifecycle(async () => {
+            events.push("dispose");
+        });
+
+        const iterator = createIterator({
+            next: () => {
+                events.push("next");
+
+                return first.promise;
+            },
+            onReturn: async () => {
+                events.push("return");
+            },
+        });
+
+        const firstNextPromise = iterator.next();
+
+        const timeout = expectIdleUpdateStreamTimeoutAsync({
+            iterator,
+            firstNextPromise,
+            cancelAsync: clientDisposal.startDisposalAsync,
+        });
+
+        first.reject(deadline);
+
+        await expect(timeout).resolves.toBe("idle-timeout");
+        await clientDisposal.disposeUnlessStartedAsync(false);
+
+        expect(events).toEqual(["next", "dispose", "return"]);
+    });
+
+    it("does not mistake an ordinary update-stream deadline for an expected idle timeout", async () => {
+        const deadline = grpcError("DEADLINE_EXCEEDED");
+
+        const iterator = createIterator({
+            next: async () => {
+                throw deadline;
+            },
+        });
+
+        const firstNextPromise = iterator.next();
+
+        await expect(
+            matchResumedUpdateAsync({
+                iterator,
+                firstNextPromise,
+                reject: () => undefined,
+                match: () => undefined,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toMatchObject({ cause: deadline });
+    });
+
+    it("propagates unexpected idle events, stream ends, and ordinary read errors", async () => {
+        const eventIterator = createIterator({
+            next: async () => ({ done: false, value: { contractId: "#unexpected" } }),
+        });
+
+        const eventFirst = eventIterator.next();
+
+        await expect(
+            expectIdleUpdateStreamTimeoutAsync({
+                iterator: eventIterator,
+                firstNextPromise: eventFirst,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toThrow(/yielded an update/i);
+
+        const endedIterator = createIterator({
+            next: async () => ({ done: true, value: undefined }),
+        });
+
+        const endedFirst = endedIterator.next();
+
+        await expect(
+            expectIdleUpdateStreamTimeoutAsync({
+                iterator: endedIterator,
+                firstNextPromise: endedFirst,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toThrow(/ended before/i);
+
+        const ordinaryFailure = new Error("ordinary stream failure");
+
+        const failedIterator = createIterator({
+            next: async () => {
+                throw ordinaryFailure;
+            },
+        });
+
+        const failedFirst = failedIterator.next();
+
+        await expect(
+            expectIdleUpdateStreamTimeoutAsync({
+                iterator: failedIterator,
+                firstNextPromise: failedFirst,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toBe(ordinaryFailure);
+    });
+
+    it("rejects a pre-offset update, skips unrelated updates, and returns the post-offset match", async () => {
+        const events: string[] = [];
+
+        const first = deferred<IteratorResult<Update>>();
+
+        const updates: IteratorResult<Update>[] = [
+            { done: false, value: { contractId: "#unrelated" } },
+            { done: false, value: { contractId: "#post" } },
+        ];
+
+        const iterator = createIterator({
+            next: () => {
+                events.push("next");
+
+                return first.promise;
+            },
+            onReturn: async () => {
+                events.push("return");
+            },
+        });
+
+        const firstNextPromise = iterator.next();
+
+        let nextIndex = 0;
+
+        iterator.next = async () => updates[nextIndex++]!;
+
+        const match = matchResumedUpdateAsync({
+            iterator,
+            firstNextPromise,
+            reject: update => {
+                if (update.contractId === "#pre") {
+                    throw new Error("Pre-offset update was replayed.");
+                }
+            },
+            match: update => update.contractId === "#post" ? update : undefined,
+            cancelAsync: async () => {
+                events.push("cancel");
+            },
+        });
+
+        first.resolve({
+            done: false,
+            value: { contractId: "#unrelated-first" },
+        });
+
+        await expect(match).resolves.toEqual({ contractId: "#post" });
+        expect(events).toEqual(["next", "cancel", "return"]);
+    });
+
+    it("propagates resumed-stream contract, end, and read failures without cleanup masking", async () => {
+        const contractFailure = new Error("Pre-offset update was replayed.");
+
+        const readFailure = new Error("ordinary stream failure");
+
+        const contractIterator = createIterator({
+            next: async () => ({ done: false, value: { contractId: "#pre" } }),
+            onReturn: async () => {
+                throw new Error("return failed");
+            },
+        });
+
+        const contractFirst = contractIterator.next();
+
+        await expect(
+            matchResumedUpdateAsync({
+                iterator: contractIterator,
+                firstNextPromise: contractFirst,
+                reject: () => {
+                    throw contractFailure;
+                },
+                match: () => undefined,
+                cancelAsync: async () => {
+                    throw new Error("cancel failed");
+                },
+            }),
+        ).rejects.toBe(contractFailure);
+
+        const endedIterator = createIterator({
+            next: async () => ({ done: true, value: undefined }),
+        });
+
+        const endedFirst = endedIterator.next();
+
+        await expect(
+            matchResumedUpdateAsync({
+                iterator: endedIterator,
+                firstNextPromise: endedFirst,
+                reject: () => undefined,
+                match: () => undefined,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toThrow(/ended before/i);
+
+        const failedIterator = createIterator({
+            next: async () => {
+                throw readFailure;
+            },
+        });
+
+        const failedFirst = failedIterator.next();
+
+        await expect(
+            matchResumedUpdateAsync({
+                iterator: failedIterator,
+                firstNextPromise: failedFirst,
+                reject: () => undefined,
+                match: () => undefined,
+                cancelAsync: async () => undefined,
+            }),
+        ).rejects.toBe(readFailure);
     });
 });
 
