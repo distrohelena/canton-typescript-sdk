@@ -309,6 +309,32 @@ describe("transaction event extraction", () => {
         });
     });
 
+    it.each([
+        [
+            "archived",
+            [
+                originalArchived,
+                { event: { oneofKind: "archived", archived: { contractId: "#other-original" } } },
+                replacementCreated,
+            ],
+        ],
+        [
+            "created",
+            [
+                originalArchived,
+                replacementCreated,
+                { event: { oneofKind: "created", created: { contractId: "#other-replacement" } } },
+            ],
+        ],
+    ] as const)(
+        "rejects a replacement response with multiple valid %s events",
+        (kind, events) => {
+            expect(() => extractReplacementContracts({ events })).toThrow(
+                new RegExp(`exactly one ${kind} event`, "i"),
+            );
+        },
+    );
+
     it("rejects absent or malformed created contract events", () => {
         expect(() => extractCreatedContract({ events: [] })).toThrow(
             /created event/i,

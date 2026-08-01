@@ -193,35 +193,50 @@ export function extractReplacementContracts(response: {
     archivedContractId: string;
     replacementContractId: string;
 } {
-    let archivedContractId: string | undefined;
+    const archivedContractIds: string[] = [];
 
-    let replacementContractId: string | undefined;
+    const replacementContractIds: string[] = [];
 
     for (const responseEvent of response.events) {
-        if (!archivedContractId) {
-            archivedContractId = contractIdFromEvent(
-                eventPayload(responseEvent, "archived"),
-            );
+        const archivedContractId = contractIdFromEvent(
+            eventPayload(responseEvent, "archived"),
+        );
+
+        if (archivedContractId !== undefined) {
+            archivedContractIds.push(archivedContractId);
         }
 
-        if (!replacementContractId) {
-            replacementContractId = contractIdFromEvent(
-                eventPayload(responseEvent, "created"),
-            );
+        const replacementContractId = contractIdFromEvent(
+            eventPayload(responseEvent, "created"),
+        );
+
+        if (replacementContractId !== undefined) {
+            replacementContractIds.push(replacementContractId);
         }
     }
 
-    if (!archivedContractId) {
+    if (archivedContractIds.length === 0) {
         throw new Error(
             "Expected an archived event with a non-empty contract ID in the replacement response.",
         );
-    } else if (!replacementContractId) {
+    } else if (archivedContractIds.length !== 1) {
+        throw new Error(
+            "Expected exactly one archived event with a non-empty contract ID in the replacement response.",
+        );
+    } else if (replacementContractIds.length === 0) {
         throw new Error(
             "Expected a created event with a non-empty contract ID in the replacement response.",
         );
+    } else if (replacementContractIds.length !== 1) {
+        throw new Error(
+            "Expected exactly one created event with a non-empty contract ID in the replacement response.",
+        );
     }
 
-    return { archivedContractId, replacementContractId };
+    return {
+        archivedContractId: archivedContractIds[0]!,
+        replacementContractId: replacementContractIds[0]!,
+    };
 }
 
 export function readCreatedMessageText(event: {
