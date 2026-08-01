@@ -64,7 +64,7 @@ export function createClientDisposalLifecycle(
 export async function expectIdleUpdateStreamTimeoutAsync<TUpdate>(init: {
     readonly iterator: AsyncIterator<TUpdate>;
     readonly firstNextPromise: Promise<IteratorResult<TUpdate>>;
-    readonly cancelAsync: () => PromiseLike<unknown> | undefined;
+    readonly cancelAsync?: () => PromiseLike<unknown> | undefined;
 }): Promise<"idle-timeout"> {
     void init.firstNextPromise.catch(() => undefined);
 
@@ -98,7 +98,7 @@ export async function matchResumedUpdateAsync<TUpdate, TMatch>(init: {
     readonly firstNextPromise: Promise<IteratorResult<TUpdate>>;
     readonly reject: (update: TUpdate) => void;
     readonly match: (update: TUpdate) => TMatch | undefined;
-    readonly cancelAsync: () => PromiseLike<unknown> | undefined;
+    readonly cancelAsync?: () => PromiseLike<unknown> | undefined;
 }): Promise<TMatch> {
     void init.firstNextPromise.catch(() => undefined);
 
@@ -198,7 +198,7 @@ function isDeadlineExceededError(error: unknown): error is GrpcTransportError {
 
 async function cleanupStreamAsync<TUpdate>(
     iterator: AsyncIterator<TUpdate>,
-    cancelAsync: () => PromiseLike<unknown> | undefined,
+    cancelAsync: (() => PromiseLike<unknown> | undefined) | undefined,
     primaryFailed: boolean,
 ): Promise<void> {
     let cleanupFailure: unknown;
@@ -219,7 +219,10 @@ async function cleanupStreamAsync<TUpdate>(
         }
     };
 
-    await cleanup(cancelAsync);
+    if (cancelAsync !== undefined) {
+        await cleanup(cancelAsync);
+    }
+
     await cleanup(() => iterator.return?.());
 
     if (cleanupFailed && !primaryFailed) {

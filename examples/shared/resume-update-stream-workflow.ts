@@ -59,7 +59,6 @@ export interface ResumeUpdateStreamWorkflowDependencies {
     readonly createDeadline: (init: { timeoutMs: number }) => WorkflowDeadline;
     readonly timeoutMs: () => number;
     readonly createRunId: () => string;
-    readonly cancelStreamAsync: () => PromiseLike<unknown> | undefined;
     readonly logger: ExampleLogger;
 }
 
@@ -146,7 +145,6 @@ export async function runResumeUpdateStreamWorkflowAsync(
     const idleProbeOutcome = await expectIdleUpdateStreamTimeoutAsync({
         iterator: idleIterator,
         firstNextPromise: idleFirstNextPromise,
-        cancelAsync: dependencies.cancelStreamAsync,
     });
 
     dependencies.logger.log(`Idle probe outcome: ${idleProbeOutcome}`);
@@ -186,7 +184,6 @@ export async function runResumeUpdateStreamWorkflowAsync(
                 response,
                 contractId: postContract.contractId,
             }),
-        cancelAsync: dependencies.cancelStreamAsync,
     });
 
     if (!matched.updateId.trim() || !matched.offset.trim()) {
@@ -230,5 +227,4 @@ export const resumeUpdateStreamWorkflowDefaults = {
     readCompatibilityAsync: readWorkflowCompatibilityAsync,
     createDeadline: createWorkflowDeadline,
     timeoutMs: exampleTimeoutMs,
-    cancelStreamAsync: async () => undefined,
 };

@@ -51,14 +51,12 @@ describe("resume update-stream workflow", () => {
             "ledger-end",
             "idle-open",
             "idle-next",
-            "idle-cancel",
             "idle-return",
             "log:Idle probe outcome: idle-timeout",
             "post-submit",
             "resume-open",
             "resume-next",
             "resume-next",
-            "resume-cancel",
             "resume-return",
             "log:Update ID: post-update",
             "log:Offset: post-offset",
@@ -73,7 +71,6 @@ describe("resume update-stream workflow", () => {
     it("rejects a pre-offset contract replay without cleanup masking", async () => {
         const dependencies = createDependencies({
             resumedUpdates: [updateFor("#pre", "pre-update", "pre-offset")],
-            resumeCancellationFailure: new Error("cancel failed"),
             resumeReturnFailure: new Error("return failed"),
         });
 
@@ -90,7 +87,6 @@ function createDependencies(init: {
     readonly options?: RequestOptions[];
     readonly streamBegins?: string[];
     readonly resumedUpdates?: readonly ledgerApiV2.GetUpdatesResponse[];
-    readonly resumeCancellationFailure?: Error;
     readonly resumeReturnFailure?: Error;
 } = {}): ResumeUpdateStreamWorkflowDependencies {
     const trace = init.trace ?? [];
@@ -198,13 +194,6 @@ function createDependencies(init: {
         }),
         timeoutMs: () => 100,
         createRunId: () => "run-123",
-        cancelStreamAsync: async () => {
-            trace.push(streamCount === 1 ? "idle-cancel" : "resume-cancel");
-
-            if (streamCount === 2 && init.resumeCancellationFailure !== undefined) {
-                throw init.resumeCancellationFailure;
-            }
-        },
         logger: {
             log: message => trace.push(`log:${message}`),
             warn: () => undefined,
