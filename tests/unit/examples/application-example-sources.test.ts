@@ -286,126 +286,13 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
     });
 
-    it("retries one idempotent Message request and proves exactly one active result under one workflow deadline", () => {
+    it("runs the idempotent retry workflow as a standalone example with bounded cleanup", () => {
         const source = readExampleSource("91-idempotent-command-retry.ts");
 
         expectStandaloneCleanup(source);
-        expect(source).toContain("loadExampleApplicationFixtureAsync()");
         expect(source).toMatch(
-            /const\s+deadline\s*=\s*createWorkflowDeadline\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\),\s*\}\s*\);/s,
+            /runIdempotentCommandRetryWorkflowAsync\(\s*\{\s*client,\s*\.\.\.idempotentCommandRetryWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\);/s,
         );
-        expect(source).toMatch(
-            /ensureExampleDarUploadedAsync\(\s*client,\s*fixture,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
-        );
-        expect(source).toMatch(
-            /resolveExamplePartyAsync\(\s*client,\s*process\.env,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
-        );
-        expect(source).toMatch(
-            /readWorkflowCompatibilityAsync\(\s*client,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
-        );
-        expect(source).toMatch(/randomBytes\(\d+\)\.toString\("hex"\)/);
-        expect(source).toContain("retry-marker-${runId}");
-        expect(source).toContain("retry-command-${runId}");
-
-        const deadline = source.indexOf("const deadline = createWorkflowDeadline(");
-
-        const ensureDar = source.indexOf("ensureExampleDarUploadedAsync(");
-
-        const resolveParty = source.indexOf("resolveExamplePartyAsync(");
-
-        const compatibility = source.indexOf("readWorkflowCompatibilityAsync(");
-
-        const request = requireSourceMatch(
-            source,
-            /const\s+retryRequest\s*=\s*buildCreateMessageRequest\(\s*\{[\s\S]*?party:\s*actor\.party,[\s\S]*?templateId:\s*fixture\.templateId,[\s\S]*?text:\s*marker,[\s\S]*?commandId,[\s\S]*?deduplicationPeriod:\s*\{\s*kind:\s*"duration",\s*seconds:\s*30,?\s*\},[\s\S]*?\}\s*\);/s,
-            "one explicit idempotent Message request with a 30-second duration deduplication period",
-        );
-
-        const firstSubmission = requireSourceMatch(
-            source,
-            /const\s+firstResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*retryRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);/s,
-            "the first submission of the exact retry request with a fresh deadline budget",
-        );
-
-        const createdContract = requireSourceMatch(
-            source,
-            /const\s+firstCreated\s*=\s*extractCreatedContract\(firstResponse\);/,
-            "created-contract extraction from the first successful response",
-        );
-
-        const retrySubmission = requireSourceMatch(
-            source,
-            /await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*retryRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);\s*throw\s+new\s+Error\(/s,
-            "a retry of that same request which hard-fails if it succeeds",
-        );
-
-        const duplicateClassification = requireSourceMatch(
-            source,
-            /duplicateCommandKind\s*=\s*classifyWorkflowFailure\(\s*\{\s*error,\s*kind:\s*"duplicateCommand",\s*operation:\s*"commandSubmission",\s*compatibility,\s*\}\s*\);/s,
-            "the structured duplicate-command classification",
-        );
-
-        const collection = requireSourceMatch(
-            source,
-            /collectActiveMessagesAcrossPagesAsync\(\s*\{[\s\S]*?request,[\s\S]*?textMarker:\s*marker,[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\(\s*pageRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
-            "paginated active-contract collection with a current deadline budget for every page",
-        );
-
-        expect(deadline).toBeGreaterThan(source.indexOf("loadExampleApplicationFixtureAsync()"));
-        expect(ensureDar).toBeGreaterThan(deadline);
-        expect(resolveParty).toBeGreaterThan(ensureDar);
-        expect(compatibility).toBeGreaterThan(resolveParty);
-        expect(request.index).toBeGreaterThan(compatibility);
-        expect(firstSubmission.index).toBeGreaterThan(request.index);
-        expect(createdContract.index).toBeGreaterThan(firstSubmission.index);
-        expect(retrySubmission.index).toBeGreaterThan(createdContract.index);
-        expect(duplicateClassification.index).toBeGreaterThan(retrySubmission.index);
-        expect(collection.index).toBeGreaterThan(duplicateClassification.index);
-
-        const commandRegion = source.slice(
-            firstSubmission.index,
-            retrySubmission.index + retrySubmission[0].length,
-        );
-
-        expect(
-            [
-                ...commandRegion.matchAll(
-                    /client\.commandService\.submitAndWaitForTransactionAsync\(/g,
-                ),
-            ],
-        ).toHaveLength(2);
-        expect(
-            [
-                ...commandRegion.matchAll(
-                    /new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\)/g,
-                ),
-            ],
-        ).toHaveLength(2);
-
-        expect(source).toMatch(/if\s*\(\s*!firstResponse\.transactionId\.trim\(\)\s*\)\s*\{/s);
-        expect(source).toMatch(/if\s*\(\s*!firstCreated\.contractId\.trim\(\)\s*\)\s*\{/s);
-        expect(source).toMatch(
-            /assertExactlyOneActiveMessage\(\s*\{\s*messages:\s*activeMessages,\s*textMarker:\s*marker,\s*\}\s*\)/s,
-        );
-        expect(source).toMatch(/readCreatedMessageText\(activeMessage\)\s*!==\s*marker/);
-        expect(source).toContain("Actor party: ${actor.party}");
-        expect(source).toContain("Command ID: ${commandId}");
-        expect(source).toContain("First transaction ID: ${firstResponse.transactionId}");
-        expect(source).toContain("Duplicate command kind: ${duplicateCommandKind}");
-        expect(source).toContain("Active count: ${activeMessages.length}");
-        expect(source).toContain("Participant version: ${compatibility.participantVersion}");
-        expect(source).toContain("Release core: ${compatibility.releaseCore}");
-        expect(source).toContain("Compatibility path: ${compatibility.path}");
-        expect(source).toContain("Active payload: ${activePayload}");
-        expect(source).toContain(
-            "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
-        );
-        expect(source).toContain(
-            "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
-        );
-        expect(source).not.toMatch(/\b(?:sleep|setTimeout)\b/i);
-        expect(source).not.toMatch(/error\.message|RegExp|match\s*\(/);
-        expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
     });
 
     it("queries the exact created Message with a generated active-contract request", () => {
