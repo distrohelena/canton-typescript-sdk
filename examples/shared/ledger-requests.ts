@@ -5,31 +5,79 @@ export function buildActiveContractsRequest(init: {
     readonly party: string;
     readonly templateId: ExampleTemplateId;
 }): ledgerApiV2.GetActiveContractsPageRequest {
-    requireNonEmpty("party", init.party);
-    requireNonEmpty("template package ID", init.templateId.packageId);
-    requireNonEmpty("template module name", init.templateId.moduleName);
-    requireNonEmpty("template entity name", init.templateId.entityName);
-
     return ledgerApiV2.GetActiveContractsPageRequest.create({
-        eventFormat: ledgerApiV2.EventFormat.create({
-            filtersByParty: {
-                [init.party]: ledgerApiV2.Filters.create({
-                    cumulative: [
-                        {
-                            identifierFilter: {
-                                oneofKind: "templateFilter",
-                                templateFilter: {
-                                    templateId: init.templateId,
-                                    includeCreatedEventBlob: false,
-                                },
-                            },
-                        },
-                    ],
-                }),
-            },
-            verbose: true,
-        }),
+        eventFormat: buildMessageEventFormat(init),
     });
+}
+
+export function buildUpdatesRequest(init: {
+    readonly beginExclusive: string;
+    readonly party: string;
+    readonly templateId: ExampleTemplateId;
+}): ledgerApiV2.GetUpdatesRequest {
+    requireNonEmpty("begin exclusive offset", init.beginExclusive);
+
+    const eventFormat = buildMessageEventFormat(init);
+
+    return ledgerApiV2.GetUpdatesRequest.create({
+        beginExclusive: init.beginExclusive,
+        updateFormat: ledgerApiV2.UpdateFormat.create({
+            includeTransactions: ledgerApiV2.TransactionFormat.create({
+                eventFormat,
+                transactionShape: ledgerApiV2.TransactionShape.ACS_DELTA,
+            }),
+        }),
+        descendingOrder: false,
+    });
+}
+
+export function matchCreatedMessageUpdate(init: {
+    readonly response: unknown;
+    readonly contractId: string;
+}):
+    | { readonly updateId: string; readonly offset: string; readonly contractId: string }
+    | undefined {
+    if (
+        !init.contractId.trim()
+        || !ledgerApiV2.GetUpdatesResponse.is(init.response)
+        || init.response.update.oneofKind !== "transaction"
+        || !ledgerApiV2.Transaction.is(init.response.update.transaction)
+    ) {
+        return undefined;
+    }
+
+    const transaction = init.response.update.transaction;
+
+    if (!transaction.updateId.trim() || !transaction.offset.trim()) {
+        return undefined;
+    }
+
+    for (const event of transaction.events) {
+        if (
+            !ledgerApiV2.Event.is(event)
+            || event.event.oneofKind !== "created"
+            || !ledgerApiV2.CreatedEvent.is(event.event.created)
+        ) {
+            continue;
+        }
+
+        const createdContractId = event.event.created.contractId;
+
+        if (
+            !createdContractId.trim()
+            || createdContractId !== init.contractId
+        ) {
+            continue;
+        }
+
+        return {
+            updateId: transaction.updateId,
+            offset: transaction.offset,
+            contractId: createdContractId,
+        };
+    }
+
+    return undefined;
 }
 
 export function findActiveMessage(
@@ -150,6 +198,35 @@ function requireNonEmpty(label: string, value: string): void {
     if (!value.trim()) {
         throw new Error(`${label} must not be empty.`);
     }
+}
+
+function buildMessageEventFormat(init: {
+    readonly party: string;
+    readonly templateId: ExampleTemplateId;
+}): ledgerApiV2.EventFormat {
+    requireNonEmpty("party", init.party);
+    requireNonEmpty("template package ID", init.templateId.packageId);
+    requireNonEmpty("template module name", init.templateId.moduleName);
+    requireNonEmpty("template entity name", init.templateId.entityName);
+
+    return ledgerApiV2.EventFormat.create({
+        filtersByParty: {
+            [init.party]: ledgerApiV2.Filters.create({
+                cumulative: [
+                    {
+                        identifierFilter: {
+                            oneofKind: "templateFilter",
+                            templateFilter: {
+                                templateId: init.templateId,
+                                includeCreatedEventBlob: false,
+                            },
+                        },
+                    },
+                ],
+            }),
+        },
+        verbose: true,
+    });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -25,6 +25,12 @@ const replacementContractProof =
 const activeContractPageRead =
     /client\.stateService\.getActiveContractsPageAsync\(\s*pageRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*remainingTimeoutMs\s*\}\s*\),\s*\)/s;
 
+const getLedgerEndRequest =
+    /client\.stateService\.getLedgerEndAsync\(\s*new\s+GetLedgerEndRequest\(\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/s;
+
+const updateStreamRequest =
+    /client\.updateService\.getUpdatesAsync\(\s*buildUpdatesRequest\(\s*\{\s*beginExclusive:\s*ledgerEnd\.offset,\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,\s*\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/s;
+
 const prohibitedCreateExerciseWorkarounds =
     /\b(?:Echo|LEDGER_EFFECTS|sleep|setTimeout|database|db|PQS|query)\b/i;
 
@@ -101,6 +107,44 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(
             /\b(?:GetActiveContractsPageRequest|mapGetActiveContractsPageRequest|mapper)\b/,
         );
+    });
+
+    it("opens a bounded update stream before submitting and matches the exact created Message", () => {
+        const source = readExampleSource("61-stream-updates.ts");
+
+        const nextBeforeSubmit = source.indexOf("const firstUpdatePromise = iterator.next();");
+
+        const submit = source.indexOf("submitAndWaitForTransactionAsync");
+
+        expectStandaloneCleanup(source);
+        expect(source).toMatch(getLedgerEndRequest);
+        expect(source).toMatch(updateStreamRequest);
+        expect(source).toMatch(
+            /const\s+iterator\s*=\s*stream\[Symbol\.asyncIterator\]\(\);/,
+        );
+        expect(nextBeforeSubmit).toBeGreaterThanOrEqual(0);
+        expect(submit).toBeGreaterThan(nextBeforeSubmit);
+        expect(source).toMatch(
+            /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
+        );
+        expect(source).toMatch(
+            /matchCreatedMessageUpdate\(\s*\{\s*response:\s*next\.value,\s*contractId:\s*created\.contractId,\s*\}\s*\)/s,
+        );
+        expect(source).toContain("Update ID: ${matched.updateId}");
+        expect(source).toContain("Offset: ${matched.offset}");
+        expect(source).toContain("Created contract ID: ${matched.contractId}");
+        expect(source).toMatch(
+            /finally\s*\{[\s\S]*?await\s+iterator\.return\?\.\(\);[\s\S]*?\}/s,
+        );
+        expect(source).toMatch(/let\s+didThrow\s*=\s*false;/);
+        expect(source).toMatch(/if\s*\(\s*!didThrow\s*\)\s*\{/);
+        expect(source).toContain(
+            "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
+        );
+        expect(source).toContain(
+            "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
+        );
+        expect(source).not.toMatch(/\b(?:AbortController|sleep|setTimeout|polling)\b/);
     });
 
     it.each(["40-dar-upload.ts", "50-create-and-exercise.ts"])(

@@ -2,8 +2,10 @@ import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it } from "vitest";
 import {
     buildActiveContractsRequest,
+    buildUpdatesRequest,
     findActiveMessage,
     findActiveMessageAcrossPagesAsync,
+    matchCreatedMessageUpdate,
 } from "../../../examples/shared/ledger-requests.js";
 
 const templateId = {
@@ -278,7 +280,168 @@ describe("application example ledger requests", () => {
             }),
         ).toThrow(/template.*entity/i);
     });
+
+    it("builds an ACS-delta update stream request for one party and template", () => {
+        const request = buildUpdatesRequest({
+            beginExclusive: "42",
+            party: "Alice::1",
+            templateId,
+        });
+
+        expect(ledgerApiV2.GetUpdatesRequest.is(request)).toBe(true);
+        expect(request).toMatchObject({
+            beginExclusive: "42",
+            descendingOrder: false,
+            updateFormat: {
+                includeTransactions: {
+                    transactionShape: ledgerApiV2.TransactionShape.ACS_DELTA,
+                    eventFormat: {
+                        filtersByParty: {
+                            "Alice::1": {
+                                cumulative: [{
+                                    identifierFilter: {
+                                        oneofKind: "templateFilter",
+                                        templateFilter: {
+                                            templateId,
+                                            includeCreatedEventBlob: false,
+                                        },
+                                    },
+                                }],
+                            },
+                        },
+                        verbose: true,
+                    },
+                },
+            },
+        });
+    });
+
+    it("rejects empty update stream offsets, parties, and template identifiers", () => {
+        expect(() =>
+            buildUpdatesRequest({
+                beginExclusive: " ",
+                party: "Alice::1",
+                templateId,
+            }),
+        ).toThrow(/begin.*exclusive/i);
+        expect(() =>
+            buildUpdatesRequest({
+                beginExclusive: "42",
+                party: " ",
+                templateId,
+            }),
+        ).toThrow(/party/i);
+        expect(() =>
+            buildUpdatesRequest({
+                beginExclusive: "42",
+                party: "Alice::1",
+                templateId: { ...templateId, packageId: "" },
+            }),
+        ).toThrow(/template.*package/i);
+    });
+
+    it("matches an exact created contract in a later transaction event", () => {
+        const response = transactionUpdate({
+            updateId: "update-17",
+            offset: "73",
+            eventContractIds: ["#other", "#message"],
+        });
+
+        expect(
+            matchCreatedMessageUpdate({ response, contractId: "#message" }),
+        ).toEqual({
+            updateId: "update-17",
+            offset: "73",
+            contractId: "#message",
+        });
+    });
+
+    it("ignores malformed, non-transaction, and non-matching stream updates", () => {
+        const archived = ledgerApiV2.Event.create({
+            event: {
+                oneofKind: "archived",
+                archived: ledgerApiV2.ArchivedEvent.create({ contractId: "#message" }),
+            },
+        });
+
+        const exercised = ledgerApiV2.Event.create({
+            event: {
+                oneofKind: "exercised",
+                exercised: ledgerApiV2.ExercisedEvent.create({ contractId: "#message" }),
+            },
+        });
+
+        const rejected: readonly unknown[] = [
+            undefined,
+            {},
+            ledgerApiV2.GetUpdatesResponse.create({
+                update: { oneofKind: "offsetCheckpoint", offsetCheckpoint: { offset: "73", synchronizerTimes: [] } },
+            }),
+            ledgerApiV2.GetUpdatesResponse.create({
+                update: { oneofKind: "reassignment", reassignment: ledgerApiV2.Reassignment.create({}) },
+            }),
+            ledgerApiV2.GetUpdatesResponse.create({
+                update: { oneofKind: "topologyTransaction", topologyTransaction: ledgerApiV2.TopologyTransaction.create({}) },
+            }),
+            transactionUpdate({ updateId: "", offset: "73", eventContractIds: ["#message"] }),
+            transactionUpdate({ updateId: "update-17", offset: "", eventContractIds: ["#message"] }),
+            transactionUpdate({ updateId: "update-17", offset: "73", eventContractIds: [" "] }),
+            transactionUpdate({ updateId: "update-17", offset: "73", eventContractIds: ["#other"] }),
+            ledgerApiV2.GetUpdatesResponse.create({
+                update: {
+                    oneofKind: "transaction",
+                    transaction: ledgerApiV2.Transaction.create({
+                        updateId: "update-17",
+                        offset: "73",
+                        events: [archived, exercised],
+                    }),
+                },
+            }),
+            { update: { oneofKind: "transaction", transaction: { updateId: "update-17", offset: "73", events: [{}] } } },
+        ];
+
+        for (const response of rejected) {
+            expect(
+                matchCreatedMessageUpdate({ response, contractId: "#message" }),
+            ).toBeUndefined();
+        }
+
+        expect(
+            matchCreatedMessageUpdate({
+                response: transactionUpdate({
+                    updateId: "update-17",
+                    offset: "73",
+                    eventContractIds: ["#message"],
+                }),
+                contractId: " ",
+            }),
+        ).toBeUndefined();
+    });
 });
+
+function transactionUpdate(init: {
+    updateId: string;
+    offset: string;
+    eventContractIds: readonly string[];
+}): ledgerApiV2.GetUpdatesResponse {
+    return ledgerApiV2.GetUpdatesResponse.create({
+        update: {
+            oneofKind: "transaction",
+            transaction: ledgerApiV2.Transaction.create({
+                updateId: init.updateId,
+                offset: init.offset,
+                events: init.eventContractIds.map(contractId =>
+                    ledgerApiV2.Event.create({
+                        event: {
+                            oneofKind: "created",
+                            created: ledgerApiV2.CreatedEvent.create({ contractId }),
+                        },
+                    }),
+                ),
+            }),
+        },
+    });
+}
 
 function activeContractResponse(
     createdEvent: string | ledgerApiV2.CreatedEvent,
