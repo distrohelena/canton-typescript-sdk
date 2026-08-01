@@ -23,6 +23,7 @@ import {
     Record as GrpcRecord,
     Value,
 } from "../generated/canton/com/daml/ledger/api/v2/value.js";
+import { mapGrpcDeduplicationPeriod } from "./command-deduplication-mapper.js";
 
 export function mapGrpcSubmitCommandRequest(
     request: SubmitCommandRequest,
@@ -31,11 +32,12 @@ export function mapGrpcSubmitCommandRequest(
         commands: {
             workflowId: "",
             userId: request.userId ?? "",
-            commandId: randomUUID(),
+            commandId: request.commandId ?? randomUUID(),
             commands: [mapGrpcLedgerCommand(request.command)],
-            deduplicationPeriod: {
-                oneofKind: undefined,
-            },
+            deduplicationPeriod: mapGrpcDeduplicationPeriod(
+                request.deduplicationPeriod,
+                { allowParticipantBegin: true },
+            ),
             actAs: [...request.actAs],
             readAs: [...request.readAs],
             submissionId: "",

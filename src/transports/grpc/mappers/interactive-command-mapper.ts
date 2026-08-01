@@ -14,12 +14,17 @@ import {
     PrepareSubmissionRequest,
     PreparedTransaction,
 } from "../generated/canton/com/daml/ledger/api/v2/interactive/interactive_submission_service.js";
+import { mapGrpcDeduplicationPeriod } from "./command-deduplication-mapper.js";
 import { mapGrpcLedgerCommand } from "./commands-mapper.js";
 
 export function mapGrpcPrepareSubmissionRequest(
     request: SubmitCommandRequest,
     commandId: string,
 ): PrepareSubmissionRequest {
+    mapGrpcDeduplicationPeriod(request.deduplicationPeriod, {
+        allowParticipantBegin: false,
+    });
+
     return {
         userId: request.userId ?? "",
         commandId,
@@ -46,9 +51,10 @@ export function mapGrpcExecuteSubmissionAndWaitRequest(init: {
         partySignatures: {
             signatures: init.signerResults.map(({ party, result }) => ({ party, signatures: [mapGrpcSignature(result)] })),
         },
-        deduplicationPeriod: {
-            oneofKind: undefined,
-        },
+        deduplicationPeriod: mapGrpcDeduplicationPeriod(
+            init.request.deduplicationPeriod,
+            { allowParticipantBegin: false },
+        ),
         submissionId: init.submissionId,
         userId: init.request.userId ?? "",
         hashingSchemeVersion: init.hashingSchemeVersion,

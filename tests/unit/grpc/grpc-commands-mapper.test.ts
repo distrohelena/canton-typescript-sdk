@@ -10,7 +10,10 @@ import {
     ExerciseCommand,
     SubmitCommandRequest,
 } from "../../../src";
-import { mapGrpcSubmitCommandRequest } from "../../../src/transports/grpc/mappers/commands-mapper.js";
+import {
+    mapGrpcSubmitCommandForTransactionRequest,
+    mapGrpcSubmitCommandRequest,
+} from "../../../src/transports/grpc/mappers/commands-mapper.js";
 
 describe("grpc command mapper", () => {
     it("maps create commands", () => {
@@ -51,6 +54,51 @@ describe("grpc command mapper", () => {
                     },
                 ],
             },
+        });
+        expect(payload.commands.deduplicationPeriod).toEqual({
+            oneofKind: undefined,
+        });
+    });
+
+    it("maps caller-controlled command IDs and duration deduplication", () => {
+        const payload = mapGrpcSubmitCommandRequest(
+            new SubmitCommandRequest({
+                applicationId: "app-1",
+                actAs: ["Alice"],
+                commandId: "retry-command-1",
+                deduplicationPeriod: { kind: "duration", seconds: 30 },
+                command: new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({}),
+                }),
+            }),
+        );
+
+        expect(payload.commands.commandId).toBe("retry-command-1");
+        expect(payload.commands.deduplicationPeriod).toEqual({
+            oneofKind: "deduplicationDuration",
+            deduplicationDuration: { seconds: "30", nanos: 0 },
+        });
+    });
+
+    it("maps participant-begin offsets for normal submission endpoints", () => {
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            deduplicationPeriod: { kind: "offset", offset: "0" },
+            command: new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
+            }),
+        });
+
+        expect(mapGrpcSubmitCommandRequest(request).commands.deduplicationPeriod).toEqual({
+            oneofKind: "deduplicationOffset",
+            deduplicationOffset: "0",
+        });
+        expect(mapGrpcSubmitCommandForTransactionRequest(request).commands.deduplicationPeriod).toEqual({
+            oneofKind: "deduplicationOffset",
+            deduplicationOffset: "0",
         });
     });
 

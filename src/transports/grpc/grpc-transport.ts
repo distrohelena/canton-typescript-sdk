@@ -1550,7 +1550,7 @@ export class GrpcTransport implements ITransport {
             );
         }
 
-        const commandId = randomUUID();
+        const commandId = request.commandId ?? randomUUID();
 
         const submissionId = randomUUID();
 
@@ -1616,7 +1616,8 @@ export class GrpcTransport implements ITransport {
             throw new NotSupportedError("interactive gRPC command signing is not available on this transport");
         }
 
-        const prepared = await this.operations.prepareSubmissionAsync(mapGrpcPrepareSubmissionRequest(request, randomUUID()), options) as { preparedTransaction?: unknown; preparedTransactionHash: Uint8Array; hashingSchemeVersion: number };
+        const commandId = request.commandId ?? randomUUID();
+        const prepared = await this.operations.prepareSubmissionAsync(mapGrpcPrepareSubmissionRequest(request, commandId), options) as { preparedTransaction?: unknown; preparedTransactionHash: Uint8Array; hashingSchemeVersion: number };
 
         if (!prepared.preparedTransaction || prepared.preparedTransactionHash.length === 0) {
             throw new ValidationError("interactive prepare submission returned an incomplete result");

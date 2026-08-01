@@ -5,6 +5,8 @@ import {
     ExerciseCommand,
     SignCommandResult,
     SubmitCommandRequest,
+    PreparedCommandSubmission,
+    ValidationError,
 } from "../../../src";
 import { GetUpdatesRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GetActiveContractsPageRequest as ProtobufGetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
@@ -276,11 +278,52 @@ describe("GrpcTransport live ledger shapes", () => {
         expect(result.transactionId).toBe("tx-2");
     });
 
+    it("uses caller-controlled command IDs and deduplication for signed interactive submissions", async () => {
+        let capturedPrepare: unknown;
+        let capturedExecute: unknown;
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            commandId: "retry-command-1",
+            deduplicationPeriod: { kind: "duration", seconds: 30 },
+            command: new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
+            }),
+        });
+        const transport = new GrpcTransport(createFakeGrpcOperations({
+            prepareSubmissionAsync: async value => {
+                capturedPrepare = value;
+                return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([1]), hashingSchemeVersion: 3 };
+            },
+            executeSubmissionAndWaitAsync: async value => {
+                capturedExecute = value;
+                return { updateId: "tx-1", completionOffset: "1" };
+            },
+        }));
+
+        await transport.submitCommandAsync(request, {
+            signAsync: async () => new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
+        });
+
+        expect(capturedPrepare).toMatchObject({ commandId: "retry-command-1" });
+        expect(capturedExecute).toMatchObject({
+            deduplicationPeriod: {
+                oneofKind: "deduplicationDuration",
+                deduplicationDuration: { seconds: "30", nanos: 0 },
+            },
+        });
+    });
+
     it("exposes prepared transactions for detached multi-party signing", async () => {
+        let prepare: unknown;
         let execute: unknown;
 
         const transport = new GrpcTransport(createFakeGrpcOperations({
-            prepareSubmissionAsync: async () => ({ preparedTransaction: {}, preparedTransactionHash: new Uint8Array([7, 8]), hashingSchemeVersion: 3 }),
+            prepareSubmissionAsync: async request => {
+                prepare = request;
+                return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([7, 8]), hashingSchemeVersion: 3 };
+            },
             executeSubmissionAndWaitAsync: async request => {
                 execute = request;
 
@@ -288,14 +331,54 @@ describe("GrpcTransport live ledger shapes", () => {
             },
         }));
 
-        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }));
+        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", commandId: "retry-command-2", deduplicationPeriod: { kind: "offset", offset: "1" }, command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }));
 
         expect(prepared.transactionHash).toEqual(new Uint8Array([7, 8]));
+        expect(prepare).toMatchObject({ commandId: "retry-command-2" });
         await transport.executePreparedCommandAndWaitAsync(prepared, {
             Alice: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
             Bob: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([2]), signedBy: "bob-key" }),
         });
-        expect(execute).toMatchObject({ partySignatures: { signatures: [{ party: "Alice" }, { party: "Bob" }] } });
+        expect(execute).toMatchObject({
+            partySignatures: { signatures: [{ party: "Alice" }, { party: "Bob" }] },
+            deduplicationPeriod: { oneofKind: "deduplicationOffset", deduplicationOffset: "1" },
+        });
+    });
+
+    it("rejects participant-begin interactive offsets before transport I/O", async () => {
+        let prepareCalls = 0;
+        let executeCalls = 0;
+        const request = new SubmitCommandRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            deduplicationPeriod: { kind: "offset", offset: "0" },
+            command: new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({}),
+            }),
+        });
+        const transport = new GrpcTransport(createFakeGrpcOperations({
+            prepareSubmissionAsync: async () => {
+                prepareCalls++;
+                return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([1]), hashingSchemeVersion: 3 };
+            },
+            executeSubmissionAndWaitAsync: async () => {
+                executeCalls++;
+                return { updateId: "tx-1", completionOffset: "1" };
+            },
+        }));
+
+        await expect(transport.submitCommandAsync(request, {
+            signAsync: async () => new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
+        })).rejects.toThrow(ValidationError);
+        await expect(transport.prepareCommandAsync(request)).rejects.toThrow(ValidationError);
+        await expect(transport.executePreparedCommandAndWaitAsync(
+            new PreparedCommandSubmission(request, {}, new Uint8Array([1]), 3),
+            { Alice: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }) },
+        )).rejects.toThrow(ValidationError);
+
+        expect(prepareCalls).toBe(0);
+        expect(executeCalls).toBe(0);
     });
 
     it("returns transaction events from the transaction-returning submission endpoint", async () => {
