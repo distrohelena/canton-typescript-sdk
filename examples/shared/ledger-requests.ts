@@ -1,5 +1,6 @@
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import type { ExampleTemplateId } from "./application-fixture.js";
+import { readCreatedMessageText } from "./application-fixture.js";
 
 export function buildActiveContractsRequest(init: {
     readonly party: string;
@@ -194,6 +195,123 @@ export async function findActiveMessageAcrossPagesAsync(init: {
     }
 }
 
+export async function collectActiveMessagesAcrossPagesAsync(init: {
+    readonly request: ledgerApiV2.GetActiveContractsPageRequest;
+    readonly predicate?: (message: ledgerApiV2.CreatedEvent) => boolean;
+    readonly textMarker?: string;
+    readonly timeoutMs: number;
+    readonly readPageAsync: (
+        request: ledgerApiV2.GetActiveContractsPageRequest,
+        remainingTimeoutMs: number,
+    ) => Promise<ledgerApiV2.GetActiveContractsPageResponse>;
+    readonly now?: () => number;
+}): Promise<readonly ledgerApiV2.CreatedEvent[]> {
+    const predicate = activeMessagePredicate(init);
+
+    const now = init.now ?? Date.now;
+
+    if (!Number.isFinite(init.timeoutMs) || init.timeoutMs <= 0) {
+        throw activeContractsTimeoutError();
+    }
+
+    const deadline = now() + init.timeoutMs;
+
+    const messages: ledgerApiV2.CreatedEvent[] = [];
+
+    const seenPageTokens = new Set<string>();
+
+    let request = init.request;
+
+    let snapshotOffset: string | undefined;
+
+    for (;;) {
+        const remainingTimeoutMs = deadline - now();
+
+        if (remainingTimeoutMs <= 0) {
+            throw activeContractsTimeoutError();
+        }
+
+        const response = await init.readPageAsync(request, remainingTimeoutMs);
+
+        if (
+            snapshotOffset !== undefined
+            && response.activeAtOffset !== snapshotOffset
+        ) {
+            throw new Error(
+                "An active-contract page returned a different snapshot offset.",
+            );
+        }
+
+        snapshotOffset ??= response.activeAtOffset;
+
+        for (const message of activeMessages(response.activeContracts)) {
+            if (predicate(message)) {
+                messages.push(message);
+            }
+        }
+
+        const nextPageToken = response.nextPageToken;
+
+        if (nextPageToken === undefined || nextPageToken.length === 0) {
+            return messages;
+        }
+
+        const pageTokenKey = Array.from(nextPageToken).join(",");
+
+        if (seenPageTokens.has(pageTokenKey)) {
+            throw new Error(
+                "Active-contract pagination repeated a page token while collecting Messages.",
+            );
+        }
+
+        seenPageTokens.add(pageTokenKey);
+        request = ledgerApiV2.GetActiveContractsPageRequest.create({
+            activeAtOffset: snapshotOffset,
+            eventFormat: init.request.eventFormat,
+            maxPageSize: init.request.maxPageSize,
+            pageToken: nextPageToken,
+        });
+    }
+}
+
+export function assertExactlyOneActiveMessage(init: {
+    readonly messages: readonly ledgerApiV2.CreatedEvent[];
+    readonly textMarker: string;
+}): ledgerApiV2.CreatedEvent {
+    requireNonEmpty("Message text marker", init.textMarker);
+
+    if (init.messages.length !== 1) {
+        throw new Error(
+            `Expected exactly one active Message with text marker '${init.textMarker}', found ${init.messages.length}.`,
+        );
+    }
+
+    const message = init.messages[0]!;
+
+    if (!message.contractId.trim()) {
+        throw new Error("The active Message must have a non-empty contract ID.");
+    } else if (readCreatedMessageText(message) !== init.textMarker) {
+        throw new Error(
+            `Active Message '${message.contractId}' did not contain text marker '${init.textMarker}'.`,
+        );
+    }
+
+    return message;
+}
+
+export function assertMessageContractAbsent(init: {
+    readonly messages: readonly ledgerApiV2.CreatedEvent[];
+    readonly contractId: string;
+}): void {
+    requireNonEmpty("contract ID", init.contractId);
+
+    if (init.messages.some(message => message.contractId === init.contractId)) {
+        throw new Error(
+            `Expected Message contract '${init.contractId}' to be absent, but it is still active.`,
+        );
+    }
+}
+
 function requireNonEmpty(label: string, value: string): void {
     if (!value.trim()) {
         throw new Error(`${label} must not be empty.`);
@@ -242,4 +360,47 @@ function activeContractsTimeoutError(): Error {
     return new Error(
         "Active-contract query timed out. Increase SDK_EXAMPLE_TIMEOUT_MS to allow more time for all pages.",
     );
+}
+
+function activeMessagePredicate(init: {
+    readonly predicate?: (message: ledgerApiV2.CreatedEvent) => boolean;
+    readonly textMarker?: string;
+}): (message: ledgerApiV2.CreatedEvent) => boolean {
+    if (init.predicate !== undefined && init.textMarker !== undefined) {
+        throw new Error("Specify either an active Message predicate or text marker, not both.");
+    } else if (init.predicate !== undefined) {
+        return init.predicate;
+    } else if (init.textMarker === undefined) {
+        throw new Error("An active Message predicate or text marker is required.");
+    }
+
+    requireNonEmpty("Message text marker", init.textMarker);
+
+    return message => readCreatedMessageText(message) === init.textMarker;
+}
+
+function activeMessages(
+    activeContracts: readonly unknown[],
+): readonly ledgerApiV2.CreatedEvent[] {
+    const messages: ledgerApiV2.CreatedEvent[] = [];
+
+    for (const response of activeContracts) {
+        if (!isRecord(response) || !isRecord(response.contractEntry)) {
+            continue;
+        }
+
+        const contractEntry = response.contractEntry;
+
+        if (
+            contractEntry.oneofKind !== "activeContract"
+            || !isRecord(contractEntry.activeContract)
+            || !ledgerApiV2.CreatedEvent.is(contractEntry.activeContract.createdEvent)
+        ) {
+            continue;
+        }
+
+        messages.push(contractEntry.activeContract.createdEvent);
+    }
+
+    return messages;
 }

@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
     buildActiveContractsRequest,
     buildUpdatesRequest,
+    assertExactlyOneActiveMessage,
+    assertMessageContractAbsent,
+    collectActiveMessagesAcrossPagesAsync,
     findActiveMessage,
     findActiveMessageAcrossPagesAsync,
     matchCreatedMessageUpdate,
@@ -227,6 +230,138 @@ describe("application example ledger requests", () => {
 
                     return ledgerApiV2.GetActiveContractsPageResponse.create({
                         activeContracts: [activeContractResponse("#other")],
+                        activeAtOffset: "42",
+                        nextPageToken: new Uint8Array([1]),
+                    });
+                },
+                now: () => now,
+            }),
+        ).rejects.toThrow(/SDK_EXAMPLE_TIMEOUT_MS/);
+        expect(calls).toBe(1);
+    });
+
+    it("collects every active Message with an exact unique text marker across a stable snapshot", async () => {
+        const calls: ledgerApiV2.GetActiveContractsPageRequest[] = [];
+
+        const matchingOne = activeMessage("#one", "run-marker");
+
+        const matchingTwo = activeMessage("#two", "run-marker");
+
+        const messages = await collectActiveMessagesAcrossPagesAsync({
+            request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+            textMarker: "run-marker",
+            timeoutMs: 1_000,
+            readPageAsync: async request => {
+                calls.push(request);
+
+                return ledgerApiV2.GetActiveContractsPageResponse.create(
+                    calls.length === 1
+                        ? {
+                              activeAtOffset: "42",
+                              nextPageToken: new Uint8Array([1]),
+                              activeContracts: [
+                                  activeContractResponse(matchingOne),
+                                  activeContractResponse(activeMessage("#other", "other")),
+                              ],
+                          }
+                        : {
+                              activeAtOffset: "42",
+                              activeContracts: [activeContractResponse(matchingTwo)],
+                          },
+                );
+            },
+            now: () => 100,
+        });
+
+        expect(messages.map(message => message.contractId)).toEqual(["#one", "#two"]);
+        expect(calls).toHaveLength(2);
+        expect(calls[1]?.activeAtOffset).toBe("42");
+    });
+
+    it("asserts exactly one valid active Message and rejects an absent contract", () => {
+        const message = activeMessage("#message", "run-marker");
+
+        expect(
+            assertExactlyOneActiveMessage({
+                messages: [message],
+                textMarker: "run-marker",
+            }),
+        ).toBe(message);
+        expect(() =>
+            assertExactlyOneActiveMessage({
+                messages: [message, activeMessage("#second", "run-marker")],
+                textMarker: "run-marker",
+            }),
+        ).toThrow(/exactly one/i);
+        expect(() =>
+            assertExactlyOneActiveMessage({
+                messages: [ledgerApiV2.CreatedEvent.create({ contractId: " " })],
+                textMarker: "run-marker",
+            }),
+        ).toThrow(/contract ID/i);
+        expect(() =>
+            assertMessageContractAbsent({ messages: [message], contractId: "#message" }),
+        ).toThrow(/still active/i);
+        expect(() =>
+            assertMessageContractAbsent({ messages: [message], contractId: " " }),
+        ).toThrow(/contract ID/i);
+        expect(() =>
+            assertMessageContractAbsent({ messages: [message], contractId: "#archived" }),
+        ).not.toThrow();
+    });
+
+    it("rejects a changed active-contract snapshot while collecting messages", async () => {
+        let page = 0;
+
+        await expect(
+            collectActiveMessagesAcrossPagesAsync({
+                request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+                predicate: () => false,
+                timeoutMs: 1_000,
+                readPageAsync: async () => {
+                    page += 1;
+
+                    return ledgerApiV2.GetActiveContractsPageResponse.create({
+                        activeAtOffset: page === 1 ? "42" : "43",
+                        nextPageToken: new Uint8Array([1]),
+                    });
+                },
+                now: () => 100,
+            }),
+        ).rejects.toThrow(/different snapshot/i);
+    });
+
+    it("rejects a repeated page token while collecting messages", async () => {
+        await expect(
+            collectActiveMessagesAcrossPagesAsync({
+                request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+                predicate: () => false,
+                timeoutMs: 1_000,
+                readPageAsync: async () =>
+                    ledgerApiV2.GetActiveContractsPageResponse.create({
+                        activeAtOffset: "42",
+                        nextPageToken: new Uint8Array([1]),
+                    }),
+                now: () => 100,
+            }),
+        ).rejects.toThrow(/repeated a page token/i);
+    });
+
+    it("does not reset the shared deadline while collecting messages", async () => {
+        let now = 100;
+
+        let calls = 0;
+
+        await expect(
+            collectActiveMessagesAcrossPagesAsync({
+                request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+                predicate: () => false,
+                timeoutMs: 10,
+                readPageAsync: async () => {
+                    calls += 1;
+                    now = 110;
+
+                    return ledgerApiV2.GetActiveContractsPageResponse.create({
                         activeAtOffset: "42",
                         nextPageToken: new Uint8Array([1]),
                     });
@@ -467,5 +602,20 @@ function activeContractResponse(
                         : createdEvent,
             }),
         },
+    });
+}
+
+function activeMessage(
+    contractId: string,
+    text: string,
+): ledgerApiV2.CreatedEvent {
+    return ledgerApiV2.CreatedEvent.create({
+        contractId,
+        createArguments: ledgerApiV2.Record.create({
+            fields: [{
+                label: "text",
+                value: { sum: { oneofKind: "text", text } },
+            }],
+        }),
     });
 }

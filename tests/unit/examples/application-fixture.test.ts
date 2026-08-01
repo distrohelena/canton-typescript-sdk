@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
     AllocatePartyRequest,
+    CreateAndExerciseCommand,
     CreateCommand,
     DamlParty,
     DamlRecord,
@@ -11,10 +12,12 @@ import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it, vi } from "vitest";
 import {
     buildCreateMessageRequest,
+    buildCreateAndReplaceMessageTextRequest,
     buildReplaceMessageTextRequest,
     EXAMPLE_DAR_SHA256,
     extractCreatedContract,
     extractReplacementContracts,
+    readCreatedMessageText,
     loadExampleApplicationFixtureAsync,
     provePackageVisibility,
     resolveExamplePartyAsync,
@@ -139,6 +142,42 @@ describe("example application package setup", () => {
         ).resolves.toEqual({ alreadyInstalled: true });
         expect(uploadDarFileAsync).toHaveBeenCalledOnce();
     });
+
+    it("uses a fresh remaining-timeout RequestOptions for every DAR network call", async () => {
+        const fixture = await loadExampleApplicationFixtureAsync();
+
+        const listPackagesAsync = vi
+            .fn()
+            .mockResolvedValueOnce({ packageIds: [] })
+            .mockResolvedValueOnce({ packageIds: [fixture.mainPackageId] });
+
+        const uploadDarFileAsync = vi.fn().mockResolvedValue({});
+
+        const remainingTimeoutMs = vi.fn()
+            .mockReturnValueOnce(300)
+            .mockReturnValueOnce(200)
+            .mockReturnValueOnce(100);
+
+        await ensureExampleDarUploadedAsync(
+            {
+                packageService: { listPackagesAsync },
+                packageManagementService: { uploadDarFileAsync },
+            } as never,
+            fixture,
+            { remainingTimeoutMs },
+        );
+
+        expect(remainingTimeoutMs).toHaveBeenCalledTimes(3);
+
+        const options = [
+            listPackagesAsync.mock.calls[0]?.[1],
+            uploadDarFileAsync.mock.calls[0]?.[1],
+            listPackagesAsync.mock.calls[1]?.[1],
+        ];
+
+        expect(options.map(option => option?.timeoutMs)).toEqual([300, 200, 100]);
+        expect(new Set(options).size).toBe(3);
+    });
 });
 
 describe("example application command helpers", () => {
@@ -151,11 +190,13 @@ describe("example application command helpers", () => {
         entityName: "Message",
     };
 
-    it("builds create and replacement command requests", () => {
+    it("builds create, replacement, and atomic replacement command requests with caller controls", () => {
         const create = buildCreateMessageRequest({
             party,
             templateId,
             text: "hello",
+            commandId: "create-command",
+            deduplicationPeriod: { kind: "duration", seconds: 20 },
         });
 
         const replace = buildReplaceMessageTextRequest({
@@ -163,6 +204,17 @@ describe("example application command helpers", () => {
             templateId,
             contractId: "#original",
             replacement: "updated",
+            commandId: "replace-command",
+            deduplicationPeriod: { kind: "duration", seconds: 30 },
+        });
+
+        const atomic = buildCreateAndReplaceMessageTextRequest({
+            party,
+            templateId,
+            text: "hello",
+            replacement: "updated",
+            commandId: "atomic-command",
+            deduplicationPeriod: { kind: "offset", offset: "42" },
         });
 
         expect(create).toBeInstanceOf(SubmitCommandRequest);
@@ -177,11 +229,38 @@ describe("example application command helpers", () => {
             }),
         );
 
+        expect(create.commandId).toBe("create-command");
+        expect(create.deduplicationPeriod).toEqual({
+            kind: "duration",
+            seconds: 20,
+        });
+
         expect(replace.command).toBeInstanceOf(ExerciseCommand);
         expect(replace.command).toMatchObject({
             contractId: "#original",
             choice: "ReplaceText",
             choiceArgument: new DamlRecord({ replacement: "updated" }),
+        });
+        expect(replace.commandId).toBe("replace-command");
+        expect(replace.deduplicationPeriod).toEqual({
+            kind: "duration",
+            seconds: 30,
+        });
+
+        expect(atomic.command).toBeInstanceOf(CreateAndExerciseCommand);
+        expect(atomic.command).toMatchObject({
+            createArguments: new DamlRecord({
+                sender: new DamlParty(party),
+                recipient: new DamlParty(party),
+                text: "hello",
+            }),
+            choice: "ReplaceText",
+            choiceArgument: new DamlRecord({ replacement: "updated" }),
+        });
+        expect(atomic.commandId).toBe("atomic-command");
+        expect(atomic.deduplicationPeriod).toEqual({
+            kind: "offset",
+            offset: "42",
         });
     });
 });
@@ -320,6 +399,35 @@ describe("transaction event extraction", () => {
             );
         }
     });
+
+    it("reads only a decoded Message text field", () => {
+        expect(
+            readCreatedMessageText({
+                contractId: "#message",
+                createArguments: ledgerApiV2.Record.create({
+                    fields: [{
+                        label: "text",
+                        value: { sum: { oneofKind: "text", text: "hello" } },
+                    }],
+                }),
+            }),
+        ).toBe("hello");
+
+        for (const createArguments of [
+            undefined,
+            ledgerApiV2.Record.create({ fields: [] }),
+            ledgerApiV2.Record.create({
+                fields: [{
+                    label: "text",
+                    value: { sum: { oneofKind: "int64", int64: "1" } },
+                }],
+            }),
+        ]) {
+            expect(() =>
+                readCreatedMessageText({ contractId: "#message", createArguments }),
+            ).toThrow(/text field/i);
+        }
+    });
 });
 
 describe("resolveExamplePartyAsync", () => {
@@ -363,6 +471,23 @@ describe("resolveExamplePartyAsync", () => {
             /^application-example-\d+-[a-f0-9]{8}$/,
         );
         expect(request.userId).toBe("ledger-api-user");
+    });
+
+    it("uses a fresh remaining-timeout RequestOptions for party allocation", async () => {
+        const allocatePartyAsync = vi.fn().mockResolvedValue({
+            party: "allocated::party",
+        });
+
+        const remainingTimeoutMs = vi.fn().mockReturnValue(123);
+
+        await resolveExamplePartyAsync(
+            { partyManagementService: { allocatePartyAsync } } as never,
+            {},
+            { remainingTimeoutMs },
+        );
+
+        expect(remainingTimeoutMs).toHaveBeenCalledOnce();
+        expect(allocatePartyAsync.mock.calls[0]?.[1]?.timeoutMs).toBe(123);
     });
 
     it("rejects an empty party returned by allocation", async () => {

@@ -8,10 +8,13 @@ import {
 import {
     AllocatePartyRequest,
     CantonClient,
+    CommandDeduplicationPeriod,
+    CreateAndExerciseCommand,
     CreateCommand,
     DamlParty,
     DamlRecord,
     ExerciseCommand,
+    RequestOptions,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -53,19 +56,36 @@ export function provePackageVisibility(init: {
 export async function ensureExampleDarUploadedAsync(
     client: Pick<CantonClient, "packageService" | "packageManagementService">,
     fixture: ExampleApplicationFixture,
+    budget?: RemainingBudget,
 ): Promise<{ alreadyInstalled: boolean }> {
-    const before = await client.packageService.listPackagesAsync(
-        ledgerApiV2.ListPackagesRequest.create(),
+    const beforeRequest = ledgerApiV2.ListPackagesRequest.create();
+
+    const before = await callWithBudget(
+        budget,
+        options => client.packageService.listPackagesAsync(beforeRequest, options),
+        () => client.packageService.listPackagesAsync(beforeRequest),
     );
 
-    await client.packageManagementService.uploadDarFileAsync(
-        ledgerApiV2.admin.UploadDarFileRequest.create({
-            darFile: fixture.darBytes,
-        }),
+    const uploadRequest = ledgerApiV2.admin.UploadDarFileRequest.create({
+        darFile: fixture.darBytes,
+    });
+
+    await callWithBudget(
+        budget,
+        options =>
+            client.packageManagementService.uploadDarFileAsync(
+                uploadRequest,
+                options,
+            ),
+        () => client.packageManagementService.uploadDarFileAsync(uploadRequest),
     );
 
-    const after = await client.packageService.listPackagesAsync(
-        ledgerApiV2.ListPackagesRequest.create(),
+    const afterRequest = ledgerApiV2.ListPackagesRequest.create();
+
+    const after = await callWithBudget(
+        budget,
+        options => client.packageService.listPackagesAsync(afterRequest, options),
+        () => client.packageService.listPackagesAsync(afterRequest),
     );
 
     return provePackageVisibility({
@@ -79,6 +99,8 @@ export function buildCreateMessageRequest(init: {
     party: string;
     templateId: ExampleTemplateId;
     text: string;
+    commandId?: string;
+    deduplicationPeriod?: CommandDeduplicationPeriod;
 }): SubmitCommandRequest {
     return new SubmitCommandRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
@@ -92,6 +114,8 @@ export function buildCreateMessageRequest(init: {
                 text: init.text,
             }),
         }),
+        commandId: init.commandId,
+        deduplicationPeriod: init.deduplicationPeriod,
     });
 }
 
@@ -100,6 +124,8 @@ export function buildReplaceMessageTextRequest(init: {
     templateId: ExampleTemplateId;
     contractId: string;
     replacement: string;
+    commandId?: string;
+    deduplicationPeriod?: CommandDeduplicationPeriod;
 }): SubmitCommandRequest {
     return new SubmitCommandRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
@@ -111,6 +137,35 @@ export function buildReplaceMessageTextRequest(init: {
             choice: "ReplaceText",
             choiceArgument: new DamlRecord({ replacement: init.replacement }),
         }),
+        commandId: init.commandId,
+        deduplicationPeriod: init.deduplicationPeriod,
+    });
+}
+
+export function buildCreateAndReplaceMessageTextRequest(init: {
+    party: string;
+    templateId: ExampleTemplateId;
+    text: string;
+    replacement: string;
+    commandId?: string;
+    deduplicationPeriod?: CommandDeduplicationPeriod;
+}): SubmitCommandRequest {
+    return new SubmitCommandRequest({
+        applicationId: EXAMPLE_APPLICATION_ID,
+        actAs: [init.party],
+        readAs: [init.party],
+        command: new CreateAndExerciseCommand({
+            templateId: init.templateId,
+            createArguments: new DamlRecord({
+                sender: new DamlParty(init.party),
+                recipient: new DamlParty(init.party),
+                text: init.text,
+            }),
+            choice: "ReplaceText",
+            choiceArgument: new DamlRecord({ replacement: init.replacement }),
+        }),
+        commandId: init.commandId,
+        deduplicationPeriod: init.deduplicationPeriod,
     });
 }
 
@@ -169,9 +224,28 @@ export function extractReplacementContracts(response: {
     return { archivedContractId, replacementContractId };
 }
 
+export function readCreatedMessageText(event: {
+    contractId: string;
+    createArguments?: unknown;
+}): string {
+    const text = ledgerApiV2.Record.is(event.createArguments)
+        ? event.createArguments.fields.find(field => field.label === "text")
+            ?.value
+        : undefined;
+
+    if (text?.sum.oneofKind !== "text") {
+        throw new Error(
+            `Created Message '${event.contractId}' did not contain the expected text field.`,
+        );
+    }
+
+    return text.sum.text;
+}
+
 export async function resolveExamplePartyAsync(
     client: Pick<CantonClient, "partyManagementService">,
     environment: NodeJS.ProcessEnv = process.env,
+    budget?: RemainingBudget,
 ): Promise<{ party: string; allocated: boolean }> {
     const configuredParty = environment.SDK_EXAMPLE_PARTY?.trim();
 
@@ -183,12 +257,16 @@ export async function resolveExamplePartyAsync(
 
     const userId = environment.SDK_EXAMPLE_USER_ID?.trim() || "ledger-api-user";
 
-    const response = await client.partyManagementService.allocatePartyAsync(
-        new AllocatePartyRequest({
-            partyIdHint: partyHint,
-            displayName: partyHint,
-            userId,
-        }),
+    const request = new AllocatePartyRequest({
+        partyIdHint: partyHint,
+        displayName: partyHint,
+        userId,
+    });
+
+    const response = await callWithBudget(
+        budget,
+        options => client.partyManagementService.allocatePartyAsync(request, options),
+        () => client.partyManagementService.allocatePartyAsync(request),
     );
 
     const party = response.party.trim();
@@ -319,4 +397,22 @@ function contractIdFromEvent(
     const contractId = event.contractId.trim();
 
     return contractId || undefined;
+}
+
+interface RemainingBudget {
+    readonly remainingTimeoutMs: () => number;
+}
+
+function callWithBudget<T>(
+    budget: RemainingBudget | undefined,
+    withOptions: (options: RequestOptions) => Promise<T>,
+    withoutOptions: () => Promise<T>,
+): Promise<T> {
+    if (budget === undefined) {
+        return withoutOptions();
+    }
+
+    return withOptions(
+        new RequestOptions({ timeoutMs: budget.remainingTimeoutMs() }),
+    );
 }
