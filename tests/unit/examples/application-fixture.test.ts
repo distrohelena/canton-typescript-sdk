@@ -148,6 +148,80 @@ describe("transaction event extraction", () => {
             }),
         ).toThrow(/created event/i);
     });
+
+    it("rejects absent or malformed archived events in replacement responses", () => {
+        for (const events of [
+            [replacementCreated],
+            [
+                {
+                    event: {
+                        oneofKind: "created",
+                        archived: { contractId: "#original" },
+                    },
+                },
+                replacementCreated,
+            ],
+            [
+                {
+                    event: {
+                        oneofKind: "archived",
+                        archived: "#original",
+                    },
+                },
+                replacementCreated,
+            ],
+            [
+                {
+                    event: {
+                        oneofKind: "archived",
+                        archived: { contractId: "" },
+                    },
+                },
+                replacementCreated,
+            ],
+        ]) {
+            expect(() => extractReplacementContracts({ events })).toThrow(
+                /archived event/i,
+            );
+        }
+    });
+
+    it("rejects absent or malformed replacement created events", () => {
+        for (const events of [
+            [originalArchived],
+            [
+                originalArchived,
+                {
+                    event: {
+                        oneofKind: "archived",
+                        created: { contractId: "#replacement" },
+                    },
+                },
+            ],
+            [
+                originalArchived,
+                {
+                    event: {
+                        oneofKind: "created",
+                        created: "#replacement",
+                    },
+                },
+            ],
+            [
+                originalArchived,
+                {
+                    event: {
+                        oneofKind: "created",
+                        created: { contractId: "" },
+                    },
+                },
+            ],
+        ]) {
+            expect(() => extractReplacementContracts({ events })).toThrow(
+                /created event/i,
+            );
+        }
+    });
 });
 
 describe("resolveExamplePartyAsync", () => {
@@ -181,6 +255,14 @@ describe("resolveExamplePartyAsync", () => {
         });
         expect(allocatePartyAsync).toHaveBeenCalledWith(
             expect.any(AllocatePartyRequest),
+        );
+
+        const request = allocatePartyAsync.mock.calls[0]?.[0];
+
+        expect(request).toBeInstanceOf(AllocatePartyRequest);
+        expect(request.partyIdHint).toBe(request.displayName);
+        expect(request.partyIdHint).toMatch(
+            /^application-example-\d+-[a-f0-9]{8}$/,
         );
     });
 
