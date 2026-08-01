@@ -1,0 +1,88 @@
+import { RequestOptions } from "@distrohelena/canton-typescript-sdk";
+import {
+    buildCreateMessageRequest,
+    ensureExampleDarUploadedAsync,
+    extractCreatedContract,
+    loadExampleApplicationFixtureAsync,
+    resolveExamplePartyAsync,
+} from "./shared/application-fixture.js";
+import {
+    buildActiveContractsRequest,
+    findActiveMessage,
+} from "./shared/ledger-requests.js";
+import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
+import { runExampleAsync } from "./shared/run.js";
+
+runExampleAsync("query-active-contracts", async () => {
+    const client = createExampleClient();
+
+    try {
+        const fixture = await loadExampleApplicationFixtureAsync();
+
+        await ensureExampleDarUploadedAsync(client, fixture);
+
+        const actor = await resolveExamplePartyAsync(client);
+
+        if (actor.allocated) {
+            console.warn(
+                "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
+            );
+        }
+
+        console.warn(
+            "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
+        );
+
+        const createResponse =
+            await client.commandService.submitAndWaitForTransactionAsync(
+                buildCreateMessageRequest({
+                    party: actor.party,
+                    templateId: fixture.templateId,
+                    text: "Hello from the Canton TypeScript SDK",
+                }),
+            );
+
+        const created = extractCreatedContract(createResponse);
+
+        const request = buildActiveContractsRequest({
+            party: actor.party,
+            templateId: fixture.templateId,
+        });
+
+        const response = await client.stateService.getActiveContractsPageAsync(
+            request,
+            new RequestOptions({ timeoutMs: exampleTimeoutMs() }),
+        );
+
+        const message = findActiveMessage(
+            response.activeContracts,
+            created.contractId,
+        );
+
+        if (message === undefined) {
+            throw new Error(
+                `Created Message '${created.contractId}' was not present in the active-contract snapshot.`,
+            );
+        }
+
+        if (message.createArguments === undefined) {
+            throw new Error(
+                `Created Message '${created.contractId}' did not include a decoded create payload.`,
+            );
+        }
+
+        const payload = JSON.stringify(message.createArguments);
+
+        if (payload === undefined) {
+            throw new Error(
+                `Created Message '${created.contractId}' has a create payload that cannot be rendered.`,
+            );
+        }
+
+        console.log(`Actor party: ${actor.party}`);
+        console.log(`Contract ID: ${created.contractId}`);
+        console.log(`Created payload: ${payload}`);
+    } finally {
+        await client.disposeAsync();
+    }
+});

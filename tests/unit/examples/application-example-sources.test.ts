@@ -22,6 +22,9 @@ const archivedOriginalProof =
 const replacementContractProof =
     /else\s+if\s*\(\s*!replacementContractId\.trim\(\)\s*\|\|\s*replacementContractId\s*===\s*original\.contractId\s*\)\s*\{/s;
 
+const activeContractPageRead =
+    /client\.stateService\.getActiveContractsPageAsync\(\s*request,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\)\s*\}\s*\),\s*\)/s;
+
 const prohibitedCreateExerciseWorkarounds =
     /\b(?:Echo|LEDGER_EFFECTS|sleep|setTimeout|database|db|PQS|query)\b/i;
 
@@ -77,6 +80,28 @@ describe("application example source contracts", () => {
             "Replacement contract: ${replacementContractId}",
         );
         expect(source).not.toMatch(prohibitedCreateExerciseWorkarounds);
+    });
+
+    it("queries the exact created Message with a generated active-contract request", () => {
+        const source = readExampleSource("60-query-active-contracts.ts");
+
+        expectStandaloneCleanup(source);
+        expect(source).toMatch(createMessageSubmission);
+        expect(source).toMatch(
+            /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
+        );
+        expect(source).toContain("buildActiveContractsRequest({");
+        expect(source).toMatch(activeContractPageRead);
+        expect(source).toMatch(
+            /findActiveMessage\(\s*response\.activeContracts,\s*created\.contractId,\s*\)/s,
+        );
+        expect(source).toContain("message.createArguments");
+        expect(source).toContain("Actor party: ${actor.party}");
+        expect(source).toContain("Contract ID: ${created.contractId}");
+        expect(source).toContain("Created payload:");
+        expect(source).not.toMatch(
+            /\b(?:GetActiveContractsPageRequest|mapGetActiveContractsPageRequest|mapper)\b/,
+        );
     });
 
     it.each(["40-dar-upload.ts", "50-create-and-exercise.ts"])(
