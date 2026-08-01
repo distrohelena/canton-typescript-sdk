@@ -58,8 +58,30 @@ describe("localnet example helpers", () => {
         ).toBe(45_000);
     });
 
+    it("accepts trimmed and safe-integer timeout overrides", () => {
+        expect(
+            exampleTimeoutMs(
+                environment({ SDK_EXAMPLE_TIMEOUT_MS: " 45000 " }),
+            ),
+        ).toBe(45_000);
+        expect(
+            exampleTimeoutMs(
+                environment({
+                    SDK_EXAMPLE_TIMEOUT_MS: String(Number.MAX_SAFE_INTEGER),
+                }),
+            ),
+        ).toBe(Number.MAX_SAFE_INTEGER);
+    });
+
     it("rejects invalid example timeout overrides", () => {
-        for (const timeout of ["", "0", "-1", "abc", "1.5"]) {
+        for (const timeout of [
+            "",
+            "0",
+            "-1",
+            "abc",
+            "1.5",
+            String(Number.MAX_SAFE_INTEGER + 1),
+        ]) {
             expect(() =>
                 exampleTimeoutMs(
                     environment({ SDK_EXAMPLE_TIMEOUT_MS: timeout }),
