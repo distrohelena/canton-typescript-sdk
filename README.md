@@ -205,9 +205,22 @@ registered synchronizer via its Admin API, stores the exported connection
 configuration in the sidecar runtime directory, and connects the sidecar with
 its own Admin API. It generates a five-minute 3.5.8-compatible development JWT
 at `.generated/participant-358/ledger-api-user.token` and prints both live-test
-and example endpoint/token exports when the connection is healthy.
+and example endpoint/token exports when the connection is healthy. Canton 3.5.8
+enforces this short lifetime for the unsafe development JWT.
 `cn-quickstart` is strictly read-only: this launcher never writes to, starts,
 or stops the normal Quickstart stack.
+
+Refresh the token before or after it expires without restarting or otherwise
+touching the running containers, then load the renewed bearer-token variables
+into the current shell:
+
+```bash
+eval "$(canton-localnet-participant-358-start --refresh-token)"
+```
+
+Refresh mode requires the existing runtime token file, preserves mode `0600`,
+and prints shell commands that read the token file rather than printing the
+token itself.
 
 After copying the printed `SDK_EXAMPLE_*` exports into the current shell, run
 the standalone decentralized-party comparison example with:

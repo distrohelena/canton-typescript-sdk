@@ -76,6 +76,26 @@ if (payload.exp - payload.iat !== 300) throw new Error("token lifetime must be 3
 grep -F -- '--project-name canton-participant-358' "$docker_log"
 grep -Fqx '    name: quickstart' "$runtime_dir/compose.yaml"
 
+docker_calls_before_refresh="$(wc -l < "$docker_log")"
+refresh_output="$(
+  PATH="$stubbin:$PATH" \
+  DOCKER_LOG="$docker_log" \
+  PARTICIPANT_358_RUNTIME_DIR="$runtime_dir" \
+  "$START_SCRIPT" --refresh-token
+)"
+[[ "$(wc -l < "$docker_log")" == "$docker_calls_before_refresh" ]]
+[[ "$(stat -c '%a' "$runtime_dir/ledger-api-user.token")" == 600 ]]
+grep -Fqx "export SDK_TEST_LEDGER_BEARER_TOKEN=\"\$(cat $runtime_dir/ledger-api-user.token)\"" <<<"$refresh_output"
+grep -Fqx "export SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN=\"\$(cat $runtime_dir/ledger-api-user.token)\"" <<<"$refresh_output"
+grep -Fqx "export SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN=\"\$(cat $runtime_dir/ledger-api-user.token)\"" <<<"$refresh_output"
+grep -Fqx "export SDK_EXAMPLE_BEARER_TOKEN=\"\$(cat $runtime_dir/ledger-api-user.token)\"" <<<"$refresh_output"
+[[ "$(wc -l <<<"$refresh_output")" == 4 ]]
+
+if "$START_SCRIPT" --unknown >/dev/null 2>&1; then
+  echo 'sidecar launcher accepted an unknown argument' >&2
+  exit 1
+fi
+
 if PATH="$stubbin:$PATH" PARTICIPANT_358_LEDGER_PORT=3901 "$START_SCRIPT" >/dev/null 2>&1; then
   echo 'sidecar launcher accepted a CN Quickstart Ledger port' >&2
   exit 1

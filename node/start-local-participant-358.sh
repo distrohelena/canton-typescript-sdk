@@ -12,7 +12,34 @@ LEDGER_PORT="${PARTICIPANT_358_LEDGER_PORT:-8901}"
 ADMIN_PORT="${PARTICIPANT_358_ADMIN_PORT:-8902}"
 JSON_PORT="${PARTICIPANT_358_JSON_PORT:-8975}"
 SOURCE_ADMIN_ENDPOINT="${PARTICIPANT_358_SOURCE_ADMIN_ENDPOINT:-localhost:3902}"
+SYNCHRONIZER_CONFIG="$RUNTIME_DIR/registered-synchronizer.json"
+LEDGER_TOKEN_FILE="$RUNTIME_DIR/ledger-api-user.token"
 DOCKER_COMPOSE_CMD=()
+
+print_bearer_token_exports() {
+  local escaped_token_file
+  printf -v escaped_token_file '%q' "$LEDGER_TOKEN_FILE"
+  printf 'export SDK_TEST_LEDGER_BEARER_TOKEN="$(cat %s)"\n' "$escaped_token_file"
+  printf 'export SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN="$(cat %s)"\n' "$escaped_token_file"
+  printf 'export SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN="$(cat %s)"\n' "$escaped_token_file"
+  printf 'export SDK_EXAMPLE_BEARER_TOKEN="$(cat %s)"\n' "$escaped_token_file"
+}
+
+if (( $# > 0 )); then
+  if [[ "$1" != "--refresh-token" || $# -ne 1 ]]; then
+    echo "Usage: $(basename "$0") [--refresh-token]" >&2
+    exit 1
+  elif [[ ! -d "$RUNTIME_DIR" || ! -f "$LEDGER_TOKEN_FILE" ]]; then
+    echo "Participant 3.5.8 runtime token does not exist at $LEDGER_TOKEN_FILE. Start the sidecar first." >&2
+    exit 1
+  fi
+
+  PARTICIPANT_358_LEDGER_TOKEN_FILE="$LEDGER_TOKEN_FILE" \
+    node "$SCRIPT_DIR/participant-358-synchronizer.mjs" mint-ledger-token
+  chmod 600 "$LEDGER_TOKEN_FILE"
+  print_bearer_token_exports
+  exit 0
+fi
 
 resolve_docker_compose_cmd() {
   if docker compose version >/dev/null 2>&1; then DOCKER_COMPOSE_CMD=(docker compose); return; fi
@@ -49,10 +76,9 @@ for port in "$LEDGER_PORT" "$ADMIN_PORT" "$JSON_PORT"; do assert_host_port_avail
 
 mkdir -p "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR"
-SYNCHRONIZER_CONFIG="$RUNTIME_DIR/registered-synchronizer.json"
-LEDGER_TOKEN_FILE="$RUNTIME_DIR/ledger-api-user.token"
 PARTICIPANT_358_LEDGER_TOKEN_FILE="$LEDGER_TOKEN_FILE" \
   node "$SCRIPT_DIR/participant-358-synchronizer.mjs" mint-ledger-token
+chmod 600 "$LEDGER_TOKEN_FILE"
 cat > "$RUNTIME_DIR/participant-358.env" <<EOF
 PARTICIPANT_358_SYNCHRONIZER_CONFIG=$SYNCHRONIZER_CONFIG
 PARTICIPANT_358_SOURCE_ADMIN_ENDPOINT=$SOURCE_ADMIN_ENDPOINT
@@ -184,5 +210,5 @@ export SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT=localhost:$ADMIN_PORT
 export SDK_EXAMPLE_LEDGER_ENDPOINT=localhost:$LEDGER_PORT
 export SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT=localhost:$LEDGER_PORT
 export SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT=localhost:$ADMIN_PORT
-export SDK_EXAMPLE_BEARER_TOKEN="\$(cat $LEDGER_TOKEN_FILE)"
 EOF
+print_bearer_token_exports
