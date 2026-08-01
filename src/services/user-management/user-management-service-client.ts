@@ -1,14 +1,14 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
+import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
+import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
+import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
+import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
+import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import type {
-    GetUserRequest,
-    GetUserResponse,
     GrantUserRightsRequest,
     GrantUserRightsResponse,
-    ListUserRightsRequest,
-    ListUserRightsResponse,
-    ListUsersRequest,
-    ListUsersResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 
 export class UserManagementServiceClient {

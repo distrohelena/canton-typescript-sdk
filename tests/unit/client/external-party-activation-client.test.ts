@@ -12,7 +12,9 @@ describe("ExternalPartyActivationClient", () => {
     it("authorizes additional participants and waits for the mapping to become active", async () => {
         const synchronizerId =
             "global-domain::1220453245831122dddf3742433b151767ebdd4af66c1a6a20c61a13a427e697908b";
+
         const transactionHash = new Uint8Array([0x12, 0x20, 0xaa, 0xbb]);
+
         const activeMapping: PartyToParticipant = {
             party: "ed25519_party::fingerprint",
             threshold: 2,
@@ -33,7 +35,7 @@ describe("ExternalPartyActivationClient", () => {
         const primaryClient = {
             topologyManagerReadService: {
                 listPartyToParticipantAsync: vi.fn(async (request) => {
-                    if (request.baseQuery?.proposals === true) {
+                    if (request.baseQuery?.includeProposals === true) {
                         return {
                             results: [
                                 {
@@ -98,7 +100,7 @@ describe("ExternalPartyActivationClient", () => {
         ).toHaveBeenNthCalledWith(
             1,
             expect.objectContaining({
-                baseQuery: expect.objectContaining({ proposals: false }),
+                baseQuery: expect.objectContaining({ includeProposals: false }),
             }),
             undefined,
         );
@@ -107,7 +109,7 @@ describe("ExternalPartyActivationClient", () => {
         ).toHaveBeenNthCalledWith(
             2,
             expect.objectContaining({
-                baseQuery: expect.objectContaining({ proposals: true }),
+                baseQuery: expect.objectContaining({ includeProposals: true }),
             }),
             undefined,
         );
@@ -129,6 +131,7 @@ describe("ExternalPartyActivationClient", () => {
 
     it("returns immediately when the mapping is already active", async () => {
         const synchronizerId = "sync-1";
+
         const activeMapping: PartyToParticipant = {
             party: "Alice",
             threshold: 1,
@@ -143,7 +146,7 @@ describe("ExternalPartyActivationClient", () => {
         const primaryClient = {
             topologyManagerReadService: {
                 listPartyToParticipantAsync: vi.fn(async (request) => {
-                    if (request.baseQuery?.proposals === true) {
+                    if (request.baseQuery?.includeProposals === true) {
                         return { results: [] } satisfies ListPartyToParticipantResponse;
                     }
 

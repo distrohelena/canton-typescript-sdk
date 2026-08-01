@@ -1,4 +1,4 @@
-import type { PartyToParticipant } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
+import type { PartyToParticipant } from "../core/types/topology/party-to-participant.js";
 
 export class ExternalPartyActivationResponse {
     public readonly partyId: string;

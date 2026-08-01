@@ -16,6 +16,7 @@ import {
     RequestOptions,
     StateServiceClient,
     UpdateServiceClient,
+    UserRightKind,
     UserManagementServiceClient,
 } from "../../../src";
 import {
@@ -40,42 +41,86 @@ import {
     GetEventsByContractIdResponse as ProtobufGetEventsByContractIdResponse,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import {
-    GetUserRequest as ProtobufGetUserRequest,
-    ListUserRightsRequest as ProtobufListUserRightsRequest,
-    ListUsersRequest as ProtobufListUsersRequest,
-} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
-import {
     GetLedgerEndRequest as ProtobufGetLedgerEndRequest,
     GetLatestPrunedOffsetsRequest as ProtobufGetLatestPrunedOffsetsRequest,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 
 describe("GrpcTransport batch 1 read services", () => {
-    it("returns raw generated user-management responses", async () => {
-        const getUserResponse = { user: { id: "user-1" } };
+    it("maps public user-management requests and responses", async () => {
+        const getUserAsync = vi.fn(async () => ({
+            user: { id: "user-1", primaryParty: "Alice" },
+        }));
 
-        const listUsersResponse = { users: [], nextPageToken: "next" };
+        const listUsersAsync = vi.fn(async () => ({
+            users: [{ id: "user-1", isDeactivated: true }],
+            nextPageToken: "next",
+        }));
 
-        const listUserRightsResponse = { rights: [] };
+        const listUserRightsAsync = vi.fn(async () => ({
+            rights: [
+                { kind: { oneofKind: "participantAdmin", participantAdmin: {} } },
+                {
+                    kind: {
+                        oneofKind: "canExecuteAs",
+                        canExecuteAs: { party: "Alice" },
+                    },
+                },
+            ],
+        }));
 
         const transport = new GrpcTransport({
-            getUserAsync: async () => getUserResponse,
-            listUsersAsync: async () => listUsersResponse,
-            listUserRightsAsync: async () => listUserRightsResponse,
+            getUserAsync,
+            listUsersAsync,
+            listUserRightsAsync,
         } as any);
 
         const client = new UserManagementServiceClient(transport);
 
-        await expect(
-            client.getUserAsync(ProtobufGetUserRequest.create({ userId: "user-1" })),
-        ).resolves.toBe(getUserResponse);
-        await expect(
-            client.listUsersAsync(ProtobufListUsersRequest.create()),
-        ).resolves.toBe(listUsersResponse);
-        await expect(
-            client.listUserRightsAsync(
-                ProtobufListUserRightsRequest.create({ userId: "user-1" }),
-            ),
-        ).resolves.toBe(listUserRightsResponse);
+        const options = new RequestOptions({ timeoutMs: 1_000 });
+
+        const user = await client.getUserAsync(
+            new GetUserRequest({ userId: "user-1", identityProviderId: "idp-1" }),
+            options,
+        );
+
+        const users = await client.listUsersAsync(
+            new ListUsersRequest({
+                pageToken: "page-1",
+                pageSize: 10,
+                identityProviderId: "idp-1",
+            }),
+            options,
+        );
+
+        const rights = await client.listUserRightsAsync(
+            new ListUserRightsRequest({
+                userId: "user-1",
+                identityProviderId: "idp-1",
+            }),
+            options,
+        );
+
+        expect(getUserAsync).toHaveBeenCalledWith(
+            { userId: "user-1", identityProviderId: "idp-1" },
+            options,
+        );
+        expect(listUsersAsync).toHaveBeenCalledWith(
+            { pageToken: "page-1", pageSize: 10, identityProviderId: "idp-1" },
+            options,
+        );
+        expect(listUserRightsAsync).toHaveBeenCalledWith(
+            { userId: "user-1", identityProviderId: "idp-1" },
+            options,
+        );
+        expect(user.user).toMatchObject({ id: "user-1", primaryParty: "Alice" });
+        expect(users).toMatchObject({
+            nextPageToken: "next",
+            users: [{ id: "user-1", isDeactivated: true }],
+        });
+        expect(rights.rights).toEqual([
+            { type: UserRightKind.participantAdmin },
+            { type: UserRightKind.canExecuteAs, party: "Alice" },
+        ]);
     });
 
     it("returns raw generated state read responses", async () => {
@@ -249,13 +294,8 @@ describe("GrpcTransport batch 1 read services", () => {
         });
         expect(users.nextPageToken).toBe("next");
         expect(rights.rights).toEqual([
-            { kind: { oneofKind: "participantAdmin", participantAdmin: {} } },
-            {
-                kind: {
-                    oneofKind: "canExecuteAs",
-                    canExecuteAs: { party: "Alice" },
-                },
-            },
+            { type: UserRightKind.participantAdmin },
+            { type: UserRightKind.canExecuteAs, party: "Alice" },
         ]);
         expect(packages.packageDetails[0]).toMatchObject({
             packageId: "pkg-1",

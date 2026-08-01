@@ -1,5 +1,7 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
+import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
+import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
 import type {
     ListAllV2Request,
     ListAllV2Response,
@@ -17,8 +19,6 @@ import type {
     ListSequencingParametersStateResponse,
     ListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse,
-    ListPartyToParticipantRequest,
-    ListPartyToParticipantResponse,
     ListVettedPackagesRequest as TopologyListVettedPackagesRequest,
     ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListPartyHostingLimitsRequest,

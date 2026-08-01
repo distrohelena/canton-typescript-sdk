@@ -33,7 +33,11 @@ import type {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { AllocatePartyRequest } from "../types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
+import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
+import { ListPartyToParticipantRequest } from "../types/requests/list-party-to-participant-request.js";
+import { ListUserRightsRequest } from "../types/requests/list-user-rights-request.js";
+import { ListUsersRequest } from "../types/requests/list-users-request.js";
 import type {
     GetContractRequest,
     GetContractResponse,
@@ -65,6 +69,10 @@ import type {
     GetScheduleResponse as GetPruningScheduleResponse,
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
+import { GetUserResponse } from "../types/responses/get-user-response.js";
+import { ListPartyToParticipantResponse } from "../types/responses/list-party-to-participant-response.js";
+import { ListUserRightsResponse } from "../types/responses/list-user-rights-response.js";
+import { ListUsersResponse } from "../types/responses/list-users-response.js";
 import type {
     AllocateExternalPartyRequest,
     AllocateExternalPartyResponse,
@@ -88,8 +96,6 @@ import type {
     ListSequencingParametersStateResponse,
     ListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse,
-    ListPartyToParticipantRequest,
-    ListPartyToParticipantResponse,
     ListVettedPackagesRequest as TopologyListVettedPackagesRequest,
     ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListPartyHostingLimitsRequest,
@@ -192,14 +198,8 @@ import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../
 import type { GetIdentityProviderConfigRequest, GetIdentityProviderConfigResponse, ListIdentityProviderConfigsRequest, ListIdentityProviderConfigsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/identity_provider_config_service.js";
 import type { GetParticipantIdRequest, GetParticipantIdResponse, GetPartiesRequest, GetPartiesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import type {
-    GetUserRequest,
-    GetUserResponse,
     GrantUserRightsRequest,
     GrantUserRightsResponse,
-    ListUserRightsRequest,
-    ListUserRightsResponse,
-    ListUsersRequest,
-    ListUsersResponse,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import type {
     GetCommandStatusRequest,

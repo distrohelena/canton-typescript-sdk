@@ -3,14 +3,22 @@ import { CantonClientOptions } from "../../client/canton-client-options.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
+import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
+import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
+import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
+import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../../core/types/prepared-command-submission.js";
 import { AllocatePartyResponse as SdkAllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
+import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { ListKnownPartiesResponse as SdkListKnownPartiesResponse } from "../../core/types/responses/list-known-parties-response.js";
+import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
+import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
+import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { TransportError } from "../../core/errors/transport-error.js";
@@ -47,6 +55,18 @@ import {
 } from "./mappers/state-read-mapper.js";
 import {
 } from "./mappers/topology-manager-read-mapper.js";
+import {
+    mapGrpcListPartyToParticipantRequest,
+    mapGrpcListPartyToParticipantResponse,
+} from "./mappers/topology-manager-read-mapper.js";
+import {
+    mapGrpcGetUser,
+    mapGrpcGetUserRequest,
+    mapGrpcListUserRights,
+    mapGrpcListUserRightsRequest,
+    mapGrpcListUsers,
+    mapGrpcListUsersRequest,
+} from "./mappers/users-mapper.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "./generated/canton/google/grpc/health/v1/health.js";
 import { CommitmentChunkObserver } from "../../services/participant-inspection/commitment-chunk-observer.interface.js";
 import { ContractObserver } from "../../services/contracts/contract-observer.interface.js";
@@ -85,12 +105,9 @@ import {
 } from "./generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 import { GrantUserRightsResponse as ProtobufGrantUserRightsResponse } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import type {
-    GetUserRequest,
-    GetUserResponse,
-    ListUserRightsRequest,
-    ListUserRightsResponse,
-    ListUsersRequest,
-    ListUsersResponse,
+    GetUserResponse as ProtobufGetUserResponse,
+    ListUserRightsResponse as ProtobufListUserRightsResponse,
+    ListUsersResponse as ProtobufListUsersResponse,
 } from "./generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "./generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type {
@@ -253,7 +270,6 @@ import {
     ListPartyHostingLimitsResponse as ProtobufListPartyHostingLimitsResponse,
     ListPartyToKeyMappingRequest as ProtobufListPartyToKeyMappingRequest,
     ListPartyToKeyMappingResponse as ProtobufListPartyToKeyMappingResponse,
-    ListPartyToParticipantRequest as ProtobufListPartyToParticipantRequest,
     ListPartyToParticipantResponse as ProtobufListPartyToParticipantResponse,
     ListSequencerSynchronizerStateRequest as ProtobufListSequencerSynchronizerStateRequest,
     ListSequencerSynchronizerStateResponse as ProtobufListSequencerSynchronizerStateResponse,
@@ -437,10 +453,12 @@ export class GrpcTransport implements ITransport {
     ): Promise<GetUserResponse> {
         this.throwIfDisposed();
 
-        return (await this.operations.getUserAsync!(
-            request,
+        const payload = await this.operations.getUserAsync!(
+            mapGrpcGetUserRequest(request),
             options,
-        )) as GetUserResponse;
+        );
+
+        return mapGrpcGetUser(payload as Partial<ProtobufGetUserResponse>);
     }
 
     public async listUsersAsync(
@@ -449,10 +467,12 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListUsersResponse> {
         this.throwIfDisposed();
 
-        return (await this.operations.listUsersAsync!(
-            request,
+        const payload = await this.operations.listUsersAsync!(
+            mapGrpcListUsersRequest(request),
             options,
-        )) as ListUsersResponse;
+        );
+
+        return mapGrpcListUsers(payload as Partial<ProtobufListUsersResponse>);
     }
 
     public async listUserRightsAsync(
@@ -461,10 +481,14 @@ export class GrpcTransport implements ITransport {
     ): Promise<ListUserRightsResponse> {
         this.throwIfDisposed();
 
-        return (await this.operations.listUserRightsAsync!(
-            request,
+        const payload = await this.operations.listUserRightsAsync!(
+            mapGrpcListUserRightsRequest(request),
             options,
-        )) as ListUserRightsResponse;
+        );
+
+        return mapGrpcListUserRights(
+            payload as Partial<ProtobufListUserRightsResponse>,
+        );
     }
 
     public async uploadDarFileAsync(
@@ -1212,16 +1236,16 @@ export class GrpcTransport implements ITransport {
     }
 
     public async listPartyToParticipantAsync(
-        request: ProtobufListPartyToParticipantRequest,
+        request: ListPartyToParticipantRequest,
         options?: RequestOptions,
-    ): Promise<ProtobufListPartyToParticipantResponse> {
+    ): Promise<ListPartyToParticipantResponse> {
         this.throwIfDisposed();
 
         let payload: unknown;
 
         try {
             payload = await this.operations.listPartyToParticipantAsync!(
-            request,
+                mapGrpcListPartyToParticipantRequest(request),
                 options,
             );
         } catch (error) {
@@ -1231,7 +1255,9 @@ export class GrpcTransport implements ITransport {
             );
         }
 
-        return payload as ProtobufListPartyToParticipantResponse;
+        return mapGrpcListPartyToParticipantResponse(
+            payload as Partial<ProtobufListPartyToParticipantResponse>,
+        );
     }
 
     public async listSynchronizerParametersStateAsync(

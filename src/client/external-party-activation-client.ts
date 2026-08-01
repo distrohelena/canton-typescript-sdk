@@ -1,11 +1,12 @@
 import { RequestOptions } from "../core/types/request-options.js";
+import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
+import { TopologyBaseResult } from "../core/types/topology/topology-base-result.js";
+import { TopologyBaseQuery } from "../core/types/topology/topology-base-query.js";
+import type { PartyToParticipant } from "../core/types/topology/party-to-participant.js";
 import { TopologyStoreId, TopologyStoreKind, TopologyStoreSynchronizer } from "../core/types/topology/topology-store-id.js";
 import type {
     BaseQuery,
-    BaseResult,
-    ListPartyToParticipantRequest,
 } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_read_service.js";
-import type { PartyToParticipant } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import type { AuthorizeRequest } from "../transports/grpc/generated/canton/com/digitalasset/canton/topology/admin/v30/topology_manager_write_service.js";
 import { Enums_TopologyChangeOp } from "../transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import { CantonClient } from "./canton-client.js";
@@ -14,11 +15,11 @@ import { ExternalPartyActivationResponse } from "./external-party-activation-res
 
 interface PartyToParticipantReadState {
     readonly active?: {
-        readonly context: BaseResult;
+        readonly context: TopologyBaseResult;
         readonly mapping: PartyToParticipant;
     };
     readonly proposal?: {
-        readonly context: BaseResult;
+        readonly context: TopologyBaseResult;
         readonly mapping: PartyToParticipant;
     };
 }
@@ -36,9 +37,7 @@ export class ExternalPartyActivationClient {
             throw new Error(
                 `External party activation timeout must be greater than zero, received ${request.activationTimeoutMs}.`,
             );
-        }
-
-        if (request.pollIntervalMs < 0) {
+        } else if (request.pollIntervalMs < 0) {
             throw new Error(
                 `External party activation poll interval must be zero or greater, received ${request.pollIntervalMs}.`,
             );
@@ -55,9 +54,7 @@ export class ExternalPartyActivationClient {
                 initialState.active.context,
                 initialState.active.mapping,
             );
-        }
-
-        if (initialState.proposal === undefined) {
+        } else if (initialState.proposal === undefined) {
             throw new Error(
                 `External party activation did not find an active or proposed PartyToParticipant mapping for '${request.partyId}'.`,
             );
@@ -122,7 +119,7 @@ export class ExternalPartyActivationClient {
         request: ExternalPartyActivationRequest,
         options?: RequestOptions,
     ): Promise<{
-        readonly context: BaseResult;
+        readonly context: TopologyBaseResult;
         readonly mapping: PartyToParticipant;
     }> {
         const startedAt = Date.now();
@@ -148,46 +145,53 @@ export class ExternalPartyActivationClient {
     ): Promise<PartyToParticipantReadState> {
         const [activeResponse, proposalResponse] = await Promise.all([
             this.sourceClient.topologyManagerReadService.listPartyToParticipantAsync(
-                {
-                    baseQuery: createSynchronizerQuery(
-                        request.synchronizerId,
-                        false,
-                    ),
+                new ListPartyToParticipantRequest({
+                    baseQuery: new TopologyBaseQuery({
+                        storeId: createSynchronizerStoreId(
+                            request.synchronizerId,
+                        ),
+                        headState: true,
+                        includeProposals: false,
+                    }),
                     filterParty: request.partyId,
                     filterParticipant: "",
-                } satisfies ListPartyToParticipantRequest,
+                }),
                 options,
             ),
             this.sourceClient.topologyManagerReadService.listPartyToParticipantAsync(
-                {
-                    baseQuery: createSynchronizerQuery(
-                        request.synchronizerId,
-                        true,
-                    ),
+                new ListPartyToParticipantRequest({
+                    baseQuery: new TopologyBaseQuery({
+                        storeId: createSynchronizerStoreId(
+                            request.synchronizerId,
+                        ),
+                        headState: true,
+                        includeProposals: true,
+                    }),
                     filterParty: request.partyId,
                     filterParticipant: "",
-                } satisfies ListPartyToParticipantRequest,
+                }),
                 options,
             ),
         ]);
 
         const active = activeResponse.results.find(
-            (item) => item.item?.party === request.partyId,
+            (item) => item.item.party === request.partyId,
         );
+
         const proposal = proposalResponse.results.find(
-            (item) => item.item?.party === request.partyId,
+            (item) => item.item.party === request.partyId,
         );
 
         return {
             active:
-                active === undefined || active.context === undefined || active.item === undefined
+                active === undefined || active.context === undefined
                     ? undefined
                     : {
                           context: active.context,
                           mapping: active.item,
                       },
             proposal:
-                proposal === undefined || proposal.context === undefined || proposal.item === undefined
+                proposal === undefined || proposal.context === undefined
                     ? undefined
                     : {
                           context: proposal.context,
@@ -198,7 +202,7 @@ export class ExternalPartyActivationClient {
 
     private createActivationResponse(
         request: ExternalPartyActivationRequest,
-        context: BaseResult,
+        context: TopologyBaseResult,
         mapping: PartyToParticipant,
     ): ExternalPartyActivationResponse {
         return new ExternalPartyActivationResponse({

@@ -1,28 +1,41 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-    RequestOptions,
-    UserManagementServiceClient,
-} from "../../../src";
-import {
     GetUserRequest,
     GetUserResponse,
+    LedgerUser,
     ListUserRightsRequest,
     ListUserRightsResponse,
     ListUsersRequest,
     ListUsersResponse,
-} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
+    RequestOptions,
+    UserManagementServiceClient,
+} from "../../../src";
 
 describe("UserManagementServiceClient read methods", () => {
     it("forwards user read requests through the selected transport", async () => {
-        const getUserResponse = GetUserResponse.create();
+        const getUserRequest = new GetUserRequest({ userId: "user-1" });
+
+        const getUserResponse = new GetUserResponse({
+            user: new LedgerUser({ id: "user-1" }),
+        });
+
         const getUserAsync = vi.fn(async () => getUserResponse);
 
-        const listUsersResponse = ListUsersResponse.create({
+        const listUsersRequest = new ListUsersRequest({ pageSize: 10 });
+
+        const listUsersResponse = new ListUsersResponse({
+            users: [new LedgerUser({ id: "user-1" })],
             nextPageToken: "next-1",
         });
+
         const listUsersAsync = vi.fn(async () => listUsersResponse);
 
-        const listUserRightsResponse = ListUserRightsResponse.create();
+        const listUserRightsRequest = new ListUserRightsRequest({
+            userId: "user-1",
+        });
+
+        const listUserRightsResponse = new ListUserRightsResponse({ rights: [] });
+
         const listUserRightsAsync = vi.fn(async () => listUserRightsResponse);
 
         const transport = {
@@ -40,41 +53,35 @@ describe("UserManagementServiceClient read methods", () => {
 
         await expect(
             client.getUserAsync(
-                GetUserRequest.create({
-                    userId: "user-1",
-                }),
+                getUserRequest,
                 options,
             ),
         ).resolves.toBe(getUserResponse);
 
         await expect(
             client.listUsersAsync(
-                ListUsersRequest.create({
-                    pageSize: 10,
-                }),
+                listUsersRequest,
                 options,
             ),
         ).resolves.toBe(listUsersResponse);
 
         await expect(
             client.listUserRightsAsync(
-                ListUserRightsRequest.create({
-                    userId: "user-1",
-                }),
+                listUserRightsRequest,
                 options,
             ),
         ).resolves.toBe(listUserRightsResponse);
 
         expect(getUserAsync).toHaveBeenCalledWith(
-            GetUserRequest.create({ userId: "user-1" }),
+            getUserRequest,
             options,
         );
         expect(listUsersAsync).toHaveBeenCalledWith(
-            ListUsersRequest.create({ pageSize: 10 }),
+            listUsersRequest,
             options,
         );
         expect(listUserRightsAsync).toHaveBeenCalledWith(
-            ListUserRightsRequest.create({ userId: "user-1" }),
+            listUserRightsRequest,
             options,
         );
     });

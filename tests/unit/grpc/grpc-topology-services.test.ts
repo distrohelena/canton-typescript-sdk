@@ -1,11 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    ListPartyToParticipantRequest,
     ListKeyOwnersRequest,
     RequestOptions,
+    TopologyBaseQuery,
     TopologyListPartiesRequest,
+    TopologyStoreId,
+    TopologyStoreKind,
+    TopologyStoreSynchronizer,
 } from "../../../src";
 import { TransportError } from "../../../src/core/errors/transport-error.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
+import { Enums_ParticipantPermission } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/protocol/v30/topology.js";
 import {
     ListAllV2Request,
     ListAllV2Response,
@@ -68,6 +74,7 @@ describe("GrpcTransport topology services", () => {
         });
 
         const listAllV2Async = vi.fn(async () => rawResponse);
+
         const transport = new GrpcTransport({
             getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
             checkHealthAsync: async () => ({ status: 1 }),
@@ -159,6 +166,94 @@ describe("GrpcTransport topology services", () => {
         expect(owners.results[0].keyOwner).toBe("participant::sandbox");
     });
 
+    it("maps public party-to-participant requests and responses", async () => {
+        const listPartyToParticipantAsync = vi.fn(async () => ({
+            results: [
+                {
+                    context: {
+                        serial: 7,
+                        validFrom: { seconds: "1710000000", nanos: 0 },
+                        validUntil: { seconds: "1710003600", nanos: 0 },
+                    },
+                    item: {
+                        party: "Alice",
+                        threshold: 1,
+                        participants: [
+                            {
+                                participantUid: "participant::sandbox",
+                                permission: Enums_ParticipantPermission.SUBMISSION,
+                            },
+                        ],
+                    },
+                },
+            ],
+        }));
+
+        const transport = new GrpcTransport({
+            getHealthAsync: async () => ({ version: "3.4.0", features: {} }),
+            checkHealthAsync: async () => ({ status: 1 }),
+            createPartyAsync: async () => ({ identifier: "unused" }),
+            listPartiesAsync: async () => ({ partyDetails: [], nextPageToken: "" }),
+            grantUserRightsAsync: async () => ({ rights: [] }),
+            uploadPackageAsync: async () => ({ packageId: "unused" }),
+            listPartyToParticipantAsync,
+            queryContractsAsync: async () => ({ activeContracts: [] }),
+            getUpdatesAsync: async () => [],
+            submitCommandAsync: async () => ({ updateId: "unused" }),
+        } as any);
+
+        const request = new ListPartyToParticipantRequest({
+            baseQuery: new TopologyBaseQuery({
+                headState: true,
+                storeId: new TopologyStoreId({
+                    kind: TopologyStoreKind.synchronizer,
+                    synchronizer: new TopologyStoreSynchronizer({ id: "sync::sandbox" }),
+                }),
+            }),
+            filterParty: "Alice",
+        });
+
+        const response = await transport.listPartyToParticipantAsync(request);
+
+        expect(listPartyToParticipantAsync).toHaveBeenCalledWith(
+            expect.objectContaining({
+                filterParty: "Alice",
+                baseQuery: expect.objectContaining({
+                    timeQuery: { oneofKind: "headState", headState: {} },
+                    store: {
+                        store: {
+                            oneofKind: "synchronizer",
+                            synchronizer: {
+                                kind: {
+                                    oneofKind: "id",
+                                    id: "sync::sandbox",
+                                },
+                            },
+                        },
+                    },
+                }),
+            }),
+            undefined,
+        );
+        expect(response.results[0].item).toMatchObject({
+            party: "Alice",
+            threshold: 1,
+            participants: [
+                {
+                    participantUid: "participant::sandbox",
+                    permission: "submission",
+                },
+            ],
+        });
+        expect(response.results[0].context?.serial).toBe(7);
+        expect(response.results[0].context?.validFrom).toEqual(
+            new Date("2024-03-09T16:00:00.000Z"),
+        );
+        expect(response.results[0].context?.validUntil).toEqual(
+            new Date("2024-03-09T17:00:00.000Z"),
+        );
+    });
+
     it("wraps raw topology party mapping protobuf decode failures with an actionable transport error", async () => {
         const listPartyToParticipantAsync = vi.fn(async () => {
             throw new Error(
@@ -190,15 +285,15 @@ describe("GrpcTransport topology services", () => {
         } as any);
 
         await expect(
-            transport.listPartyToParticipantAsync({
-                filterParty: "Alice",
-            } as any),
+            transport.listPartyToParticipantAsync(
+                new ListPartyToParticipantRequest({ filterParty: "Alice" }),
+            ),
         ).rejects.toThrow(TransportError);
 
         await expect(
-            transport.listPartyToParticipantAsync({
-                filterParty: "Alice",
-            } as any),
+            transport.listPartyToParticipantAsync(
+                new ListPartyToParticipantRequest({ filterParty: "Alice" }),
+            ),
         ).rejects.toThrow(/topologyManagerReadService\.listPartyToParticipantAsync/i);
 
         await expect(

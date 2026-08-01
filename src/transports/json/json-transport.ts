@@ -1,8 +1,16 @@
 import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-request.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
+import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
+import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
+import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
+import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
 import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
+import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
+import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
+import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
+import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
 import type {
     ListPartiesRequest as TopologyListPartiesRequest,
     ListPartiesResponse as TopologyListPartiesResponse,
@@ -66,8 +74,6 @@ import type {
     ListSequencingParametersStateResponse,
     ListSynchronizerParametersStateRequest,
     ListSynchronizerParametersStateResponse,
-    ListPartyToParticipantRequest,
-    ListPartyToParticipantResponse,
     ListVettedPackagesRequest as TopologyListVettedPackagesRequest,
     ListVettedPackagesResponse as TopologyListVettedPackagesResponse,
     ListPartyHostingLimitsRequest,
@@ -197,14 +203,6 @@ import type {
     UploadDarFileRequest,
 } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { UploadDarFileResponse } from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
-import type {
-    GetUserRequest,
-    GetUserResponse,
-    ListUserRightsRequest,
-    ListUserRightsResponse,
-    ListUsersRequest,
-    ListUsersResponse,
-} from "../grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import type {
     GetCommandStatusRequest,
     GetCommandStatusResponse,
