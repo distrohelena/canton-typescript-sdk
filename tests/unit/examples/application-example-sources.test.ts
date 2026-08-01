@@ -154,6 +154,15 @@ describe("application example source contracts", () => {
         expect(source).toContain("timeoutMs: exampleTimeoutMs(),");
         expect(source).toMatch(activeContractPageRead);
         expect(source).toContain("message.createArguments");
+        expect(source).toContain(
+            'const messageText = "Hello from the Canton TypeScript SDK";',
+        );
+        expect(source).toMatch(
+            /message\.createArguments\.fields\.find\(\s*\(field\)\s*=>\s*field\.label\s*===\s*"text",?\s*\)/s,
+        );
+        expect(source).toMatch(/textValue\?\.sum\.oneofKind\s*!==\s*"text"/);
+        expect(source).toMatch(/textValue\.sum\.text\s*!==\s*messageText/);
+        expect(source).toMatch(/did not contain the expected text/);
         expect(source).toContain("Actor party: ${actor.party}");
         expect(source).toContain("Contract ID: ${created.contractId}");
         expect(source).toContain("Created payload:");
@@ -246,9 +255,13 @@ describe("application example source contracts", () => {
         expect(source).toContain("Deactivated: ${user.isDeactivated}");
         expect(source).toContain("Primary party: ${user.primaryParty ?? \"<none>\"}");
         expect(source).toContain("Listed confirmation: ${listedUser.id}");
+        expect(source).toMatch(
+            /rightsResponse\.rights\.some\(\s*\(right\)\s*=>\s*right\.type\s*===\s*"canReadAsAnyParty",?\s*\)/s,
+        );
+        expect(source).toMatch(/Expected user '\$\{userId\}' to have canReadAsAnyParty\./);
         expect(source).toMatch(/right\.type/);
         expect(source).toMatch(/right\.party/);
-        expect(source).toContain("Rights: <none>");
+        expect(source).not.toContain("Rights: <none>");
         expect(source).not.toMatch(
             /\b(?:grantUserRightsAsync|createUserAsync|revokeUserRightsAsync|deleteUserAsync)\b/,
         );
@@ -275,15 +288,24 @@ describe("application example source contracts", () => {
         expect(source).toMatch(
             /response\.results\.find\(\s*\(result\)\s*=>\s*result\.item\.party\s*===\s*actor\.party,?\s*\)/s,
         );
-        expect(source).toMatch(/!mapping\s*\|\|\s*mapping\.item\.participants\.length\s*===\s*0/);
+        expect(source).toContain("ParticipantPermission");
+        expect(source).toMatch(/!mapping\s*\|\|\s*mapping\.item\.threshold\s*<=\s*0\s*\|\|\s*mapping\.item\.participants\.length\s*===\s*0/);
+        expect(source).toMatch(
+            /const\s+submissionParticipant\s*=\s*mapping\.item\.participants\.find\(\s*\(participant\)\s*=>\s*participant\.participantUid\.trim\(\)\s*&&\s*participant\.permission\s*===\s*ParticipantPermission\.submission,?\s*\)/s,
+        );
+        expect(source).toMatch(/if\s*\(!submissionParticipant\)/);
+        expect(source).toMatch(/context\.serial\s*<=\s*0/);
+        expect(source).toMatch(/!isValidDate\(context\.validFrom\)/);
+        expect(source).toMatch(/context\.validUntil\s*!==\s*undefined/);
+        expect(source).toMatch(/function\s+isValidDate\(value:\s*Date\s*\|\s*undefined\):\s*value\s+is\s+Date/);
         expect(source).toContain("Synchronizer: ${synchronizer}");
         expect(source).toContain("Party: ${mapping.item.party}");
         expect(source).toContain("Threshold: ${mapping.item.threshold}");
         expect(source).toMatch(/participant\.participantUid/);
         expect(source).toMatch(/participant\.permission/);
-        expect(source).toContain("Context serial: ${context?.serial ?? \"<none>\"}");
-        expect(source).toContain("Context valid from: ${formatDate(context?.validFrom)}");
-        expect(source).toContain("Context valid until: ${formatDate(context?.validUntil)}");
+        expect(source).toContain("Context serial: ${context.serial}");
+        expect(source).toContain("Context valid from: ${formatDate(context.validFrom)}");
+        expect(source).toContain("Context valid until: ${formatDate(context.validUntil)}");
         expect(source).toMatch(/function\s+formatDate\(value:\s*Date\s*\|\s*undefined\):\s*string/);
         expect(source).not.toMatch(
             /(?:topology_manager_read_service|mapListPartyToParticipantRequest|protobuf)/i,

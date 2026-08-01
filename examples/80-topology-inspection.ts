@@ -1,5 +1,6 @@
 import {
     ListPartyToParticipantRequest,
+    ParticipantPermission,
     RequestOptions,
     TopologyBaseQuery,
     TopologyStoreId,
@@ -56,13 +57,46 @@ runExampleAsync("topology-inspection", async () => {
             (result) => result.item.party === actor.party,
         );
 
-        if (!mapping || mapping.item.participants.length === 0) {
+        if (
+            !mapping
+            || mapping.item.threshold <= 0
+            || mapping.item.participants.length === 0
+        ) {
             throw new Error(
-                `No party-to-participant mapping with participants was found for '${actor.party}' on synchronizer '${synchronizer}'.`,
+                `No party-to-participant mapping with a positive threshold and participants was found for '${actor.party}' on synchronizer '${synchronizer}'.`,
+            );
+        }
+
+        const submissionParticipant = mapping.item.participants.find(
+            (participant) =>
+                participant.participantUid.trim()
+                && participant.permission === ParticipantPermission.submission,
+        );
+
+        if (!submissionParticipant) {
+            throw new Error(
+                `No submission participant with a non-empty UID was found for '${actor.party}'.`,
             );
         }
 
         const context = mapping.context;
+
+        if (
+            !context
+            || context.serial <= 0
+            || !isValidDate(context.validFrom)
+            || (
+                context.validUntil !== undefined
+                && (
+                    !isValidDate(context.validUntil)
+                    || context.validUntil < context.validFrom
+                )
+            )
+        ) {
+            throw new Error(
+                `Party-to-participant mapping for '${actor.party}' has invalid serial or effective timestamps.`,
+            );
+        }
 
         console.log(`Synchronizer: ${synchronizer}`);
         console.log(`Party: ${mapping.item.party}`);
@@ -74,9 +108,9 @@ runExampleAsync("topology-inspection", async () => {
             );
         }
 
-        console.log(`Context serial: ${context?.serial ?? "<none>"}`);
-        console.log(`Context valid from: ${formatDate(context?.validFrom)}`);
-        console.log(`Context valid until: ${formatDate(context?.validUntil)}`);
+        console.log(`Context serial: ${context.serial}`);
+        console.log(`Context valid from: ${formatDate(context.validFrom)}`);
+        console.log(`Context valid until: ${formatDate(context.validUntil)}`);
     } finally {
         await client.disposeAsync();
     }
@@ -84,4 +118,8 @@ runExampleAsync("topology-inspection", async () => {
 
 function formatDate(value: Date | undefined): string {
     return value?.toISOString() ?? "<none>";
+}
+
+function isValidDate(value: Date | undefined): value is Date {
+    return value instanceof Date && !Number.isNaN(value.getTime());
 }

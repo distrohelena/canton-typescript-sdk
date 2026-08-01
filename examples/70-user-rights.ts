@@ -70,6 +70,14 @@ runExampleAsync("user-rights", async () => {
 
         if (listedUser === undefined) {
             throw new Error(`User '${userId}' was not found by listUsersAsync.`);
+        } else if (
+            !rightsResponse.rights.some(
+                (right) => right.type === "canReadAsAnyParty",
+            )
+        ) {
+            throw new Error(
+                `Expected user '${userId}' to have canReadAsAnyParty.`,
+            );
         }
 
         console.log(`User ID: ${user.id}`);
@@ -77,16 +85,12 @@ runExampleAsync("user-rights", async () => {
         console.log(`Primary party: ${user.primaryParty ?? "<none>"}`);
         console.log(`Listed confirmation: ${listedUser.id}`);
 
-        if (rightsResponse.rights.length === 0) {
-            console.log("Rights: <none>");
-        } else {
-            console.log("Rights:");
+        console.log("Rights:");
 
-            for (const right of rightsResponse.rights) {
-                console.log(
-                    `- ${right.type}${right.party === undefined ? "" : `: ${right.party}`}`,
-                );
-            }
+        for (const right of rightsResponse.rights) {
+            console.log(
+                `- ${right.type}${right.party === undefined ? "" : `: ${right.party}`}`,
+            );
         }
     } finally {
         await client.disposeAsync();

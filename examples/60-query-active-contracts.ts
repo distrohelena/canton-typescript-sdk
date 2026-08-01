@@ -13,6 +13,8 @@ import {
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 
+const messageText = "Hello from the Canton TypeScript SDK";
+
 runExampleAsync("query-active-contracts", async () => {
     const client = createExampleClient();
 
@@ -69,6 +71,20 @@ runExampleAsync("query-active-contracts", async () => {
         if (message.createArguments === undefined) {
             throw new Error(
                 `Created Message '${created.contractId}' did not include a decoded create payload.`,
+            );
+        }
+
+        const textValue = message.createArguments.fields.find(
+            (field) => field.label === "text",
+        )?.value;
+
+        if (textValue?.sum.oneofKind !== "text") {
+            throw new Error(
+                `Created Message '${created.contractId}' did not contain the expected text field.`,
+            );
+        } else if (textValue.sum.text !== messageText) {
+            throw new Error(
+                `Created Message '${created.contractId}' did not contain the expected text '${messageText}'.`,
             );
         }
 
