@@ -44,6 +44,13 @@ function readExampleSource(name: string): string {
     return readFileSync(new URL(`../../../examples/${name}`, import.meta.url), "utf8");
 }
 
+function readSharedExampleSource(name: string): string {
+    return readFileSync(
+        new URL(`../../../examples/shared/${name}`, import.meta.url),
+        "utf8",
+    );
+}
+
 function readRootPackageJson(): {
     scripts: Record<string, string>;
     files: string[];
@@ -72,6 +79,147 @@ function requireSourceMatch(
     }
 
     return match;
+}
+
+function requireSourceText(
+    source: string,
+    text: string,
+    description: string,
+): void {
+    if (!source.includes(text)) {
+        throw new Error(`Expected source to contain ${description}.`);
+    }
+}
+
+function requireUniqueSourceMatch(
+    source: string,
+    expression: RegExp,
+    description: string,
+): RegExpMatchArray {
+    const flags = expression.flags.includes("g")
+        ? expression.flags
+        : `${expression.flags}g`;
+    const matches = [...source.matchAll(new RegExp(expression.source, flags))];
+
+    if (matches.length !== 1 || matches[0]?.index === undefined) {
+        throw new Error(`Expected source to contain exactly one ${description}.`);
+    }
+
+    return matches[0];
+}
+
+function expectResumeUpdateWorkflowSource(source: string): void {
+    const deadline = requireUniqueSourceMatch(
+        source,
+        /const\s+deadline\s*=\s*dependencies\.createDeadline\(\s*\{\s*timeoutMs:\s*dependencies\.timeoutMs\(\),?\s*\}\s*\);/s,
+        "one absolute workflow deadline",
+    );
+    const darUpload = requireUniqueSourceMatch(
+        source,
+        /await\s+dependencies\.ensureDarUploadedAsync\(\s*dependencies\.client,\s*fixture,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,?\s*\}\s*\);/s,
+        "deadline-aware DAR setup",
+    );
+    const partyResolution = requireUniqueSourceMatch(
+        source,
+        /await\s+dependencies\.resolvePartyAsync\(\s*dependencies\.client,\s*process\.env,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,?\s*\}\s*,?\s*\);/s,
+        "deadline-aware party setup",
+    );
+    const participantStatus = requireUniqueSourceMatch(
+        source,
+        /await\s+dependencies\.readCompatibilityAsync\(\s*dependencies\.client,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,?\s*\}\s*,?\s*\);/s,
+        "deadline-aware participant status",
+    );
+    const preSubmission = requireUniqueSourceMatch(
+        source,
+        /const\s+preResponse\s*=\s*await\s+dependencies\.client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateMessageRequest\(\s*\{[\s\S]*?text:\s*`resume-pre-\$\{runId\}`,[\s\S]*?commandId:\s*`resume-pre-\$\{runId\}`,[\s\S]*?\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\),?\s*\}\s*\),\s*\);/s,
+        "pre-offset submission with its own remaining deadline budget",
+    );
+    const ledgerEnd = requireUniqueSourceMatch(
+        source,
+        /const\s+ledgerEnd\s*=\s*await\s+dependencies\.client\.stateService\.getLedgerEndAsync\(\s*new\s+GetLedgerEndRequest\(\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\),?\s*\}\s*\),\s*\);/s,
+        "ledger end after the pre-offset submission",
+    );
+    const savedOffset = requireUniqueSourceMatch(
+        source,
+        /const\s+savedOffset\s*=\s*ledgerEnd\.offset\.trim\(\);\s*if\s*\(\s*!savedOffset\s*\)\s*\{\s*throw\s+new\s+Error\(\s*"The ledger end returned an empty offset\."\s*\);\s*\}/s,
+        "non-empty saved ledger-end offset",
+    );
+    const idleStream = requireUniqueSourceMatch(
+        source,
+        /const\s+idleStream\s*=\s*dependencies\.client\.updateService\.getUpdatesAsync\(\s*buildUpdatesRequest\(\s*\{\s*beginExclusive:\s*savedOffset,\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,?\s*\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.idleProbeMs\(\),?\s*\}\s*\),\s*\);/s,
+        "idle probe opened from the saved offset with the idle probe budget",
+    );
+    const idleRead = requireUniqueSourceMatch(
+        source,
+        /const\s+idleFirstNextPromise\s*=\s*idleIterator\.next\(\);\s*const\s+idleProbeOutcome\s*=\s*await\s+expectIdleUpdateStreamTimeoutAsync\(\s*\{\s*iterator:\s*idleIterator,\s*firstNextPromise:\s*idleFirstNextPromise,\s*cancelAsync:\s*dependencies\.cancelStreamAsync,?\s*\}\s*\);/s,
+        "first idle-stream read and expected deadline classification",
+    );
+    const postSubmission = requireUniqueSourceMatch(
+        source,
+        /const\s+postResponse\s*=\s*await\s+dependencies\.client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateMessageRequest\(\s*\{[\s\S]*?text:\s*`resume-post-\$\{runId\}`,[\s\S]*?commandId:\s*`resume-post-\$\{runId\}`,[\s\S]*?\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\),?\s*\}\s*\),\s*\);/s,
+        "post-offset submission with the remaining deadline budget",
+    );
+    const resumedStream = requireUniqueSourceMatch(
+        source,
+        /const\s+resumedStream\s*=\s*dependencies\.client\.updateService\.getUpdatesAsync\(\s*buildUpdatesRequest\(\s*\{\s*beginExclusive:\s*savedOffset,\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,?\s*\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\),?\s*\}\s*\),\s*\);/s,
+        "resumed stream opened from the exact saved offset with remaining budget",
+    );
+    const resumeMatch = requireUniqueSourceMatch(
+        source,
+        /const\s+matched\s*=\s*await\s+matchResumedUpdateAsync\(\s*\{\s*iterator:\s*resumedIterator,\s*firstNextPromise:\s*resumedFirstNextPromise,\s*reject:\s*response\s*=>\s*rejectPreOffsetContract\(\s*response,\s*preContract\.contractId\s*\),\s*match:\s*response\s*=>\s*matchCreatedMessageUpdate\(\s*\{\s*response,\s*contractId:\s*postContract\.contractId,?\s*\}\s*\),\s*cancelAsync:\s*dependencies\.cancelStreamAsync,?\s*\}\s*\);/s,
+        "pre-offset replay rejection and exact post-offset match",
+    );
+
+    expect(source).toMatch(
+        /if\s*\(\s*!matched\.updateId\.trim\(\)\s*\|\|\s*!matched\.offset\.trim\(\)\s*\)/s,
+    );
+    requireSourceText(
+        source,
+        "Idle probe outcome: ${idleProbeOutcome}",
+        "idle-timeout output",
+    );
+    requireSourceText(
+        source,
+        "Update ID: ${matched.updateId}",
+        "update-ID output",
+    );
+    requireSourceText(source, "Offset: ${matched.offset}", "offset output");
+    requireSourceText(
+        source,
+        "Participant version: ${compatibility.participantVersion}",
+        "participant-version output",
+    );
+    requireSourceText(
+        source,
+        "Release core: ${compatibility.releaseCore}",
+        "release-core output",
+    );
+    requireSourceText(
+        source,
+        "Compatibility path: ${compatibility.path}",
+        "compatibility-path output",
+    );
+    expect(source).not.toMatch(/\b(?:sleep|setTimeout|polling)\b/i);
+    expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+    expect([...source.matchAll(/beginExclusive:\s*savedOffset/g)]).toHaveLength(2);
+    expect([
+        ...source.matchAll(
+            /new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\),?\s*\}\s*\)/g,
+        ),
+    ]).toHaveLength(4);
+    expect([...source.matchAll(/deadline\.idleProbeMs\(\)/g)]).toHaveLength(1);
+    expect(deadline.index).toBeGreaterThan(source.indexOf("loadFixtureAsync"));
+    expect(darUpload.index).toBeGreaterThan(deadline.index);
+    expect(partyResolution.index).toBeGreaterThan(darUpload.index);
+    expect(participantStatus.index).toBeGreaterThan(partyResolution.index);
+    expect(preSubmission.index).toBeGreaterThan(participantStatus.index);
+    expect(ledgerEnd.index).toBeGreaterThan(preSubmission.index);
+    expect(savedOffset.index).toBeGreaterThan(ledgerEnd.index);
+    expect(idleStream.index).toBeGreaterThan(savedOffset.index);
+    expect(idleRead.index).toBeGreaterThan(idleStream.index);
+    expect(postSubmission.index).toBeGreaterThan(idleRead.index);
+    expect(resumedStream.index).toBeGreaterThan(postSubmission.index);
+    expect(resumeMatch.index).toBeGreaterThan(resumedStream.index);
 }
 
 describe("application example source contracts", () => {
@@ -296,14 +444,48 @@ describe("application example source contracts", () => {
     });
 
     it("resumes an update stream from the saved post-pre-contract ledger end", () => {
-        const source = readExampleSource("92-resume-update-stream.ts");
+        const runnerSource = readExampleSource("92-resume-update-stream.ts");
 
-        expectStandaloneCleanup(source);
-        expect(source).toMatch(
+        const workflowSource = readSharedExampleSource(
+            "resume-update-stream-workflow.ts",
+        );
+
+        expectStandaloneCleanup(runnerSource);
+        expect(runnerSource).toMatch(
             /runResumeUpdateStreamWorkflowAsync\(\s*\{\s*client,\s*\.\.\.resumeUpdateStreamWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\);/s,
         );
-        expect(source).not.toMatch(/\b(?:sleep|setTimeout|polling)\b/i);
-        expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+        expectResumeUpdateWorkflowSource(workflowSource);
+    });
+
+    it("rejects source mutations that would default or decouple resumable-stream teaching steps", () => {
+        const workflowSource = readSharedExampleSource(
+            "resume-update-stream-workflow.ts",
+        );
+
+        expect(() => expectResumeUpdateWorkflowSource(
+            workflowSource.replace(
+                "new RequestOptions({ timeoutMs: deadline.idleProbeMs() })",
+                "new RequestOptions({ timeoutMs: deadline.remainingMs() })",
+            ),
+        )).toThrow(/idle probe/i);
+        expect(() => expectResumeUpdateWorkflowSource(
+            workflowSource.replaceAll(
+                "beginExclusive: savedOffset",
+                "beginExclusive: ledgerEnd.offset",
+            ),
+        )).toThrow(/saved offset/i);
+        expect(() => expectResumeUpdateWorkflowSource(
+            workflowSource.replace(
+                "reject: response => rejectPreOffsetContract(response, preContract.contractId)",
+                "reject: () => undefined",
+            ),
+        )).toThrow(/pre-offset replay rejection/i);
+        expect(() => expectResumeUpdateWorkflowSource(
+            workflowSource.replace(
+                "dependencies.logger.log(`Update ID: ${matched.updateId}`);",
+                "dependencies.logger.log(\"Update observed\");",
+            ),
+        )).toThrow(/update-id output/i);
     });
 
     it("queries the exact created Message with a generated active-contract request", () => {
