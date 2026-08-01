@@ -7,6 +7,7 @@ runExampleAsync("hosted-party", async () => {
 
     try {
         const partyHint = createPartyHint();
+
         const userId = (process.env.SDK_EXAMPLE_USER_ID ?? "ledger-api-user").trim();
 
         if (process.env.SDK_EXAMPLE_USER_ID !== undefined && !userId) {
