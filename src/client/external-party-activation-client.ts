@@ -37,7 +37,9 @@ export class ExternalPartyActivationClient {
             throw new Error(
                 `External party activation timeout must be greater than zero, received ${request.activationTimeoutMs}.`,
             );
-        } else if (request.pollIntervalMs < 0) {
+        }
+
+        if (request.pollIntervalMs < 0) {
             throw new Error(
                 `External party activation poll interval must be zero or greater, received ${request.pollIntervalMs}.`,
             );
@@ -54,7 +56,9 @@ export class ExternalPartyActivationClient {
                 initialState.active.context,
                 initialState.active.mapping,
             );
-        } else if (initialState.proposal === undefined) {
+        }
+
+        if (initialState.proposal === undefined) {
             throw new Error(
                 `External party activation did not find an active or proposed PartyToParticipant mapping for '${request.partyId}'.`,
             );
