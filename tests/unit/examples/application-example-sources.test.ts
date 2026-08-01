@@ -116,7 +116,9 @@ describe("application example source contracts", () => {
 
         const submit = source.indexOf("submitAndWaitForTransactionAsync");
 
-        expectStandaloneCleanup(source);
+        expect(source).toMatch(
+            /const\s+client\s*=\s*createExampleClient\(\);/,
+        );
         expect(source).toMatch(getLedgerEndRequest);
         expect(source).toMatch(updateStreamRequest);
         expect(source).toMatch(
@@ -134,10 +136,18 @@ describe("application example source contracts", () => {
         expect(source).toContain("Offset: ${matched.offset}");
         expect(source).toContain("Created contract ID: ${matched.contractId}");
         expect(source).toMatch(
-            /finally\s*\{[\s\S]*?await\s+iterator\.return\?\.\(\);[\s\S]*?\}/s,
+            /finally\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*iterator\.return\?\.\(\),\s*innerPrimaryFailed,\s*\);\s*\}/s,
         );
-        expect(source).toMatch(/let\s+didThrow\s*=\s*false;/);
-        expect(source).toMatch(/if\s*\(\s*!didThrow\s*\)\s*\{/);
+        expect(source).toMatch(
+            /finally\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*outerPrimaryFailed,\s*\);\s*\}/s,
+        );
+        expect(source).toMatch(/let\s+innerPrimaryFailed\s*=\s*false;/);
+        expect(source).toMatch(/let\s+outerPrimaryFailed\s*=\s*false;/);
+        expect(source).toMatch(
+            /catch\s*\(error\)\s*\{\s*outerPrimaryFailed\s*=\s*true;\s*throw\s+mapUpdateStreamError\(error\);\s*\}/s,
+        );
+        expect(source).toContain("cleanupWithoutMaskingAsync");
+        expect(source).toContain("mapUpdateStreamError");
         expect(source).toContain(
             "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
         );
