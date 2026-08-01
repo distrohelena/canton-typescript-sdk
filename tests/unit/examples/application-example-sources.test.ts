@@ -139,16 +139,19 @@ describe("application example source contracts", () => {
             /void\s+firstUpdatePromise\.catch\(\(\)\s*=>\s*undefined\);/,
         );
         expect(source).toMatch(
-            /cancelAsync:\s*\(\)\s*=>\s*\{\s*clientDisposalStarted\s*=\s*true;\s*return\s+client\.disposeAsync\(\);\s*\}/s,
+            /const\s+clientDisposal\s*=\s*createClientDisposalLifecycle\(\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*\);/s,
         );
         expect(source).toMatch(/let\s+outerPrimaryFailed\s*=\s*false;/);
         expect(source).toMatch(
             /catch\s*\(error\)\s*\{\s*outerPrimaryFailed\s*=\s*true;\s*throw\s+error;\s*\}/s,
         );
         expect(source).toMatch(
-            /if\s*\(\s*!clientDisposalStarted\s*\)\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*outerPrimaryFailed,\s*\);\s*\}/s,
+            /cancelAsync:\s*clientDisposal\.startDisposalAsync,/,
         );
-        expect(source).toContain("cleanupWithoutMaskingAsync");
+        expect(source).toMatch(
+            /finally\s*\{\s*await\s+clientDisposal\.disposeUnlessStartedAsync\(outerPrimaryFailed\);\s*\}/s,
+        );
+        expect(source).toContain("createClientDisposalLifecycle");
         expect(source).toContain("submitAndMatchUpdateAsync");
         expect(source).toContain(
             "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",

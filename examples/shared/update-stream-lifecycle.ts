@@ -27,6 +27,33 @@ export async function cleanupWithoutMaskingAsync(
     }
 }
 
+export function createClientDisposalLifecycle(
+    disposeAsync: () => PromiseLike<unknown> | undefined,
+): {
+    readonly startDisposalAsync: () => Promise<void>;
+    readonly disposeUnlessStartedAsync: (primaryFailed: boolean) => Promise<void>;
+} {
+    let disposalStarted = false;
+
+    const startDisposalAsync = async (): Promise<void> => {
+        disposalStarted = true;
+
+        await disposeAsync();
+    };
+
+    return {
+        startDisposalAsync,
+        disposeUnlessStartedAsync: async primaryFailed => {
+            if (!disposalStarted) {
+                await cleanupWithoutMaskingAsync(
+                    startDisposalAsync,
+                    primaryFailed,
+                );
+            }
+        },
+    };
+}
+
 export async function submitAndMatchUpdateAsync<TUpdate, TTarget, TMatch>(init: {
     readonly iterator: AsyncIterator<TUpdate>;
     readonly firstNextPromise: Promise<IteratorResult<TUpdate>>;

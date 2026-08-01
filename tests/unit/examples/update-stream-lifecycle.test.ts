@@ -2,6 +2,7 @@ import { GrpcTransportError } from "@distrohelena/canton-typescript-sdk";
 import { describe, expect, it } from "vitest";
 import {
     cleanupWithoutMaskingAsync,
+    createClientDisposalLifecycle,
     mapUpdateStreamError,
     submitAndMatchUpdateAsync,
 } from "../../../examples/shared/update-stream-lifecycle.js";
@@ -126,6 +127,12 @@ describe("update stream lifecycle", () => {
 
         const cancellationFailure = new Error("cancellation failed");
 
+        const clientDisposal = createClientDisposalLifecycle(async () => {
+            events.push("dispose");
+
+            throw cancellationFailure;
+        });
+
         const iterator = createIterator({
             next: () => first.promise,
             onReturn: async () => {
@@ -149,11 +156,15 @@ describe("update stream lifecycle", () => {
                 cancelAsync: async () => {
                     events.push("cancel");
 
-                    throw cancellationFailure;
+                    await clientDisposal.startDisposalAsync();
                 },
             }),
         ).rejects.toBe(submissionFailure);
-        expect(events).toEqual(["submit", "cancel", "return"]);
+
+        await expect(
+            clientDisposal.disposeUnlessStartedAsync(true),
+        ).resolves.toBeUndefined();
+        expect(events).toEqual(["submit", "cancel", "dispose", "return"]);
 
         first.reject(new Error("late stream failure"));
         await Promise.resolve();

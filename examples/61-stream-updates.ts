@@ -16,7 +16,7 @@ import {
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 import {
-    cleanupWithoutMaskingAsync,
+    createClientDisposalLifecycle,
     submitAndMatchUpdateAsync,
 } from "./shared/update-stream-lifecycle.js";
 
@@ -25,7 +25,9 @@ runExampleAsync("stream-updates", async () => {
 
     let outerPrimaryFailed = false;
 
-    let clientDisposalStarted = false;
+    const clientDisposal = createClientDisposalLifecycle(
+        () => client.disposeAsync(),
+    );
 
     try {
         const fixture = await loadExampleApplicationFixtureAsync();
@@ -83,11 +85,7 @@ runExampleAsync("stream-updates", async () => {
             },
             match: (response, contractId) =>
                 matchCreatedMessageUpdate({ response, contractId }),
-            cancelAsync: () => {
-                clientDisposalStarted = true;
-
-                return client.disposeAsync();
-            },
+            cancelAsync: clientDisposal.startDisposalAsync,
         });
 
         console.log(`Update ID: ${matched.updateId}`);
@@ -98,11 +96,6 @@ runExampleAsync("stream-updates", async () => {
 
         throw error;
     } finally {
-        if (!clientDisposalStarted) {
-            await cleanupWithoutMaskingAsync(
-                () => client.disposeAsync(),
-                outerPrimaryFailed,
-            );
-        }
+        await clientDisposal.disposeUnlessStartedAsync(outerPrimaryFailed);
     }
 });
