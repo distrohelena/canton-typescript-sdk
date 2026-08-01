@@ -57,18 +57,25 @@ When `commandId` is absent, the SDK retains its current generated-UUID
 behavior. When `deduplicationPeriod` is absent, the SDK leaves the period unset
 and lets Canton apply its normal behavior.
 
-Validation will reject blank command IDs, non-positive or unsafe-integer
-duration seconds, blank offsets, and malformed union values before transport
-I/O. The SDK will define the union as a public transport-independent type; the
-examples will not expose generated protobuf duration types.
+Validation will require command IDs to be LedgerStrings: 1 through 255
+characters matching `[A-Za-z0-9#:\-_/ ]+`. It will reject non-positive or
+unsafe-integer duration seconds, malformed union values, and offsets that are
+not canonical unsigned decimal `int64` strings in the inclusive range
+`0..9223372036854775807` before transport I/O. The SDK intentionally exposes
+only positive duration seconds even though the wire type can encode zero. It
+defines the union as a public transport-independent type; the examples do not
+expose generated protobuf duration types.
 
 The normal gRPC command mapper will forward both controls into `Commands`.
 Interactive prepare will use the caller's command ID when present, and
-interactive execute will forward the deduplication period. The JSON mapper must
-first be checked against the supported JSON Ledger API request schema. It will
-either forward the fields faithfully or reject the unsupported option with a
-clear transport error. It must never replace a caller-provided command ID or
-silently ignore deduplication.
+interactive execute will forward the deduplication period. Normal submission
+accepts offset `0` as participant begin, but interactive execute requires a
+positive offset. The interactive pipeline therefore rejects offset `0` with a
+`ValidationError` before calling its transport. The JSON mapper must first be
+checked against the supported JSON Ledger API request schema. It will either
+forward the fields faithfully or reject an unsupported deduplication option
+with `TransportError` before HTTP I/O. It must never replace a caller-provided
+command ID or silently ignore deduplication.
 
 Mapper tests will cover the generated default, explicit command ID, duration,
 offset, validation failures, normal submission, transaction submission, and
@@ -112,14 +119,19 @@ duplicate rejection is a valid safe-retry outcome.
 
 The example creates a pre-offset contract with a unique marker, reads and saves
 the ledger end, and opens an update stream beginning exclusively after that
-offset. With no post-offset target submitted yet, the first bounded wait must
-time out and dispose of the stream cleanly.
+offset. It computes one absolute deadline at startup. The idle probe receives
+`min(2_000 ms, floor(SDK_EXAMPLE_TIMEOUT_MS / 4))`, with a minimum of 1 ms, as
+its sub-budget. With no post-offset target submitted yet, that probe must time
+out and dispose of the stream cleanly without consuming a fresh overall
+timeout.
 
 It then creates a second, post-offset contract and opens a fresh stream from
-the saved offset. The resumed stream may contain unrelated updates, but it must
-not contain the pre-offset contract. It must eventually observe the exact
-post-offset contract and return a non-empty update ID and offset before the
-overall deadline.
+the saved offset. Before every submission, stream read, or cleanup operation,
+the helper computes `deadline - now` and passes that remaining duration through
+`RequestOptions` or the stream lifecycle helper. The resumed stream may contain
+unrelated updates, but it must not contain the pre-offset contract. It must
+eventually observe the exact post-offset contract and return a non-empty update
+ID and offset before the original overall deadline.
 
 The shared lifecycle helper owns lazy-stream startup, timeout, cancellation,
 pending-iterator rejection observation, and client disposal. Cleanup failures
@@ -185,7 +197,9 @@ assertion inputs.
 Unexpected errors propagate through the existing top-level example runner.
 Every client and stream is disposed in `finally`. Each example uses the common
 `SDK_EXAMPLE_TIMEOUT_MS` deadline, and pagination or retry loops share one
-overall deadline rather than resetting time per request.
+absolute deadline rather than resetting time per request. Helpers accept either
+that deadline or an explicit remaining budget; they do not create a new full
+timeout after the idle probe.
 
 Examples must reject empty IDs, offsets, payloads, and version strings. A
 duplicate page token, changed ACS snapshot offset, ended stream, repeated
@@ -195,14 +209,17 @@ unexpected event, or cleanup path that masks a primary error is a hard failure.
 
 Unit and source-contract tests will cover:
 
-- `SubmitCommandRequest` validation and defaults;
+- `SubmitCommandRequest` LedgerString, canonical `int64` offset, duration, and
+  default validation;
 - gRPC, JSON, transaction, and interactive mapper behavior;
-- duration and offset deduplication mapping;
+- duration and offset deduplication mapping, including normal offset `0` and
+  interactive pre-I/O rejection of offset `0`;
 - atomic-response archive/create extraction;
 - run-scoped ACS pagination and exact cardinality;
 - structured duplicate, invalid-choice, and stale-contract classification;
 - compatibility selection for every observed 3.5.7/3.5.8 outcome;
-- timeout, resume offset, cancellation, and iterator cleanup;
+- idle-probe sub-budget, remaining-overall-budget propagation, resume offset,
+  cancellation, and iterator cleanup;
 - each script's advertised success, negative path, proof, and bounded cleanup.
 
 Live acceptance will run the same final tree against exact Participant 3.5.7
