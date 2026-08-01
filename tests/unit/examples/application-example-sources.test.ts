@@ -295,6 +295,17 @@ describe("application example source contracts", () => {
         );
     });
 
+    it("resumes an update stream from the saved post-pre-contract ledger end", () => {
+        const source = readExampleSource("92-resume-update-stream.ts");
+
+        expectStandaloneCleanup(source);
+        expect(source).toMatch(
+            /runResumeUpdateStreamWorkflowAsync\(\s*\{\s*client,\s*\.\.\.resumeUpdateStreamWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\);/s,
+        );
+        expect(source).not.toMatch(/\b(?:sleep|setTimeout|polling)\b/i);
+        expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+    });
+
     it("queries the exact created Message with a generated active-contract request", () => {
         const source = readExampleSource("60-query-active-contracts.ts");
 
