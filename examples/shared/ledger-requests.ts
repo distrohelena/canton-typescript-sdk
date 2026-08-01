@@ -152,12 +152,23 @@ export async function findActiveMessageAcrossPagesAsync(init: {
 
         const response = await init.readPageAsync(request, remainingTimeoutMs);
 
-        if (
-            snapshotOffset !== undefined
-            && response.activeAtOffset !== snapshotOffset
-        ) {
+        if (snapshotOffset === undefined) {
+            snapshotOffset = response.activeAtOffset;
+        } else if (response.activeAtOffset !== snapshotOffset) {
             throw new Error(
                 "An active-contract page returned a different snapshot offset.",
+            );
+        }
+
+        const nextPageToken = response.nextPageToken;
+
+        if (
+            nextPageToken !== undefined
+            && nextPageToken.length > 0
+            && !snapshotOffset?.trim()
+        ) {
+            throw new Error(
+                "A paginated active-contract response must include a non-empty stable snapshot offset.",
             );
         }
 
@@ -168,11 +179,7 @@ export async function findActiveMessageAcrossPagesAsync(init: {
 
         if (message !== undefined) {
             return message;
-        }
-
-        const nextPageToken = response.nextPageToken;
-
-        if (nextPageToken === undefined || nextPageToken.length === 0) {
+        } else if (nextPageToken === undefined || nextPageToken.length === 0) {
             return undefined;
         }
 
@@ -185,7 +192,6 @@ export async function findActiveMessageAcrossPagesAsync(init: {
         }
 
         seenPageTokens.add(pageTokenKey);
-        snapshotOffset ??= response.activeAtOffset;
         request = ledgerApiV2.GetActiveContractsPageRequest.create({
             activeAtOffset: snapshotOffset,
             eventFormat: init.request.eventFormat,

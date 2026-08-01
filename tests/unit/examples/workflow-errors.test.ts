@@ -76,12 +76,44 @@ describe("classifyWorkflowFailure", () => {
         ).toThrow(missingStatus);
     });
 
-    it("requires the structured gRPC operation selected for command submission", () => {
+    it("rejects a structured error from a different gRPC service", () => {
         const error = grpcError({
             grpcCode: "INVALID_ARGUMENT",
             statusCode: 3,
             serviceName: "com.daml.ledger.api.v2.StateService",
-            methodName: "GetActiveContracts",
+        });
+
+        expect(() =>
+            classifyWorkflowFailure({
+                error,
+                kind: "invalidChoice",
+                operation: "commandSubmission",
+                compatibility,
+            }),
+        ).toThrow(error);
+    });
+
+    it("rejects a structured error from a different gRPC method", () => {
+        const error = grpcError({
+            grpcCode: "INVALID_ARGUMENT",
+            statusCode: 3,
+            methodName: "SubmitAndWait",
+        });
+
+        expect(() =>
+            classifyWorkflowFailure({
+                error,
+                kind: "invalidChoice",
+                operation: "commandSubmission",
+                compatibility,
+            }),
+        ).toThrow(error);
+    });
+
+    it("rejects a gRPC code whose decoded structured status code disagrees", () => {
+        const error = grpcError({
+            grpcCode: "INVALID_ARGUMENT",
+            statusCode: 6,
         });
 
         expect(() =>
