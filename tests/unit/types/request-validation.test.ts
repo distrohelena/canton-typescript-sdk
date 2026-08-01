@@ -106,7 +106,16 @@ describe("request validation", () => {
         },
     );
 
-    it.each(["", "00", "+1", "-1", "abc", "9223372036854775808"])(
+    it.each([
+        "",
+        "00",
+        "+1",
+        "-1",
+        "abc",
+        "9223372036854775808",
+        "92233720368547758070",
+        "1".repeat(100),
+    ])(
         "rejects invalid offset deduplication period: %s",
         (offset) => {
             expect(

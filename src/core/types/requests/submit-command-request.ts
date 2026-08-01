@@ -91,6 +91,7 @@ function freezeDeduplicationPeriod(
         if (
             typeof value.offset !== "string" ||
             !canonicalOffsetPattern.test(value.offset) ||
+            value.offset.length > maximumInt64Offset.length ||
             (value.offset.length === maximumInt64Offset.length &&
                 value.offset > maximumInt64Offset)
         ) {
