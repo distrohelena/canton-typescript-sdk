@@ -114,6 +114,7 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
     expect(source).toMatch(/extractReplacementContracts\(/);
     expect(source).toMatch(/assertMessageContractAbsent\(/);
     expect(source).toMatch(/assertExactlyOneActiveMessage\(/);
+    expect(source).toMatch(/assertExpectedReplacementPayload\(\s*\{/s);
     expect(source).toMatch(/collectActiveMessagesAcrossPagesAsync\(/);
     expect(source).toMatch(/classifyWorkflowFailure\(/);
     expect(source).toMatch(/kind:\s*"staleContract"/);

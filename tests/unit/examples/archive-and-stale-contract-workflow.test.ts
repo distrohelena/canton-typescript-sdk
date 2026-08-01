@@ -97,6 +97,17 @@ describe("archive and stale-contract workflow", () => {
         ).rejects.toThrow("exact created contract ID");
     });
 
+    it.each(["sender", "recipient"] as const)(
+        "rejects an ACS replacement with a mismatched %s party despite exact ID and text",
+        async replacementPartyMismatch => {
+            await expect(
+                runArchiveAndStaleContractWorkflowAsync(
+                    createDependencies({ replacementPartyMismatch }),
+                ),
+            ).rejects.toThrow("exact replacement payload");
+        },
+    );
+
     it("warns when a fallback party and durable ledger state are retained", async () => {
         const warnings: string[] = [];
 
@@ -184,6 +195,7 @@ function createDependencies(init: {
     readonly originalStillActive?: boolean;
     readonly duplicateReplacement?: boolean;
     readonly wrongReplacementId?: boolean;
+    readonly replacementPartyMismatch?: "sender" | "recipient";
     readonly allocatedParty?: boolean;
     readonly warnings?: string[];
 }): ArchiveAndStaleContractWorkflowDependencies {
@@ -323,14 +335,20 @@ function replacementResponse(trace: string[]) {
     ]; } };
 }
 
-function activeContractResponse(contractId: string, text: string): ledgerApiV2.GetActiveContractsResponse {
-    return ledgerApiV2.GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: ledgerApiV2.ActiveContract.create({ createdEvent: ledgerApiV2.CreatedEvent.create({ contractId, createArguments: ledgerApiV2.Record.create({ fields: [{ label: "text", value: { sum: { oneofKind: "text", text } } }] }) }) }) } });
+function activeContractResponse(
+    contractId: string,
+    text: string,
+    sender?: string,
+    recipient?: string,
+): ledgerApiV2.GetActiveContractsResponse {
+    return ledgerApiV2.GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: ledgerApiV2.ActiveContract.create({ createdEvent: ledgerApiV2.CreatedEvent.create({ contractId, createArguments: messageArguments(text, sender, recipient) }) }) } });
 }
 
 function activeContractsForSecondPage(init: {
     readonly originalStillActive?: boolean;
     readonly duplicateReplacement?: boolean;
     readonly wrongReplacementId?: boolean;
+    readonly replacementPartyMismatch?: "sender" | "recipient";
 }): ledgerApiV2.GetActiveContractsResponse[] {
     const replacement = activeContractResponse(
         "#replacement",
@@ -352,14 +370,31 @@ function activeContractsForSecondPage(init: {
             "#wrong-replacement",
             "archive-replacement-run-123",
         )];
+    } else if (init.replacementPartyMismatch !== undefined) {
+        return [activeContractResponse(
+            "#replacement",
+            "archive-replacement-run-123",
+            init.replacementPartyMismatch === "sender" ? "Bob::1" : "Alice::1",
+            init.replacementPartyMismatch === "recipient" ? "Bob::1" : "Alice::1",
+        )];
     }
 
     return [replacement];
 }
 
-function messageArguments(text: string): ledgerApiV2.Record {
+function messageArguments(
+    text: string,
+    sender = "Alice::1",
+    recipient = "Alice::1",
+): ledgerApiV2.Record {
     return ledgerApiV2.Record.create({
         fields: [{
+            label: "sender",
+            value: { sum: { oneofKind: "party", party: sender } },
+        }, {
+            label: "recipient",
+            value: { sum: { oneofKind: "party", party: recipient } },
+        }, {
             label: "text",
             value: { sum: { oneofKind: "text", text } },
         }],

@@ -2,6 +2,7 @@ import {
     CantonClient,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
     buildCreateMessageRequest,
     buildReplaceMessageTextRequest,
@@ -185,6 +186,12 @@ export async function runArchiveAndStaleContractWorkflowAsync(
         throw new Error("The active replacement did not retain the exact replacement text.");
     }
 
+    assertExpectedReplacementPayload({
+        createArguments: activeReplacement.createArguments,
+        party: actor.party,
+        text: replacementText,
+    });
+
     const replacementPayload = JSON.stringify(activeReplacement.createArguments);
 
     if (replacementPayload === undefined) {
@@ -238,3 +245,45 @@ export const archiveAndStaleContractWorkflowDefaults = {
     createDeadline: createWorkflowDeadline,
     timeoutMs: exampleTimeoutMs,
 };
+
+function assertExpectedReplacementPayload(init: {
+    readonly createArguments: unknown;
+    readonly party: string;
+    readonly text: string;
+}): void {
+    if (!ledgerApiV2.Record.is(init.createArguments)) {
+        throw new Error("The active replacement did not contain an exact replacement payload record.");
+    }
+
+    const expectedFields = [
+        { label: "sender", kind: "party", value: init.party },
+        { label: "recipient", kind: "party", value: init.party },
+        { label: "text", kind: "text", value: init.text },
+    ] as const;
+
+    if (init.createArguments.fields.length !== expectedFields.length) {
+        throw new Error("The active replacement did not contain the exact replacement payload fields.");
+    }
+
+    for (const expected of expectedFields) {
+        const field = init.createArguments.fields.find(
+            candidate => candidate.label === expected.label,
+        );
+
+        if (field?.value === undefined) {
+            throw new Error("The active replacement did not contain the exact replacement payload.");
+        } else if (expected.kind === "party") {
+            if (
+                field.value.sum.oneofKind !== "party"
+                || field.value.sum.party !== expected.value
+            ) {
+                throw new Error("The active replacement did not contain the exact replacement payload.");
+            }
+        } else if (
+            field.value.sum.oneofKind !== "text"
+            || field.value.sum.text !== expected.value
+        ) {
+            throw new Error("The active replacement did not contain the exact replacement payload.");
+        }
+    }
+}
