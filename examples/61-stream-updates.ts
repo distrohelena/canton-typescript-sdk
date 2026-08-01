@@ -17,13 +17,15 @@ import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 import {
     cleanupWithoutMaskingAsync,
-    mapUpdateStreamError,
+    submitAndMatchUpdateAsync,
 } from "./shared/update-stream-lifecycle.js";
 
 runExampleAsync("stream-updates", async () => {
     const client = createExampleClient();
 
     let outerPrimaryFailed = false;
+
+    let clientDisposalStarted = false;
 
     try {
         const fixture = await loadExampleApplicationFixtureAsync();
@@ -62,62 +64,45 @@ runExampleAsync("stream-updates", async () => {
 
         const firstUpdatePromise = iterator.next();
 
-        let innerPrimaryFailed = false;
+        void firstUpdatePromise.catch(() => undefined);
 
-        try {
-            const createResponse =
-                await client.commandService.submitAndWaitForTransactionAsync(
-                    buildCreateMessageRequest({
-                        party: actor.party,
-                        templateId: fixture.templateId,
-                        text: "Hello from the Canton TypeScript SDK",
-                    }),
-                );
-
-            const created = extractCreatedContract(createResponse);
-
-            let next = await firstUpdatePromise;
-
-            for (;;) {
-                if (next.done) {
-                    throw new Error(
-                        `The update stream ended before Message '${created.contractId}' was observed.`,
+        const matched = await submitAndMatchUpdateAsync({
+            iterator,
+            firstNextPromise: firstUpdatePromise,
+            submitAsync: async () => {
+                const createResponse =
+                    await client.commandService.submitAndWaitForTransactionAsync(
+                        buildCreateMessageRequest({
+                            party: actor.party,
+                            templateId: fixture.templateId,
+                            text: "Hello from the Canton TypeScript SDK",
+                        }),
                     );
-                }
 
-                const matched = matchCreatedMessageUpdate({
-                    response: next.value,
-                    contractId: created.contractId,
-                });
+                return extractCreatedContract(createResponse).contractId;
+            },
+            match: (response, contractId) =>
+                matchCreatedMessageUpdate({ response, contractId }),
+            cancelAsync: () => {
+                clientDisposalStarted = true;
 
-                if (matched !== undefined) {
-                    console.log(`Update ID: ${matched.updateId}`);
-                    console.log(`Offset: ${matched.offset}`);
-                    console.log(`Created contract ID: ${matched.contractId}`);
+                return client.disposeAsync();
+            },
+        });
 
-                    break;
-                }
-
-                next = await iterator.next();
-            }
-        } catch (error) {
-            innerPrimaryFailed = true;
-
-            throw error;
-        } finally {
-            await cleanupWithoutMaskingAsync(
-                () => iterator.return?.(),
-                innerPrimaryFailed,
-            );
-        }
+        console.log(`Update ID: ${matched.updateId}`);
+        console.log(`Offset: ${matched.offset}`);
+        console.log(`Created contract ID: ${matched.contractId}`);
     } catch (error) {
         outerPrimaryFailed = true;
 
-        throw mapUpdateStreamError(error);
+        throw error;
     } finally {
-        await cleanupWithoutMaskingAsync(
-            () => client.disposeAsync(),
-            outerPrimaryFailed,
-        );
+        if (!clientDisposalStarted) {
+            await cleanupWithoutMaskingAsync(
+                () => client.disposeAsync(),
+                outerPrimaryFailed,
+            );
+        }
     }
 });

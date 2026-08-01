@@ -127,27 +127,29 @@ describe("application example source contracts", () => {
         expect(nextBeforeSubmit).toBeGreaterThanOrEqual(0);
         expect(submit).toBeGreaterThan(nextBeforeSubmit);
         expect(source).toMatch(
-            /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
+            /return\s+extractCreatedContract\(createResponse\)\.contractId;/,
         );
         expect(source).toMatch(
-            /matchCreatedMessageUpdate\(\s*\{\s*response:\s*next\.value,\s*contractId:\s*created\.contractId,\s*\}\s*\)/s,
+            /match:\s*\(response,\s*contractId\)\s*=>\s*matchCreatedMessageUpdate\(\s*\{\s*response,\s*contractId\s*\}\s*\)/s,
         );
         expect(source).toContain("Update ID: ${matched.updateId}");
         expect(source).toContain("Offset: ${matched.offset}");
         expect(source).toContain("Created contract ID: ${matched.contractId}");
         expect(source).toMatch(
-            /finally\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*iterator\.return\?\.\(\),\s*innerPrimaryFailed,\s*\);\s*\}/s,
+            /void\s+firstUpdatePromise\.catch\(\(\)\s*=>\s*undefined\);/,
         );
         expect(source).toMatch(
-            /finally\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*outerPrimaryFailed,\s*\);\s*\}/s,
+            /cancelAsync:\s*\(\)\s*=>\s*\{\s*clientDisposalStarted\s*=\s*true;\s*return\s+client\.disposeAsync\(\);\s*\}/s,
         );
-        expect(source).toMatch(/let\s+innerPrimaryFailed\s*=\s*false;/);
         expect(source).toMatch(/let\s+outerPrimaryFailed\s*=\s*false;/);
         expect(source).toMatch(
-            /catch\s*\(error\)\s*\{\s*outerPrimaryFailed\s*=\s*true;\s*throw\s+mapUpdateStreamError\(error\);\s*\}/s,
+            /catch\s*\(error\)\s*\{\s*outerPrimaryFailed\s*=\s*true;\s*throw\s+error;\s*\}/s,
+        );
+        expect(source).toMatch(
+            /if\s*\(\s*!clientDisposalStarted\s*\)\s*\{\s*await\s+cleanupWithoutMaskingAsync\(\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*outerPrimaryFailed,\s*\);\s*\}/s,
         );
         expect(source).toContain("cleanupWithoutMaskingAsync");
-        expect(source).toContain("mapUpdateStreamError");
+        expect(source).toContain("submitAndMatchUpdateAsync");
         expect(source).toContain(
             "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
         );
