@@ -157,11 +157,11 @@ its SHA-256 is
 `307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29`.
 
 The examples and their DAR are repository-only and excluded from the npm
-tarball. Development targets are Participant 3.5.7 and the isolated
-[Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar); acceptance
-will verify this same implementation on both. These newly added application
-examples have not yet been live-tested. The sidecar launcher prints the
-`SDK_EXAMPLE_*` exports needed to run them against the sidecar.
+tarball. They were developed and live-tested against Participant 3.5.7, then
+live-tested unchanged against the isolated
+[Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar). The
+sidecar launcher prints the `SDK_EXAMPLE_*` exports needed to run them against
+the sidecar.
 
 ## Localnet launchers
 
