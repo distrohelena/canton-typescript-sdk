@@ -59,6 +59,38 @@ describe("application example ledger requests", () => {
         ).toEqual(createdEvent);
     });
 
+    it("does not match whitespace-only requested or created contract IDs", () => {
+        const createdEvent = ledgerApiV2.CreatedEvent.create({
+            contractId: "#message",
+        });
+
+        const whitespaceCreatedEvent = ledgerApiV2.CreatedEvent.create({
+            contractId: " \t ",
+        });
+
+        const activeContracts = [
+            ledgerApiV2.GetActiveContractsResponse.create({
+                contractEntry: {
+                    oneofKind: "activeContract",
+                    activeContract: ledgerApiV2.ActiveContract.create({
+                        createdEvent,
+                    }),
+                },
+            }),
+            ledgerApiV2.GetActiveContractsResponse.create({
+                contractEntry: {
+                    oneofKind: "activeContract",
+                    activeContract: ledgerApiV2.ActiveContract.create({
+                        createdEvent: whitespaceCreatedEvent,
+                    }),
+                },
+            }),
+        ];
+
+        expect(findActiveMessage(activeContracts, "  ")).toBeUndefined();
+        expect(findActiveMessage(activeContracts, " \t ")).toBeUndefined();
+    });
+
     it("returns undefined for absent, non-active, incomplete, empty, and different contracts", () => {
         const otherCreatedEvent = ledgerApiV2.CreatedEvent.create({
             contractId: "#other",

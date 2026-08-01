@@ -36,7 +36,7 @@ export function findActiveMessage(
     activeContracts: readonly unknown[],
     contractId: string,
 ): ledgerApiV2.CreatedEvent | undefined {
-    if (!contractId) {
+    if (contractId.trim().length === 0) {
         return undefined;
     }
 
@@ -58,7 +58,7 @@ export function findActiveMessage(
 
         if (
             !ledgerApiV2.CreatedEvent.is(createdEvent)
-            || !createdEvent.contractId
+            || createdEvent.contractId.trim().length === 0
             || createdEvent.contractId !== contractId
         ) {
             continue;
