@@ -1,5 +1,5 @@
 import { GetPartiesRequest } from "../../../core/types/requests/get-parties-request.js";
-import { CreatePartyRequest } from "../../../core/types/requests/create-party-request.js";
+import { AllocatePartyRequest as SdkAllocatePartyRequest } from "../../../core/types/requests/allocate-party-request.js";
 import { ListPartiesRequest } from "../../../core/types/requests/list-parties-request.js";
 import { PartyDetails as SdkPartyDetails } from "../../../core/types/party-details.js";
 import { CreatePartyResponse } from "../../../core/types/responses/create-party-response.js";
@@ -14,13 +14,13 @@ import {
 } from "../generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
 
 export function mapGrpcCreatePartyRequest(
-    request: CreatePartyRequest,
+    request: SdkAllocatePartyRequest,
 ): AllocatePartyRequest {
     return {
         partyIdHint: request.partyIdHint ?? "",
         identityProviderId: "",
         synchronizerId: "",
-        userId: "",
+        userId: request.userId ?? "",
     };
 }
 

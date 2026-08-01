@@ -19,10 +19,12 @@ export function mapJsonAllocatePartyRequest(
     request: AllocatePartyRequest,
 ): {
     partyIdHint?: string;
+    userId?: string;
     localMetadata?: { attributes: Record<string, string> };
 } {
     return {
         partyIdHint: request.partyIdHint,
+        userId: request.userId,
         localMetadata:
             request.displayName === undefined
                 ? undefined

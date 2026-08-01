@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    AllocatePartyRequest as SdkAllocatePartyRequest,
     ExternalPartyCryptoKeyFormat,
     ExternalPartyOnboardingTransaction,
     ExternalPartySigningKeySpec,
@@ -17,6 +18,34 @@ import { PartyManagementServiceClient } from "../../../src/services/party-manage
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
 
 describe("PartyManagementServiceClient with gRPC transport", () => {
+    it("forwards the allocated party user to grpc", async () => {
+        let capturedRequest: unknown;
+
+        const transport = new GrpcTransport(
+            createFakeGrpcOperations({
+                createPartyAsync: async request => {
+                    capturedRequest = request;
+
+                    return { partyDetails: { party: "Alice" } };
+                },
+            }),
+        );
+
+        const client = new PartyManagementServiceClient(transport);
+
+        await client.allocatePartyAsync(
+            new SdkAllocatePartyRequest({
+                partyIdHint: "Alice",
+                userId: "ledger-api-user",
+            }),
+        );
+
+        expect(capturedRequest).toMatchObject({
+            partyIdHint: "Alice",
+            userId: "ledger-api-user",
+        });
+    });
+
     it("delegates listKnownParties through grpc operations", async () => {
         let capturedRequest: unknown;
 

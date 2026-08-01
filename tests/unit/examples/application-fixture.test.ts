@@ -360,6 +360,7 @@ describe("resolveExamplePartyAsync", () => {
         expect(request.partyIdHint).toMatch(
             /^application-example-\d+-[a-f0-9]{8}$/,
         );
+        expect(request.userId).toBe("ledger-api-user");
     });
 
     it("rejects an empty party returned by allocation", async () => {

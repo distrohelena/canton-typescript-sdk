@@ -180,10 +180,13 @@ export async function resolveExamplePartyAsync(
 
     const partyHint = createPartyHint({ prefix: "application-example" });
 
+    const userId = environment.SDK_EXAMPLE_USER_ID?.trim() || "ledger-api-user";
+
     const response = await client.partyManagementService.allocatePartyAsync(
         new AllocatePartyRequest({
             partyIdHint: partyHint,
             displayName: partyHint,
+            userId,
         }),
     );
 
