@@ -7,6 +7,7 @@ import {
     ExerciseCommand,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it, vi } from "vitest";
 import {
     buildCreateMessageRequest,
@@ -15,7 +16,9 @@ import {
     extractCreatedContract,
     extractReplacementContracts,
     loadExampleApplicationFixtureAsync,
+    provePackageVisibility,
     resolveExamplePartyAsync,
+    ensureExampleDarUploadedAsync,
 } from "../../../examples/shared/application-fixture.js";
 
 const EXPECTED_DAR_SHA256 =
@@ -41,6 +44,99 @@ describe("loadExampleApplicationFixtureAsync", () => {
             entityName: "Message",
         });
         expect(fixture.packageIds).toContain(fixture.mainPackageId);
+    });
+});
+
+describe("example application package setup", () => {
+    const mainPackageId = "main";
+
+    it("proves a newly uploaded main package is visible", () => {
+        expect(
+            provePackageVisibility({
+                mainPackageId,
+                before: ["other"],
+                after: ["other", mainPackageId],
+            }),
+        ).toEqual({ alreadyInstalled: false });
+    });
+
+    it("proves an already installed main package remains visible", () => {
+        expect(
+            provePackageVisibility({
+                mainPackageId,
+                before: [mainPackageId],
+                after: [mainPackageId],
+            }),
+        ).toEqual({ alreadyInstalled: true });
+    });
+
+    it("rejects an upload whose main package is not visible", () => {
+        expect(() =>
+            provePackageVisibility({
+                mainPackageId,
+                before: [],
+                after: [],
+            }),
+        ).toThrow(/main.*not visible/i);
+    });
+
+    it("uploads the actual fixture and proves its main package becomes visible", async () => {
+        const fixture = await loadExampleApplicationFixtureAsync();
+
+        const listPackagesAsync = vi
+            .fn()
+            .mockResolvedValueOnce({ packageIds: [] })
+            .mockResolvedValueOnce({ packageIds: [fixture.mainPackageId] });
+
+        const uploadDarFileAsync = vi.fn().mockResolvedValue({});
+
+        const client = {
+            packageService: { listPackagesAsync },
+            packageManagementService: { uploadDarFileAsync },
+        };
+
+        await expect(
+            ensureExampleDarUploadedAsync(client as never, fixture),
+        ).resolves.toEqual({ alreadyInstalled: false });
+        expect(listPackagesAsync).toHaveBeenCalledTimes(2);
+        expect(
+            ledgerApiV2.ListPackagesRequest.is(
+                listPackagesAsync.mock.calls[0]?.[0],
+            ),
+        ).toBe(true);
+        expect(
+            ledgerApiV2.ListPackagesRequest.is(
+                listPackagesAsync.mock.calls[1]?.[0],
+            ),
+        ).toBe(true);
+        expect(uploadDarFileAsync).toHaveBeenCalledOnce();
+
+        const uploadRequest = uploadDarFileAsync.mock.calls[0]?.[0];
+
+        expect(ledgerApiV2.admin.UploadDarFileRequest.is(uploadRequest)).toBe(
+            true,
+        );
+        expect(uploadRequest.darFile).toBe(fixture.darBytes);
+    });
+
+    it("uploads again when the fixture is already installed", async () => {
+        const fixture = await loadExampleApplicationFixtureAsync();
+
+        const listPackagesAsync = vi
+            .fn()
+            .mockResolvedValue({ packageIds: [fixture.mainPackageId] });
+
+        const uploadDarFileAsync = vi.fn().mockResolvedValue({});
+
+        const client = {
+            packageService: { listPackagesAsync },
+            packageManagementService: { uploadDarFileAsync },
+        };
+
+        await expect(
+            ensureExampleDarUploadedAsync(client as never, fixture),
+        ).resolves.toEqual({ alreadyInstalled: true });
+        expect(uploadDarFileAsync).toHaveBeenCalledOnce();
     });
 });
 

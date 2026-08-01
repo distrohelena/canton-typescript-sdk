@@ -14,6 +14,7 @@ import {
     ExerciseCommand,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { createPartyHint } from "./localnet.js";
 
 export const EXAMPLE_DAR_SHA256 =
@@ -33,6 +34,45 @@ export interface ExampleApplicationFixture {
 }
 
 const EXAMPLE_APPLICATION_ID = "canton-typescript-sdk-examples";
+
+export function provePackageVisibility(init: {
+    mainPackageId: string;
+    before: readonly string[];
+    after: readonly string[];
+}): { alreadyInstalled: boolean } {
+    if (!init.after.includes(init.mainPackageId)) {
+        throw new Error(
+            `The main package '${init.mainPackageId}' is not visible after uploading the example DAR.`,
+        );
+    }
+
+    return { alreadyInstalled: init.before.includes(init.mainPackageId) };
+}
+
+export async function ensureExampleDarUploadedAsync(
+    client: Pick<CantonClient, "packageService" | "packageManagementService">,
+    fixture: ExampleApplicationFixture,
+): Promise<{ alreadyInstalled: boolean }> {
+    const before = await client.packageService.listPackagesAsync(
+        ledgerApiV2.ListPackagesRequest.create(),
+    );
+
+    await client.packageManagementService.uploadDarFileAsync(
+        ledgerApiV2.admin.UploadDarFileRequest.create({
+            darFile: fixture.darBytes,
+        }),
+    );
+
+    const after = await client.packageService.listPackagesAsync(
+        ledgerApiV2.ListPackagesRequest.create(),
+    );
+
+    return provePackageVisibility({
+        mainPackageId: fixture.mainPackageId,
+        before: before.packageIds,
+        after: after.packageIds,
+    });
+}
 
 export function buildCreateMessageRequest(init: {
     party: string;

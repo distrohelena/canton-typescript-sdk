@@ -11,6 +11,8 @@ import { comDigitalasset } from "@distrohelena/canton-typescript-sdk/protobuf";
 
 const DEFAULT_TLS_ROOT_CERTIFICATE_PATH = ".generated/localnet-tls/ca.crt";
 
+const DEFAULT_EXAMPLE_TIMEOUT_MS = 30_000;
+
 type ExampleClientInit = {
     environment?: NodeJS.ProcessEnv;
     tls?: boolean;
@@ -85,6 +87,26 @@ export function createExampleClientOptions(
 
 export function createExampleClient(init?: ExampleClientInit): CantonClient {
     return new CantonClient(createExampleClientOptions(init));
+}
+
+export function exampleTimeoutMs(
+    environment: NodeJS.ProcessEnv = process.env,
+): number {
+    const rawTimeout = environment.SDK_EXAMPLE_TIMEOUT_MS;
+
+    if (rawTimeout === undefined) {
+        return DEFAULT_EXAMPLE_TIMEOUT_MS;
+    }
+
+    const timeout = Number(rawTimeout);
+
+    if (!Number.isSafeInteger(timeout) || timeout <= 0) {
+        throw new Error(
+            "SDK_EXAMPLE_TIMEOUT_MS must be a positive integer.",
+        );
+    }
+
+    return timeout;
 }
 
 export function createPartyHint(init: { prefix?: string } = {}): string {

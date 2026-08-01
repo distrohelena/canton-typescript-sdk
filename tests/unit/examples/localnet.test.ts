@@ -11,6 +11,7 @@ import {
     createExampleClientOptions,
     createPartyHint,
     discoverSynchronizerIdAsync,
+    exampleTimeoutMs,
 } from "../../../examples/shared/localnet.js";
 
 const temporaryDirectories: string[] = [];
@@ -45,6 +46,28 @@ afterEach(() => {
 });
 
 describe("localnet example helpers", () => {
+    it("uses the default example timeout when no override is configured", () => {
+        expect(exampleTimeoutMs(environment())).toBe(30_000);
+    });
+
+    it("uses a positive integer timeout override", () => {
+        expect(
+            exampleTimeoutMs(
+                environment({ SDK_EXAMPLE_TIMEOUT_MS: "45000" }),
+            ),
+        ).toBe(45_000);
+    });
+
+    it("rejects invalid example timeout overrides", () => {
+        for (const timeout of ["", "0", "-1", "abc", "1.5"]) {
+            expect(() =>
+                exampleTimeoutMs(
+                    environment({ SDK_EXAMPLE_TIMEOUT_MS: timeout }),
+                ),
+            ).toThrow(/SDK_EXAMPLE_TIMEOUT_MS/);
+        }
+    });
+
     it("creates insecure gRPC options for ordinary localnet examples", () => {
         const options = createExampleClientOptions({ environment: environment() });
 
