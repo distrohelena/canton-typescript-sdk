@@ -107,6 +107,36 @@ function expectResumeUpdateWorkflowSource(source: string): void {
     expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
 }
 
+function expectArchiveAndStaleContractWorkflowSource(source: string): void {
+    expect(source).toMatch(/createWorkflowDeadline/);
+    expect(source).toMatch(/remainingTimeoutMs\s*:\s*\w+\.remainingMs/);
+    expect(source).toMatch(/extractCreatedContract\(/);
+    expect(source).toMatch(/extractReplacementContracts\(/);
+    expect(source).toMatch(/assertMessageContractAbsent\(/);
+    expect(source).toMatch(/assertExactlyOneActiveMessage\(/);
+    expect(source).toMatch(/collectActiveMessagesAcrossPagesAsync\(/);
+    expect(source).toMatch(/classifyWorkflowFailure\(/);
+    expect(source).toMatch(/kind:\s*"staleContract"/);
+    expect(source).toMatch(/archive-create-\$\{\w+\}/);
+    expect(source).toMatch(/archive-replace-\$\{\w+\}/);
+    expect(source).toMatch(/archive-stale-\$\{\w+\}/);
+    expect(source).toMatch(/archivedContractId\s*!==\s*\w+\.contractId/);
+    expect(source).toMatch(/replacementContractId\s*===\s*\w+\.contractId/);
+    expect(source).toContain("archived original unexpectedly succeeded");
+    expect(source).toMatch(/new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*\w+\.remainingMs\(\)\s*\}\s*\)/);
+    expect(source).toContain("Original contract ID:");
+    expect(source).toContain("Replacement contract ID:");
+    expect(source).toContain("Replacement payload:");
+    expect(source).toContain("Replacement text:");
+    expect(source).toContain("Stale failure kind:");
+    expect(source).toContain("Participant version:");
+    expect(source).toContain("Release core:");
+    expect(source).toContain("Compatibility path:");
+    expect(source).not.toMatch(/\b(?:sleep|setTimeout)\b/i);
+    expect(source).not.toMatch(/error\.message|RegExp|match\s*\(/);
+    expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+}
+
 describe("application example source contracts", () => {
     it("exposes the standalone application lifecycle scripts without publishing examples", () => {
         const packageJson = readRootPackageJson();
@@ -339,6 +369,35 @@ describe("application example source contracts", () => {
             /runResumeUpdateStreamStandaloneAsync\(\s*\{\s*disposeAsync:\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*runWorkflowAsync:\s*\(\)\s*=>\s*runResumeUpdateStreamWorkflowAsync\(/s,
         );
         expectResumeUpdateWorkflowSource(workflowSource);
+    });
+
+    it("teaches an exact archived-contract proof and structured stale rejection", () => {
+        const runnerSource = readExampleSource("93-archive-and-stale-contract.ts");
+
+        const workflowSource = readSharedExampleSource(
+            "archive-and-stale-contract-workflow.ts",
+        );
+
+        const standaloneSource = readSharedExampleSource(
+            "archive-and-stale-contract-standalone.ts",
+        );
+
+        expect(runnerSource).toMatch(/createExampleClient\(\)/);
+        expect(runnerSource).toMatch(/runArchiveAndStaleContractStandaloneAsync/);
+        expect(runnerSource).toMatch(/randomBytes\(\d+\)\.toString\("hex"\)/);
+        expect(standaloneSource).toMatch(/createClientDisposalLifecycle/);
+        expect(standaloneSource).toMatch(/disposeUnlessStartedAsync\(primaryFailed\)/);
+        expectArchiveAndStaleContractWorkflowSource(workflowSource);
+
+        expect(() => expectArchiveAndStaleContractWorkflowSource(
+            workflowSource.replaceAll("originalContract", "priorContract"),
+        )).not.toThrow();
+        expect(() => expectArchiveAndStaleContractWorkflowSource(
+            workflowSource.replace("classifyWorkflowFailure(", "classifyUnexpectedFailure("),
+        )).toThrow();
+        expect(() => expectArchiveAndStaleContractWorkflowSource(
+            workflowSource.replace("extractReplacementContracts(", "extractCreatedContract("),
+        )).toThrow();
     });
 
     it("keeps source checks resilient to renaming but rejects idle-budget and saved-offset mutations", () => {
