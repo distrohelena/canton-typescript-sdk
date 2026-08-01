@@ -1,8 +1,21 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
 import {
+    AllocatePartyRequest,
+    CreateCommand,
+    DamlParty,
+    DamlRecord,
+    ExerciseCommand,
+    SubmitCommandRequest,
+} from "@distrohelena/canton-typescript-sdk";
+import { describe, expect, it, vi } from "vitest";
+import {
+    buildCreateMessageRequest,
+    buildReplaceMessageTextRequest,
     EXAMPLE_DAR_SHA256,
+    extractCreatedContract,
+    extractReplacementContracts,
     loadExampleApplicationFixtureAsync,
+    resolveExamplePartyAsync,
 } from "../../../examples/shared/application-fixture.js";
 
 const EXPECTED_DAR_SHA256 =
@@ -28,5 +41,158 @@ describe("loadExampleApplicationFixtureAsync", () => {
             entityName: "Message",
         });
         expect(fixture.packageIds).toContain(fixture.mainPackageId);
+    });
+});
+
+describe("example application command helpers", () => {
+    const party = "Alice::1";
+
+    const templateId = {
+        packageId: "package",
+        moduleName: "DebugPlayground",
+        entityName: "Message",
+    };
+
+    it("builds create and replacement command requests", () => {
+        const create = buildCreateMessageRequest({
+            party,
+            templateId,
+            text: "hello",
+        });
+
+        const replace = buildReplaceMessageTextRequest({
+            party,
+            templateId,
+            contractId: "#original",
+            replacement: "updated",
+        });
+
+        expect(create).toBeInstanceOf(SubmitCommandRequest);
+        expect(create.actAs).toEqual([party]);
+        expect(create.readAs).toEqual([party]);
+        expect(create.command).toBeInstanceOf(CreateCommand);
+        expect((create.command as CreateCommand).createArguments).toEqual(
+            new DamlRecord({
+                sender: new DamlParty(party),
+                recipient: new DamlParty(party),
+                text: "hello",
+            }),
+        );
+
+        expect(replace.command).toBeInstanceOf(ExerciseCommand);
+        expect(replace.command).toMatchObject({
+            contractId: "#original",
+            choice: "ReplaceText",
+            choiceArgument: new DamlRecord({ replacement: "updated" }),
+        });
+    });
+});
+
+describe("transaction event extraction", () => {
+    const originalCreated = {
+        event: {
+            oneofKind: "created",
+            created: { contractId: "#original" },
+        },
+    };
+
+    const originalArchived = {
+        event: {
+            oneofKind: "archived",
+            archived: { contractId: "#original" },
+        },
+    };
+
+    const replacementCreated = {
+        event: {
+            oneofKind: "created",
+            created: { contractId: "#replacement" },
+        },
+    };
+
+    it("extracts created and replacement contract IDs from generated event wrappers", () => {
+        expect(extractCreatedContract({ events: [originalCreated] })).toEqual({
+            contractId: "#original",
+            event: originalCreated.event.created,
+        });
+        expect(
+            extractReplacementContracts({
+                events: [originalArchived, replacementCreated],
+            }),
+        ).toEqual({
+            archivedContractId: "#original",
+            replacementContractId: "#replacement",
+        });
+    });
+
+    it("rejects absent or malformed created contract events", () => {
+        expect(() => extractCreatedContract({ events: [] })).toThrow(
+            /created event/i,
+        );
+        expect(() =>
+            extractCreatedContract({
+                events: [
+                    {
+                        event: {
+                            oneofKind: "created",
+                            created: { contractId: "" },
+                        },
+                    },
+                    {
+                        event: {
+                            oneofKind: "archived",
+                            archived: { contractId: "#original" },
+                        },
+                    },
+                ],
+            }),
+        ).toThrow(/created event/i);
+    });
+});
+
+describe("resolveExamplePartyAsync", () => {
+    it("uses the configured party without allocating one", async () => {
+        const allocatePartyAsync = vi.fn();
+
+        const client = {
+            partyManagementService: { allocatePartyAsync },
+        };
+
+        await expect(
+            resolveExamplePartyAsync(client, {
+                SDK_EXAMPLE_PARTY: " configured::party ",
+            }),
+        ).resolves.toEqual({ party: "configured::party", allocated: false });
+        expect(allocatePartyAsync).not.toHaveBeenCalled();
+    });
+
+    it("allocates a party when no configured party is present", async () => {
+        const allocatePartyAsync = vi.fn().mockResolvedValue({
+            party: "allocated::party",
+        });
+
+        const client = {
+            partyManagementService: { allocatePartyAsync },
+        };
+
+        await expect(resolveExamplePartyAsync(client, {})).resolves.toEqual({
+            party: "allocated::party",
+            allocated: true,
+        });
+        expect(allocatePartyAsync).toHaveBeenCalledWith(
+            expect.any(AllocatePartyRequest),
+        );
+    });
+
+    it("rejects an empty party returned by allocation", async () => {
+        const client = {
+            partyManagementService: {
+                allocatePartyAsync: vi.fn().mockResolvedValue({ party: " " }),
+            },
+        };
+
+        await expect(resolveExamplePartyAsync(client, {})).rejects.toThrow(
+            /empty party/i,
+        );
     });
 });
