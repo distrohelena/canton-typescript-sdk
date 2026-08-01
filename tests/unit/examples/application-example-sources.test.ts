@@ -60,6 +60,20 @@ function expectStandaloneCleanup(source: string): void {
     expect(source).toMatch(runExampleWithCleanup);
 }
 
+function requireSourceMatch(
+    source: string,
+    expression: RegExp,
+    description: string,
+): RegExpMatchArray {
+    const match = source.match(expression);
+
+    if (match === null || match.index === undefined) {
+        throw new Error(`Expected source to contain ${description}.`);
+    }
+
+    return match;
+}
+
 describe("application example source contracts", () => {
     it("exposes the standalone application lifecycle scripts without publishing examples", () => {
         const packageJson = readRootPackageJson();
@@ -181,18 +195,55 @@ describe("application example source contracts", () => {
 
         const compatibility = source.indexOf("readWorkflowCompatibilityAsync(");
 
-        const invalidSubmission = source.indexOf("atomic-invalid-");
+        const invalidSubmission = requireSourceMatch(
+            source,
+            /await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*invalidRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);/s,
+            "the invalid command RPC submission with its own deadline budget",
+        );
 
-        const validSubmission = source.indexOf(
-            "buildCreateAndReplaceMessageTextRequest(",
+        const invalidClassification = requireSourceMatch(
+            source,
+            /invalidChoiceKind\s*=\s*classifyWorkflowFailure\(\s*\{\s*error,\s*kind:\s*"invalidChoice",\s*operation:\s*"commandSubmission",\s*compatibility,\s*\}\s*\);/s,
+            "the structured invalid-choice classification",
+        );
+
+        const validSubmission = requireSourceMatch(
+            source,
+            /const\s+validResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateAndReplaceMessageTextRequest\([\s\S]*?\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);/s,
+            "the valid atomic command RPC submission with its own deadline budget",
         );
 
         expect(deadline).toBeGreaterThan(source.indexOf("loadExampleApplicationFixtureAsync()"));
         expect(ensureDar).toBeGreaterThan(deadline);
         expect(resolveParty).toBeGreaterThan(ensureDar);
         expect(compatibility).toBeGreaterThan(resolveParty);
-        expect(invalidSubmission).toBeGreaterThan(compatibility);
-        expect(validSubmission).toBeGreaterThan(invalidSubmission);
+        expect(invalidSubmission.index).toBeGreaterThan(compatibility);
+        expect(invalidClassification.index).toBeGreaterThan(
+            invalidSubmission.index,
+        );
+        expect(validSubmission.index).toBeGreaterThan(
+            invalidClassification.index,
+        );
+
+        const commandRegion = source.slice(
+            invalidSubmission.index,
+            validSubmission.index + validSubmission[0].length,
+        );
+
+        expect(
+            [
+                ...commandRegion.matchAll(
+                    /client\.commandService\.submitAndWaitForTransactionAsync\(/g,
+                ),
+            ],
+        ).toHaveLength(2);
+        expect(
+            [
+                ...commandRegion.matchAll(
+                    /new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\)/g,
+                ),
+            ],
+        ).toHaveLength(2);
 
         expect(source).toMatch(/randomBytes\(\d+\)\.toString\("hex"\)/);
         expect(source).toContain("atomic-invalid-${runId}");
@@ -201,13 +252,7 @@ describe("application example source contracts", () => {
             /new\s+CreateAndExerciseCommand\(\s*\{[\s\S]*?choice:\s*"UnknownChoice",/s,
         );
         expect(source).toMatch(
-            /classifyWorkflowFailure\(\s*\{\s*error,\s*kind:\s*"invalidChoice",\s*operation:\s*"commandSubmission",\s*compatibility,\s*\}\s*\)/s,
-        );
-        expect(source).toMatch(
             /buildCreateAndReplaceMessageTextRequest\(\s*\{[\s\S]*?text:\s*initialText,[\s\S]*?replacement:\s*replacementText,[\s\S]*?commandId:\s*validCommandId,/s,
-        );
-        expect(source).toMatch(
-            /submitAndWaitForTransactionAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
         );
         expect(source).toMatch(/extractReplacementContracts\(validResponse\)/);
         expect(source).toMatch(
