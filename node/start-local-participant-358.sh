@@ -170,6 +170,10 @@ if [[ "${PARTICIPANT_358_SKIP_SYNCHRONIZER_CONNECT:-0}" != "1" ]]; then
     fi
     sleep 2
   done
+
+  PARTICIPANT_358_LEDGER_ENDPOINT="localhost:$LEDGER_PORT" \
+  PARTICIPANT_358_LEDGER_BEARER_TOKEN="$(cat "$LEDGER_TOKEN_FILE")" \
+    node "$SCRIPT_DIR/participant-358-synchronizer.mjs" ensure-ledger-user-read-rights
 fi
 
 cat <<EOF

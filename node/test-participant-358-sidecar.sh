@@ -10,6 +10,8 @@ STOP_SCRIPT="$REPO_ROOT/node/stop-local-participant-358.sh"
 grep -Fq 'export SDK_EXAMPLE_LEDGER_ENDPOINT=localhost:$LEDGER_PORT' "$START_SCRIPT"
 grep -Fq 'export SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT=localhost:$LEDGER_PORT' "$START_SCRIPT"
 grep -Fq 'export SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT=localhost:$ADMIN_PORT' "$START_SCRIPT"
+grep -Fq 'ensure-ledger-user-read-rights' "$START_SCRIPT"
+grep -Fq 'canReadAsAnyParty' "$REPO_ROOT/node/participant-358-synchronizer.mjs"
 
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT

@@ -6,6 +6,12 @@ import { SynchronizerConnectivityServiceClient } from "../dist/transports/grpc/g
 import { ListRegisteredSynchronizersResponse_Status } from "../dist/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity_service.js";
 import { SequencerConnectionValidation } from "../dist/transports/grpc/generated/canton/com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.js";
 import { VersionServiceClient } from "../dist/transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.client.js";
+import { UserManagementServiceClient } from "../dist/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.client.js";
+import {
+    GrantUserRightsRequest,
+    Right,
+    Right_CanReadAsAnyParty,
+} from "../dist/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 
 function getRequiredEnvironment(name) {
     const value = process.env[name];
@@ -128,6 +134,30 @@ async function readLedgerApiVersion() {
     }
 }
 
+async function ensureLedgerUserReadRights() {
+    const endpoint = getRequiredEnvironment("PARTICIPANT_358_LEDGER_ENDPOINT");
+    const token = process.env.PARTICIPANT_358_LEDGER_BEARER_TOKEN ?? createSharedSecretToken();
+    const userId = process.env.PARTICIPANT_358_LEDGER_USER_ID ?? "ledger-api-user";
+    const { options, transport } = createClient(endpoint, token);
+
+    try {
+        const request = GrantUserRightsRequest.create({
+            userId,
+            rights: [Right.create({
+                kind: {
+                    oneofKind: "canReadAsAnyParty",
+                    canReadAsAnyParty: Right_CanReadAsAnyParty.create(),
+                },
+            })],
+        });
+
+        await new UserManagementServiceClient(transport)
+            .grantUserRights(request, options).response;
+    } finally {
+        transport.close();
+    }
+}
+
 const command = process.argv[2];
 if (command === "export") {
     await exportSynchronizerConfig();
@@ -137,6 +167,8 @@ if (command === "export") {
     await readLedgerApiVersion();
 } else if (command === "mint-ledger-token") {
     await writeLedgerToken();
+} else if (command === "ensure-ledger-user-read-rights") {
+    await ensureLedgerUserReadRights();
 } else {
-    throw new Error("Expected 'export', 'connect', 'ledger-api-version', or 'mint-ledger-token'.");
+    throw new Error("Expected 'export', 'connect', 'ledger-api-version', 'mint-ledger-token', or 'ensure-ledger-user-read-rights'.");
 }
