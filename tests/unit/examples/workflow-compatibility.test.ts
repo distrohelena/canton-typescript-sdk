@@ -42,7 +42,7 @@ describe("readWorkflowCompatibilityAsync", () => {
             acceptedGrpcCodes: {
                 invalidChoice: ["INVALID_ARGUMENT"],
                 duplicateCommand: ["ALREADY_EXISTS"],
-                staleContract: ["INVALID_ARGUMENT"],
+                staleContract: ["INVALID_ARGUMENT", "NOT_FOUND"],
             },
         });
         expect(remainingTimeoutMs).toHaveBeenCalledOnce();

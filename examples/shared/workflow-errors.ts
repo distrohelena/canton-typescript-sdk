@@ -16,6 +16,7 @@ export interface WorkflowErrorCompatibility {
 const grpcStatusCodes: Readonly<Record<string, number>> = {
     INVALID_ARGUMENT: 3,
     ALREADY_EXISTS: 6,
+    NOT_FOUND: 5,
 };
 
 const grpcOperations: Readonly<

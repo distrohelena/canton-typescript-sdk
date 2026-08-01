@@ -50,6 +50,28 @@ describe("classifyWorkflowFailure", () => {
         ).toThrow(error);
     });
 
+    it("classifies the observed stale-contract NOT_FOUND status when compatibility selects it", () => {
+        const error = grpcError({
+            grpcCode: "NOT_FOUND",
+            statusCode: 5,
+        });
+
+        expect(
+            classifyWorkflowFailure({
+                error,
+                kind: "staleContract",
+                operation: "commandSubmission",
+                compatibility: {
+                    ...compatibility,
+                    acceptedGrpcCodes: {
+                        ...compatibility.acceptedGrpcCodes,
+                        staleContract: ["NOT_FOUND"],
+                    },
+                },
+            }),
+        ).toBe("staleContract");
+    });
+
     it("rejects unexpected gRPC codes and missing structured status", () => {
         const unexpectedCode = grpcError({
             grpcCode: "INVALID_ARGUMENT",
