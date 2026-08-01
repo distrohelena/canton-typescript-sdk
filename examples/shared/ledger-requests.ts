@@ -219,7 +219,7 @@ function buildMessageEventFormat(init: {
                             oneofKind: "templateFilter",
                             templateFilter: {
                                 templateId: {
-                                    packageId: init.templateId.packageName,
+                                    packageId: `#${init.templateId.packageName}`,
                                     moduleName: init.templateId.moduleName,
                                     entityName: init.templateId.entityName,
                                 },

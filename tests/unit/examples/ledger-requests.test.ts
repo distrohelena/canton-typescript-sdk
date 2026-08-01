@@ -29,7 +29,7 @@ describe("application example ledger requests", () => {
                     oneofKind: "templateFilter",
                     templateFilter: {
                         templateId: {
-                            packageId: "package-name",
+                            packageId: "#package-name",
                             moduleName: "DebugPlayground",
                             entityName: "Message",
                         },
@@ -308,7 +308,7 @@ describe("application example ledger requests", () => {
                                         oneofKind: "templateFilter",
                                         templateFilter: {
                                             templateId: {
-                                                packageId: "package-name",
+                                                packageId: "#package-name",
                                                 moduleName: "DebugPlayground",
                                                 entityName: "Message",
                                             },
