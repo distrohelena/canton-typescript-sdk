@@ -99,6 +99,69 @@ decentralized parties, so the example explicitly calls
 expected participant is hosting the party on the expected synchronizer. That
 aggregate topology check is the same on Participant 3.5.7 and 3.5.8.
 
+## Standalone TypeScript examples
+
+The repository includes runnable TypeScript examples for a local Canton
+participant. Check them before running a lifecycle:
+
+```bash
+npm run examples:check
+```
+
+The setup and party examples are available individually:
+
+```bash
+npm run example:init
+npm run example:tls
+npm run example:jwt
+npm run example:party:hosted
+npm run example:party:external
+npm run example:party:decentralized
+```
+
+For the application lifecycle, run these in order:
+
+```bash
+npm run example:dar:upload
+npm run example:contract:create-exercise
+npm run example:contract:query
+npm run example:updates:stream
+npm run example:user:rights
+npm run example:topology:party-hosting
+```
+
+By default, Ledger and Ledger Admin use `localhost:3901`; Participant Admin
+uses `localhost:3902`. Override them with
+`SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, and
+`SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`. Use `SDK_EXAMPLE_BEARER_TOKEN` for a
+shared bearer token, or set `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`,
+`SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`, and
+`SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN` per surface. The examples also
+accept `SDK_EXAMPLE_PARTY`, `SDK_EXAMPLE_USER_ID`, `SDK_EXAMPLE_SYNCHRONIZER`,
+and `SDK_EXAMPLE_TIMEOUT_MS`; generated fallback party names use
+`SDK_EXAMPLE_PARTY_PREFIX` when supplied.
+
+Some commands intentionally create durable localnet state: DAR upload installs
+a package; create/exercise, query, and stream may allocate a fallback party and
+create contracts; topology inspection may allocate a fallback party. User-rights
+is read-only. These examples do not clean up durable state.
+
+The uploaded asset is
+`canton-explorer-debug-playground-0.1.0.dar`, the normal (not debug) Canton
+Explorer Debug Playground DAR from
+`/home/helena/dev/daml/canton-explorer/debug-playground/.daml/dist/canton-explorer-debug-playground-0.1.0.dar`.
+Its Canton Explorer checkout commit is `750b28dd0ce4674e4368c12a6da1b5b5cbb00f88`,
+its package-introduction commit is `abde077`, it is Apache-2.0 licensed, and
+its SHA-256 is
+`307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29`.
+
+The examples and their DAR are repository-only and excluded from the npm
+tarball. Development targets are Participant 3.5.7 and the isolated
+[Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar); acceptance
+will verify this same implementation on both. These newly added application
+examples have not yet been live-tested. The sidecar launcher prints the
+`SDK_EXAMPLE_*` exports needed to run them against the sidecar.
+
 ## Localnet launchers
 
 The published package includes launchers for an existing CN Quickstart checkout.

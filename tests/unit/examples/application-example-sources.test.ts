@@ -44,6 +44,15 @@ function readExampleSource(name: string): string {
     return readFileSync(new URL(`../../../examples/${name}`, import.meta.url), "utf8");
 }
 
+function readRootPackageJson(): {
+    scripts: Record<string, string>;
+    files: string[];
+} {
+    return JSON.parse(
+        readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
+    ) as { scripts: Record<string, string>; files: string[] };
+}
+
 function expectStandaloneCleanup(source: string): void {
     const runExampleWithCleanup =
         /runExampleAsync\(\s*"[^"]+",\s*async\s*\(\)\s*=>\s*\{[\s\S]*?const\s+client\s*=\s*createExampleClient\(\);[\s\S]*?try\s*\{[\s\S]*?\}\s*finally\s*\{\s*await\s+client\.disposeAsync\(\);\s*\}[\s\S]*?\}\s*\);/;
@@ -52,6 +61,44 @@ function expectStandaloneCleanup(source: string): void {
 }
 
 describe("application example source contracts", () => {
+    it("exposes the standalone application lifecycle scripts without publishing examples", () => {
+        const packageJson = readRootPackageJson();
+
+        expect({
+            "example:dar:upload": packageJson.scripts["example:dar:upload"],
+            "example:contract:create-exercise":
+                packageJson.scripts["example:contract:create-exercise"],
+            "example:contract:query":
+                packageJson.scripts["example:contract:query"],
+            "example:updates:stream":
+                packageJson.scripts["example:updates:stream"],
+            "example:user:rights": packageJson.scripts["example:user:rights"],
+            "example:topology:party-hosting":
+                packageJson.scripts["example:topology:party-hosting"],
+        }).toEqual({
+            "example:dar:upload":
+                "npm run build && node --loader ts-node/esm examples/40-dar-upload.ts",
+            "example:contract:create-exercise":
+                "npm run build && node --loader ts-node/esm examples/50-create-and-exercise.ts",
+            "example:contract:query":
+                "npm run build && node --loader ts-node/esm examples/60-query-active-contracts.ts",
+            "example:updates:stream":
+                "npm run build && node --loader ts-node/esm examples/61-stream-updates.ts",
+            "example:user:rights":
+                "npm run build && node --loader ts-node/esm examples/70-user-rights.ts",
+            "example:topology:party-hosting":
+                "npm run build && node --loader ts-node/esm examples/80-topology-inspection.ts",
+        });
+        expect(packageJson.files).toEqual([
+            "dist",
+            "node",
+            "README.md",
+            "LICENSE",
+        ]);
+        expect(packageJson.files).not.toContain("examples");
+        expect(packageJson.files).not.toContain("examples/assets");
+    });
+
     it("keeps both DAR package listings and upload calls explicit", () => {
         const source = readExampleSource("40-dar-upload.ts");
 
