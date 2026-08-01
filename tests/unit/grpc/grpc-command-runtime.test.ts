@@ -280,7 +280,9 @@ describe("GrpcTransport live ledger shapes", () => {
 
     it("uses caller-controlled command IDs and deduplication for signed interactive submissions", async () => {
         let capturedPrepare: unknown;
+
         let capturedExecute: unknown;
+
         const request = new SubmitCommandRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
@@ -291,13 +293,16 @@ describe("GrpcTransport live ledger shapes", () => {
                 createArguments: new DamlRecord({}),
             }),
         });
+
         const transport = new GrpcTransport(createFakeGrpcOperations({
             prepareSubmissionAsync: async value => {
                 capturedPrepare = value;
+
                 return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([1]), hashingSchemeVersion: 3 };
             },
             executeSubmissionAndWaitAsync: async value => {
                 capturedExecute = value;
+
                 return { updateId: "tx-1", completionOffset: "1" };
             },
         }));
@@ -317,11 +322,13 @@ describe("GrpcTransport live ledger shapes", () => {
 
     it("exposes prepared transactions for detached multi-party signing", async () => {
         let prepare: unknown;
+
         let execute: unknown;
 
         const transport = new GrpcTransport(createFakeGrpcOperations({
             prepareSubmissionAsync: async request => {
                 prepare = request;
+
                 return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([7, 8]), hashingSchemeVersion: 3 };
             },
             executeSubmissionAndWaitAsync: async request => {
@@ -347,7 +354,9 @@ describe("GrpcTransport live ledger shapes", () => {
 
     it("rejects participant-begin interactive offsets before transport I/O", async () => {
         let prepareCalls = 0;
+
         let executeCalls = 0;
+
         const request = new SubmitCommandRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
@@ -357,13 +366,16 @@ describe("GrpcTransport live ledger shapes", () => {
                 createArguments: new DamlRecord({}),
             }),
         });
+
         const transport = new GrpcTransport(createFakeGrpcOperations({
             prepareSubmissionAsync: async () => {
                 prepareCalls++;
+
                 return { preparedTransaction: {}, preparedTransactionHash: new Uint8Array([1]), hashingSchemeVersion: 3 };
             },
             executeSubmissionAndWaitAsync: async () => {
                 executeCalls++;
+
                 return { updateId: "tx-1", completionOffset: "1" };
             },
         }));

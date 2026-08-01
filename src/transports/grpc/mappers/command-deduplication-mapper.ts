@@ -8,16 +8,12 @@ export function mapGrpcDeduplicationPeriod(
 ): Commands["deduplicationPeriod"] {
     if (period === undefined) {
         return { oneofKind: undefined };
-    }
-
-    if (period.kind === "duration") {
+    } else if (period.kind === "duration") {
         return {
             oneofKind: "deduplicationDuration",
             deduplicationDuration: { seconds: String(period.seconds), nanos: 0 },
         };
-    }
-
-    if (!options.allowParticipantBegin && period.offset === "0") {
+    } else if (!options.allowParticipantBegin && period.offset === "0") {
         throw new ValidationError(
             "interactive command deduplication offsets must be positive",
         );

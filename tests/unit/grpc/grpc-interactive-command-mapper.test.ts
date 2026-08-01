@@ -122,6 +122,7 @@ describe("grpc interactive command mapper", () => {
                 createArguments: new DamlRecord({}),
             }),
         });
+
         const init = (request: SubmitCommandRequest) => ({
             request,
             preparedTransaction: {},

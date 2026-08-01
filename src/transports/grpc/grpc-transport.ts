@@ -1617,6 +1617,7 @@ export class GrpcTransport implements ITransport {
         }
 
         const commandId = request.commandId ?? randomUUID();
+
         const prepared = await this.operations.prepareSubmissionAsync(mapGrpcPrepareSubmissionRequest(request, commandId), options) as { preparedTransaction?: unknown; preparedTransactionHash: Uint8Array; hashingSchemeVersion: number };
 
         if (!prepared.preparedTransaction || prepared.preparedTransactionHash.length === 0) {
