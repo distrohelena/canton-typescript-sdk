@@ -233,16 +233,13 @@ export async function collectActiveMessagesAcrossPagesAsync(init: {
 
         const response = await init.readPageAsync(request, remainingTimeoutMs);
 
-        if (
-            snapshotOffset !== undefined
-            && response.activeAtOffset !== snapshotOffset
-        ) {
+        if (snapshotOffset === undefined) {
+            snapshotOffset = response.activeAtOffset;
+        } else if (response.activeAtOffset !== snapshotOffset) {
             throw new Error(
                 "An active-contract page returned a different snapshot offset.",
             );
         }
-
-        snapshotOffset ??= response.activeAtOffset;
 
         for (const message of activeMessages(response.activeContracts)) {
             if (predicate(message)) {
@@ -254,6 +251,10 @@ export async function collectActiveMessagesAcrossPagesAsync(init: {
 
         if (nextPageToken === undefined || nextPageToken.length === 0) {
             return messages;
+        } else if (!snapshotOffset?.trim()) {
+            throw new Error(
+                "A paginated active-contract response must include a non-empty stable snapshot offset.",
+            );
         }
 
         const pageTokenKey = Array.from(nextPageToken).join(",");

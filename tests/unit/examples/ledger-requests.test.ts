@@ -331,6 +331,53 @@ describe("application example ledger requests", () => {
         ).rejects.toThrow(/different snapshot/i);
     });
 
+    it("rejects a paginated first page without a stable active-contract snapshot", async () => {
+        let calls = 0;
+
+        await expect(
+            collectActiveMessagesAcrossPagesAsync({
+                request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+                predicate: () => false,
+                timeoutMs: 1_000,
+                readPageAsync: async () => {
+                    calls += 1;
+
+                    return {
+                        activeContracts: [],
+                        nextPageToken: new Uint8Array([1]),
+                    } as never;
+                },
+                now: () => 100,
+            }),
+        ).rejects.toThrow(/non-empty.*snapshot/i);
+        expect(calls).toBe(1);
+    });
+
+    it("rejects a later active-contract page without the first snapshot offset", async () => {
+        let page = 0;
+
+        await expect(
+            collectActiveMessagesAcrossPagesAsync({
+                request: buildActiveContractsRequest({ party: "Alice::1", templateId }),
+                predicate: () => false,
+                timeoutMs: 1_000,
+                readPageAsync: async () => {
+                    page += 1;
+
+                    return ledgerApiV2.GetActiveContractsPageResponse.create(
+                        page === 1
+                            ? {
+                                  activeAtOffset: "42",
+                                  nextPageToken: new Uint8Array([1]),
+                              }
+                            : {},
+                    );
+                },
+                now: () => 100,
+            }),
+        ).rejects.toThrow(/different snapshot/i);
+    });
+
     it("rejects a repeated page token while collecting messages", async () => {
         await expect(
             collectActiveMessagesAcrossPagesAsync({
