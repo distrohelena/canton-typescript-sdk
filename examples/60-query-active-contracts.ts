@@ -8,7 +8,7 @@ import {
 } from "./shared/application-fixture.js";
 import {
     buildActiveContractsRequest,
-    findActiveMessage,
+    findActiveMessageAcrossPagesAsync,
 } from "./shared/ledger-requests.js";
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
@@ -49,15 +49,16 @@ runExampleAsync("query-active-contracts", async () => {
             templateId: fixture.templateId,
         });
 
-        const response = await client.stateService.getActiveContractsPageAsync(
+        const message = await findActiveMessageAcrossPagesAsync({
             request,
-            new RequestOptions({ timeoutMs: exampleTimeoutMs() }),
-        );
-
-        const message = findActiveMessage(
-            response.activeContracts,
-            created.contractId,
-        );
+            contractId: created.contractId,
+            timeoutMs: exampleTimeoutMs(),
+            readPageAsync: (pageRequest, remainingTimeoutMs) =>
+                client.stateService.getActiveContractsPageAsync(
+                    pageRequest,
+                    new RequestOptions({ timeoutMs: remainingTimeoutMs }),
+                ),
+        });
 
         if (message === undefined) {
             throw new Error(

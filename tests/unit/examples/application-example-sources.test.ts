@@ -23,7 +23,7 @@ const replacementContractProof =
     /else\s+if\s*\(\s*!replacementContractId\.trim\(\)\s*\|\|\s*replacementContractId\s*===\s*original\.contractId\s*\)\s*\{/s;
 
 const activeContractPageRead =
-    /client\.stateService\.getActiveContractsPageAsync\(\s*request,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\)\s*\}\s*\),\s*\)/s;
+    /client\.stateService\.getActiveContractsPageAsync\(\s*pageRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*remainingTimeoutMs\s*\}\s*\),\s*\)/s;
 
 const prohibitedCreateExerciseWorkarounds =
     /\b(?:Echo|LEDGER_EFFECTS|sleep|setTimeout|database|db|PQS|query)\b/i;
@@ -91,10 +91,9 @@ describe("application example source contracts", () => {
             /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
         );
         expect(source).toContain("buildActiveContractsRequest({");
+        expect(source).toContain("findActiveMessageAcrossPagesAsync({");
+        expect(source).toContain("timeoutMs: exampleTimeoutMs(),");
         expect(source).toMatch(activeContractPageRead);
-        expect(source).toMatch(
-            /findActiveMessage\(\s*response\.activeContracts,\s*created\.contractId,\s*\)/s,
-        );
         expect(source).toContain("message.createArguments");
         expect(source).toContain("Actor party: ${actor.party}");
         expect(source).toContain("Contract ID: ${created.contractId}");
