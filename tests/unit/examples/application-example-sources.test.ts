@@ -31,6 +31,12 @@ const getLedgerEndRequest =
 const updateStreamRequest =
     /client\.updateService\.getUpdatesAsync\(\s*buildUpdatesRequest\(\s*\{\s*beginExclusive:\s*ledgerEnd\.offset,\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,\s*\}\s*\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/s;
 
+const userReadRequest =
+    /client\.userManagementService\.(?:getUserAsync|listUserRightsAsync|listUsersAsync)\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/g;
+
+const exactSynchronizerHeadStore =
+    /const\s+baseQuery\s*=\s*new\s+TopologyBaseQuery\(\s*\{\s*headState:\s*true,\s*storeId:\s*new\s+TopologyStoreId\(\s*\{\s*kind:\s*TopologyStoreKind\.synchronizer,\s*synchronizer:\s*new\s+TopologyStoreSynchronizer\(\s*\{\s*id:\s*synchronizer\s*\}\s*\),\s*\}\s*\),\s*\}\s*\);/s;
+
 const prohibitedCreateExerciseWorkarounds =
     /\b(?:Echo|LEDGER_EFFECTS|sleep|setTimeout|database|db|PQS|query)\b/i;
 
@@ -160,6 +166,81 @@ describe("application example source contracts", () => {
             "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
         );
         expect(source).not.toMatch(/\b(?:AbortController|sleep|setTimeout|polling)\b/);
+    });
+
+    it("reads a configured user and its rights without mutating user state", () => {
+        const source = readExampleSource("70-user-rights.ts");
+
+        expectStandaloneCleanup(source);
+        expect(source).toMatch(
+            /const\s+userId\s*=\s*\(process\.env\.SDK_EXAMPLE_USER_ID\s*\?\?\s*"ledger-api-user"\)\.trim\(\);/,
+        );
+        expect(source).toMatch(
+            /if\s*\(\s*process\.env\.SDK_EXAMPLE_USER_ID\s*!==\s*undefined\s*&&\s*!userId\s*\)\s*\{/s,
+        );
+        expect(source).toMatch(
+            /new\s+GetUserRequest\(\s*\{\s*userId\s*\}\s*\)/,
+        );
+        expect(source).toMatch(
+            /new\s+ListUserRightsRequest\(\s*\{\s*userId\s*\}\s*\)/,
+        );
+        expect(source).toMatch(
+            /new\s+ListUsersRequest\(\s*\{\s*pageToken,\s*pageSize:\s*100\s*\}\s*\)/,
+        );
+        expect(source).toMatch(/\.getUserAsync\(/);
+        expect(source).toMatch(/\.listUserRightsAsync\(/);
+        expect(source).toMatch(/\.listUsersAsync\(/);
+        expect([...source.matchAll(userReadRequest)]).toHaveLength(3);
+        expect(source).toMatch(/const\s+seenPageTokens\s*=\s*new\s+Set<string>\(\);/);
+        expect(source).toMatch(/if\s*\(\s*seenPageTokens\.has\(nextPageToken\)\s*\)\s*\{/s);
+        expect(source).toMatch(/user\?\.id\s*!==\s*userId/);
+        expect(source).toMatch(/users\.find\(\(user\)\s*=>\s*user\.id\s*===\s*userId\)/);
+        expect(source).toContain("User ID: ${user.id}");
+        expect(source).toContain("Deactivated: ${user.isDeactivated}");
+        expect(source).toContain("Primary party: ${user.primaryParty ?? \"<none>\"}");
+        expect(source).toContain("Listed confirmation: ${listedUser.id}");
+        expect(source).toMatch(/right\.type/);
+        expect(source).toMatch(/right\.party/);
+        expect(source).toContain("Rights: <none>");
+        expect(source).not.toMatch(
+            /\b(?:grantUserRightsAsync|createUserAsync|revokeUserRightsAsync|deleteUserAsync)\b/,
+        );
+    });
+
+    it("inspects the actor party topology at the synchronizer head through public SDK DTOs", () => {
+        const source = readExampleSource("80-topology-inspection.ts");
+
+        expectStandaloneCleanup(source);
+        expect(source).toMatch(/resolveExamplePartyAsync\(client\)/);
+        expect(source).toContain(
+            "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
+        );
+        expect(source).toMatch(
+            /discoverSynchronizerIdAsync\(\s*client,\s*process\.env\.SDK_EXAMPLE_SYNCHRONIZER,\s*\)/s,
+        );
+        expect(source).toMatch(exactSynchronizerHeadStore);
+        expect(source).toMatch(
+            /const\s+request\s*=\s*new\s+ListPartyToParticipantRequest\(\s*\{\s*baseQuery,\s*filterParty:\s*actor\.party,\s*\}\s*\);/s,
+        );
+        expect(source).toMatch(
+            /client\.topologyManagerReadService\.listPartyToParticipantAsync\(\s*request,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/s,
+        );
+        expect(source).toMatch(
+            /response\.results\.find\(\s*\(result\)\s*=>\s*result\.item\.party\s*===\s*actor\.party,?\s*\)/s,
+        );
+        expect(source).toMatch(/!mapping\s*\|\|\s*mapping\.item\.participants\.length\s*===\s*0/);
+        expect(source).toContain("Synchronizer: ${synchronizer}");
+        expect(source).toContain("Party: ${mapping.item.party}");
+        expect(source).toContain("Threshold: ${mapping.item.threshold}");
+        expect(source).toMatch(/participant\.participantUid/);
+        expect(source).toMatch(/participant\.permission/);
+        expect(source).toContain("Context serial: ${context?.serial ?? \"<none>\"}");
+        expect(source).toContain("Context valid from: ${formatDate(context?.validFrom)}");
+        expect(source).toContain("Context valid until: ${formatDate(context?.validUntil)}");
+        expect(source).toMatch(/function\s+formatDate\(value:\s*Date\s*\|\s*undefined\):\s*string/);
+        expect(source).not.toMatch(
+            /(?:topology_manager_read_service|mapListPartyToParticipantRequest|protobuf)/i,
+        );
     });
 
     it.each(["40-dar-upload.ts", "50-create-and-exercise.ts"])(
