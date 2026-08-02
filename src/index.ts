@@ -157,6 +157,7 @@ export { ReceivedAcsCommitment } from "./core/types/received-acs-commitment.js";
 export { ReceivedAcsCommitmentPerSynchronizer } from "./core/types/received-acs-commitment-per-synchronizer.js";
 export { ReceivedAcsCommitmentState } from "./core/types/received-acs-commitment-state.js";
 export { RequestOptions } from "./core/types/request-options.js";
+export { OperationDeadline } from "./core/types/operation-deadline.js";
 export { PackageMetadataFilter } from "./core/types/package-metadata-filter.js";
 export { PackageReference } from "./core/types/package-reference.js";
 export { ParticipantDarDescription } from "./core/types/participant-dar-description.js";
