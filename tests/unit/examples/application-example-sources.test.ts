@@ -184,7 +184,9 @@ describe("application example source contracts", () => {
     it("documents the standalone workflow examples and their compatibility policy", () => {
         const packageJson = readRootPackageJson();
 
-        const readme = readReadme().replace(/\s+/g, " ");
+        const rawReadme = readReadme();
+
+        const readme = rawReadme.replace(/\s+/g, " ");
 
         expect({
             "example:workflow:atomic": packageJson.scripts["example:workflow:atomic"],
@@ -233,6 +235,13 @@ describe("application example source contracts", () => {
         expect(readme).not.toMatch(/\beval\s*\(/u);
         expect(readme).not.toContain("--refresh-token");
         expect(readme).not.toContain("make no live-proof claim");
+        expect(rawReadme).not.toMatch(
+            /^\s*(?:export\s+)?(?=[A-Z0-9_]*(?:BEARER|TOKEN))[A-Z][A-Z0-9_]*\s*=/mu,
+        );
+        expect(rawReadme).not.toMatch(/\$\([^)]*\)/u);
+        expect(rawReadme).not.toMatch(
+            /\b(?:cat|head|tail|sed|awk)\s+[^\n]*\.token\b/u,
+        );
         expect(readme).not.toMatch(
             /copy(?:ing)?[^.]*SDK_EXAMPLE[^.]*current shell/iu,
         );

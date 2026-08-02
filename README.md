@@ -298,10 +298,13 @@ localnet differs:
 
 ```bash
 PARTICIPANT_358_SOURCE_ADMIN_ENDPOINT=localhost:3902 \
-PARTICIPANT_358_SOURCE_ADMIN_BEARER_TOKEN="$TOKEN" \
 PARTICIPANT_358_NETWORK=quickstart \
 canton-localnet-participant-358-start
 ```
+
+Provide any required source-admin credential only through the protected
+child-scoped credential mechanism described above; do not place credentials in
+command lines or logs.
 
 Use `PARTICIPANT_358_CANTON_IMAGE`, `PARTICIPANT_358_PROJECT_NAME`,
 `PARTICIPANT_358_RUNTIME_DIR`, `PARTICIPANT_358_LEDGER_PORT`,
@@ -326,11 +329,12 @@ a self-signed certificate in `.generated/localnet-es256` at the package root. Se
 use your own matching PEM private key and certificate.
 
 The launcher writes a short-lived (ten-minute) token for `ledger-api-user` to
-`ledger-api-user.token` in that runtime directory and prints its path. Use it
-with the live SDK suite:
+`ledger-api-user.token` in that runtime directory and prints its path. In a
+short-lived child shell, use a protected local credential mechanism to make the
+token available without placing its value or a token-file read in a command
+line or log. From within that same child shell, run the live SDK suite:
 
 ```bash
-SDK_TEST_LEDGER_BEARER_TOKEN="$(cat .generated/localnet-es256/ledger-api-user.token)" \
 npm run test:live
 ```
 
