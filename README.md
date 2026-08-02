@@ -191,16 +191,11 @@ The best multi-version path reads the authenticated full version, parses its
 release core, and uses data-only structured compatibility for observed
 outcomes. A behavioral difference is introduced only after live proof; it is
 never inferred from a container tag, endpoint, or prose error message. For the
-isolated 3.5.8 sidecar, refresh and load its short-lived credentials before a
-run:
-
-```bash
-eval "$(canton-localnet-participant-358-start --refresh-token)"
-```
-
-Refresh mode reads the token from its protected runtime file and never prints
-the token. Use only the resulting `SDK_EXAMPLE_*` environment variables when
-running the workflow commands.
+isolated 3.5.8 sidecar, use the SDK sidecar launcher's protected documented
+credential refresh flow in a local child shell and refresh before expiry. Never
+log its output or expose refreshed credentials beyond that child. Use the
+documented `SDK_EXAMPLE_*` environment variables when running the workflow
+commands.
 
 By default, Ledger and Ledger Admin use `localhost:3901`; Participant Admin
 uses `localhost:3902`. Override them with
@@ -232,9 +227,9 @@ The examples and their DAR are repository-only and excluded from the npm
 tarball. The existing setup and decentralized-party examples were developed
 and live-tested against Participant 3.5.7, then live-tested unchanged against
 the isolated [Participant 3.5.8 sidecar](#optional-canton-358-participant-sidecar).
-The sidecar launcher prints the `SDK_EXAMPLE_*` exports needed to run them
-against the sidecar; the workflow examples make no live-proof claim here until
-their dedicated matrices have run.
+The workflow examples have completed 3.5.7 and 3.5.8 workflow matrices with
+authenticated status evidence, the same unchanged implementation, and the
+common compatibility path.
 
 ## Localnet launchers
 
@@ -283,17 +278,11 @@ enforces this short lifetime for the unsafe development JWT.
 `cn-quickstart` is strictly read-only: this launcher never writes to, starts,
 or stops the normal Quickstart stack.
 
-Refresh the token before or after it expires without restarting or otherwise
-touching the running containers, then load the renewed bearer-token variables
-into the current shell:
-
-```bash
-eval "$(canton-localnet-participant-358-start --refresh-token)"
-```
-
-Refresh mode requires the existing runtime token file, preserves mode `0600`,
-and prints shell commands that read the token file rather than printing the
-token itself.
+Refresh short-lived credentials before expiry without restarting or otherwise
+touching the running containers. Use the launcher's protected documented
+credential refresh flow only in a local child shell; do not log its output or
+expose refreshed credentials beyond that child. The runtime credential file
+remains protected with mode `0600`.
 
 After copying the printed `SDK_EXAMPLE_*` exports into the current shell, run
 the standalone decentralized-party comparison example with:

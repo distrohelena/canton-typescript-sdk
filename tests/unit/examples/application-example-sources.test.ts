@@ -214,8 +214,9 @@ describe("application example source contracts", () => {
         expect(readme).toContain("Participant version:");
         expect(readme).toContain("Release core:");
         expect(readme).toContain("Compatibility path:");
-        expect(readme).toContain("--refresh-token");
-        expect(readme).toContain("never prints the token");
+        expect(readme).toContain("protected documented credential refresh flow");
+        expect(readme).toContain("local child shell");
+        expect(readme).toContain("completed 3.5.7 and 3.5.8 workflow matrices");
         expect(readme).toContain("SDK_EXAMPLE_PARTY");
         expect(readme).toContain("3.5.7");
         expect(readme).toContain("3.5.8");
@@ -229,6 +230,9 @@ describe("application example source contracts", () => {
         expect(readme).toContain("authenticated full version");
         expect(readme).toContain("data-only structured compatibility");
         expect(readme).toContain("only after live proof");
+        expect(readme).not.toMatch(/\beval\s*\(/u);
+        expect(readme).not.toContain("--refresh-token");
+        expect(readme).not.toContain("make no live-proof claim");
     });
 
     it("keeps both DAR package listings and upload calls explicit", () => {
