@@ -1494,6 +1494,266 @@ function expectContractLifecycleAuditWorkflowSource(source: string): void {
     expect(hasParticipantVersionEquality(sourceFile)).toBe(false);
 }
 
+function expectUpdateLookupReconciliationWorkflowSource(init: {
+    readonly workflowSource: string;
+    readonly requestSource: string;
+}): void {
+    const sourceFile = createSourceFile(
+        "update-lookup-reconciliation-workflow.ts",
+        init.workflowSource,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    const ledgerApiV2NamespaceName = findLedgerApiV2NamespaceName(sourceFile);
+
+    expect(ledgerApiV2NamespaceName).toBeDefined();
+
+    if (ledgerApiV2NamespaceName === undefined) {
+        return;
+    }
+
+    const deadline = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "createDeadline"),
+        "one workflow deadline",
+    );
+
+    const fixture = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "loadFixtureAsync"),
+        "one fixture load",
+    );
+
+    const ensureDar = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "ensureDarUploadedAsync"),
+        "one DAR upload/visibility check",
+    );
+
+    const resolveParty = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "resolvePartyAsync"),
+        "one party resolution",
+    );
+
+    const compatibility = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "readCompatibilityAsync"),
+        "one compatibility read",
+    );
+
+    const ledgerEnd = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "getLedgerEndAsync"),
+        "one ledger-end read",
+    );
+
+    const deadlineName = declaredNameForExpression(deadline);
+
+    const actorName = declaredNameForExpression(resolveParty);
+
+    const fixtureName = declaredNameForExpression(fixture);
+
+    const ledgerEndName = declaredNameForExpression(ledgerEnd);
+
+    expect(deadline.getStart(sourceFile)).toBeLessThan(fixture.getStart(sourceFile));
+    expect(fixture.getStart(sourceFile)).toBeLessThan(ensureDar.getStart(sourceFile));
+    expect(ensureDar.getStart(sourceFile)).toBeLessThan(resolveParty.getStart(sourceFile));
+    expect(resolveParty.getStart(sourceFile)).toBeLessThan(compatibility.getStart(sourceFile));
+    expect(compatibility.getStart(sourceFile)).toBeLessThan(ledgerEnd.getStart(sourceFile));
+    expect(isDeadlineRequestOptions(ledgerEnd.arguments[1], deadlineName)).toBe(true);
+
+    const savedOffset = init.workflowSource.match(
+        new RegExp(`const\\s+(\\w+)\\s*=\\s*${ledgerEndName}\\.offset\\.trim\\(\\);`),
+    )?.[1];
+
+    expect(savedOffset).toBeDefined();
+
+    if (savedOffset === undefined) {
+        return;
+    }
+
+    expect(init.workflowSource).toMatch(
+        new RegExp(`if\\s*\\(\\s*!${savedOffset}\\s*\\)\\s*\\{\\s*throw\\s+new\\s+Error`, "s"),
+    );
+
+    const updateFormat = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "buildMessageUpdateFormat"),
+        "one shared Message update format",
+    );
+
+    const updateFormatName = declaredNameForExpression(updateFormat);
+
+    const updateFormatInit = updateFormat.arguments[0];
+
+    expect(isObjectLiteralExpression(updateFormatInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(updateFormatInit)) {
+        return;
+    }
+
+    expect(
+        isMemberOf(
+            getObjectPropertyExpression(updateFormatInit, "party")!,
+            actorName,
+            "party",
+        ),
+    ).toBe(true);
+    expect(
+        isMemberOf(
+            getObjectPropertyExpression(updateFormatInit, "templateId")!,
+            fixtureName,
+            "templateId",
+        ),
+    ).toBe(true);
+
+    const stream = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "getUpdatesAsync"),
+        "one update stream",
+    );
+
+    const streamRequest = stream.arguments[0];
+
+    expect(
+        streamRequest !== undefined
+        && isCallExpression(streamRequest)
+        && isLedgerApiV2RequestCreateCall(
+            streamRequest,
+            "GetUpdatesRequest",
+            ledgerApiV2NamespaceName,
+        ),
+    ).toBe(true);
+    expect(isDeadlineRequestOptions(stream.arguments[1], deadlineName)).toBe(true);
+
+    if (streamRequest === undefined || !isCallExpression(streamRequest)) {
+        return;
+    }
+
+    const streamRequestInit = streamRequest.arguments[0];
+
+    expect(isObjectLiteralExpression(streamRequestInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(streamRequestInit)) {
+        return;
+    }
+
+    expect(
+        isIdentifierNamed(
+            getObjectPropertyExpression(streamRequestInit, "beginExclusive")!,
+            savedOffset,
+        ),
+    ).toBe(true);
+    expect(
+        isIdentifierNamed(
+            getObjectPropertyExpression(streamRequestInit, "updateFormat")!,
+            updateFormatName,
+        ),
+    ).toBe(true);
+
+    const iterator = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "next")
+            && isPropertyAccessExpression(call.expression)
+            && isIdentifierNamed(call.expression.expression, "iterator")
+            && isVariableDeclaration(call.parent),
+        "the first update-stream read",
+    );
+
+    const submission = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "submitAndWaitForTransactionAsync"),
+        "one Message submission",
+    );
+
+    expect(iterator.getStart(sourceFile)).toBeLessThan(submission.getStart(sourceFile));
+    expect(isDeadlineRequestOptions(submission.arguments[1], deadlineName)).toBe(true);
+
+    const lookupCalls = [
+        ["getUpdateByIdAsync", "GetUpdateByIdRequest", "updateId"],
+        ["getUpdateByOffsetAsync", "GetUpdateByOffsetRequest", "offset"],
+    ] as const;
+
+    for (const [method, requestName, key] of lookupCalls) {
+        const lookup = expectSingleCall(
+            sourceFile,
+            call => isNamedCall(call, method),
+            `one ${method} lookup`,
+        );
+
+        const request = lookup.arguments[0];
+
+        expect(
+            request !== undefined
+            && isCallExpression(request)
+            && isLedgerApiV2RequestCreateCall(
+                request,
+                requestName,
+                ledgerApiV2NamespaceName,
+            ),
+        ).toBe(true);
+        expect(isDeadlineRequestOptions(lookup.arguments[1], deadlineName)).toBe(true);
+
+        if (request === undefined || !isCallExpression(request)) {
+            return;
+        }
+
+        const requestInit = request.arguments[0];
+
+        expect(isObjectLiteralExpression(requestInit)).toBe(true);
+
+        if (!isObjectLiteralExpression(requestInit)) {
+            return;
+        }
+
+        const identifier = getObjectPropertyExpression(requestInit, key);
+
+        expect(
+            identifier !== undefined
+            && isMemberOf(identifier, "captured", key),
+        ).toBe(true);
+        expect(
+            isIdentifierNamed(
+                getObjectPropertyExpression(requestInit, "updateFormat")!,
+                updateFormatName,
+            ),
+        ).toBe(true);
+        expect(submission.getStart(sourceFile)).toBeLessThan(lookup.getStart(sourceFile));
+    }
+
+    expect(
+        collectCalls(sourceFile, call => isNamedCall(call, "cleanupWithoutMaskingAsync")),
+    ).toHaveLength(1);
+    expect(init.workflowSource).toMatch(/iterator\.return\?\.\(\)/);
+    expect(init.workflowSource).toContain("Run marker:");
+    expect(init.workflowSource).toContain("Actor party:");
+    expect(init.workflowSource).toContain("Contract ID:");
+    expect(init.workflowSource).toContain("Update ID:");
+    expect(init.workflowSource).toContain("Offset:");
+    expect(init.workflowSource).toContain("Synchronizer ID:");
+    expect(init.workflowSource).toContain("Update ID lookup reconciled: true");
+    expect(init.workflowSource).toContain("Update offset lookup reconciled: true");
+    expect(init.workflowSource).not.toMatch(/JSON\.stringify|console\.|headers|transactionHash/i);
+
+    expect(init.requestSource).toContain("ledgerApiV2.TransactionShape.ACS_DELTA");
+    expect(init.requestSource).toMatch(/verbose:\s*true/);
+    expect(init.requestSource).toContain("packageId: `#${init.templateId.packageName}`");
+    expect(init.requestSource).not.toContain("packageId: init.templateId.packageId");
+
+    const sources = `${init.workflowSource}\n${init.requestSource}`;
+
+    expect(sources).not.toMatch(
+        /\b(?:getUpdateByHashAsync|hash|json|sleep|setTimeout|polling|retry)\b/i,
+    );
+    expect(hasParticipantVersionEquality(sourceFile)).toBe(false);
+    expect(sources).not.toMatch(
+        /(?:switch\s*\(\s*compatibility\.(?:participantVersion|releaseCore)|compatibility\.(?:participantVersion|releaseCore)\s*(?:===|!==))/,
+    );
+}
+
 describe("application example source contracts", () => {
     it("uses the shared raw SDK ACS traversal in exactly the four ACS consumers", () => {
         const consumerPaths = exampleSourcePaths()
@@ -2103,7 +2363,7 @@ describe("application example source contracts", () => {
         ).toBe(
             "npm run build && node --loader ts-node/esm examples/95-contract-lifecycle-audit.ts",
         );
-        expect(readme).toContain("The six workflow examples are standalone proofs");
+        expect(readme).toContain("The seven workflow examples are standalone proofs");
         expect(readme).toContain("npm run example:workflow:contract-lifecycle-audit");
         expect(workflowDocumentation).toContain("standalone");
         expect(workflowDocumentation).toContain("gRPC-only");
@@ -2199,6 +2459,94 @@ describe("application example source contracts", () => {
 
         expect(lifecycleSources).not.toMatch(/\b(?:updateService|hash|filtersForAnyParty|TransactionShape|getActiveContracts)\b/);
         expect(lifecycleSources).not.toMatch(/error\.message|RegExp/);
+    });
+
+    it("reconciles one streamed Message transaction by update ID and offset", () => {
+        const runnerSource = readExampleSource("96-update-lookup-reconciliation.ts");
+
+        const workflowSource = readSharedExampleSource(
+            "update-lookup-reconciliation-workflow.ts",
+        );
+
+        const requestSource = readSharedExampleSource("ledger-requests.ts");
+
+        const runnerFile = createSourceFile(
+            "96-update-lookup-reconciliation.ts",
+            runnerSource,
+            ScriptTarget.Latest,
+            true,
+            ScriptKind.TS,
+        );
+
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "runExampleAsync")))
+            .toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "createExampleClient")))
+            .toHaveLength(1);
+        expect(
+            collectCalls(
+                runnerFile,
+                call => isNamedCall(call, "runClientWorkflowWithDisposalAsync"),
+            ),
+        ).toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "disposeAsync")))
+            .toHaveLength(1);
+        expectUpdateLookupReconciliationWorkflowSource({
+            workflowSource,
+            requestSource,
+        });
+        expect(() => expectUpdateLookupReconciliationWorkflowSource({
+            workflowSource: workflowSource.replace(
+                "getUpdateByOffsetAsync",
+                "getUnrelatedUpdateAsync",
+            ),
+            requestSource,
+        })).toThrow();
+        expect(() => expectUpdateLookupReconciliationWorkflowSource({
+            workflowSource: workflowSource.replace(
+                "beginExclusive: savedOffset",
+                "beginExclusive: undefined",
+            ),
+            requestSource,
+        })).toThrow();
+        expect(() => expectUpdateLookupReconciliationWorkflowSource({
+            workflowSource,
+            requestSource: requestSource.replace(
+                "packageId: `#${init.templateId.packageName}`",
+                "packageId: init.templateId.packageId",
+            ),
+        })).toThrow();
+    });
+
+    it("documents the standalone update lookup reconciliation workflow", () => {
+        const packageJson = readRootPackageJson();
+
+        const readme = readReadme();
+
+        const workflowDocumentation = readReadmeParagraph(
+            readme,
+            "The update-lookup reconciliation workflow",
+        ).replace(/\s+/g, " ");
+
+        expect(
+            packageJson.scripts["example:workflow:update-lookup-reconciliation"],
+        ).toBe(
+            "npm run build && node --loader ts-node/esm examples/96-update-lookup-reconciliation.ts",
+        );
+        expect(readme).toContain("The seven workflow examples are standalone proofs");
+        expect(readme).toContain("npm run example:workflow:update-lookup-reconciliation");
+        expect(workflowDocumentation).toContain("standalone");
+        expect(workflowDocumentation).toContain("gRPC-only");
+        expect(workflowDocumentation).toContain("UpdateService.GetUpdates");
+        expect(workflowDocumentation).toContain("getUpdateById");
+        expect(workflowDocumentation).toContain("getUpdateByOffset");
+        expect(workflowDocumentation).toContain("exact");
+        expect(workflowDocumentation).toContain("durable DAR");
+        expect(workflowDocumentation).toContain("durable topology");
+        expect(workflowDocumentation).toContain("durable contracts");
+        expect(workflowDocumentation).toContain("3.5.7");
+        expect(workflowDocumentation).toContain("3.5.8");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_PARTY");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_TIMEOUT_MS");
     });
 
     it("reads a configured user and its rights without mutating user state", () => {

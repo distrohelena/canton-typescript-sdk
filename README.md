@@ -132,7 +132,7 @@ npm run example:topology:party-hosting
 
 ### Workflow examples
 
-The six workflow examples are standalone proofs, not a sequence:
+The seven workflow examples are standalone proofs, not a sequence:
 each uploads or verifies the fixture DAR, resolves a party, reads the
 participant status, and creates its own run-scoped data. First make a Canton
 participant available and verify the source with `npm run examples:check`; the
@@ -146,6 +146,7 @@ npm run example:workflow:resume
 npm run example:workflow:stale-contract
 npm run example:workflow:command-completion
 npm run example:workflow:contract-lifecycle-audit
+npm run example:workflow:update-lookup-reconciliation
 ```
 
 They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
@@ -177,6 +178,8 @@ stream-first rejected-command probes observed no exact completion before their
 bounded stream transport errors.
 
 The contract-lifecycle audit workflow (`npm run example:workflow:contract-lifecycle-audit`) is a standalone gRPC-only proof. It uses the normal `SDK_EXAMPLE_*` endpoint, authentication, party, and timeout configuration: `SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`, `SDK_EXAMPLE_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTY`, `SDK_EXAMPLE_PARTY_PREFIX`, and `SDK_EXAMPLE_TIMEOUT_MS`. An explicit `SDK_EXAMPLE_PARTY` is reused; otherwise fallback allocation creates durable topology. The fixture upload leaves a durable DAR, and the workflow leaves durable contracts. It uses the alpha ContractService to prove the original active Message before replacement and the replacement active Message afterward, then uses EventQuery for the original contract's create/archive history. It makes no post-archive ContractService claim for the original.
+
+The update-lookup reconciliation workflow (`npm run example:workflow:update-lookup-reconciliation`) is a standalone gRPC-only proof that observes one exact self-party Message transaction from `UpdateService.GetUpdates`, then immediately reconciles it through `getUpdateById` and `getUpdateByOffset`. It uses the normal `SDK_EXAMPLE_*` endpoint, authentication, party, and timeout configuration, including `SDK_EXAMPLE_PARTY` and `SDK_EXAMPLE_TIMEOUT_MS`; first run `npm run examples:check` and make an authenticated participant available. An explicit party is reused, while fallback allocation creates durable topology; the fixture upload leaves a durable DAR and the workflow leaves durable contracts. The same unchanged implementation is tested against authenticated Participant 3.5.7 and the isolated Participant 3.5.8 sidecar, in default-party and explicit-party modes.
 
 Each program prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
