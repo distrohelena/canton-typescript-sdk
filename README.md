@@ -179,11 +179,20 @@ request and is not a retry proof. The resume example treats the saved offset as
 exclusive, so its resumed stream must observe only updates after the saved
 ledger end.
 
-The workflow source and unit contracts were developed for the common
-Participant 3.5.7/3.5.8 path, but this section does not claim live acceptance
-for either version until the separate 3.5.7 and 3.5.8 workflow matrices have
-run on the final tree. For the isolated 3.5.8 sidecar, refresh and load its
-short-lived credentials before a run:
+The workflow source and unit contracts were developed and live-tested against
+authenticated Participant 3.5.7 and the isolated Participant 3.5.8. Both
+final-tree matrices selected the same unchanged implementation and common
+compatibility path. The normalized outcome comparison is identical: atomic
+reports `invalidChoice` before its replacement proof, retry reports
+`duplicateCommand` with one active contract, resume reports `idle-timeout` and
+a post-offset update, and stale-contract reports `staleContract`.
+
+The best multi-version path reads the authenticated full version, parses its
+release core, and uses data-only structured compatibility for observed
+outcomes. A behavioral difference is introduced only after live proof; it is
+never inferred from a container tag, endpoint, or prose error message. For the
+isolated 3.5.8 sidecar, refresh and load its short-lived credentials before a
+run:
 
 ```bash
 eval "$(canton-localnet-participant-358-start --refresh-token)"

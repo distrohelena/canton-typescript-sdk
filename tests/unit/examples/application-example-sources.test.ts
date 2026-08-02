@@ -219,6 +219,16 @@ describe("application example source contracts", () => {
         expect(readme).toContain("SDK_EXAMPLE_PARTY");
         expect(readme).toContain("3.5.7");
         expect(readme).toContain("3.5.8");
+        expect(readme).toContain(
+            "authenticated Participant 3.5.7 and the isolated Participant 3.5.8",
+        );
+        expect(readme).toContain(
+            "same unchanged implementation and common compatibility path",
+        );
+        expect(readme).toContain("normalized outcome comparison");
+        expect(readme).toContain("authenticated full version");
+        expect(readme).toContain("data-only structured compatibility");
+        expect(readme).toContain("only after live proof");
     });
 
     it("keeps both DAR package listings and upload calls explicit", () => {
