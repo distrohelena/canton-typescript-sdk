@@ -4,13 +4,21 @@ import { fileURLToPath } from "node:url";
 import {
     createSourceFile,
     forEachChild,
+    isConditionalExpression,
     isCallExpression,
+    isFunctionDeclaration,
     isIdentifier,
     isImportDeclaration,
     isNamedImports,
+    isNewExpression,
+    isObjectLiteralExpression,
+    isPropertyAssignment,
     isPropertyAccessExpression,
+    isShorthandPropertyAssignment,
+    isVariableDeclaration,
     ScriptKind,
     ScriptTarget,
+    type Expression,
     type Node,
 } from "typescript";
 import { describe, expect, it } from "vitest";
@@ -130,6 +138,143 @@ function expectSdkActiveContractsTraversal(
     expect(factoryNames.size).toBe(1);
     expect(traversalCalls).toHaveLength(1);
     expect(directPageCalls).toHaveLength(0);
+}
+
+function expectRawConfiguredUserAllocation(source: string): void {
+    const sourceFile = createSourceFile(
+        "application-fixture.ts",
+        source,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    let resolver: Node | undefined;
+
+    const findResolver = (node: Node): void => {
+        if (
+            isFunctionDeclaration(node)
+            && node.name?.text === "resolveExamplePartyAsync"
+        ) {
+            resolver = node;
+        }
+
+        forEachChild(node, findResolver);
+    };
+
+    findResolver(sourceFile);
+
+    expect(resolver).toBeDefined();
+
+    if (resolver === undefined) {
+        return;
+    }
+
+    const initializers = new Map<string, Expression>();
+
+    let allocationUserId: Expression | undefined;
+
+    const inspectResolver = (node: Node): void => {
+        if (
+            isVariableDeclaration(node)
+            && isIdentifier(node.name)
+            && node.initializer !== undefined
+        ) {
+            initializers.set(node.name.text, node.initializer);
+        } else if (
+            isNewExpression(node)
+            && isIdentifier(node.expression)
+            && node.expression.text === "AllocatePartyRequest"
+            && isObjectLiteralExpression(node.arguments?.[0])
+        ) {
+            for (const property of node.arguments[0].properties) {
+                if (
+                    isPropertyAssignment(property)
+                    && property.name.getText(sourceFile) === "userId"
+                ) {
+                    allocationUserId = property.initializer;
+                } else if (
+                    isShorthandPropertyAssignment(property)
+                    && property.name.text === "userId"
+                ) {
+                    allocationUserId = property.name;
+                }
+            }
+        }
+
+        forEachChild(node, inspectResolver);
+    };
+
+    inspectResolver(resolver);
+
+    const resolveAlias = (expression: Expression): Expression => {
+        const seen = new Set<string>();
+
+        let resolved = expression;
+
+        while (isIdentifier(resolved) && !seen.has(resolved.text)) {
+            seen.add(resolved.text);
+
+            const initializer = initializers.get(resolved.text);
+
+            if (initializer === undefined) {
+                break;
+            }
+
+            resolved = initializer;
+        }
+
+        return resolved;
+    };
+
+    const isConfiguredUserId = (expression: Expression): boolean => {
+        const resolved = resolveAlias(expression);
+
+        return (
+            isPropertyAccessExpression(resolved)
+            && resolved.name.text === "SDK_EXAMPLE_USER_ID"
+        );
+    };
+
+    const countConfiguredUserTrims = (node: Node): number => {
+        let count = 0;
+
+        const visit = (candidate: Node): void => {
+            if (
+                isCallExpression(candidate)
+                && isPropertyAccessExpression(candidate.expression)
+                && candidate.expression.name.text === "trim"
+                && isConfiguredUserId(candidate.expression.expression)
+            ) {
+                count += 1;
+            }
+
+            forEachChild(candidate, visit);
+        };
+
+        visit(node);
+
+        return count;
+    };
+
+    expect(allocationUserId).toBeDefined();
+
+    if (allocationUserId === undefined) {
+        return;
+    }
+
+    const selection = resolveAlias(allocationUserId);
+
+    expect(isConditionalExpression(selection)).toBe(true);
+
+    if (!isConditionalExpression(selection)) {
+        return;
+    }
+
+    expect(isConfiguredUserId(selection.whenTrue)).toBe(true);
+    expect(countConfiguredUserTrims(selection.condition)).toBeGreaterThan(0);
+    expect(countConfiguredUserTrims(selection.whenTrue)).toBe(0);
+    expect(countConfiguredUserTrims(selection.whenFalse)).toBe(0);
 }
 
 function exampleSourcePaths(directory = examplesDirectory): readonly string[] {
@@ -495,6 +640,12 @@ describe("application example source contracts", () => {
         );
         expect(source).toMatch(
             /new\s+AllocatePartyRequest\(\s*\{\s*partyIdHint:\s*partyHint,\s*displayName:\s*partyHint,\s*userId,\s*\}\s*\)/s,
+        );
+    });
+
+    it("passes the raw nonblank configured user to fallback allocation", () => {
+        expectRawConfiguredUserAllocation(
+            readSharedExampleSource("application-fixture.ts"),
         );
     });
 

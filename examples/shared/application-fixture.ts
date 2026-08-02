@@ -100,11 +100,13 @@ export function buildCreateMessageRequest(init: {
     party: string;
     templateId: ExampleTemplateId;
     text: string;
+    userId?: string;
     commandId?: string;
     deduplicationPeriod?: CommandDeduplicationPeriod;
 }): SubmitCommandRequest {
     return new SubmitCommandRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
+        userId: init.userId,
         actAs: [init.party],
         readAs: [init.party],
         command: new CreateCommand({
@@ -348,7 +350,12 @@ export async function resolveExamplePartyAsync(
 
     const partyHint = createPartyHint({ prefix: "application-example" });
 
-    const userId = environment.SDK_EXAMPLE_USER_ID?.trim() || "ledger-api-user";
+    const configuredUserId = environment.SDK_EXAMPLE_USER_ID;
+
+    const userId =
+        configuredUserId !== undefined && configuredUserId.trim().length > 0
+            ? configuredUserId
+            : "ledger-api-user";
 
     const request = new AllocatePartyRequest({
         partyIdHint: partyHint,

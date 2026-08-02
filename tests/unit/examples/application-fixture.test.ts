@@ -265,6 +265,26 @@ describe("example application command helpers", () => {
             offset: "42",
         });
     });
+
+    it("preserves an optional caller user ID on create requests", () => {
+        const userId = " ledger-api-user ";
+
+        const configured = buildCreateMessageRequest({
+            party,
+            templateId,
+            text: "hello",
+            userId,
+        });
+
+        const omitted = buildCreateMessageRequest({
+            party,
+            templateId,
+            text: "hello",
+        });
+
+        expect(configured.userId).toBe(userId);
+        expect(omitted.userId).toBeUndefined();
+    });
 });
 
 describe("transaction event extraction", () => {
@@ -583,6 +603,39 @@ describe("resolveExamplePartyAsync", () => {
         );
         expect(request.userId).toBe("ledger-api-user");
     });
+
+    it("preserves a nonblank configured user ID when allocating a fallback party", async () => {
+        const userId = " ledger-api-user ";
+
+        const allocatePartyAsync = vi.fn().mockResolvedValue({
+            party: "allocated::party",
+        });
+
+        await resolveExamplePartyAsync(
+            { partyManagementService: { allocatePartyAsync } },
+            { SDK_EXAMPLE_USER_ID: userId },
+        );
+
+        expect(allocatePartyAsync.mock.calls[0]?.[0]?.userId).toBe(userId);
+    });
+
+    it.each([undefined, "", "   "])(
+        "uses the default user ID when the configured user ID is %j",
+        async SDK_EXAMPLE_USER_ID => {
+            const allocatePartyAsync = vi.fn().mockResolvedValue({
+                party: "allocated::party",
+            });
+
+            await resolveExamplePartyAsync(
+                { partyManagementService: { allocatePartyAsync } },
+                { SDK_EXAMPLE_USER_ID },
+            );
+
+            expect(allocatePartyAsync.mock.calls[0]?.[0]?.userId).toBe(
+                "ledger-api-user",
+            );
+        },
+    );
 
     it("uses a fresh RequestOptions for party allocation", async () => {
         const allocatePartyAsync = vi.fn().mockResolvedValue({
