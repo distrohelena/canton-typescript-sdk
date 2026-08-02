@@ -4,7 +4,9 @@ import { DisclosedContract } from "../disclosed-contract.js";
 import { CommandDeduplicationPeriod } from "../command-deduplication-period.js";
 
 const ledgerStringPattern = /^[A-Za-z0-9#:\-_/ ]+$/;
+
 const canonicalOffsetPattern = /^(0|[1-9][0-9]*)$/;
+
 const maximumInt64Offset = "9223372036854775807";
 
 export class SubmitCommandRequest {
@@ -33,9 +35,7 @@ export class SubmitCommandRequest {
             throw new ValidationError(
                 "submit requests require at least one actAs party",
             );
-        }
-
-        if (
+        } else if (
             init.commandId !== undefined &&
             (typeof init.commandId !== "string" ||
                 init.commandId.length > 255 ||
@@ -67,13 +67,13 @@ function freezeDeduplicationPeriod(
 ): CommandDeduplicationPeriod | undefined {
     if (value === undefined) {
         return undefined;
-    }
-
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    } else if (
+        typeof value !== "object" ||
+        value === null ||
+        Array.isArray(value)
+    ) {
         throw new ValidationError("submit request deduplication period is invalid");
-    }
-
-    if (value.kind === "duration") {
+    } else if (value.kind === "duration") {
         if (
             typeof value.seconds !== "number" ||
             !Number.isSafeInteger(value.seconds) ||
@@ -85,23 +85,21 @@ function freezeDeduplicationPeriod(
         }
 
         return Object.freeze({ kind: "duration", seconds: value.seconds });
+    } else if (value.kind !== "offset") {
+        throw new ValidationError("submit request deduplication period is invalid");
     }
 
-    if (value.kind === "offset") {
-        if (
-            typeof value.offset !== "string" ||
-            !canonicalOffsetPattern.test(value.offset) ||
-            value.offset.length > maximumInt64Offset.length ||
-            (value.offset.length === maximumInt64Offset.length &&
-                value.offset > maximumInt64Offset)
-        ) {
-            throw new ValidationError(
-                "submit request offset deduplication period must be a canonical unsigned int64",
-            );
-        }
-
-        return Object.freeze({ kind: "offset", offset: value.offset });
+    if (
+        typeof value.offset !== "string" ||
+        !canonicalOffsetPattern.test(value.offset) ||
+        value.offset.length > maximumInt64Offset.length ||
+        (value.offset.length === maximumInt64Offset.length &&
+            value.offset > maximumInt64Offset)
+    ) {
+        throw new ValidationError(
+            "submit request offset deduplication period must be a canonical unsigned int64",
+        );
     }
 
-    throw new ValidationError("submit request deduplication period is invalid");
+    return Object.freeze({ kind: "offset", offset: value.offset });
 }

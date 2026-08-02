@@ -61,6 +61,7 @@ describe("request validation", () => {
 
     it("stores caller-controlled command identity and a frozen duration deduplication period", () => {
         const deduplicationPeriod = { kind: "duration" as const, seconds: 30 };
+
         const request = new SubmitCommandRequest({
             applicationId: "workflow-examples",
             actAs: ["Alice"],
