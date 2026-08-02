@@ -19,6 +19,7 @@ yet a general SDK completion-waiting API.
 - Use `OperationDeadline` across setup, submission, and the completion-stream
   lifecycle. Do not add an idle probe or translate an in-flight stream deadline
   error.
+- Require `SDK_EXAMPLE_USER_ID`; example 94 has no implicit user-ID fallback.
 - The normal example proves a successful completion. A rejected-command
   completion proof is conditional on actual Ledger API behavior, not assumed
   from an RPC error or matched by message text.
@@ -31,11 +32,16 @@ visibility and upload, party resolution, participant-status compatibility read,
 and `stateService.getLedgerEndAsync`. It retains the existing explicit-party
 behavior: `SDK_EXAMPLE_PARTY` uses that party; otherwise the existing fallback
 allocation warning applies. It retains the current localnet endpoint, TLS, and
-credential rules. Resolve the expected submitter from
-`SDK_EXAMPLE_USER_ID ?? "ledger-api-user"`, reject an empty or whitespace-only
-value before any RPC, and retain that exact value for matching. Never infer it by
-decoding, inspecting, or logging a bearer token; never print token contents or
-refreshed sidecar credentials.
+credential rules. Require `SDK_EXAMPLE_USER_ID`, reject a missing, empty, or
+whitespace-only value before any RPC, and retain that exact value as the declared
+submission and authenticated user. Set it explicitly on `SubmitCommandRequest`.
+When bearer authentication is enabled, the configured value is an operator
+precondition and must name the same Ledger API user as the bearer token's user/
+subject. The example must not decode or inspect the token to discover or verify
+that identity and must never log token contents or refreshed sidecar credentials.
+Instead, an observed `completion.userId` mismatch is a structural correlation
+failure; authentication/authorization errors from a wrongly declared user remain
+their original structured transport errors.
 
 After obtaining a nonempty ledger-end offset, create this generated request:
 
@@ -57,11 +63,12 @@ Generate a unique `runId` with `randomBytes`, then use a unique,
 caller-controlled `commandId` (for example
 `completion-correlation-${runId}`) in `buildCreateMessageRequest`. Submit through
 the existing `submitAndWaitForTransactionAsync` with a fresh deadline request
-option. Pass the resolved `userId` through `buildCreateMessageRequest` into its
-`SubmitCommandRequest` explicitly; update that builder's input type as needed so
-the example cannot accidentally rely on an omitted user ID. The created Message
-marker may also include the run ID so a human can inspect durable ledger state,
-but matching is by exact command ID and user ID.
+option. Pass the required `SDK_EXAMPLE_USER_ID` through
+`buildCreateMessageRequest` into its `SubmitCommandRequest` explicitly; update
+that builder's input type as needed so the example cannot accidentally rely on
+an omitted user ID. The created Message marker may also include the run ID so a
+human can inspect durable ledger state, but matching is by exact command ID and
+declared user ID.
 
 Read the already-started result and subsequent iterator reads until a matching
 completion arrives. Ignore `offsetCheckpoint` responses and completion records
@@ -125,9 +132,9 @@ first `next()` promise, exact command ID, submitted transaction identifier, and
 expected actor and user ID. It owns checkpoint/unrelated-completion filtering,
 structural success validation, exact user-ID and update-ID correlation, and
 iterator cleanup. It must not know DAR details, party allocation, environment
-variables, or Message payload policy. The top-level example owns setup, user-ID
-resolution/validation, command construction/submission, logging, and client
-disposal.
+variables, bearer-token contents, or Message payload policy. The top-level
+example owns setup, required user-ID validation, command construction/submission,
+logging, and client disposal.
 
 Do not make this helper an SDK service method or a root export. A general API
 would need product decisions not demonstrated by one example: identity/user
@@ -176,7 +183,10 @@ and untouched post-dispatch transport error. Explicitly test that the immediate
 observer is attached before submission, a stream failure during a successful
 submission is later surfaced from the original first-read promise, and a
 submission failure remains primary if a stream and cleanup failure occur
-concurrently. Cover iterator cleanup and primary-failure precedence.
+concurrently. Cover iterator cleanup and primary-failure precedence. Add
+configuration tests that a missing/blank `SDK_EXAMPLE_USER_ID` fails before any
+RPC and that the exact supplied value is forwarded into `SubmitCommandRequest`;
+no test may decode or inspect a bearer token.
 
 Update `tests/unit/examples/application-example-sources.test.ts` for source
 shape only where it adds durable value; avoid brittle tests that prescribe local
@@ -189,9 +199,11 @@ completion stream from saved exclusive ledger end before submission, and is
 proved through the live matrix below. Correct the stale API-support entry that
 calls `commandCompletionService` a placeholder: document its existing
 gRPC-only `getCompletionsAsync(...)` stream without implying that a public
-wait-for-completion helper exists. State that `SDK_EXAMPLE_USER_ID` defaults to
-`ledger-api-user`, must be nonempty, is submitted explicitly, and is matched
-exactly—without inspecting or logging token contents.
+wait-for-completion helper exists. State that `SDK_EXAMPLE_USER_ID` is required
+(it does not default), must be nonempty, is the explicitly submitted/authenticated
+user, and is matched exactly—without inspecting or logging token contents. State
+the bearer-auth precondition that this declared value must equal the token's
+Ledger API user/subject.
 
 ## Live proof matrix
 
@@ -200,13 +212,21 @@ both environments and record only non-sensitive evidence:
 
 | Environment | Required evidence | Expected common result |
 | --- | --- | --- |
-| Authenticated Participant 3.5.7 | authenticated full version/release core, saved offset, unique command ID, explicitly submitted/matched user ID, completion kind, success-status representation, nonempty update ID, actor-set result, submitted transaction ID correlation | exact successful completion with common path |
-| Isolated authenticated Participant 3.5.8 | same fields, with sidecar credential refreshed privately if needed | same implementation and common path, unless evidence establishes a narrow documented difference |
+| Authenticated Participant 3.5.7 | invoke with `SDK_EXAMPLE_USER_ID=ledger-api-user`; capture authenticated full version/release core, saved offset, unique command ID, explicitly submitted/matched user ID, completion kind, success-status representation, nonempty update ID, actor-set result, submitted transaction ID correlation | exact successful completion with common path |
+| Isolated authenticated Participant 3.5.8 | invoke with `SDK_EXAMPLE_USER_ID=ledger-api-user`; capture the same fields, with sidecar credential refreshed privately if needed | same implementation and common path, unless evidence establishes a narrow documented difference |
 
 Both rows must use the same source and no version branch unless live structural
 evidence requires a narrowly scoped branch. The final README claim must state
 whether the negative rejected-command proof was established on both versions or
 was intentionally omitted, and why.
+
+For a custom 3.5.8 sidecar, do not assume `ledger-api-user`: when
+`PARTICIPANT_358_SOURCE_AUTH_SUBJECT` and/or
+`PARTICIPANT_358_LEDGER_USER_ID` are customized, they must designate the same
+provisioned Ledger API user and `SDK_EXAMPLE_USER_ID` must be set to that exact
+name for both the submission and matrix run. This is configuration validation,
+not token introspection; a disagreement is a structural setup failure and must
+be corrected before treating the run as evidence.
 
 ## Alternatives and trade-offs
 
@@ -226,14 +246,18 @@ was intentionally omitted, and why.
 ## Success criteria
 
 - `npm run example:workflow:command-completion` runs standalone and uses a
-  unique caller-controlled command ID.
+  unique caller-controlled command ID plus an explicit nonempty
+  `SDK_EXAMPLE_USER_ID`; it has no user-ID fallback.
 - Its completion stream is actually started from the exact saved exclusive
   ledger-end offset before submission; checkpoints and unrelated completions do
   not affect the result.
 - The exact completion proves structural success, exact expected `userId`,
   nonempty update ID, expected `actAs`, and the strongest available transaction
   correlation, with a single `OperationDeadline` across the workflow and no
-  cleanup masking primary errors.
+  cleanup masking primary errors. The declared user is explicitly submitted and,
+  under bearer auth, configured to equal the token's Ledger API user/subject
+  without token inspection; any observed completion-user mismatch fails
+  structurally.
 - The example helper remains example-only, and the README/live matrix proves the
   unchanged common implementation on 3.5.7 and 3.5.8 or clearly documents the
   evidence-backed narrow difference. A rejected completion is asserted only when
