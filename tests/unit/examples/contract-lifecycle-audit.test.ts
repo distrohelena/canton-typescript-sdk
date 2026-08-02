@@ -442,6 +442,27 @@ describe("assertArchivedMessageHistory", () => {
         });
     });
 
+    it("rejects a blank-label created payload from EventQuery history", () => {
+        const response = createHistoryResponse({
+            created: ledgerApiV2.Created.create({
+                createdEvent: createCreatedEvent({
+                    createArguments: createBlankExactMessageArguments(),
+                }),
+                synchronizerId: "synchronizer-created",
+            }),
+        });
+
+        expect(() =>
+            assertArchivedMessageHistory({
+                response,
+                originalContractId: contractId,
+                party,
+                templateId,
+                text,
+            })
+        ).toThrow();
+    });
+
     it.each([
         [
             "missing created wrapper",

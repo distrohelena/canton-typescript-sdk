@@ -299,6 +299,7 @@ export function assertExactCreatedMessagePayload(init: {
     readonly sender: string;
     readonly recipient: string;
     readonly text: string;
+    readonly requireFieldLabels?: boolean;
 }): void {
     if (!ledgerApiV2.Record.is(init.event.createArguments)) {
         throw exactMessagePayloadError(init.event.contractId);
@@ -320,7 +321,10 @@ export function assertExactCreatedMessagePayload(init: {
 
     const labelsAreAllPresent = fields.every(field => field.label !== "");
 
-    if (!labelsAreAllBlank && !labelsAreAllPresent) {
+    if (
+        (!labelsAreAllBlank && !labelsAreAllPresent)
+        || (init.requireFieldLabels === true && !labelsAreAllPresent)
+    ) {
         throw exactMessagePayloadError(init.event.contractId);
     }
 

@@ -217,6 +217,7 @@ function assertCreatedHistoryWrapper(init: {
         party: init.party,
         templateId: init.templateId,
         text: init.text,
+        requireFieldLabels: true,
     });
 }
 
@@ -268,6 +269,7 @@ function assertExactCreatedMessage(init: {
     readonly party: string;
     readonly templateId: ExampleTemplateId;
     readonly text: string;
+    readonly requireFieldLabels?: boolean;
 }): void {
     assertExactContractId(init.event.contractId, init.contractId, "created");
     assertExactTemplateId(init.event.templateId, init.templateId, "created");
@@ -276,6 +278,7 @@ function assertExactCreatedMessage(init: {
         sender: init.party,
         recipient: init.party,
         text: init.text,
+        requireFieldLabels: init.requireFieldLabels,
     });
     assertExactPartySet(init.event.witnessParties, init.party, "created witnesses");
     assertExactPartySet(init.event.signatories, init.party, "created signatories");
