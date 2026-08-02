@@ -19,7 +19,7 @@ export function buildMessageLifecycleEventFormat(
     requireTemplateId(templateId);
 
     const identifier = ledgerApiV2.Identifier.create({
-        packageId: templateId.packageId,
+        packageId: `#${templateId.packageName}`,
         moduleName: templateId.moduleName,
         entityName: templateId.entityName,
     });

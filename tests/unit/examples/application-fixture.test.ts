@@ -500,7 +500,13 @@ describe("transaction event extraction", () => {
     it("requires the exact decoded Message sender, recipient, and text payload", () => {
         const event = {
             contractId: "#message",
-            createArguments: messageArguments("Alice::1", "Alice::1", "replacement"),
+            createArguments: ledgerApiV2.Record.create({
+                fields: [
+                    messageArguments("Alice::1", "Alice::1", "replacement").fields[2]!,
+                    messageArguments("Alice::1", "Alice::1", "replacement").fields[0]!,
+                    messageArguments("Alice::1", "Alice::1", "replacement").fields[1]!,
+                ],
+            }),
         };
 
         expect(() =>
@@ -536,6 +542,143 @@ describe("transaction event extraction", () => {
             ).toThrow(/exact Message payload/i);
         }
     });
+
+    it("accepts an exact all-blank Message payload in positional order", () => {
+        const sender = "Sender::distinct";
+
+        const recipient = "Recipient::distinct";
+
+        const expectedText = "direct contract lookup";
+
+        expect(() =>
+            assertExactCreatedMessagePayload({
+                event: {
+                    contractId: "#message",
+                    createArguments: blankLabelMessageArguments(
+                        sender,
+                        recipient,
+                        expectedText,
+                    ),
+                },
+                sender,
+                recipient,
+                text: expectedText,
+            }),
+        ).not.toThrow();
+    });
+
+    it.each([
+        [
+            "mixed labels",
+            ledgerApiV2.Record.create({
+                fields: [
+                    {
+                        label: "sender",
+                        value: { sum: { oneofKind: "party", party: "Sender::distinct" } },
+                    },
+                    {
+                        label: "",
+                        value: { sum: { oneofKind: "party", party: "Recipient::distinct" } },
+                    },
+                    {
+                        label: "",
+                        value: { sum: { oneofKind: "text", text: "direct contract lookup" } },
+                    },
+                ],
+            }),
+        ],
+        [
+            "wrong field count",
+            ledgerApiV2.Record.create({
+                fields: blankLabelMessageArguments(
+                    "Sender::distinct",
+                    "Recipient::distinct",
+                    "direct contract lookup",
+                ).fields.slice(0, 2),
+            }),
+        ],
+        [
+            "wrong positional order",
+            ledgerApiV2.Record.create({
+                fields: [
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[1]!,
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[0]!,
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[2]!,
+                ],
+            }),
+        ],
+        [
+            "wrong field kind",
+            ledgerApiV2.Record.create({
+                fields: [
+                    {
+                        label: "",
+                        value: { sum: { oneofKind: "text", text: "Sender::distinct" } },
+                    },
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[1]!,
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[2]!,
+                ],
+            }),
+        ],
+        [
+            "wrong field value",
+            blankLabelMessageArguments(
+                "Sender::distinct",
+                "Recipient::distinct",
+                "wrong text",
+            ),
+        ],
+        [
+            "missing field value",
+            ledgerApiV2.Record.create({
+                fields: [
+                    {
+                        label: "",
+                        value: undefined,
+                    },
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[1]!,
+                    blankLabelMessageArguments(
+                        "Sender::distinct",
+                        "Recipient::distinct",
+                        "direct contract lookup",
+                    ).fields[2]!,
+                ],
+            }),
+        ],
+    ] as const)("rejects blank-label payload with %s", (_label, createArguments) => {
+        expect(() =>
+            assertExactCreatedMessagePayload({
+                event: { contractId: "#message", createArguments },
+                sender: "Sender::distinct",
+                recipient: "Recipient::distinct",
+                text: "direct contract lookup",
+            }),
+        ).toThrow(/exact Message payload/i);
+    });
 });
 
 function messageArguments(
@@ -555,6 +698,29 @@ function messageArguments(
             },
             {
                 label: "text",
+                value: { sum: { oneofKind: "text", text } },
+            },
+        ],
+    });
+}
+
+function blankLabelMessageArguments(
+    sender: string,
+    recipient: string,
+    text: string,
+): ledgerApiV2.Record {
+    return ledgerApiV2.Record.create({
+        fields: [
+            {
+                label: "",
+                value: { sum: { oneofKind: "party", party: sender } },
+            },
+            {
+                label: "",
+                value: { sum: { oneofKind: "party", party: recipient } },
+            },
+            {
+                label: "",
                 value: { sum: { oneofKind: "text", text } },
             },
         ],

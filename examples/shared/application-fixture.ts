@@ -314,10 +314,20 @@ export function assertExactCreatedMessagePayload(init: {
         throw exactMessagePayloadError(init.event.contractId);
     }
 
-    for (const expected of expectedFields) {
-        const field = init.event.createArguments.fields.find(
-            candidate => candidate.label === expected.label,
-        );
+    const fields = init.event.createArguments.fields;
+
+    const labelsAreAllBlank = fields.every(field => field.label === "");
+
+    const labelsAreAllPresent = fields.every(field => field.label !== "");
+
+    if (!labelsAreAllBlank && !labelsAreAllPresent) {
+        throw exactMessagePayloadError(init.event.contractId);
+    }
+
+    for (const [index, expected] of expectedFields.entries()) {
+        const field = labelsAreAllBlank
+            ? fields[index]
+            : fields.find(candidate => candidate.label === expected.label);
 
         if (field?.value === undefined) {
             throw exactMessagePayloadError(init.event.contractId);

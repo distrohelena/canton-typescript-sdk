@@ -17,8 +17,8 @@ import {
 const party = "Alice::audit";
 
 const templateId: ExampleTemplateId = {
-    packageId: "package-id",
-    packageName: "package-name",
+    packageId: "raw-package-hash",
+    packageName: "debug-playground",
     moduleName: "DebugPlayground",
     entityName: "Message",
 };
@@ -39,6 +39,14 @@ function createIdentifier(
         moduleName: templateId.moduleName,
         entityName: templateId.entityName,
         ...overrides,
+    });
+}
+
+function createLifecycleFormatIdentifier(): ledgerApiV2.Identifier {
+    return ledgerApiV2.Identifier.create({
+        packageId: `#${templateId.packageName}`,
+        moduleName: templateId.moduleName,
+        entityName: templateId.entityName,
     });
 }
 
@@ -93,6 +101,35 @@ function createExactMessageArguments(init: {
             },
             {
                 label: "text",
+                value: ledgerApiV2.Value.create({
+                    sum: { oneofKind: "text", text: init.text ?? text },
+                }),
+            },
+        ],
+    });
+}
+
+function createBlankExactMessageArguments(init: {
+    readonly sender?: string;
+    readonly recipient?: string;
+    readonly text?: string;
+} = {}): ledgerApiV2.Record {
+    return ledgerApiV2.Record.create({
+        fields: [
+            {
+                label: "",
+                value: ledgerApiV2.Value.create({
+                    sum: { oneofKind: "party", party: init.sender ?? party },
+                }),
+            },
+            {
+                label: "",
+                value: ledgerApiV2.Value.create({
+                    sum: { oneofKind: "party", party: init.recipient ?? party },
+                }),
+            },
+            {
+                label: "",
                 value: ledgerApiV2.Value.create({
                     sum: { oneofKind: "text", text: init.text ?? text },
                 }),
@@ -189,11 +226,9 @@ describe("buildMessageLifecycleEventFormat", () => {
         expect(ledgerApiV2.TemplateFilter.is(templateFilter)).toBe(true);
         expect(templateFilter?.includeCreatedEventBlob).toBe(false);
         expect(ledgerApiV2.Identifier.is(templateFilter?.templateId)).toBe(true);
-        expect(templateFilter?.templateId).toEqual(createIdentifier());
-        expect(templateFilter?.templateId?.packageId).toBe(templateId.packageId);
-        expect(templateFilter?.templateId?.packageId).not.toBe(
-            `#${templateId.packageName}`,
-        );
+        expect(templateFilter?.templateId).toEqual(createLifecycleFormatIdentifier());
+        expect(templateFilter?.templateId?.packageId).toBe("#debug-playground");
+        expect(templateFilter?.templateId?.packageId).not.toBe(templateId.packageId);
     });
 
     it.each([
@@ -210,8 +245,9 @@ describe("buildMessageLifecycleEventFormat", () => {
 });
 
 describe("assertDirectMessageLookup", () => {
-    it("accepts a materialized exact Message while ignoring ContractService-unavailable fields", () => {
+    it("accepts a blank-label exact Message while ignoring ContractService-unavailable fields", () => {
         const createdEvent = createCreatedEvent({
+            createArguments: createBlankExactMessageArguments(),
             offset: "42",
             nodeId: 7,
             createdEventBlob: Uint8Array.of(1, 2),
