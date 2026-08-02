@@ -1,4 +1,5 @@
 import {
+    ActiveContractsTraversalOptions,
     CantonClient,
     CreateCommand,
     ExerciseCommand,
@@ -26,17 +27,17 @@ describe("archive and stale-contract workflow", () => {
 
         const commandOptions: RequestOptions[] = [];
 
-        const activeRequests: ledgerApiV2.GetActiveContractsPageRequest[] = [];
-
-        const activeOptions: RequestOptions[] = [];
+        const activeTraversals: Array<{
+            request: ledgerApiV2.GetActiveContractsPageRequest;
+            options: ActiveContractsTraversalOptions;
+        }> = [];
 
         await runArchiveAndStaleContractWorkflowAsync(createDependencies({
             trace,
             setupBudgets,
             commandRequests,
             commandOptions,
-            activeRequests,
-            activeOptions,
+            activeTraversals,
         }));
 
         expect(setupBudgets).toEqual([99, 98, 97]);
@@ -52,12 +53,13 @@ describe("archive and stale-contract workflow", () => {
         expect(commandRequests[2]?.command).toBeInstanceOf(ExerciseCommand);
         expect((commandRequests[1]?.command as ExerciseCommand).contractId).toBe("#original");
         expect((commandRequests[2]?.command as ExerciseCommand).contractId).toBe("#original");
-        expect(commandOptions.map(option => option.timeoutMs)).toEqual([96, 95, 93]);
+        expect(commandOptions.map(option => option.timeoutMs)).toEqual([96, 95, 94]);
         expect(new Set(commandOptions).size).toBe(3);
-        expect(activeRequests).toHaveLength(2);
-        expect(activeRequests[1]?.activeAtOffset).toBe("42");
-        expect(activeOptions.every(option => option.timeoutMs > 0)).toBe(true);
-        expect(new Set(activeOptions).size).toBe(2);
+        expect(activeTraversals).toHaveLength(1);
+        expect(activeTraversals[0]?.options).toMatchObject({
+            maxPages: 100,
+            maxContracts: 10_000,
+        });
         expect(trace).toEqual(expect.arrayContaining([
             "create-submit",
             "replace-submit",
@@ -189,8 +191,10 @@ function createDependencies(init: {
     readonly setupBudgets?: number[];
     readonly commandRequests?: SubmitCommandRequest[];
     readonly commandOptions?: RequestOptions[];
-    readonly activeRequests?: ledgerApiV2.GetActiveContractsPageRequest[];
-    readonly activeOptions?: RequestOptions[];
+    readonly activeTraversals?: Array<{
+        request: ledgerApiV2.GetActiveContractsPageRequest;
+        options: ActiveContractsTraversalOptions;
+    }>;
     readonly staleSucceeds?: boolean;
     readonly staleError?: Error;
     readonly originalStillActive?: boolean;
@@ -208,9 +212,7 @@ function createDependencies(init: {
 
     const commandOptions = init.commandOptions ?? [];
 
-    const activeRequests = init.activeRequests ?? [];
-
-    const activeOptions = init.activeOptions ?? [];
+    const activeTraversals = init.activeTraversals ?? [];
 
     let now = 0;
 
@@ -251,17 +253,13 @@ function createDependencies(init: {
                 },
             },
             stateService: {
-                getActiveContractsPageAsync: async (request, options) => {
-                    pageCount += 1;
-                    activeRequests.push(request);
+                getActiveContractsPagesAsync: async function* (request, options) {
+                    activeTraversals.push({ request, options });
 
-                    if (options === undefined) {
-                        throw new Error("Expected active-contract options.");
-                    }
+                    for (const page of [1, 2]) {
+                        pageCount = page;
 
-                    activeOptions.push(options);
-
-                    return ledgerApiV2.GetActiveContractsPageResponse.create(
+                        yield ledgerApiV2.GetActiveContractsPageResponse.create(
                         pageCount === 1
                             ? {
                                 activeAtOffset: "42",
@@ -272,7 +270,8 @@ function createDependencies(init: {
                                 activeAtOffset: "42",
                                 activeContracts: activeContractsForSecondPage(init),
                             },
-                    );
+                        );
+                    }
                 },
             },
         } as unknown as CantonClient,

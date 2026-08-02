@@ -4,9 +4,9 @@ import {
     DamlParty,
     DamlRecord,
     OperationDeadline,
-    RequestOptions,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
     buildCreateAndReplaceMessageTextRequest,
     ensureExampleDarUploadedAsync,
@@ -18,8 +18,8 @@ import {
 import {
     assertAtomicMessageTerminalState,
     buildActiveContractsRequest,
-    collectActiveMessagesAcrossPagesAsync,
 } from "./shared/ledger-requests.js";
+import { createExampleActiveContractsTraversalOptions } from "./shared/active-contracts-traversal.js";
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 import { readWorkflowCompatibilityAsync } from "./shared/workflow-compatibility.js";
@@ -121,20 +121,30 @@ runExampleAsync("atomic-create-and-exercise", async () => {
             templateId: fixture.templateId,
         });
 
-        const runMessages = await collectActiveMessagesAcrossPagesAsync({
+        const runMessages = [];
+
+        for await (const page of client.stateService.getActiveContractsPagesAsync(
             request,
-            predicate: message => {
+            createExampleActiveContractsTraversalOptions(deadline),
+        )) {
+            for (const response of page.activeContracts) {
+                if (response.contractEntry.oneofKind !== "activeContract") {
+                    continue;
+                }
+
+                const message = response.contractEntry.activeContract.createdEvent;
+
+                if (!ledgerApiV2.CreatedEvent.is(message)) {
+                    continue;
+                }
+
                 const text = readCreatedMessageText(message);
 
-                return text === initialText || text === replacementText;
-            },
-            timeoutMs: deadline.remainingTimeoutMs(),
-            readPageAsync: (pageRequest, remainingTimeoutMs) =>
-                client.stateService.getActiveContractsPageAsync(
-                    pageRequest,
-                    new RequestOptions({ timeoutMs: remainingTimeoutMs }),
-                ),
-        });
+                if (text === initialText || text === replacementText) {
+                    runMessages.push(message);
+                }
+            }
+        }
 
         const activeReplacement = assertAtomicMessageTerminalState({
             messages: runMessages,

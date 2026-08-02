@@ -1,7 +1,6 @@
 import {
     CantonClient,
     OperationDeadline,
-    RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
@@ -16,8 +15,8 @@ import {
 import {
     assertExactlyOneActiveMessage,
     buildActiveContractsRequest,
-    collectActiveMessagesAcrossPagesAsync,
 } from "./ledger-requests.js";
+import { createExampleActiveContractsTraversalOptions } from "./active-contracts-traversal.js";
 import { exampleTimeoutMs } from "./localnet.js";
 import {
     readWorkflowCompatibilityAsync,
@@ -142,16 +141,29 @@ export async function runIdempotentCommandRetryWorkflowAsync(
         templateId: fixture.templateId,
     });
 
-    const activeMessages = await collectActiveMessagesAcrossPagesAsync({
+    const activeMessages = [];
+
+    for await (const page of dependencies.client.stateService.getActiveContractsPagesAsync(
         request,
-        textMarker: marker,
-        timeoutMs: deadline.remainingTimeoutMs(),
-        readPageAsync: (pageRequest, remainingTimeoutMs) =>
-            dependencies.client.stateService.getActiveContractsPageAsync(
-                pageRequest,
-                new RequestOptions({ timeoutMs: remainingTimeoutMs }),
-            ),
-    });
+        createExampleActiveContractsTraversalOptions(deadline),
+    )) {
+        for (const response of page.activeContracts) {
+            if (
+                response.contractEntry.oneofKind !== "activeContract"
+                || !ledgerApiV2.CreatedEvent.is(
+                    response.contractEntry.activeContract.createdEvent,
+                )
+            ) {
+                continue;
+            }
+
+            const message = response.contractEntry.activeContract.createdEvent;
+
+            if (readCreatedMessageText(message) === marker) {
+                activeMessages.push(message);
+            }
+        }
+    }
 
     const activeMessage = assertExactlyOneActiveMessage({
         messages: activeMessages,

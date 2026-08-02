@@ -1,4 +1,5 @@
 import {
+    ActiveContractsTraversalOptions,
     CantonClient,
     GrpcTransportError,
     OperationDeadline,
@@ -22,12 +23,10 @@ describe("idempotent command retry workflow", () => {
 
         const commandOptions: Array<RequestOptions | undefined> = [];
 
-        const activeContractCalls: Array<{
+        const activeContractTraversals: Array<{
             request: ledgerApiV2.GetActiveContractsPageRequest;
-            timeoutMs: number | undefined;
+            options: ActiveContractsTraversalOptions;
         }> = [];
-
-        const activeContractOptions: Array<RequestOptions | undefined> = [];
 
         const logger = { log: (message: string) => trace.push(`log:${message}`), warn: () => undefined };
 
@@ -36,8 +35,7 @@ describe("idempotent command retry workflow", () => {
             setupBudgets,
             commandCalls,
             commandOptions,
-            activeContractCalls,
-            activeContractOptions,
+            activeContractTraversals,
             logger,
         });
 
@@ -52,20 +50,11 @@ describe("idempotent command retry workflow", () => {
         expect(commandOptions).not.toContain(undefined);
         expect(commandOptions.every(option => option instanceof RequestOptions)).toBe(true);
         expect(new Set(commandOptions).size).toBe(2);
-        expect(activeContractCalls).toHaveLength(2);
-        expect(
-            activeContractCalls.every(
-                call => call.timeoutMs !== undefined && call.timeoutMs > 0,
-            ),
-        ).toBe(true);
-        expect(activeContractCalls[0]?.timeoutMs).not.toBe(
-            activeContractCalls[1]?.timeoutMs,
-        );
-        expect(activeContractOptions).toHaveLength(2);
-        expect(activeContractOptions).not.toContain(undefined);
-        expect(activeContractOptions.every(option => option instanceof RequestOptions)).toBe(true);
-        expect(new Set(activeContractOptions).size).toBe(2);
-        expect(activeContractCalls[1]?.request.activeAtOffset).toBe("42");
+        expect(activeContractTraversals).toHaveLength(1);
+        expect(activeContractTraversals[0]?.options).toMatchObject({
+            maxPages: 100,
+            maxContracts: 10_000,
+        });
         expect(trace).toEqual(expect.arrayContaining([
             "first-submit",
             "first-transaction-id",
@@ -114,11 +103,10 @@ function createDependencies(init: {
     readonly setupBudgets?: number[];
     readonly commandCalls?: Array<{ request: unknown; timeoutMs: number | undefined }>;
     readonly commandOptions?: Array<RequestOptions | undefined>;
-    readonly activeContractCalls?: Array<{
+    readonly activeContractTraversals?: Array<{
         request: ledgerApiV2.GetActiveContractsPageRequest;
-        timeoutMs: number | undefined;
+        options: ActiveContractsTraversalOptions;
     }>;
-    readonly activeContractOptions?: Array<RequestOptions | undefined>;
     readonly logger?: { log: (message: string) => void; warn: (message: string) => void };
     readonly retrySucceeds?: boolean;
     readonly retryError?: Error;
@@ -132,9 +120,7 @@ function createDependencies(init: {
 
     const commandOptions = init.commandOptions ?? [];
 
-    const activeContractCalls = init.activeContractCalls ?? [];
-
-    const activeContractOptions = init.activeContractOptions ?? [];
+    const activeContractTraversals = init.activeContractTraversals ?? [];
 
     let now = 0;
 
@@ -182,12 +168,13 @@ function createDependencies(init: {
                 },
             },
             stateService: {
-                getActiveContractsPageAsync: async (request, options) => {
-                    activeContractPageCount += 1;
-                    activeContractCalls.push({ request, timeoutMs: options?.timeoutMs });
-                    activeContractOptions.push(options);
+                getActiveContractsPagesAsync: async function* (request, options) {
+                    activeContractTraversals.push({ request, options });
 
-                    return ledgerApiV2.GetActiveContractsPageResponse.create(
+                    for (const page of [1, 2]) {
+                        activeContractPageCount = page;
+
+                        yield ledgerApiV2.GetActiveContractsPageResponse.create(
                         activeContractPageCount === 1
                             ? {
                                   activeAtOffset: "42",
@@ -203,7 +190,8 @@ function createDependencies(init: {
                                           ]
                                       : [activeContractResponse("#message-1", marker)],
                               },
-                    );
+                        );
+                    }
                 },
             },
         } as unknown as CantonClient,

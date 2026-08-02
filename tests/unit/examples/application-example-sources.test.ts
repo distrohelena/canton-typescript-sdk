@@ -1,4 +1,18 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+    createSourceFile,
+    forEachChild,
+    isCallExpression,
+    isIdentifier,
+    isImportDeclaration,
+    isNamedImports,
+    isPropertyAccessExpression,
+    ScriptKind,
+    ScriptTarget,
+    type Node,
+} from "typescript";
 import { describe, expect, it } from "vitest";
 
 const listPackagesRequest =
@@ -25,8 +39,9 @@ const archivedOriginalProof =
 const replacementContractProof =
     /else\s+if\s*\(\s*!replacementContractId\.trim\(\)\s*\|\|\s*replacementContractId\s*===\s*original\.contractId\s*\)\s*\{/s;
 
-const activeContractPageRead =
-    /client\.stateService\.getActiveContractsPageAsync\(\s*pageRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*remainingTimeoutMs\s*\}\s*\),\s*\)/s;
+const examplesDirectory = fileURLToPath(
+    new URL("../../../examples", import.meta.url),
+);
 
 const getLedgerEndRequest =
     /client\.stateService\.getLedgerEndAsync\(\s*new\s+GetLedgerEndRequest\(\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs\s*\}\s*\),\s*\)/s;
@@ -51,6 +66,100 @@ function readSharedExampleSource(name: string): string {
     return readFileSync(
         new URL(`../../../examples/shared/${name}`, import.meta.url),
         "utf8",
+    );
+}
+
+function expectSdkActiveContractsTraversal(
+    sourcePath: string,
+    source: string,
+): void {
+    const sourceFile = createSourceFile(
+        sourcePath,
+        source,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    const factoryNames = new Set<string>();
+
+    const traversalCalls: Node[] = [];
+
+    const directPageCalls: Node[] = [];
+
+    const visit = (node: Node): void => {
+        if (
+            isImportDeclaration(node)
+            && node.moduleSpecifier.text.endsWith("active-contracts-traversal.js")
+            && node.importClause?.namedBindings !== undefined
+            && isNamedImports(node.importClause.namedBindings)
+        ) {
+            for (const element of node.importClause.namedBindings.elements) {
+                if (
+                    (element.propertyName?.text ?? element.name.text)
+                    === "createExampleActiveContractsTraversalOptions"
+                ) {
+                    factoryNames.add(element.name.text);
+                }
+            }
+        } else if (
+            isCallExpression(node)
+            && isPropertyAccessExpression(node.expression)
+            && node.expression.name.text === "getActiveContractsPagesAsync"
+            && isPropertyAccessExpression(node.expression.expression)
+            && node.expression.expression.name.text === "stateService"
+            && node.arguments.length === 2
+            && isCallExpression(node.arguments[1])
+            && isIdentifier(node.arguments[1].expression)
+            && factoryNames.has(node.arguments[1].expression.text)
+        ) {
+            traversalCalls.push(node);
+        } else if (
+            isCallExpression(node)
+            && isPropertyAccessExpression(node.expression)
+            && node.expression.name.text === "getActiveContractsPageAsync"
+        ) {
+            directPageCalls.push(node);
+        }
+
+        forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+
+    expect(factoryNames.size).toBe(1);
+    expect(traversalCalls).toHaveLength(1);
+    expect(directPageCalls).toHaveLength(0);
+}
+
+function exampleSourcePaths(directory = examplesDirectory): readonly string[] {
+    const paths: string[] = [];
+
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const path = join(directory, entry.name);
+
+        if (entry.isDirectory()) {
+            paths.push(...exampleSourcePaths(path));
+        } else if (entry.isFile() && path.endsWith(".ts")) {
+            paths.push(path);
+        }
+    }
+
+    return paths;
+}
+
+function importsActiveContractsTraversal(sourcePath: string): boolean {
+    const sourceFile = createSourceFile(
+        sourcePath,
+        readFileSync(sourcePath, "utf8"),
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    return sourceFile.statements.some(statement =>
+        isImportDeclaration(statement)
+        && statement.moduleSpecifier.text.endsWith("active-contracts-traversal.js"),
     );
 }
 
@@ -123,7 +232,6 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
     expect(source).toMatch(/assertMessageContractAbsent\(/);
     expect(source).toMatch(/assertExactlyOneActiveMessage\(/);
     expect(source).toMatch(/assertExactCreatedMessagePayload\(\s*\{/s);
-    expect(source).toMatch(/collectActiveMessagesAcrossPagesAsync\(/);
     expect(source).toMatch(/classifyWorkflowFailure\(/);
     expect(source).toMatch(/kind:\s*"staleContract"/);
     expect(source).toMatch(/archive-create-\$\{\w+\}/);
@@ -147,6 +255,29 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
 }
 
 describe("application example source contracts", () => {
+    it("uses the shared raw SDK ACS traversal in exactly the four ACS consumers", () => {
+        const consumerPaths = exampleSourcePaths()
+            .filter(importsActiveContractsTraversal)
+            .map(path => relative(examplesDirectory, path))
+            .sort();
+
+        expect(consumerPaths).toEqual([
+            "60-query-active-contracts.ts",
+            "90-atomic-create-and-exercise.ts",
+            "shared/archive-and-stale-contract-workflow.ts",
+            "shared/idempotent-command-retry-workflow.ts",
+        ]);
+
+        for (const path of consumerPaths) {
+            const sourcePath = join(examplesDirectory, path);
+
+            expectSdkActiveContractsTraversal(
+                sourcePath,
+                readFileSync(sourcePath, "utf8"),
+            );
+        }
+    });
+
     it("exposes the standalone application lifecycle scripts without publishing examples", () => {
         const packageJson = readRootPackageJson();
 
@@ -410,13 +541,8 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(/extractReplacementContracts/);
         expect(source).not.toMatch(/archivedContractId|Archived transient contract/);
         expect(source).toContain("buildActiveContractsRequest({");
-        expect([
-            ...source.matchAll(/collectActiveMessagesAcrossPagesAsync\(/g),
-        ]).toHaveLength(1);
-        expect(source).not.toMatch(/findActiveMessageAcrossPagesAsync\(/);
-        expect(source).toMatch(
-            /collectActiveMessagesAcrossPagesAsync\(\s*\{[\s\S]*?predicate:\s*message\s*=>\s*\{\s*const\s+text\s*=\s*readCreatedMessageText\(message\);\s*return\s+text\s*===\s*initialText\s*\|\|\s*text\s*===\s*replacementText;\s*\},[\s\S]*?timeoutMs:\s*deadline\.remainingTimeoutMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*remainingTimeoutMs\s*\}\s*\),/s,
-        );
+        expect(source).toContain("readCreatedMessageText(message)");
+        expect(source).toContain("text === initialText || text === replacementText");
         expect(source).toMatch(
             /const\s+activeReplacement\s*=\s*assertAtomicMessageTerminalState\(\s*\{\s*messages:\s*runMessages,\s*initialText,\s*replacementText,\s*responseContractId:\s*submittedReplacement\.contractId,\s*party:\s*actor\.party,\s*\}\s*\);/s,
         );
@@ -447,12 +573,17 @@ describe("application example source contracts", () => {
     it("runs the idempotent retry workflow as a standalone example with bounded cleanup", () => {
         const source = readExampleSource("91-idempotent-command-retry.ts");
 
+        const workflowSource = readSharedExampleSource(
+            "idempotent-command-retry-workflow.ts",
+        );
+
         expect(source).toMatch(
             /await\s+runClientWorkflowWithDisposalAsync\(\s*\{\s*disposeAsync:\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*runWorkflowAsync:\s*\(\)\s*=>\s*runIdempotentCommandRetryWorkflowAsync\(\s*\{\s*client,\s*\.\.\.idempotentCommandRetryWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\),\s*\}\s*\);/s,
         );
         expect(source).not.toMatch(
             /finally\s*\{\s*await\s+client\.disposeAsync\(\);\s*\}/s,
         );
+        expect(workflowSource).toContain("readCreatedMessageText(message) === marker");
     });
 
     it("resumes an update stream from the saved post-pre-contract ledger end", () => {
@@ -528,9 +659,8 @@ describe("application example source contracts", () => {
             /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
         );
         expect(source).toContain("buildActiveContractsRequest({");
-        expect(source).toContain("findActiveMessageAcrossPagesAsync({");
-        expect(source).toContain("timeoutMs: deadline.remainingTimeoutMs(),");
-        expect(source).toMatch(activeContractPageRead);
+        expect(source).toContain("for await");
+        expect(source).toContain("break;");
         expect(source).toContain("message.createArguments");
         expect(source).toContain(
             'const messageText = "Hello from the Canton TypeScript SDK";',

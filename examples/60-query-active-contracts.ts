@@ -1,6 +1,5 @@
 import {
     OperationDeadline,
-    RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import {
     buildCreateMessageRequest,
@@ -11,8 +10,9 @@ import {
 } from "./shared/application-fixture.js";
 import {
     buildActiveContractsRequest,
-    findActiveMessageAcrossPagesAsync,
+    findActiveMessage,
 } from "./shared/ledger-requests.js";
+import { createExampleActiveContractsTraversalOptions } from "./shared/active-contracts-traversal.js";
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 
@@ -57,16 +57,18 @@ runExampleAsync("query-active-contracts", async () => {
             templateId: fixture.templateId,
         });
 
-        const message = await findActiveMessageAcrossPagesAsync({
+        let message;
+
+        for await (const page of client.stateService.getActiveContractsPagesAsync(
             request,
-            contractId: created.contractId,
-            timeoutMs: deadline.remainingTimeoutMs(),
-            readPageAsync: (pageRequest, remainingTimeoutMs) =>
-                client.stateService.getActiveContractsPageAsync(
-                    pageRequest,
-                    new RequestOptions({ timeoutMs: remainingTimeoutMs }),
-                ),
-        });
+            createExampleActiveContractsTraversalOptions(deadline),
+        )) {
+            message = findActiveMessage(page.activeContracts, created.contractId);
+
+            if (message !== undefined) {
+                break;
+            }
+        }
 
         if (message === undefined) {
             throw new Error(

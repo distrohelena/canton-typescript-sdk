@@ -1,8 +1,8 @@
 import {
     CantonClient,
     OperationDeadline,
-    RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
+import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
     assertExactCreatedMessagePayload,
     buildCreateMessageRequest,
@@ -19,8 +19,8 @@ import {
     assertExactlyOneActiveMessage,
     assertMessageContractAbsent,
     buildActiveContractsRequest,
-    collectActiveMessagesAcrossPagesAsync,
 } from "./ledger-requests.js";
+import { createExampleActiveContractsTraversalOptions } from "./active-contracts-traversal.js";
 import { exampleTimeoutMs } from "./localnet.js";
 import {
     readWorkflowCompatibilityAsync,
@@ -140,23 +140,33 @@ export async function runArchiveAndStaleContractWorkflowAsync(
         throw new Error("ReplaceText did not create a distinct replacement contract.");
     }
 
-    const runMessages = await collectActiveMessagesAcrossPagesAsync({
-        request: buildActiveContractsRequest({
+    const runMessages = [];
+
+    for await (const page of dependencies.client.stateService.getActiveContractsPagesAsync(
+        buildActiveContractsRequest({
             party: actor.party,
             templateId: fixture.templateId,
         }),
-        predicate: message => {
+        createExampleActiveContractsTraversalOptions(deadline),
+    )) {
+        for (const response of page.activeContracts) {
+            if (response.contractEntry.oneofKind !== "activeContract") {
+                continue;
+            }
+
+            const message = response.contractEntry.activeContract.createdEvent;
+
+            if (!ledgerApiV2.CreatedEvent.is(message)) {
+                continue;
+            }
+
             const text = readCreatedMessageText(message);
 
-            return text === originalText || text === replacementText;
-        },
-        timeoutMs: deadline.remainingTimeoutMs(),
-        readPageAsync: (pageRequest, remainingTimeoutMs) =>
-            dependencies.client.stateService.getActiveContractsPageAsync(
-                pageRequest,
-                new RequestOptions({ timeoutMs: remainingTimeoutMs }),
-            ),
-    });
+            if (text === originalText || text === replacementText) {
+                runMessages.push(message);
+            }
+        }
+    }
 
     assertMessageContractAbsent({
         messages: runMessages,
