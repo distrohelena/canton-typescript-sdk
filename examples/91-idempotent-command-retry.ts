@@ -5,18 +5,18 @@ import {
     idempotentCommandRetryWorkflowDefaults,
     runIdempotentCommandRetryWorkflowAsync,
 } from "./shared/idempotent-command-retry-workflow.js";
+import { runClientWorkflowWithDisposalAsync } from "./shared/update-stream-lifecycle.js";
 
 runExampleAsync("idempotent-command-retry", async () => {
     const client = createExampleClient();
 
-    try {
-        await runIdempotentCommandRetryWorkflowAsync({
+    await runClientWorkflowWithDisposalAsync({
+        disposeAsync: () => client.disposeAsync(),
+        runWorkflowAsync: () => runIdempotentCommandRetryWorkflowAsync({
             client,
             ...idempotentCommandRetryWorkflowDefaults,
             createRunId: () => randomBytes(12).toString("hex"),
             logger: console,
-        });
-    } finally {
-        await client.disposeAsync();
-    }
+        }),
+    });
 });

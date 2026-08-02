@@ -443,9 +443,11 @@ describe("application example source contracts", () => {
     it("runs the idempotent retry workflow as a standalone example with bounded cleanup", () => {
         const source = readExampleSource("91-idempotent-command-retry.ts");
 
-        expectStandaloneCleanup(source);
         expect(source).toMatch(
-            /runIdempotentCommandRetryWorkflowAsync\(\s*\{\s*client,\s*\.\.\.idempotentCommandRetryWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\);/s,
+            /await\s+runClientWorkflowWithDisposalAsync\(\s*\{\s*disposeAsync:\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*runWorkflowAsync:\s*\(\)\s*=>\s*runIdempotentCommandRetryWorkflowAsync\(\s*\{\s*client,\s*\.\.\.idempotentCommandRetryWorkflowDefaults,\s*createRunId:\s*\(\)\s*=>\s*randomBytes\(\d+\)\.toString\("hex"\),\s*logger:\s*console,\s*\}\s*\),\s*\}\s*\);/s,
+        );
+        expect(source).not.toMatch(
+            /finally\s*\{\s*await\s+client\.disposeAsync\(\);\s*\}/s,
         );
     });
 
