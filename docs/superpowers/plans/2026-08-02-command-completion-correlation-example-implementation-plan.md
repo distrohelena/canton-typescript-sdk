@@ -58,33 +58,32 @@ At each task boundary, hand the supplied completion design plus changed-file dif
 **Files:**
 - Create: `examples/shared/command-completion-correlation.ts`
 - Create: `tests/unit/examples/command-completion-correlation.test.ts`
-- Modify: `examples/shared/update-stream-lifecycle.ts` only if a small generic cleanup primitive is demonstrably needed
-- Modify: `tests/unit/examples/update-stream-lifecycle.test.ts` only if that existing primitive changes
+- Reuse unchanged: `examples/shared/update-stream-lifecycle.ts` (`submitAndMatchUpdateAsync` and its tested cleanup ownership)
 
-- [ ] **Step 1: Write failing generated-message/fake-iterator tests before source.** Build actual `ledgerApiV2.CompletionStreamResponse`/`Completion` shapes and a controllable async iterator. Cover: checkpoint ignored; unrelated command ID ignored; an exact command ID is accepted only if `completion.userId === expectedUserId`, success is absent status or `status.code === 0`, nonempty `updateId`, `actAs` equals the submitted actor as an unordered set, and `updateId === submittedTransactionId`; reject present nonzero status structurally (not message text), missing update ID, wrong user, wrong actor, wrong update ID, stream end, and no completion oneof. Test pre-dispatch `TimeoutError` as unchanged input and post-dispatch transport error by identity.
+- [ ] **Step 1: Write failing generated-message/fake-iterator tests before source.** Build actual `ledgerApiV2.CompletionStreamResponse`/`Completion` shapes and a controllable async iterator. Cover: checkpoint ignored; unrelated command ID ignored; an exact command ID is accepted only if `completion.userId === expectedUserId`, success is absent status or `status.code === 0`, nonempty `updateId`, `actAs` equals the submitted actor as an unordered set, and `updateId === submittedTransactionId`; reject an empty submitted transaction ID before matching, present nonzero status structurally (not message text), missing update ID, wrong user, wrong actor, wrong update ID, stream end, and no completion oneof. Test pre-dispatch `TimeoutError` as unchanged input and post-dispatch transport error by identity.
 
-  Also test lifecycle order and failure precedence: caller creates `firstNextPromise = iterator.next()` and immediately attaches `void firstNextPromise.catch(() => undefined)` before `submitAsync`; successful submission followed by a concurrently failed first read surfaces the original first-read rejection; failed submission remains primary even if first read and `return()` also fail; iterator `return?.()` is called once after match/failure; cleanup failure is only surfaced when there is no primary failure.
+  Also test the precise wrapper lifecycle: it receives an already-issued `firstNextPromise` plus `submitAsync`, immediately attaches `void firstNextPromise.catch(() => undefined)` before it calls `submitAsync`, invokes the existing `submitAndMatchUpdateAsync` once, and passes `cancelAsync: () => undefined` so that existing helper's final `iterator.return?.()` is the one and only stream close. Prove a successful submission followed by a concurrently failed first read surfaces the original first-read rejection; a submission failure remains primary when first-read and `return()` fail concurrently; `return?.()` is called exactly once after match/failure; cleanup failure surfaces only if no primary failure exists.
 
 - [ ] **Step 2: Prove RED.** Run: `rtk proxy npx vitest run tests/unit/examples/command-completion-correlation.test.ts --maxWorkers=1`. Expected: FAIL because the helper and matcher do not exist.
 
 - [ ] **Step 3: Apply the narrow helper with `apply_patch`.** Export only from the example file a shape equivalent to:
 
   ```ts
-  export async function waitForCommandCompletionAsync(init: {
+  export async function submitAndWaitForCommandCompletionAsync(init: {
       iterator: AsyncIterator<ledgerApiV2.CompletionStreamResponse>;
       firstNextPromise: Promise<IteratorResult<ledgerApiV2.CompletionStreamResponse>>;
+      submitAsync: () => Promise<SubmitCommandTransactionResponse>;
       commandId: string;
-      submittedTransactionId: string;
       expectedActor: string;
       expectedUserId: string;
   }): Promise<ledgerApiV2.Completion>;
   ```
 
-  Await the original `firstNextPromise` first, then `iterator.next()` until a matching completion. Ignore `offsetCheckpoint` and different IDs; a same-ID malformed/non-success completion is a structural error. Compare `actAs` as sets (also reject duplicate/missing actor), not ordered arrays. Use existing `cleanupWithoutMaskingAsync` or a tiny extracted equivalent so first failure wins. The helper must not catch/relabel `TimeoutError`, `GrpcTransportError`, or other stream errors.
+  Implement that wrapper by directly invoking `submitAndMatchUpdateAsync({ iterator, firstNextPromise, submitAsync: async () => { const submitted = await init.submitAsync(); if (!submitted.transactionId.trim()) throw new Error("Submitted transaction ID must be non-empty."); return submitted; }, cancelAsync: () => undefined, match })`. Its `match(response, submitted)` ignores `offsetCheckpoint` and different command IDs, but for an exact ID structurally requires `completion.userId === expectedUserId`, absent status or `status.code === 0`, nonempty `updateId`, an unordered `actAs` set containing exactly `expectedActor`, and `completion.updateId === submitted.transactionId`; then returns the completion. A same-ID malformed/non-success completion throws a structural error. `submitAndMatchUpdateAsync` attaches the observer before submission and owns the sole final `iterator.return?.()`; the no-op cancellation avoids double cleanup. Do not catch/relabel `TimeoutError`, `GrpcTransportError`, or any stream/submission error, and do not expose this helper through `src/index.ts`.
 
 - [ ] **Step 4: Prove GREEN/refactor.** Run Step 2 again. Expected: PASS. Refactor generated-message guards into small private predicates only; never expose the helper through `src/index.ts`.
 
-- [ ] **Step 5: Review and commit.** `rtk git add examples/shared/command-completion-correlation.ts tests/unit/examples/command-completion-correlation.test.ts examples/shared/update-stream-lifecycle.ts tests/unit/examples/update-stream-lifecycle.test.ts && rtk git commit -m "feat: add example completion correlation matcher"` (omit unchanged optional lifecycle files from `git add`).
+- [ ] **Step 5: Review and commit.** `rtk git add examples/shared/command-completion-correlation.ts tests/unit/examples/command-completion-correlation.test.ts && rtk git commit -m "feat: add example completion correlation matcher"`.
 
 ### Task 3: Add example 94's race-free workflow and required configuration (TDD)
 
@@ -93,26 +92,30 @@ At each task boundary, hand the supplied completion design plus changed-file dif
 - Modify: `tests/unit/examples/command-completion-correlation.test.ts`
 - Modify: `tests/unit/examples/application-example-sources.test.ts`
 
-- [ ] **Step 1: Add failing workflow tests before the example.** Via dependency injection or extracted pure configuration/order functions, prove missing, empty, and whitespace `SDK_EXAMPLE_USER_ID` fail before any RPC/client operation; exact supplied value is forwarded to `buildCreateMessageRequest`/`SubmitCommandRequest`. Prove the order is: create one `OperationDeadline`; fixture/DAR, party, authenticated participant-status compatibility, and ledger-end unary calls each receive fresh deadline options; save a nonempty ledger-end offset; call `getCompletionsAsync(GetCompletionsRequest.create({ parties: [actor.party], beginExclusive: savedOffset }), deadline.createRequestOptions())`; obtain iterator, issue its first `next()`, attach the non-transforming observer, then submit a unique `completion-correlation-${randomBytes(...).toString("hex")}` request with a fresh option. Include source-shape checks only for durable ordering/API calls, not variable names.
+- [ ] **Step 1: Add failing workflow tests before the example.** Via dependency injection or extracted pure configuration/order functions, prove missing, empty, and whitespace-only `SDK_EXAMPLE_USER_ID` fail before any RPC/client operation, but a nonblank raw value such as `" ledger-api-user "` is retained without trimming and is forwarded/matched byte-for-byte in `buildCreateMessageRequest`/`SubmitCommandRequest`. Prove the order is: create one `OperationDeadline`; fixture/DAR, party, authenticated participant-status compatibility, and ledger-end unary calls each receive fresh deadline options; save a nonempty ledger-end offset; call `getCompletionsAsync(GetCompletionsRequest.create({ parties: [actor.party], beginExclusive: savedOffset }), deadline.createRequestOptions())`; obtain iterator, issue its first `next()`, then pass that promise and a fresh-option `submitAsync` to the Task-2 wrapper. Include source-shape checks only for durable ordering/API calls, not variable names.
 
 - [ ] **Step 2: Prove RED.** Run: `rtk proxy npx vitest run tests/unit/examples/command-completion-correlation.test.ts tests/unit/examples/application-example-sources.test.ts --maxWorkers=1`. Expected: FAIL because example 94/config/order do not exist.
 
 - [ ] **Step 3: Implement the top-level with `apply_patch`.** Follow current workflow client/disposal and compatibility conventions. Require:
 
   ```ts
-  const expectedUserId = process.env.SDK_EXAMPLE_USER_ID?.trim();
-  if (!expectedUserId) throw new Error("SDK_EXAMPLE_USER_ID is required and must not be empty.");
+  const expectedUserId = process.env.SDK_EXAMPLE_USER_ID;
+  if (expectedUserId === undefined || expectedUserId.trim().length === 0) {
+      throw new Error("SDK_EXAMPLE_USER_ID is required and must not be empty.");
+  }
   const stream = client.commandCompletionService.getCompletionsAsync(
       ledgerApiV2.GetCompletionsRequest.create({ parties: [actor.party], beginExclusive: savedLedgerEndOffset }),
       deadline.createRequestOptions(),
   );
   const iterator = stream[Symbol.asyncIterator]();
   const firstNextPromise = iterator.next();
-  void firstNextPromise.catch(() => undefined);
-  const submitted = await client.commandService.submitAndWaitForTransactionAsync(request, deadline.createRequestOptions());
+  const completion = await submitAndWaitForCommandCompletionAsync({
+      iterator, firstNextPromise, commandId, expectedActor: actor.party, expectedUserId,
+      submitAsync: () => client.commandService.submitAndWaitForTransactionAsync(request, deadline.createRequestOptions()),
+  });
   ```
 
-  Keep the first promise itself and pass it to the helper after submit succeeds. Require nonempty returned `transactionId`; submit the exact `expectedUserId`; use the run ID only as durable Message marker/log-safe correlation context, never for matching. Preserve default-party allocation warning and `SDK_EXAMPLE_PARTY` explicit-party behavior. Never decode/print a bearer token or attempt to infer identity: an authorization error remains unchanged and a mismatched completion user is a structural helper failure.
+  The wrapper, not the top-level, attaches the immediate observer before submission and owns iterator close; do not issue a second `return()`. It validates a nonempty returned `transactionId` immediately after successful submission, then matches the exact untrimmed `expectedUserId`; use the run ID only as durable Message marker/log-safe correlation context, never for matching. Preserve default-party allocation warning and `SDK_EXAMPLE_PARTY` explicit-party behavior. Never decode/print a bearer token or attempt to infer identity: an authorization error remains unchanged and a mismatched completion user is a structural helper failure.
 
 - [ ] **Step 4: Prove GREEN/refactor.** Rerun Step 2, then `rtk npm run examples:check`. Expected: PASS. Confirm source contains no root export/reference to the helper and no `userId ?? "ledger-api-user"` fallback.
 
@@ -125,7 +128,7 @@ At each task boundary, hand the supplied completion design plus changed-file dif
 - Modify: `README.md`
 - Modify: `tests/unit/examples/application-example-sources.test.ts`
 
-- [ ] **Step 1: Add failing semantic tests.** Assert package script exact behavior is `npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts`; assert README lists command in workflow examples and states: standalone/durable Message state; all normal `SDK_EXAMPLE_*` endpoint/auth/TLS/party/timeout variables apply; `SDK_EXAMPLE_USER_ID` is mandatory/nonempty/exactly submitted and matched; bearer auth requires configured declared user equal token Ledger API user/subject but never token inspection; saved exclusive offset and first stream read precede submission; no public wait helper exists. Assert service map says `commandCompletionService.getCompletionsAsync(...)` is existing gRPC-only streaming API, not a placeholder. Do not inspect variable names with regex.
+- [ ] **Step 1: Add failing semantic tests.** Assert package script exact behavior is `npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts`; assert README lists command in workflow examples and states: standalone/durable Message state; all normal `SDK_EXAMPLE_*` endpoint/auth/TLS/party/timeout variables apply; `SDK_EXAMPLE_USER_ID` is mandatory, rejects only absent/blank input, and otherwise is preserved untrimmed then exactly submitted and matched; bearer auth requires configured declared user equal token Ledger API user/subject but never token inspection; saved exclusive offset and first stream read precede submission; no public wait helper exists. Assert service map says `commandCompletionService.getCompletionsAsync(...)` is existing gRPC-only streaming API, not a placeholder. Do not inspect variable names with regex.
 
 - [ ] **Step 2: Prove RED.** Run: `rtk proxy npx vitest run tests/unit/examples/application-example-sources.test.ts --maxWorkers=1`. Expected: FAIL until script/docs/support map are updated.
 
@@ -164,9 +167,9 @@ At each task boundary, hand the supplied completion design plus changed-file dif
 **Files:**
 - Create ignored evidence only: `.superpowers/sdd/2026-08-02-command-completion-correlation/{success-357-default.md,success-357-explicit-party.md,success-358-default.md,success-358-explicit-party.md}`
 
-- [ ] **Step 1: Run the unchanged final implementation on authenticated Participant 3.5.7.** Invoke `rtk npm run example:workflow:command-completion` once without `SDK_EXAMPLE_PARTY` (record fallback allocation mode) and once with `SDK_EXAMPLE_PARTY=<pre-existing-party>`, always setting the exact declared authenticated `SDK_EXAMPLE_USER_ID`. Record only source commit, mode, full version/release core, saved offset, unique command ID, explicitly submitted/matched user ID, completion oneof kind, success status representation (absent or code 0), nonempty update ID, unordered actor-set result, and submitted transaction-ID correlation.
+- [ ] **Step 1: Run the unchanged final implementation on authenticated Participant 3.5.7.** Enter the documented protected/authenticated shell first; credentials are already scoped there and must not appear in commands, reports, or files. Run default-party mode with only `SDK_EXAMPLE_USER_ID=ledger-api-user rtk npm run example:workflow:command-completion`, then explicit-party mode with only `SDK_EXAMPLE_USER_ID=ledger-api-user SDK_EXAMPLE_PARTY=<pre-existing-party> rtk npm run example:workflow:command-completion`. Record only source commit, mode, full version/release core, saved offset, unique command ID, explicitly submitted/matched raw user ID, completion oneof kind, success status representation (absent or code 0), nonempty update ID, unordered actor-set result, and submitted transaction-ID correlation.
 
-- [ ] **Step 2: Repeat exactly on isolated authenticated Participant 3.5.8.** Use the same source and path, a private credential-refresh child shell if needed, and default plus explicit-party runs. If custom sidecar subject/user configuration applies, use its exact provisioned Ledger API user. No source/version/tag branch is allowed merely to run this row.
+- [ ] **Step 2: Repeat exactly on isolated authenticated Participant 3.5.8.** Use the same source and two command forms in a private credential-refresh child shell if needed. If custom sidecar subject/user configuration applies, replace `ledger-api-user` in both forms with that exact provisioned Ledger API user. No source/version/tag branch is allowed merely to run this row.
 
 - [ ] **Step 3: Sanitize and verify evidence.** Before writing each report, assert `rtk git check-ignore -q <report-path>`. Include neither bearer token text, environment dumps, sidecar credentials, nor status prose. `rtk git status --short` must show reports untracked-but-ignored and never staged.
 
@@ -175,7 +178,7 @@ At each task boundary, hand the supplied completion design plus changed-file dif
 **Files:** no source changes expected unless a verified finding requires a new focused TDD task/commit.
 
 - [ ] **Step 1: Run all automated evidence.** Run `rtk proxy npx vitest run tests/unit/examples/application-fixture.test.ts tests/unit/examples/command-completion-correlation.test.ts tests/unit/examples/application-example-sources.test.ts tests/unit/examples/update-stream-lifecycle.test.ts --maxWorkers=1`; then `rtk npm run examples:check`, `rtk npm run build`, `rtk npm test`, and `rtk npm run test:live` when authenticated infrastructure is available.
-- [ ] **Step 2: Lint only files changed by this plan.** Run `rtk proxy npx eslint examples/94-command-completion-correlation.ts examples/shared/command-completion-correlation.ts examples/shared/application-fixture.ts tests/unit/examples/command-completion-correlation.test.ts tests/unit/examples/application-fixture.test.ts tests/unit/examples/application-example-sources.test.ts README.md --max-warnings=0` (omit nonexistent/unchanged paths). Report this as changed-file lint, never as a full repository lint-clean claim.
+- [ ] **Step 2: Lint only configured changed TypeScript files.** Run `rtk proxy npx eslint examples/94-command-completion-correlation.ts examples/shared/command-completion-correlation.ts examples/shared/application-fixture.ts tests/unit/examples/command-completion-correlation.test.ts tests/unit/examples/application-fixture.test.ts tests/unit/examples/application-example-sources.test.ts --max-warnings=0` (omit nonexistent/unchanged paths). Do not pass `README.md` to ESLint and do not claim package/Markdown lint; report this strictly as changed-TypeScript-file lint.
 - [ ] **Step 3: Validate package/diff/security scope.** Run `rtk npm pack --dry-run` and inspect no `.superpowers`, `.env`, credentials, or unintended artifacts would publish; run `rtk git diff --check`, `rtk git diff --cached --check`, and `rtk git status --short`. Verify `package.json` has only this plan's script staged/committed while the user's original edit stays untouched. Do not stage ignored live evidence.
 - [ ] **Step 4: External final review checkpoint.** Provide the design spec, dependent-extraction completion evidence, exact version/mode matrix summaries, conditional rejection outcome, verification outputs, and changed-file diff to the external quality/security review. Fix only concrete findings through a fresh test-first task and re-run its focused tests plus Steps 1--3. Do not duplicate orchestration.
 
