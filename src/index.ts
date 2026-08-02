@@ -158,6 +158,7 @@ export { ReceivedAcsCommitmentPerSynchronizer } from "./core/types/received-acs-
 export { ReceivedAcsCommitmentState } from "./core/types/received-acs-commitment-state.js";
 export { RequestOptions } from "./core/types/request-options.js";
 export { OperationDeadline } from "./core/types/operation-deadline.js";
+export { ActiveContractsTraversalOptions } from "./core/types/active-contracts-traversal-options.js";
 export { PackageMetadataFilter } from "./core/types/package-metadata-filter.js";
 export { PackageReference } from "./core/types/package-reference.js";
 export { ParticipantDarDescription } from "./core/types/participant-dar-description.js";
@@ -350,6 +351,7 @@ export type { ContractObserver } from "./services/contracts/contract-observer.in
 export type { TransactionObserver } from "./services/events/transaction-observer.interface.js";
 export { CantonError } from "./core/errors/canton-error.js";
 export { ValidationError } from "./core/errors/validation-error.js";
+export { ActiveContractsTraversalError } from "./core/errors/active-contracts-traversal-error.js";
 export { AuthenticationError } from "./core/errors/authentication-error.js";
 export { AuthorizationError } from "./core/errors/authorization-error.js";
 export { TransportError } from "./core/errors/transport-error.js";
