@@ -233,6 +233,12 @@ describe("application example source contracts", () => {
         expect(readme).not.toMatch(/\beval\s*\(/u);
         expect(readme).not.toContain("--refresh-token");
         expect(readme).not.toContain("make no live-proof claim");
+        expect(readme).not.toMatch(
+            /copy(?:ing)?[^.]*SDK_EXAMPLE[^.]*current shell/iu,
+        );
+        expect(readme).toContain(
+            "run the example inside that same short-lived credential-scoped child shell",
+        );
     });
 
     it("keeps both DAR package listings and upload calls explicit", () => {

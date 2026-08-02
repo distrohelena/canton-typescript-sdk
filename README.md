@@ -272,9 +272,10 @@ Compose project, its Postgres container, and host ports `8901` (Ledger), `8902`
 registered synchronizer via its Admin API, stores the exported connection
 configuration in the sidecar runtime directory, and connects the sidecar with
 its own Admin API. It generates a five-minute 3.5.8-compatible development JWT
-at `.generated/participant-358/ledger-api-user.token` and prints both live-test
-and example endpoint/token exports when the connection is healthy. Canton 3.5.8
-enforces this short lifetime for the unsafe development JWT.
+at `.generated/participant-358/ledger-api-user.token`. When the connection is
+healthy, use the protected child-shell credential flow below to make the
+live-test and example endpoint/token variables available without logging them.
+Canton 3.5.8 enforces this short lifetime for the unsafe development JWT.
 `cn-quickstart` is strictly read-only: this launcher never writes to, starts,
 or stops the normal Quickstart stack.
 
@@ -284,8 +285,8 @@ credential refresh flow only in a local child shell; do not log its output or
 expose refreshed credentials beyond that child. The runtime credential file
 remains protected with mode `0600`.
 
-After copying the printed `SDK_EXAMPLE_*` exports into the current shell, run
-the standalone decentralized-party comparison example with:
+After the protected credential flow completes, run the example inside that same
+short-lived credential-scoped child shell:
 
 ```bash
 npm run example:party:decentralized
