@@ -1,4 +1,6 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { ActiveContractsTraversalError } from "../../core/errors/active-contracts-traversal-error.js";
+import { ValidationError } from "../../core/errors/validation-error.js";
 import { ActiveContractsTraversalOptions } from "../../core/types/active-contracts-traversal-options.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
@@ -72,13 +74,72 @@ export class StateServiceClient {
         request: GetActiveContractsPageRequest,
         options: ActiveContractsTraversalOptions,
     ): AsyncGenerator<GetActiveContractsPageResponse> {
+        if (request.pageToken && request.pageToken.length > 0) {
+            throw new ValidationError(
+                "active contracts traversal must not start with a page token",
+            );
+        }
+
         let pageRequest = request;
 
+        let pagesRead = 0;
+
+        let contractsRead = 0;
+
+        let activeAtOffset: string | undefined;
+
+        const observedPageTokens = new Set<string>();
+
         while (true) {
+            if (pagesRead >= options.maxPages) {
+                throw new ActiveContractsTraversalError(
+                    "max-pages-exceeded",
+                    "active contracts traversal exceeded maxPages",
+                );
+            }
+
             const response = await this.transport.getActiveContractsPageAsync(
                 pageRequest,
                 options.deadline.createRequestOptions(),
             );
+
+            pagesRead += 1;
+
+            if (
+                typeof response.activeAtOffset !== "string" ||
+                response.activeAtOffset.trim().length === 0
+            ) {
+                throw new ActiveContractsTraversalError(
+                    "missing-active-at-offset",
+                    "active contracts response is missing activeAtOffset",
+                );
+            } else if (activeAtOffset === undefined) {
+                if (
+                    request.activeAtOffset !== undefined &&
+                    request.activeAtOffset !== response.activeAtOffset
+                ) {
+                    throw new ActiveContractsTraversalError(
+                        "active-at-offset-mismatch",
+                        "active contracts response activeAtOffset does not match the request",
+                    );
+                }
+
+                activeAtOffset = response.activeAtOffset;
+            } else if (activeAtOffset !== response.activeAtOffset) {
+                throw new ActiveContractsTraversalError(
+                    "active-at-offset-mismatch",
+                    "active contracts response activeAtOffset changed during traversal",
+                );
+            }
+
+            contractsRead += response.activeContracts.length;
+
+            if (contractsRead > options.maxContracts) {
+                throw new ActiveContractsTraversalError(
+                    "max-contracts-exceeded",
+                    "active contracts traversal exceeded maxContracts",
+                );
+            }
 
             yield response;
 
@@ -86,7 +147,23 @@ export class StateServiceClient {
                 return;
             }
 
-            pageRequest = { ...request, pageToken: response.nextPageToken };
+            const pageTokenKey = Array.from(response.nextPageToken).join(",");
+
+            if (observedPageTokens.has(pageTokenKey)) {
+                throw new ActiveContractsTraversalError(
+                    "repeated-page-token",
+                    "active contracts traversal received a repeated page token",
+                );
+            }
+
+            observedPageTokens.add(pageTokenKey);
+
+            pageRequest = {
+                activeAtOffset,
+                eventFormat: request.eventFormat,
+                maxPageSize: request.maxPageSize,
+                pageToken: response.nextPageToken,
+            };
         }
     }
 }
