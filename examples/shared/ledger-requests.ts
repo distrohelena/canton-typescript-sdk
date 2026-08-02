@@ -21,17 +21,22 @@ export function buildUpdatesRequest(init: {
 }): ledgerApiV2.GetUpdatesRequest {
     requireNonEmpty("begin exclusive offset", init.beginExclusive);
 
-    const eventFormat = buildMessageEventFormat(init);
-
     return ledgerApiV2.GetUpdatesRequest.create({
         beginExclusive: init.beginExclusive,
-        updateFormat: ledgerApiV2.UpdateFormat.create({
-            includeTransactions: ledgerApiV2.TransactionFormat.create({
-                eventFormat,
-                transactionShape: ledgerApiV2.TransactionShape.ACS_DELTA,
-            }),
-        }),
+        updateFormat: buildMessageUpdateFormat(init),
         descendingOrder: false,
+    });
+}
+
+export function buildMessageUpdateFormat(init: {
+    readonly party: string;
+    readonly templateId: ExampleTemplateId;
+}): ledgerApiV2.UpdateFormat {
+    return ledgerApiV2.UpdateFormat.create({
+        includeTransactions: ledgerApiV2.TransactionFormat.create({
+            eventFormat: buildMessageEventFormat(init),
+            transactionShape: ledgerApiV2.TransactionShape.ACS_DELTA,
+        }),
     });
 }
 
@@ -225,19 +230,19 @@ function buildMessageEventFormat(init: {
         filtersByParty: {
             [init.party]: ledgerApiV2.Filters.create({
                 cumulative: [
-                    {
+                    ledgerApiV2.CumulativeFilter.create({
                         identifierFilter: {
                             oneofKind: "templateFilter",
-                            templateFilter: {
-                                templateId: {
+                            templateFilter: ledgerApiV2.TemplateFilter.create({
+                                templateId: ledgerApiV2.Identifier.create({
                                     packageId: `#${init.templateId.packageName}`,
                                     moduleName: init.templateId.moduleName,
                                     entityName: init.templateId.entityName,
-                                },
+                                }),
                                 includeCreatedEventBlob: false,
-                            },
+                            }),
                         },
-                    },
+                    }),
                 ],
             }),
         },

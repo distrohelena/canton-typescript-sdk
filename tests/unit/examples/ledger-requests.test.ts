@@ -6,13 +6,14 @@ import {
     assertExactlyOneActiveMessage,
     assertMessageContractAbsent,
     buildActiveContractsRequest,
+    buildMessageUpdateFormat,
     buildUpdatesRequest,
     findActiveMessage,
     matchCreatedMessageUpdate,
 } from "../../../examples/shared/ledger-requests.js";
 
 const templateId = {
-    packageId: "package",
+    packageId: "raw-package-hash",
     packageName: "package-name",
     moduleName: "DebugPlayground",
     entityName: "Message",
@@ -115,6 +116,63 @@ describe("application example ledger requests", () => {
             .toBe(ledgerApiV2.TransactionShape.ACS_DELTA);
         expect(matchCreatedMessageUpdate({ response, contractId: "#message" }))
             .toEqual({ updateId: "update-17", offset: "73", contractId: "#message" });
+    });
+
+    it("builds a generated verbose ACS-delta Message update format", () => {
+        const updateFormat = buildMessageUpdateFormat({
+            party: "Alice::1",
+            templateId,
+        });
+
+        expect(ledgerApiV2.UpdateFormat.is(updateFormat)).toBe(true);
+        expect(ledgerApiV2.TransactionFormat.is(updateFormat.includeTransactions))
+            .toBe(true);
+        expect(ledgerApiV2.EventFormat.is(
+            updateFormat.includeTransactions?.eventFormat,
+        )).toBe(true);
+        expect(updateFormat).toMatchObject({
+            includeTransactions: {
+                transactionShape: ledgerApiV2.TransactionShape.ACS_DELTA,
+                eventFormat: {
+                    verbose: true,
+                    filtersByParty: {
+                        "Alice::1": {
+                            cumulative: [{
+                                identifierFilter: {
+                                    oneofKind: "templateFilter",
+                                    templateFilter: {
+                                        templateId: {
+                                            packageId: "#package-name",
+                                            moduleName: "DebugPlayground",
+                                            entityName: "Message",
+                                        },
+                                        includeCreatedEventBlob: false,
+                                    },
+                                },
+                            }],
+                        },
+                    },
+                },
+            },
+        });
+        expect(JSON.stringify(updateFormat)).not.toContain(templateId.packageId);
+    });
+
+    it.each([
+        ["party", { ...templateId }, " "],
+        ["template package ID", { ...templateId, packageId: " " }, "Alice::1"],
+        ["template package name", { ...templateId, packageName: " " }, "Alice::1"],
+        ["template module name", { ...templateId, moduleName: " " }, "Alice::1"],
+        ["template entity name", { ...templateId, entityName: " " }, "Alice::1"],
+    ])("rejects an empty %s when building the Message update format", (
+        label,
+        invalidTemplateId,
+        party,
+    ) => {
+        expect(() => buildMessageUpdateFormat({
+            party,
+            templateId: invalidTemplateId,
+        })).toThrow(`${label} must not be empty`);
     });
 });
 
