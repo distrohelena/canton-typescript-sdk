@@ -1,4 +1,5 @@
 import { ITransport } from "../../core/transports/transport.interface.js";
+import { ActiveContractsTraversalOptions } from "../../core/types/active-contracts-traversal-options.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import type {
@@ -24,6 +25,14 @@ export class StateServiceClient {
         options?: RequestOptions,
     ): Promise<GetActiveContractsPageResponse> {
         return this.transport.getActiveContractsPageAsync(request, options);
+    }
+
+    /** Reads active-contract pages lazily. Supported on gRPC; JSON rejects it. */
+    public getActiveContractsPagesAsync(
+        request: GetActiveContractsPageRequest,
+        options: ActiveContractsTraversalOptions,
+    ): AsyncIterable<GetActiveContractsPageResponse> {
+        return this.getActiveContractsPagesLazy(request, options);
     }
 
     /** Reads active contracts as a stream. JSON-backed; gRPC currently rejects it. */
@@ -57,5 +66,27 @@ export class StateServiceClient {
         options?: RequestOptions,
     ): Promise<GetLatestPrunedOffsetsResponse> {
         return this.transport.getLatestPrunedOffsetsAsync(request, options);
+    }
+
+    private async *getActiveContractsPagesLazy(
+        request: GetActiveContractsPageRequest,
+        options: ActiveContractsTraversalOptions,
+    ): AsyncGenerator<GetActiveContractsPageResponse> {
+        let pageRequest = request;
+
+        while (true) {
+            const response = await this.transport.getActiveContractsPageAsync(
+                pageRequest,
+                options.deadline.createRequestOptions(),
+            );
+
+            yield response;
+
+            if (!response.nextPageToken || response.nextPageToken.length === 0) {
+                return;
+            }
+
+            pageRequest = { ...request, pageToken: response.nextPageToken };
+        }
     }
 }

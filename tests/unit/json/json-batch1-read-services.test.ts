@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    ActiveContractsTraversalOptions,
     CantonClient,
     CantonClientOptions,
     GetConnectedSynchronizersRequest,
@@ -11,12 +12,14 @@ import {
     ListUserRightsRequest,
     ListUsersRequest,
     NotSupportedError,
+    OperationDeadline,
     TransportKind,
 } from "../../../src";
 import { GetCompletionsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/command_completion_service.js";
 import { GetContractRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/contract_service.js";
 import { GetEventsByContractIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event_query_service.js";
 import { GetParticipantIdRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/party_management_service.js";
+import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import {
     GetUpdateByHashRequest,
     GetUpdateByIdRequest,
@@ -25,6 +28,31 @@ import {
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 
 describe("Batch 1 read services with JSON transport", () => {
+    it("lazily rejects raw active-contract page traversal", async () => {
+        const client = new CantonClient(
+            new CantonClientOptions({
+                transportKind: TransportKind.json,
+                ledgerEndpoint: "https://ledger.example.com",
+                ledgerAdminEndpoint: "https://ledger-admin.example.com",
+            }),
+        );
+
+        const pages = client.stateService.getActiveContractsPagesAsync(
+            GetActiveContractsPageRequest.create({
+                eventFormat: { filtersByParty: {} },
+            }),
+            new ActiveContractsTraversalOptions({
+                deadline: new OperationDeadline({ timeoutMs: 5_000 }),
+                maxPages: 1,
+                maxContracts: 1,
+            }),
+        );
+
+        await expect(pages[Symbol.asyncIterator]().next()).rejects.toBeInstanceOf(
+            NotSupportedError,
+        );
+    });
+
     it("rejects unsupported ledger-admin and ledger read methods", async () => {
         const client = new CantonClient(
             new CantonClientOptions({
