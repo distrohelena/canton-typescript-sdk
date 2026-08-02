@@ -52,7 +52,7 @@
                       oneofKind: "templateFilter",
                       templateFilter: ledgerApiV2.TemplateFilter.create({
                           templateId: ledgerApiV2.Identifier.create({
-                              packageId: "package-id",
+                              packageId: "#debug-playground",
                               moduleName: "DebugPlayground",
                               entityName: "Message",
                           }),
@@ -67,18 +67,18 @@
   expect(format.filtersForAnyParty).toBeUndefined();
   ```
 
-  Include rejection tests for blank party and each blank fixture identifier component. The fixture template has `packageId: "package-id"`, `packageName: "debug-playground"`, `moduleName: "DebugPlayground"`, and `entityName: "Message"`; the filter must use `packageId`, never `#${packageName}`.
+  Include rejection tests for blank party and each blank fixture identifier component. The fixture template has `packageId: "raw-package-hash"`, `packageName: "debug-playground"`, `moduleName: "DebugPlayground"`, and `entityName: "Message"`; validate the package name and build the EventQuery filter selector as `packageId: "#debug-playground"` (`#${packageName}`), never with the raw package hash. Add an assertion that the resulting selector differs from `templateId.packageId`.
 
-  Add a correct self-party direct-lookup fixture made exactly as follows (the existing `messageArguments` test utility may be copied locally only if it preserves the three labelled fields):
+  Add a correct self-party direct-lookup fixture made exactly as follows. Its three `createArguments` fields have blank labels and positional `party`, `party`, `text` values (the existing `messageArguments` test utility may be copied locally only if it can create that strict blank-label encoding):
 
   ```ts
   ledgerApiV2.GetContractResponse.create({
       createdEvent: ledgerApiV2.CreatedEvent.create({
           contractId: "#original",
           templateId: ledgerApiV2.Identifier.create({
-              packageId: "package-id", moduleName: "DebugPlayground", entityName: "Message",
+              packageId: "raw-package-hash", moduleName: "DebugPlayground", entityName: "Message",
           }),
-          createArguments: messageArguments({ sender: "Alice", recipient: "Alice", text: "original" }),
+          createArguments: createBlankExactMessageArguments(),
           witnessParties: ["Alice"],
           signatories: ["Alice"],
           observers: [],
@@ -97,7 +97,7 @@
   });
   ```
 
-  Assert that `assertDirectMessageLookup` accepts it, proving it does not read the five ContractService-unavailable fields (`offset`, `nodeId`, `createdEventBlob`, `interfaceViews`, and `acsDelta`). Add individual rejections for absent `createdEvent`, a wrong/blank contract ID, wrong or missing template ID, wrong `sender`/`recipient`/`text` or non-exact record fields, and duplicate/wrong/missing visibility sets. The accepted and rejected events must all use one actor for both sender and recipient; require exactly `{ witnesses: [actor], signatories: [actor], observers: [] }` as sets with cardinality one/one/zero rather than relying on order.
+  Assert that `assertDirectMessageLookup` accepts it, proving it does not read the five ContractService-unavailable fields (`offset`, `nodeId`, `createdEventBlob`, `interfaceViews`, and `acsDelta`). Add a separate acceptance case for a complete labelled record with labels in a different order. Add individual rejections for mixed labels, wrong field count, a wrong/blank contract ID, wrong or missing template ID, wrong positional kind/value, wrong labelled `sender`/`recipient`/`text`, and duplicate/wrong/missing visibility sets. The accepted and rejected events must all use one actor for both sender and recipient; require exactly `{ witnesses: [actor], signatories: [actor], observers: [] }` as sets with cardinality one/one/zero rather than relying on order. `GetContract` has no `verbose` option.
 
   Add `assertArchivedMessageHistory` tests that accept only a generated `GetEventsByContractIdResponse` with both wrappers, a materialized original `CreatedEvent`, a materialized original `ArchivedEvent`, nonblank creation and archival synchronizer IDs, exact fixture template ID, exact original payload, and the same created-event self-party invariants. Reject missing inner events, missing wrapper members, blank synchronizer IDs, an original/replacement-ID mix-up, wrong template or payload, and wrong witnesses/signatories/observers. The archived event has no create arguments, so assert only its ID/template/witnesses.
 
@@ -138,9 +138,9 @@
   }): { readonly created: ledgerApiV2.Created; readonly archived: ledgerApiV2.Archived };
   ```
 
-  `buildMessageLifecycleEventFormat` must explicitly nest `ledgerApiV2.EventFormat.create`, `Filters.create`, `CumulativeFilter.create`, `TemplateFilter.create`, and `Identifier.create` exactly as in the specification. Require nonblank party and all fixture ID components before creating the message; use `templateId.packageId`, `templateId.moduleName`, and `templateId.entityName`, set `includeCreatedEventBlob: false`, omit `filtersForAnyParty`, and set `verbose: true` so `assertExactCreatedMessagePayload` can inspect labels.
+  `buildMessageLifecycleEventFormat` must explicitly nest `ledgerApiV2.EventFormat.create`, `Filters.create`, `CumulativeFilter.create`, `TemplateFilter.create`, and `Identifier.create` exactly as in the specification. Require nonblank party and all fixture ID components, especially `templateId.packageName`, before creating the message; use `#${templateId.packageName}` for the filter `Identifier.packageId` (never the raw `templateId.packageId` hash), plus the fixture module and entity names. Set `includeCreatedEventBlob: false`, omit `filtersForAnyParty`, and set `verbose: true` so the EventQuery history remains labelled.
 
-  For direct lookup: require `response.createdEvent`, then validate its exact ID and `templateId` components, call existing `assertExactCreatedMessagePayload({ event, sender: party, recipient: party, text })`, and compare every visibility array as a set with exact cardinality. Never access or compare the five unavailable fields—neither their defaults nor their fixture values are evidence. Return the validated `CreatedEvent` for deliberately bounded logging.
+  For direct lookup: `GetContract` has no `verbose` option. Require `response.createdEvent`, then validate its exact ID and `templateId` components, and call existing `assertExactCreatedMessagePayload({ event, sender: party, recipient: party, text })`. That helper must accept only either all-blank positional `party`/`party`/`text` fields or a complete labelled encoding (labelled order independent), and reject mixed labels or any wrong count, kind, or value. Compare every visibility array as a set with exact cardinality. Never access or compare the five unavailable fields—neither their defaults nor their fixture values are evidence. Return the validated `CreatedEvent` for deliberately bounded logging.
 
   For history: require both top-level wrappers here (the projection reader in Task 2 will be the only code allowed to treat an absent wrapper as retryable). Check nonblank wrapper synchronizer IDs, materialized nested events, exact IDs/template IDs, created payload/self-party fields, and archive witnesses. Return both validated wrappers. Use descriptive structural `Error`s; do not match transport error text or classify a server error.
 
@@ -470,11 +470,22 @@
 
   Expected staged files are exactly `tests/unit/examples/application-example-sources.test.ts`, `README.md`, and the script-only hunk in `package.json`. The working-tree diff for `package.json` must still show the user version change after commit.
 
-### Task 5: Record live 3.5.7/3.5.8 evidence without source edits or credentials
+### Task 5: Rerun live 3.5.7/3.5.8 evidence from `bb8e298` without source edits or credentials
 
 **Files:**
 
 - Modify: none unless a real, reproducible defect is found. A live difference is not permission to add a version branch.
+
+- [ ] **Step 0: Start from the committed payload-encoding fix and replace blocked evidence on success.**
+
+  Verify the live rerun uses committed fix `bb8e298` (not an earlier implementation or local source edit):
+
+  ```bash
+  rtk git rev-parse --verify bb8e298^{commit}
+  rtk git show --no-patch --oneline bb8e298
+  ```
+
+  Record only the resulting structural evidence. On a successful rerun, replace any prior blocked live-evidence note with the successful common 3.5.7/3.5.8 proof; do not retain a blocked conclusion. The observed root cause is structural: EventQuery template filters require `#${fixture.templateId.packageName}`, while direct `GetContract` payloads are three blank-label positional fields. Do not add a participant-version branch or match status/error prose.
 
 - [ ] **Step 1: Establish a protected 3.5.7 child-shell run.**
 
@@ -486,7 +497,7 @@
 
   The first run takes the default fallback-party path. Its non-secret printed actor is parsed only within the same child shell and supplied to the second run, proving the explicit-party path. Do not echo/export the token in parent shell history or record it in test output.
 
-  Record only non-sensitive evidence: authenticated full participant version, parsed release core, common path, run marker, actor, original/replacement IDs, both direct-read IDs and exact three-field checks, creation/archive synchronizer IDs, and lifecycle lineage result. Ignore the normal durable-state warning.
+  Record only non-sensitive evidence: authenticated full participant version, parsed release core, common path, run marker, actor, original/replacement IDs, the EventQuery package-name selector, both direct-read IDs and exact three-field blank-label checks, creation/archive synchronizer IDs, and lifecycle lineage result. Ignore the normal durable-state warning.
 
 - [ ] **Step 2: Establish a protected 3.5.8 child-shell run.**
 
@@ -498,7 +509,7 @@
   rtk npm run stop:local-participant-358
   ```
 
-  Expected: both default and explicit-party invocations use the unchanged source and report the same structural proof/common path on 3.5.8. The five-minute development JWT and endpoint/token exports remain inside this child only. Stop only the SDK-owned sidecar; do not touch CN Quickstart.
+  Expected: both default and explicit-party invocations use the unchanged source and report the same structural proof/common path on 3.5.8. The five-minute development JWT and endpoint/token exports remain inside this child only. Stop only the SDK-owned sidecar; do not touch CN Quickstart. On success, replace the blocked evidence with this rerun's sanitized proof.
 
 - [ ] **Step 3: Triage live outcomes without masking them.**
 
@@ -552,8 +563,8 @@
 
   - precisely one workflow deadline covers setup, submissions, direct reads, and all history attempts;
   - both direct reads construct `GetContractRequest` with explicit `[actor.party]`; only original-before-replace and replacement-after-replace are present;
-  - history constructs a fresh explicit generated Message EventFormat through `EventFormat.create` → `Filters.create` → `CumulativeFilter.create` → `TemplateFilter.create` → `Identifier.create`, with `verbose: true`, no wildcard, and no omitted event format;
-  - direct created and historical created invariants are exact payload plus witnesses/signatories `[actor.party]` and observers `[]`; archive has exact original ID/template/witnesses and nonblank synchronizer IDs;
+  - history constructs a fresh explicit generated Message EventFormat through `EventFormat.create` → `Filters.create` → `CumulativeFilter.create` → `TemplateFilter.create` → `Identifier.create`, with `Identifier.packageId = #${fixture.templateId.packageName}`, `verbose: true`, no wildcard, and no omitted event format;
+  - direct `GetContract` has no `verbose` option and accepts exactly either all-blank positional `party`/`party`/`text` or complete labelled (order-independent) payloads; historical created events remain verbose labelled; both retain exact count/kinds/values plus witnesses/signatories `[actor.party]` and observers `[]`; archive has exact original ID/template/witnesses and nonblank synchronizer IDs;
   - unavailable ContractService fields are never inspected; the non-default fixture proves this; and malformed present history fails immediately while only absent wrappers retry;
   - timeout diagnostics are restricted, transport errors retain identity, cleanup preserves primary errors, and logs/docs/live evidence exclude tokens, headers, endpoints, raw DAR/response, and credential files;
   - no source changed under `src/`, no public SDK/JSON/generated change occurred, and package `files` remains unchanged.

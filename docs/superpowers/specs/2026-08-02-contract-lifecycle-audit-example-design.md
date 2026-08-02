@@ -52,6 +52,20 @@ the result shape is ACS delta (created plus archived), not ledger effects.
 The public client likewise supports it only on gRPC; JSON currently throws
 `NotSupportedError` for both lifecycle calls.
 
+Live discovery against the common 3.5.7 and 3.5.8 participants established two
+wire-shape rules that the example must preserve.  `EventFormat` template
+filters use the existing package-name selector convention:
+`Identifier.packageId` is `#${fixture.templateId.packageName}`, not the raw
+package hash in `fixture.templateId.packageId`.  Both participants rejected
+the raw hash selector with `INVALID_ARGUMENT`; this is a selector convention,
+not a change to the package hash used by returned event template IDs.  Also,
+`ContractService.GetContract` has no `verbose` option and returns the Message
+arguments as exactly three blank-label fields—`party`, `party`, then `text`—on
+both participants.  The root cause is that direct lookup and verbose history
+have different materialized payload encodings: direct lookup is positional,
+while EventQuery history remains verbose and labelled.  These are structural
+requirements, not a participant-version branch or a status/error-prose match.
+
 The example imports `OperationDeadline` from
 `@distrohelena/canton-typescript-sdk` and the generated namespace as
 `import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf"`.
@@ -124,7 +138,7 @@ timeout.
    `buildCreateMessageRequest` with `sender === recipient === actor.party` and
    `text === originalText`, then use `extractCreatedContract` to require its
    nonempty original ID.  The expected original payload is exactly the
-   three-field labelled record `{ sender: actor.party, recipient: actor.party,
+   three-field Message `{ sender: actor.party, recipient: actor.party,
    text: originalText }`; it is not a loose text-marker match and introduces no
    second party.
 3. Issue the direct active read visibly in the example:
@@ -139,9 +153,14 @@ timeout.
    );
    ```
 
-   Require `originalLookup.createdEvent`, exact `contractId`, a nonempty
-   `templateId` equal to the fixture's package ID/module/entity, and exact
-   `createArguments` through `assertExactCreatedMessagePayload`.  Assert the
+   `GetContract` has no `verbose` option.  Require `originalLookup.createdEvent`,
+   exact `contractId`, a nonempty `templateId` equal to the fixture's package
+   ID/module/entity, and exact `createArguments` through
+   `assertExactCreatedMessagePayload`.  For direct lookup, that assertion must
+   accept either (a) exactly three all-blank labels in positional
+   `party`/`party`/`text` order or (b) a complete labelled record, whose labels
+   may be in any order; it rejects mixed labels, wrong count, kind, or value.
+   Assert the
    documented visible-party fields: `witnessParties` is exactly `[actor.party]`
    as a set, `signatories` is exactly `[actor.party]`, and `observers` is
    exactly `[]`.  This is a self-party Message: because one party is both
@@ -178,7 +197,7 @@ timeout.
                            oneofKind: "templateFilter",
                            templateFilter: ledgerApiV2.TemplateFilter.create({
                                templateId: ledgerApiV2.Identifier.create({
-                                   packageId: fixture.templateId.packageId,
+                                   packageId: `#${fixture.templateId.packageName}`,
                                    moduleName: fixture.templateId.moduleName,
                                    entityName: fixture.templateId.entityName,
                                }),
@@ -197,9 +216,12 @@ timeout.
    `CumulativeFilter`/`TemplateFilter` are generated types exported from
    `@distrohelena/canton-typescript-sdk/protobuf` as `ledgerApiV2.*`; use those
    constructors rather than hand-written interfaces or internal import paths.
-   The template filter is the explicit payload-requesting selection for the
-   fixture Message and `verbose: true` preserves the `sender`, `recipient`, and
-   `text` labels used by the exact payload helper.  Do not use a wildcard,
+   Validate the nonblank fixture package name before constructing the selector;
+   this filter must never use the raw package hash.  The template filter is the
+   explicit payload-requesting selection for the fixture Message and
+   `verbose: true` preserves the labelled `sender`, `recipient`, and `text`
+   history payload.  `verbose` belongs only to EventQuery history, not
+   `GetContract`.  Do not use a wildcard,
    `filtersForAnyParty`, a ledger-effects transaction shape, or an omitted
    `eventFormat`.
 7. Require exactly the completed loop response's one `created` and one
@@ -334,8 +356,10 @@ Implement test-first before the script/helper:
    `CumulativeFilter.create`, `TemplateFilter.create`, and `Identifier.create`,
    with the `identifierFilter` `templateFilter` oneof.  Assert
    `filtersByParty`, `verbose: true`, no wildcard/any-party filter, and the
-   expected labelled payload.  Cover direct lookup acceptance and rejection for
-   absent created event, wrong contract ID/template/payload, wrong visibility
+   expected verbose labelled history payload.  Cover direct lookup acceptance
+   for both strict all-blank positional and complete labelled (order-independent)
+   payloads, and rejection for mixed labels, wrong count/kind/value, absent
+   created event, wrong contract ID/template/payload, and wrong visibility
    sets, and the self-party invariants `signatories === [actor.party]`,
    `observers === []`, and `witnessParties === [actor.party]`.  Cover history
    acceptance only when created plus archived refer to the original, the
@@ -349,7 +373,8 @@ Implement test-first before the script/helper:
    Include an accepted direct-lookup fixture built with
    `ledgerApiV2.GetContractResponse.create({ createdEvent:
    ledgerApiV2.CreatedEvent.create(...) })` whose supported fields and exact
-   self-party Message payload are correct while every
+   self-party Message payload is the strict all-blank positional encoding and
+   every
    ContractService-unavailable field is deliberately non-default:
    `offset: "42"`, `nodeId: 7`, `createdEventBlob: Uint8Array.of(1, 2)`,
    `interfaceViews: [ledgerApiV2.InterfaceView.create({ interfaceId:
@@ -410,6 +435,12 @@ Run the unchanged final source against both authenticated participants.  Use
 the normal protected child-shell credential refresh flow for the 3.5.8 sidecar;
 never capture the token or credential output in tests, logs, docs, or commits.
 
+Run the matrix again from committed fix `bb8e298`, rather than treating an
+earlier blocked observation as current evidence.  On success, replace that
+blocked evidence with the sanitized structural proof below.  The rerun verifies
+the package-name selector and direct blank-label shape; it must not introduce a
+version branch or match status/error prose.
+
 | Environment | Run | Required recorded non-sensitive evidence | Expected result |
 | --- | --- | --- | --- |
 | Authenticated Participant 3.5.7 | `npm run example:workflow:contract-lifecycle-audit`, then rerun with an existing `SDK_EXAMPLE_PARTY` | authenticated full participant version and parsed release core, common path, run marker, actor, original/replacement IDs, direct-read IDs and exact three-field payload checks, created/archive synchronizer IDs, lifecycle lineage result | original direct lookup succeeds while active; replacement direct lookup succeeds after replacement; original history contains exact created plus archived events |
@@ -437,7 +468,8 @@ proved.
   self-party Message, both direct and historical created-event checks require
   signatories/witnesses `[actor.party]` and observers `[]`.
 - It proves a strict original create/archive lineage with nonempty creation and
-  archival synchronizer IDs through an explicit labelled Message EventFormat,
+  archival synchronizer IDs through an explicit verbose EventQuery Message
+  format and labelled history payload,
   retrying only a valid but incomplete EventQuery projection within the same
   deadline.
 - It is gRPC-only, has no speculative old-contract lookup assertion, no JSON
