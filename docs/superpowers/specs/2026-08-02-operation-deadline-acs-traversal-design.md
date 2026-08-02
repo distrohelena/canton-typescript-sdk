@@ -158,9 +158,24 @@ Examples 90--93 follow the same total-budget rule. Their setup helpers accept th
 deadline/request-options boundary instead of a `remainingTimeoutMs` callback.
 ACS scans consume raw pages through the new method and retain only Message
 filtering and exact fixture assertions in `examples/shared/ledger-requests.ts`.
-Update streams use a single `deadline.createRequestOptions()` at stream dispatch;
-there is no replacement idle-probe policy. Refactor lifecycle utilities only as
-needed to preserve primary errors while closing iterators and disposing clients.
+Ordinary update streams use a single `deadline.createRequestOptions()` at stream
+dispatch. Example 92 keeps its existing expected idle-timeout proof with an
+example-local, bounded sub-budget: immediately before opening its deliberately
+idle stream, capture
+
+```ts
+const idleTimeoutMs = Math.max(
+    1,
+    Math.min(2_000, Math.floor(deadline.remainingTimeoutMs() / 4)),
+);
+```
+
+and pass a fresh `new RequestOptions({ timeoutMs: idleTimeoutMs })` to that
+stream. The shared `OperationDeadline` still bounds the whole workflow; this
+derived one-shot stream timeout is test-fixture behavior only, not an
+`OperationDeadline` method or public SDK idle policy. Refactor lifecycle
+utilities only as needed to preserve primary errors while closing iterators and
+disposing clients.
 
 Delete `examples/shared/workflow-deadline.ts` and
 `tests/unit/examples/workflow-deadline.test.ts`. Remove the old generic
@@ -193,6 +208,9 @@ query-level configuration contract can express those values precisely.
    source-level contracts. Add `OperationDeadline`, traversal options, and the
    traversal error to `src/index.ts`; update public-export/package smoke tests
    and README API-support text to describe gRPC-only lazy paged ACS traversal.
+   Update example 92's tests to prove it captures the stated bounded sub-budget
+   immediately before idle-stream dispatch, preserves its expected timeout, and
+   does not add an idle method or policy to the public deadline type.
 5. Run focused unit suites, `npm run examples:check`, build, lint, and the
    appropriate live example matrix before claiming compatibility.
 
@@ -218,6 +236,8 @@ query-level configuration contract can express those values precisely.
   token-loop-safe, and uses one monotonic total deadline without inventing idle
   probing or masking transport errors.
 - Examples 60 and 90--93 contain no generic deadline/pagination implementation,
-  and the removed workflow-deadline helper has no remaining references.
+  and the removed workflow-deadline helper has no remaining references. Example
+  92 alone retains its deliberately bounded local idle-stream timeout calculation
+  while sharing the operation-wide deadline.
 - `GrpcContractQueryClient` remains explicitly unchanged pending a separately
   designed bounds/deadline configuration surface.

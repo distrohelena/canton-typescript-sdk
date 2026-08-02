@@ -31,7 +31,11 @@ visibility and upload, party resolution, participant-status compatibility read,
 and `stateService.getLedgerEndAsync`. It retains the existing explicit-party
 behavior: `SDK_EXAMPLE_PARTY` uses that party; otherwise the existing fallback
 allocation warning applies. It retains the current localnet endpoint, TLS, and
-credential rules and never print tokens or refreshed sidecar credentials.
+credential rules. Resolve the expected submitter from
+`SDK_EXAMPLE_USER_ID ?? "ledger-api-user"`, reject an empty or whitespace-only
+value before any RPC, and retain that exact value for matching. Never infer it by
+decoding, inspecting, or logging a bearer token; never print token contents or
+refreshed sidecar credentials.
 
 After obtaining a nonempty ledger-end offset, create this generated request:
 
@@ -53,8 +57,11 @@ Generate a unique `runId` with `randomBytes`, then use a unique,
 caller-controlled `commandId` (for example
 `completion-correlation-${runId}`) in `buildCreateMessageRequest`. Submit through
 the existing `submitAndWaitForTransactionAsync` with a fresh deadline request
-option. The created Message marker may also include the run ID so a human can
-inspect durable ledger state, but matching is by exact command ID.
+option. Pass the resolved `userId` through `buildCreateMessageRequest` into its
+`SubmitCommandRequest` explicitly; update that builder's input type as needed so
+the example cannot accidentally rely on an omitted user ID. The created Message
+marker may also include the run ID so a human can inspect durable ledger state,
+but matching is by exact command ID and user ID.
 
 Read the already-started result and subsequent iterator reads until a matching
 completion arrives. Ignore `offsetCheckpoint` responses and completion records
@@ -65,9 +72,28 @@ with a structural error. If deadline expiry occurs before starting a request,
 already-started stream reaches its transport deadline, leave the original
 transport error untouched.
 
+Immediately after issuing the first `next()` and before awaiting submission,
+attach a non-transforming rejection observer to the original promise:
+
+```ts
+const firstNextPromise = iterator.next();
+void firstNextPromise.catch(() => undefined);
+const submitted = await submitAsync();
+```
+
+Retain `firstNextPromise` itself, rather than its caught derivative, and await
+that original promise when beginning correlation after a successful submission.
+This prevents an unhandled rejection if the stream fails while submission is in
+flight without swallowing or rewriting the stream error. If submission fails,
+its error is primary and cleanup must not mask it; the observer handles any
+concurrent stream rejection. If submission succeeds and the first stream read
+failed meanwhile, awaiting the original promise surfaces that unchanged stream
+failure as the primary correlation failure.
+
 For the exact completion, assert:
 
 - it is a `completion` oneof and `completion.commandId === commandId`;
+- `completion.userId === expectedUserId` exactly;
 - its success status is structurally successful: record the live representation
   and accept only the Ledger API's success encoding (an absent optional status or
   explicit `status.code === 0`); any present nonzero code is rejected without
@@ -96,11 +122,12 @@ surface only when there was no primary failure.
 
 If a shared helper is used, it accepts the prepared iterator, its already-issued
 first `next()` promise, exact command ID, submitted transaction identifier, and
-expected actor. It owns checkpoint/unrelated-completion filtering, structural
-success validation, update-ID correlation, and iterator cleanup. It must not
-know DAR details, party allocation, environment variables, or Message payload
-policy. The top-level example owns setup, command construction/submission,
-logging, and client disposal.
+expected actor and user ID. It owns checkpoint/unrelated-completion filtering,
+structural success validation, exact user-ID and update-ID correlation, and
+iterator cleanup. It must not know DAR details, party allocation, environment
+variables, or Message payload policy. The top-level example owns setup, user-ID
+resolution/validation, command construction/submission, logging, and client
+disposal.
 
 Do not make this helper an SDK service method or a root export. A general API
 would need product decisions not demonstrated by one example: identity/user
@@ -120,8 +147,9 @@ completion visible to this caller. Investigate before adding a negative proof:
    decoded status only).
 2. Continue the already-started stream through a bounded `OperationDeadline`;
    record whether an exact-command completion arrives, whether its status is
-   present/nonzero, whether `updateId` is empty, its `actAs` set, and its offset.
-   Never use status-message prose as evidence.
+   present/nonzero, whether `updateId` is empty, its exact `userId`, its `actAs`
+   set, and its offset. Never use status-message prose or token contents as
+   evidence.
 3. Repeat on Participant 3.5.7 and on the isolated 3.5.8 sidecar using the
    documented protected child-shell credential refresh flow. Capture authenticated
    full participant version and parse the release core using the existing
@@ -142,9 +170,13 @@ Add focused unit tests for the example-only matcher/lifecycle with generated
 completion messages and a fake async iterator. Cover the exact order: saved
 ledger end, first `next()` issued before submit, checkpoint ignored, unrelated
 completion ignored, exact match accepted, nonzero status rejected structurally,
-missing update ID rejected, unordered `actAs` accepted as a set, wrong actor or
-wrong update ID rejected, stream end, pre-dispatch `TimeoutError`, untouched
-post-dispatch transport error, iterator cleanup, and primary-failure precedence.
+missing update ID rejected, unordered `actAs` accepted as a set, wrong actor,
+wrong user, or wrong update ID rejected, stream end, pre-dispatch `TimeoutError`,
+and untouched post-dispatch transport error. Explicitly test that the immediate
+observer is attached before submission, a stream failure during a successful
+submission is later surfaced from the original first-read promise, and a
+submission failure remains primary if a stream and cleanup failure occur
+concurrently. Cover iterator cleanup and primary-failure precedence.
 
 Update `tests/unit/examples/application-example-sources.test.ts` for source
 shape only where it adds durable value; avoid brittle tests that prescribe local
@@ -157,7 +189,9 @@ completion stream from saved exclusive ledger end before submission, and is
 proved through the live matrix below. Correct the stale API-support entry that
 calls `commandCompletionService` a placeholder: document its existing
 gRPC-only `getCompletionsAsync(...)` stream without implying that a public
-wait-for-completion helper exists.
+wait-for-completion helper exists. State that `SDK_EXAMPLE_USER_ID` defaults to
+`ledger-api-user`, must be nonempty, is submitted explicitly, and is matched
+exactly—without inspecting or logging token contents.
 
 ## Live proof matrix
 
@@ -166,7 +200,7 @@ both environments and record only non-sensitive evidence:
 
 | Environment | Required evidence | Expected common result |
 | --- | --- | --- |
-| Authenticated Participant 3.5.7 | authenticated full version/release core, saved offset, unique command ID, completion kind, success-status representation, nonempty update ID, actor-set result, submitted transaction ID correlation | exact successful completion with common path |
+| Authenticated Participant 3.5.7 | authenticated full version/release core, saved offset, unique command ID, explicitly submitted/matched user ID, completion kind, success-status representation, nonempty update ID, actor-set result, submitted transaction ID correlation | exact successful completion with common path |
 | Isolated authenticated Participant 3.5.8 | same fields, with sidecar credential refreshed privately if needed | same implementation and common path, unless evidence establishes a narrow documented difference |
 
 Both rows must use the same source and no version branch unless live structural
@@ -196,9 +230,10 @@ was intentionally omitted, and why.
 - Its completion stream is actually started from the exact saved exclusive
   ledger-end offset before submission; checkpoints and unrelated completions do
   not affect the result.
-- The exact completion proves structural success, nonempty update ID, expected
-  `actAs`, and the strongest available transaction correlation, with a single
-  `OperationDeadline` across the workflow and no cleanup masking primary errors.
+- The exact completion proves structural success, exact expected `userId`,
+  nonempty update ID, expected `actAs`, and the strongest available transaction
+  correlation, with a single `OperationDeadline` across the workflow and no
+  cleanup masking primary errors.
 - The example helper remains example-only, and the README/live matrix proves the
   unchanged common implementation on 3.5.7 and 3.5.8 or clearly documents the
   evidence-backed narrow difference. A rejected completion is asserted only when
