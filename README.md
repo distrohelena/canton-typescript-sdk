@@ -170,6 +170,10 @@ the token. It keeps the ledger end as its saved exclusive offset and begins the
 first stream read before submission.
 No public wait-for-command-completion helper or API is introduced; the
 correlation helper remains example-only.
+The completion-correlation example asserts successful correlation only; it does
+not assert rejected-command correlation. On both participant observations, the
+stream-first rejected-command probes observed no exact completion before their
+bounded stream transport errors.
 
 Each program prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
