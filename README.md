@@ -555,7 +555,11 @@ const contracts = await client.stateService.getActiveContractsPageAsync(
 );
 ```
 
-`stateService.getActiveContractsPageAsync(...)` accepts the generated Ledger API request on gRPC, including its `eventFormat`, `activeAtOffset`, `maxPageSize`, and `pageToken` fields. Build party, template, and interface filters in `eventFormat`. JSON does not implement this paginated RPC; use `getActiveContractsAsync(...)` for JSON streaming reads.
+`stateService.getActiveContractsPageAsync(...)` is gRPC-only and accepts the generated Ledger API request, including its `eventFormat`, `activeAtOffset`, `maxPageSize`, and `pageToken` fields. Build party, template, and interface filters in `eventFormat`.
+
+`stateService.getActiveContractsPagesAsync(...)` is the gRPC-only lazy, raw, bounded traversal API. It starts from the same generated request and yields raw `GetActiveContractsPageResponse` values one page at a time. The caller selects the shared `OperationDeadline`, maximum pages, and maximum contracts with `ActiveContractsTraversalOptions`; there is no collect-all wrapper. Transport errors from dispatched RPCs propagate unchanged. Traversal safety, invariant, and bound failures use `ActiveContractsTraversalError` codes, such as an inconsistent offset, repeated page token, or exceeded bound.
+
+JSON does not implement either paginated gRPC API. Its existing `stateService.getActiveContractsAsync(...)` behavior remains the distinct JSON streaming read.
 
 For interface views, do not use `contractService.getContractAsync(...)`. That contract lookup surface cannot return interface views; use `stateService` or `updateService` instead.
 
@@ -703,7 +707,8 @@ unsupported query features reject with `QueryCapabilityError`.
 - `commandService.submitAndWaitAsync(...)`: `json`, `grpc`
 - `commandSubmissionService.submitAsync(...)`: reserved, currently unsupported
 - `stateService.getActiveContractsPageAsync(...)`: `grpc` only
-- `stateService.getActiveContractsAsync(...)`: `json` only
+- `stateService.getActiveContractsPagesAsync(...)`: `grpc` only, lazy raw bounded traversal
+- `stateService.getActiveContractsAsync(...)`: `json` only, existing distinct streaming read
 - `updateService.getUpdatesAsync(...)`: `grpc` only
 - `commandCompletionService`: placeholder, no methods yet
 - `eventQueryService`: placeholder, no methods yet

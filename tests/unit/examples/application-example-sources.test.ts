@@ -176,6 +176,86 @@ function readReadme(): string {
     return readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
 }
 
+function readReadmeParagraph(readme: string, marker: string): string {
+    const start = readme.indexOf(marker);
+
+    if (start < 0) {
+        throw new Error(`Expected README paragraph containing ${marker}.`);
+    }
+
+    const end = readme.indexOf("\n\n", start);
+
+    return readme.slice(start, end < 0 ? undefined : end);
+}
+
+function readServiceMapEntry(readme: string, method: string): string {
+    const serviceMapStart = readme.indexOf("## Service Map");
+
+    if (serviceMapStart < 0) {
+        throw new Error("Expected README service map.");
+    }
+
+    const entry = readme
+        .slice(serviceMapStart)
+        .split("\n")
+        .find(line => line.startsWith("-") && line.includes(method));
+
+    if (entry === undefined) {
+        throw new Error(`Expected service map entry for ${method}.`);
+    }
+
+    return entry;
+}
+
+function expectActiveContractsTraversalDocumentation(readme: string): void {
+    const traversalDocumentation = readReadmeParagraph(
+        readme,
+        "stateService.getActiveContractsPagesAsync",
+    );
+
+    expect(traversalDocumentation).toContain("gRPC-only");
+    expect(traversalDocumentation).toContain("lazy");
+    expect(traversalDocumentation).toContain("raw");
+    expect(traversalDocumentation).toContain("bounded");
+    expect(traversalDocumentation).toContain("caller");
+    expect(traversalDocumentation).toContain("OperationDeadline");
+    expect(traversalDocumentation).toContain("maximum pages");
+    expect(traversalDocumentation).toContain("maximum contracts");
+    expect(traversalDocumentation).toContain("collect-all");
+    expect(traversalDocumentation).toContain("Transport errors");
+    expect(traversalDocumentation).toContain("dispatched RPCs");
+    expect(traversalDocumentation).toContain("propagate unchanged");
+    expect(traversalDocumentation).toContain("ActiveContractsTraversalError");
+    expect(traversalDocumentation).toContain("safety");
+    expect(traversalDocumentation).toContain("invariant");
+    expect(traversalDocumentation).toContain("bound failures");
+
+    const jsonDocumentation = readReadmeParagraph(
+        readme,
+        "JSON does not implement either paginated gRPC API.",
+    );
+
+    expect(jsonDocumentation).toContain("getActiveContractsAsync");
+    expect(jsonDocumentation).toContain("existing");
+    expect(jsonDocumentation).toContain("streaming");
+
+    expect(
+        readServiceMapEntry(readme, "getActiveContractsPageAsync"),
+    ).toContain("`grpc` only");
+    expect(
+        readServiceMapEntry(readme, "getActiveContractsPagesAsync"),
+    ).toContain("`grpc` only");
+
+    const jsonServiceMapEntry = readServiceMapEntry(
+        readme,
+        "getActiveContractsAsync",
+    );
+
+    expect(jsonServiceMapEntry).toContain("`json` only");
+    expect(jsonServiceMapEntry).toContain("existing");
+    expect(jsonServiceMapEntry).toContain("streaming");
+}
+
 function expectStandaloneCleanup(source: string): void {
     const runExampleWithCleanup =
         /runExampleAsync\(\s*"[^"]+",\s*async\s*\(\)\s*=>\s*\{[\s\S]*?const\s+client\s*=\s*createExampleClient\(\);[\s\S]*?try\s*\{[\s\S]*?\}\s*finally\s*\{\s*await\s+client\.disposeAsync\(\);\s*\}[\s\S]*?\}\s*\);/;
@@ -383,6 +463,10 @@ describe("application example source contracts", () => {
         expect(readme).toContain(
             "run the example inside that same short-lived credential-scoped child shell",
         );
+    });
+
+    it("documents the bounded gRPC active-contract page traversal", () => {
+        expectActiveContractsTraversalDocumentation(readReadme());
     });
 
     it("keeps both DAR package listings and upload calls explicit", () => {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+    ActiveContractsTraversalError,
+    ActiveContractsTraversalOptions,
+    OperationDeadline,
+} from "@distrohelena/canton-typescript-sdk";
+import {
     canton,
     comDaml,
     comDigitalasset,
@@ -24,6 +29,27 @@ function expectMessageType(value: {
 }
 
 describe("protobuf public exports", () => {
+    it("exports active-contract traversal controls from the package root", () => {
+        const deadline = new OperationDeadline({
+            timeoutMs: 1_000,
+            now: () => 0,
+        });
+
+        const options = new ActiveContractsTraversalOptions({
+            deadline,
+            maxPages: 2,
+            maxContracts: 3,
+        });
+
+        const error = new ActiveContractsTraversalError(
+            "max-pages-exceeded",
+            "test traversal limit",
+        );
+
+        expect(options.deadline).toBe(deadline);
+        expect(error.code).toBe("max-pages-exceeded");
+    });
+
     it("exposes protobuf-ts message values in non-colliding namespaces", () => {
         expectMessageType(ledgerApiV2.GetUpdateByIdRequest);
         expectMessageType(canton.platform.v1.StatusDetails);
