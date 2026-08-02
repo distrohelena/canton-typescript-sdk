@@ -7,6 +7,8 @@ import {
     forEachChild,
     isArrowFunction,
     isArrayLiteralExpression,
+    isBinaryExpression,
+    isCatchClause,
     isConditionalExpression,
     isCallExpression,
     isElementAccessExpression,
@@ -19,11 +21,13 @@ import {
     isObjectLiteralExpression,
     isPropertyAssignment,
     isPropertyAccessExpression,
+    isPrefixUnaryExpression,
     isShorthandPropertyAssignment,
     isThrowStatement,
     isVariableDeclaration,
     ScriptKind,
     ScriptTarget,
+    SyntaxKind,
     type CallExpression,
     type Expression,
     type Node,
@@ -1039,6 +1043,457 @@ function expectCommandCompletionCorrelationSource(source: string): void {
     ).toHaveLength(0);
 }
 
+function findLedgerApiV2NamespaceName(sourceFile: Node): string | undefined {
+    let namespaceName: string | undefined;
+
+    const visit = (node: Node): void => {
+        if (
+            isImportDeclaration(node)
+            && node.moduleSpecifier.text.endsWith("/protobuf")
+            && node.importClause?.namedBindings !== undefined
+            && isNamedImports(node.importClause.namedBindings)
+        ) {
+            for (const element of node.importClause.namedBindings.elements) {
+                if ((element.propertyName?.text ?? element.name.text) === "ledgerApiV2") {
+                    namespaceName = element.name.text;
+                }
+            }
+        }
+
+        forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+
+    return namespaceName;
+}
+
+function isLedgerApiV2RequestCreateCall(
+    call: CallExpression,
+    requestName: string,
+    namespaceName: string,
+): boolean {
+    return isPropertyAccessExpression(call.expression)
+        && call.expression.name.text === "create"
+        && isPropertyAccessExpression(call.expression.expression)
+        && call.expression.expression.name.text === requestName
+        && isIdentifierNamed(call.expression.expression.expression, namespaceName);
+}
+
+function isClientEventQueryCall(call: CallExpression): boolean {
+    return isPropertyAccessExpression(call.expression)
+        && call.expression.name.text === "getEventsByContractIdAsync"
+        && isPropertyAccessExpression(call.expression.expression)
+        && call.expression.expression.name.text === "eventQueryService"
+        && isPropertyAccessExpression(call.expression.expression.expression)
+        && call.expression.expression.expression.name.text === "client";
+}
+
+function isMemberOf(
+    expression: Expression,
+    objectName: string,
+    propertyName: string,
+): boolean {
+    return isPropertyAccessExpression(expression)
+        && expression.name.text === propertyName
+        && isIdentifierNamed(expression.expression, objectName);
+}
+
+function isDeadlineRequestOptions(
+    expression: Expression | undefined,
+    deadlineName: string,
+): boolean {
+    return expression !== undefined
+        && isCallExpression(expression)
+        && isNamedCall(expression, "createRequestOptions")
+        && isPropertyAccessExpression(expression.expression)
+        && isIdentifierNamed(expression.expression.expression, deadlineName);
+}
+
+function isDescendantOf(node: Node, ancestor: Node): boolean {
+    let current: Node | undefined = node;
+
+    while (current !== undefined) {
+        if (current === ancestor) {
+            return true;
+        }
+
+        current = current.parent;
+    }
+
+    return false;
+}
+
+function isInsideCatchClause(node: Node): boolean {
+    let current: Node | undefined = node.parent;
+
+    while (current !== undefined) {
+        if (isCatchClause(current)) {
+            return true;
+        }
+
+        current = current.parent;
+    }
+
+    return false;
+}
+
+function hasMemberComparison(
+    node: Node,
+    left: (expression: Expression) => boolean,
+    operator: SyntaxKind,
+    right: (expression: Expression) => boolean,
+): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (
+            isBinaryExpression(candidate)
+            && candidate.operatorToken.kind === operator
+            && left(candidate.left)
+            && right(candidate.right)
+        ) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function containsTrimOfMember(
+    node: Node,
+    objectName: string,
+    propertyName: string,
+): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (
+            isCallExpression(candidate)
+            && isPropertyAccessExpression(candidate.expression)
+            && candidate.expression.name.text === "trim"
+            && isMemberOf(candidate.expression.expression, objectName, propertyName)
+        ) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function containsNegatedTrimOfMember(
+    node: Node,
+    objectName: string,
+    propertyName: string,
+): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (
+            isPrefixUnaryExpression(candidate)
+            && candidate.operator === SyntaxKind.ExclamationToken
+            && isCallExpression(candidate.operand)
+            && isPropertyAccessExpression(candidate.operand.expression)
+            && candidate.operand.expression.name.text === "trim"
+            && isMemberOf(
+                candidate.operand.expression.expression,
+                objectName,
+                propertyName,
+            )
+        ) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function hasParticipantVersionEquality(node: Node): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (
+            isBinaryExpression(candidate)
+            && (
+                candidate.operatorToken.kind === SyntaxKind.EqualsEqualsEqualsToken
+                || candidate.operatorToken.kind === SyntaxKind.ExclamationEqualsEqualsToken
+            )
+            && (
+                (isPropertyAccessExpression(candidate.left)
+                    && candidate.left.name.text === "participantVersion")
+                || (isPropertyAccessExpression(candidate.right)
+                    && candidate.right.name.text === "participantVersion")
+            )
+        ) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function expectContractLifecycleAuditWorkflowSource(source: string): void {
+    const sourceFile = createSourceFile(
+        "contract-lifecycle-audit-workflow.ts",
+        source,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    const ledgerApiV2NamespaceName = findLedgerApiV2NamespaceName(sourceFile);
+
+    expect(ledgerApiV2NamespaceName).toBeDefined();
+
+    if (ledgerApiV2NamespaceName === undefined) {
+        return;
+    }
+
+    const deadline = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "createDeadline"),
+        "one workflow deadline",
+    );
+
+    const fixture = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "loadFixtureAsync"),
+        "one fixture load",
+    );
+
+    const ensureDar = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "ensureDarUploadedAsync"),
+        "one DAR upload/visibility check",
+    );
+
+    const resolveParty = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "resolvePartyAsync"),
+        "one party resolution",
+    );
+
+    const compatibility = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "readCompatibilityAsync"),
+        "one compatibility read",
+    );
+
+    const deadlineName = declaredNameForExpression(deadline);
+
+    const fixtureName = declaredNameForExpression(fixture);
+
+    const actorName = declaredNameForExpression(resolveParty);
+
+    expect(deadline.getStart(sourceFile)).toBeLessThan(fixture.getStart(sourceFile));
+    expect(fixture.getStart(sourceFile)).toBeLessThan(ensureDar.getStart(sourceFile));
+    expect(ensureDar.getStart(sourceFile)).toBeLessThan(resolveParty.getStart(sourceFile));
+    expect(resolveParty.getStart(sourceFile)).toBeLessThan(compatibility.getStart(sourceFile));
+    expect(isIdentifierNamed(ensureDar.arguments[1], fixtureName)).toBe(true);
+    expect(isIdentifierNamed(ensureDar.arguments[2], deadlineName)).toBe(true);
+    expect(isIdentifierNamed(resolveParty.arguments[2], deadlineName)).toBe(true);
+    expect(isIdentifierNamed(compatibility.arguments[1], deadlineName)).toBe(true);
+
+    const originalExtraction = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "extractCreatedContract"),
+        "one original contract extraction",
+    );
+
+    const replacementExtraction = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "extractReplacementContracts"),
+        "one replacement contract extraction",
+    );
+
+    const originalName = declaredNameForExpression(originalExtraction);
+
+    const replacementName = declaredNameForExpression(replacementExtraction);
+
+    const directLookups = collectCalls(
+        sourceFile,
+        call => isNamedCall(call, "getContractAsync"),
+    );
+
+    expect(directLookups).toHaveLength(2);
+
+    const directContractIds: Expression[] = [];
+
+    for (const lookup of directLookups) {
+        const request = lookup.arguments[0];
+
+        expect(request !== undefined && isCallExpression(request)).toBe(true);
+        expect(
+            request !== undefined
+            && isCallExpression(request)
+            && isLedgerApiV2RequestCreateCall(
+                request,
+                "GetContractRequest",
+                ledgerApiV2NamespaceName,
+            ),
+        ).toBe(true);
+
+        if (request === undefined || !isCallExpression(request)) {
+            return;
+        }
+
+        const requestInit = request.arguments[0];
+
+        expect(isObjectLiteralExpression(requestInit)).toBe(true);
+
+        if (!isObjectLiteralExpression(requestInit)) {
+            return;
+        }
+
+        const contractId = getObjectPropertyExpression(requestInit, "contractId");
+
+        const queryingParties = getObjectPropertyExpression(requestInit, "queryingParties");
+
+        expect(contractId).toBeDefined();
+        expect(
+            queryingParties !== undefined
+            && isArrayLiteralExpression(queryingParties)
+            && queryingParties.elements.length === 1
+            && isMemberOf(queryingParties.elements[0], actorName, "party"),
+        ).toBe(true);
+        expect(isDeadlineRequestOptions(lookup.arguments[1], deadlineName)).toBe(true);
+
+        if (contractId !== undefined) {
+            directContractIds.push(contractId);
+        }
+    }
+
+    expect(directContractIds).toHaveLength(2);
+    expect(isMemberOf(directContractIds[0]!, originalName, "contractId")).toBe(true);
+    expect(
+        isMemberOf(
+            directContractIds[1]!,
+            replacementName,
+            "replacementContractId",
+        ),
+    ).toBe(true);
+    expect(directLookups[0]!.getStart(sourceFile)).toBeLessThan(
+        replacementExtraction.getStart(sourceFile),
+    );
+    expect(replacementExtraction.getStart(sourceFile)).toBeLessThan(
+        directLookups[1]!.getStart(sourceFile),
+    );
+
+    expect(
+        containsTrimOfMember(
+            sourceFile,
+            replacementName,
+            "replacementContractId",
+        ),
+    ).toBe(true);
+    expect(
+        containsNegatedTrimOfMember(
+            sourceFile,
+            replacementName,
+            "replacementContractId",
+        ),
+    ).toBe(true);
+    expect(hasMemberComparison(
+        sourceFile,
+        expression => isMemberOf(expression, replacementName, "archivedContractId"),
+        SyntaxKind.ExclamationEqualsEqualsToken,
+        expression => isMemberOf(expression, originalName, "contractId"),
+    )).toBe(true);
+    expect(hasMemberComparison(
+        sourceFile,
+        expression => isMemberOf(expression, replacementName, "replacementContractId"),
+        SyntaxKind.EqualsEqualsEqualsToken,
+        expression => isMemberOf(expression, originalName, "contractId"),
+    )).toBe(true);
+
+    const historyRequest = expectSingleCall(
+        sourceFile,
+        call => isLedgerApiV2RequestCreateCall(
+            call,
+            "GetEventsByContractIdRequest",
+            ledgerApiV2NamespaceName,
+        ),
+        "one generated event-history request",
+    );
+
+    const historyRequestInit = historyRequest.arguments[0];
+
+    expect(isObjectLiteralExpression(historyRequestInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(historyRequestInit)) {
+        return;
+    }
+
+    expect(
+        isMemberOf(
+            getObjectPropertyExpression(historyRequestInit, "contractId")!,
+            originalName,
+            "contractId",
+        ),
+    ).toBe(true);
+
+    const eventFormat = getObjectPropertyExpression(historyRequestInit, "eventFormat");
+
+    expect(eventFormat !== undefined && isCallExpression(eventFormat)).toBe(true);
+    expect(
+        eventFormat !== undefined
+        && isCallExpression(eventFormat)
+        && isNamedCall(eventFormat, "buildMessageLifecycleEventFormat")
+        && isMemberOf(eventFormat.arguments[0]!, actorName, "party")
+        && isMemberOf(eventFormat.arguments[1]!, fixtureName, "templateId"),
+    ).toBe(true);
+
+    const historyWait = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "waitForCompleteOriginalHistoryAsync"),
+        "one deadline-bounded history wait",
+    );
+
+    const historyWaitInit = historyWait.arguments[0];
+
+    expect(isObjectLiteralExpression(historyWaitInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(historyWaitInit)) {
+        return;
+    }
+
+    expect(
+        isIdentifierNamed(
+            getObjectPropertyExpression(historyWaitInit, "deadline")!,
+            deadlineName,
+        ),
+    ).toBe(true);
+
+    const eventQueries = collectCalls(
+        sourceFile,
+        isClientEventQueryCall,
+    );
+
+    expect(eventQueries).toHaveLength(1);
+    expect(isDescendantOf(eventQueries[0]!, historyWait)).toBe(true);
+    expect(isInsideCatchClause(eventQueries[0]!)).toBe(false);
+
+    expect(source).not.toMatch(/\b(?:updateService|hash|filtersForAnyParty|TransactionShape|getActiveContracts)\b/);
+    expect(source).not.toMatch(/error\.message|RegExp/);
+    expect(hasParticipantVersionEquality(sourceFile)).toBe(false);
+}
+
 describe("application example source contracts", () => {
     it("uses the shared raw SDK ACS traversal in exactly the four ACS consumers", () => {
         const consumerPaths = exampleSourcePaths()
@@ -1631,6 +2086,119 @@ describe("application example source contracts", () => {
             ],
             { cwd: repositoryDirectory },
         )).not.toThrow();
+    });
+
+    it("documents the standalone gRPC contract-lifecycle audit workflow", () => {
+        const packageJson = readRootPackageJson();
+
+        const readme = readReadme();
+
+        const workflowDocumentation = readReadmeParagraph(
+            readme,
+            "The contract-lifecycle audit workflow",
+        ).replace(/\s+/g, " ");
+
+        expect(
+            packageJson.scripts["example:workflow:contract-lifecycle-audit"],
+        ).toBe(
+            "npm run build && node --loader ts-node/esm examples/95-contract-lifecycle-audit.ts",
+        );
+        expect(readme).toContain("The six workflow examples are standalone proofs");
+        expect(readme).toContain("npm run example:workflow:contract-lifecycle-audit");
+        expect(workflowDocumentation).toContain("standalone");
+        expect(workflowDocumentation).toContain("gRPC-only");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_LEDGER_ENDPOINT");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT");
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT",
+        );
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_BEARER_TOKEN");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_PARTY");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_PARTY_PREFIX");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_TIMEOUT_MS");
+        expect(workflowDocumentation).not.toContain("TLS");
+        expect(workflowDocumentation).not.toContain("SDK_EXAMPLE_TLS_ROOT_CERTIFICATE");
+        expect(workflowDocumentation).toContain("explicit");
+        expect(workflowDocumentation).toContain("fallback");
+        expect(workflowDocumentation).toContain("durable DAR");
+        expect(workflowDocumentation).toContain("durable topology");
+        expect(workflowDocumentation).toContain("durable contracts");
+        expect(workflowDocumentation).toContain("alpha");
+        expect(workflowDocumentation).toContain("ContractService");
+        expect(workflowDocumentation).toContain("original");
+        expect(workflowDocumentation).toContain("replacement");
+        expect(workflowDocumentation).toContain("EventQuery");
+        expect(workflowDocumentation).toContain("create/archive");
+        expect(workflowDocumentation).toContain("no post-archive ContractService");
+
+        const contractServiceEntry = readServiceMapEntry(
+            readme,
+            "contractService.getContractAsync",
+        );
+
+        const eventQueryEntry = readServiceMapEntry(
+            readme,
+            "eventQueryService.getEventsByContractIdAsync",
+        );
+
+        for (const entry of [contractServiceEntry, eventQueryEntry]) {
+            expect(entry).toContain("`grpc` only");
+            expect(entry).toContain("JSON rejects");
+        }
+    });
+
+    it("uses only direct active-contract and original-history evidence in the lifecycle audit", () => {
+        const runnerSource = readExampleSource("95-contract-lifecycle-audit.ts");
+
+        const workflowSource = readSharedExampleSource(
+            "contract-lifecycle-audit-workflow.ts",
+        );
+
+        const helperSource = readSharedExampleSource("contract-lifecycle-audit.ts");
+
+        const runnerFile = createSourceFile(
+            "95-contract-lifecycle-audit.ts",
+            runnerSource,
+            ScriptTarget.Latest,
+            true,
+            ScriptKind.TS,
+        );
+
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "runExampleAsync")))
+            .toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "createExampleClient")))
+            .toHaveLength(1);
+        expect(
+            collectCalls(
+                runnerFile,
+                call => isNamedCall(call, "runClientWorkflowWithDisposalAsync"),
+            ),
+        ).toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "disposeAsync")))
+            .toHaveLength(1);
+        expectContractLifecycleAuditWorkflowSource(workflowSource);
+        expect(() => expectContractLifecycleAuditWorkflowSource(
+            workflowSource.replaceAll("ledgerApiV2.", "unrelatedApi."),
+        )).toThrow();
+        expect(() => expectContractLifecycleAuditWorkflowSource(
+            workflowSource.replace(
+                "dependencies.client.eventQueryService",
+                "dependencies.client.unrelatedService",
+            ),
+        )).toThrow();
+        expect(helperSource).toContain("ledgerApiV2.EventFormat.create");
+        expect(helperSource).toContain("ledgerApiV2.Filters.create");
+        expect(helperSource).toContain("ledgerApiV2.CumulativeFilter.create");
+        expect(helperSource).toContain("ledgerApiV2.TemplateFilter.create");
+        expect(helperSource).toContain("ledgerApiV2.Identifier.create");
+        expect(helperSource).toContain("filtersByParty");
+        expect(helperSource).toContain("remainingTimeoutMs");
+        expect(helperSource).toContain("EVENT_QUERY_PROJECTION_POLL_INTERVAL_MS");
+
+        const lifecycleSources = [runnerSource, workflowSource, helperSource].join("\n");
+
+        expect(lifecycleSources).not.toMatch(/\b(?:updateService|hash|filtersForAnyParty|TransactionShape|getActiveContracts)\b/);
+        expect(lifecycleSources).not.toMatch(/error\.message|RegExp/);
     });
 
     it("reads a configured user and its rights without mutating user state", () => {

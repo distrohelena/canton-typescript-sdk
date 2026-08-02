@@ -132,7 +132,7 @@ npm run example:topology:party-hosting
 
 ### Workflow examples
 
-The four established workflow examples are standalone proofs, not a sequence:
+The six workflow examples are standalone proofs, not a sequence:
 each uploads or verifies the fixture DAR, resolves a party, reads the
 participant status, and creates its own run-scoped data. First make a Canton
 participant available and verify the source with `npm run examples:check`; the
@@ -145,6 +145,7 @@ npm run example:workflow:retry
 npm run example:workflow:resume
 npm run example:workflow:stale-contract
 npm run example:workflow:command-completion
+npm run example:workflow:contract-lifecycle-audit
 ```
 
 They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
@@ -174,6 +175,8 @@ The completion-correlation example asserts successful correlation only; it does
 not assert rejected-command correlation. On both participant observations, the
 stream-first rejected-command probes observed no exact completion before their
 bounded stream transport errors.
+
+The contract-lifecycle audit workflow (`npm run example:workflow:contract-lifecycle-audit`) is a standalone gRPC-only proof. It uses the normal `SDK_EXAMPLE_*` endpoint, authentication, party, and timeout configuration: `SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`, `SDK_EXAMPLE_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTY`, `SDK_EXAMPLE_PARTY_PREFIX`, and `SDK_EXAMPLE_TIMEOUT_MS`. An explicit `SDK_EXAMPLE_PARTY` is reused; otherwise fallback allocation creates durable topology. The fixture upload leaves a durable DAR, and the workflow leaves durable contracts. It uses the alpha ContractService to prove the original active Message before replacement and the replacement active Message afterward, then uses EventQuery for the original contract's create/archive history. It makes no post-archive ContractService claim for the original.
 
 Each program prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
@@ -734,8 +737,8 @@ unsupported query features reject with `QueryCapabilityError`.
 - `stateService.getActiveContractsAsync(...)`: `json` only, existing distinct streaming read
 - `updateService.getUpdatesAsync(...)`: `grpc` only
 - `commandCompletionService.getCompletionsAsync(...)`: `grpc` only, existing streaming API
-- `eventQueryService`: placeholder, no methods yet
-- `contractService`: placeholder, no methods yet
+- `eventQueryService.getEventsByContractIdAsync(...)`: `grpc` only; JSON rejects this request
+- `contractService.getContractAsync(...)`: `grpc` only; JSON rejects this request
 
 - Ledger Admin endpoint:
 - `partyManagementService.allocatePartyAsync(...)`: `json`, `grpc`
