@@ -45,6 +45,46 @@ describe("command completion correlation", () => {
         }
     });
 
+    it("matches the configured user ID byte-for-byte without trimming it", async () => {
+        const rawUserId = " ledger-api-user ";
+
+        const iterator = createIterator([
+            completionResponse({
+                actAs: ["Alice"],
+                commandId: "expected",
+                updateId: "transaction",
+                userId: rawUserId,
+            }),
+        ]);
+
+        await expect(submitAndWaitForCommandCompletionAsync({
+            iterator,
+            firstNextPromise: iterator.next(),
+            submitAsync: async () => submitted("transaction"),
+            commandId: "expected",
+            expectedActor: "Alice",
+            expectedUserId: rawUserId,
+        })).resolves.toMatchObject({ userId: rawUserId });
+
+        const trimmedUserIterator = createIterator([
+            completionResponse({
+                actAs: ["Alice"],
+                commandId: "expected",
+                updateId: "transaction",
+                userId: rawUserId.trim(),
+            }),
+        ]);
+
+        await expect(submitAndWaitForCommandCompletionAsync({
+            iterator: trimmedUserIterator,
+            firstNextPromise: trimmedUserIterator.next(),
+            submitAsync: async () => submitted("transaction"),
+            commandId: "expected",
+            expectedActor: "Alice",
+            expectedUserId: rawUserId,
+        })).rejects.toThrow(/user ID/i);
+    });
+
     it.each([
         ["a nonzero completion status", { status: { code: 3, message: "arbitrary prose" } }],
         ["a missing update ID", { updateId: "" }],

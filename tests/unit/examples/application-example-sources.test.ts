@@ -4,22 +4,29 @@ import { fileURLToPath } from "node:url";
 import {
     createSourceFile,
     forEachChild,
+    isArrowFunction,
+    isArrayLiteralExpression,
     isConditionalExpression,
     isCallExpression,
+    isElementAccessExpression,
     isFunctionDeclaration,
     isIdentifier,
     isImportDeclaration,
+    isIfStatement,
     isNamedImports,
     isNewExpression,
     isObjectLiteralExpression,
     isPropertyAssignment,
     isPropertyAccessExpression,
     isShorthandPropertyAssignment,
+    isThrowStatement,
     isVariableDeclaration,
     ScriptKind,
     ScriptTarget,
+    type CallExpression,
     type Expression,
     type Node,
+    type ObjectLiteralExpression,
 } from "typescript";
 import { describe, expect, it } from "vitest";
 
@@ -477,6 +484,544 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
     expect(source).not.toMatch(/\b(?:sleep|setTimeout)\b/i);
     expect(source).not.toMatch(/error\.message|RegExp|match\s*\(/);
     expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+}
+
+function getObjectPropertyExpression(
+    object: ObjectLiteralExpression,
+    propertyName: string,
+): Expression | undefined {
+    for (const property of object.properties) {
+        if (
+            isPropertyAssignment(property)
+            && property.name.getText() === propertyName
+        ) {
+            return property.initializer;
+        } else if (
+            isShorthandPropertyAssignment(property)
+            && property.name.text === propertyName
+        ) {
+            return property.name;
+        }
+    }
+
+    return undefined;
+}
+
+function collectCalls(
+    sourceFile: Node,
+    predicate: (call: CallExpression) => boolean,
+): CallExpression[] {
+    const calls: CallExpression[] = [];
+
+    const visit = (node: Node): void => {
+        if (isCallExpression(node) && predicate(node)) {
+            calls.push(node);
+        }
+
+        forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+
+    return calls;
+}
+
+function expectSingleCall(
+    sourceFile: Node,
+    predicate: (call: CallExpression) => boolean,
+    description: string,
+): CallExpression {
+    const calls = collectCalls(sourceFile, predicate);
+
+    expect(calls, description).toHaveLength(1);
+
+    const [call] = calls;
+
+    if (call === undefined) {
+        throw new Error(`Expected ${description}.`);
+    }
+
+    return call;
+}
+
+function isNamedCall(call: CallExpression, name: string): boolean {
+    return isIdentifier(call.expression)
+        ? call.expression.text === name
+        : isPropertyAccessExpression(call.expression)
+            && call.expression.name.text === name;
+}
+
+function declaredNameForExpression(expression: Expression): string {
+    let current: Node | undefined = expression;
+
+    while (current !== undefined && !isVariableDeclaration(current)) {
+        current = current.parent;
+    }
+
+    if (current === undefined || !isIdentifier(current.name)) {
+        throw new Error("Expected expression to initialize an identifier declaration.");
+    }
+
+    return current.name.text;
+}
+
+function isIdentifierNamed(expression: Node, name: string): boolean {
+    return isIdentifier(expression) && expression.text === name;
+}
+
+function isProcessEnvironmentUserId(expression: Expression): boolean {
+    return isPropertyAccessExpression(expression)
+        && expression.name.text === "SDK_EXAMPLE_USER_ID"
+        && isPropertyAccessExpression(expression.expression)
+        && expression.expression.name.text === "env"
+        && isIdentifier(expression.expression.expression)
+        && expression.expression.expression.text === "process";
+}
+
+function containsTrimOfIdentifier(node: Node, name: string): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (
+            isCallExpression(candidate)
+            && isPropertyAccessExpression(candidate.expression)
+            && candidate.expression.name.text === "trim"
+            && isIdentifierNamed(candidate.expression.expression, name)
+        ) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function containsThrow(node: Node): boolean {
+    let found = false;
+
+    const visit = (candidate: Node): void => {
+        if (isThrowStatement(candidate)) {
+            found = true;
+        }
+
+        forEachChild(candidate, visit);
+    };
+
+    visit(node);
+
+    return found;
+}
+
+function expectCommandCompletionCorrelationSource(source: string): void {
+    const sourceFile = createSourceFile(
+        "94-command-completion-correlation.ts",
+        source,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    let configuredUserName: string | undefined;
+
+    const findConfiguredUser = (node: Node): void => {
+        if (
+            isVariableDeclaration(node)
+            && isIdentifier(node.name)
+            && node.initializer !== undefined
+            && isProcessEnvironmentUserId(node.initializer)
+        ) {
+            configuredUserName = node.name.text;
+        }
+
+        forEachChild(node, findConfiguredUser);
+    };
+
+    findConfiguredUser(sourceFile);
+
+    expect(configuredUserName).toBeDefined();
+
+    if (configuredUserName === undefined) {
+        return;
+    }
+
+    const clientCreation = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "createExampleClient"),
+        "one localnet example client creation",
+    );
+
+    const validations: Node[] = [];
+
+    const findValidation = (node: Node): void => {
+        if (
+            isIfStatement(node)
+            && containsTrimOfIdentifier(node.expression, configuredUserName)
+            && containsThrow(node.thenStatement)
+        ) {
+            validations.push(node);
+        }
+
+        forEachChild(node, findValidation);
+    };
+
+    findValidation(sourceFile);
+
+    expect(validations).toHaveLength(1);
+
+    const [validation] = validations;
+
+    if (validation === undefined) {
+        return;
+    }
+
+    expect(validation.getStart(sourceFile)).toBeLessThan(
+        clientCreation.getStart(sourceFile),
+    );
+
+    const deadlines: Node[] = [];
+
+    const findDeadlines = (node: Node): void => {
+        if (
+            isNewExpression(node)
+            && isIdentifier(node.expression)
+            && node.expression.text === "OperationDeadline"
+        ) {
+            deadlines.push(node);
+        }
+
+        forEachChild(node, findDeadlines);
+    };
+
+    findDeadlines(sourceFile);
+
+    expect(deadlines).toHaveLength(1);
+
+    const [deadline] = deadlines;
+
+    if (deadline === undefined || !isNewExpression(deadline)) {
+        return;
+    }
+
+    const deadlineName = declaredNameForExpression(deadline);
+
+    const fixture = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "loadExampleApplicationFixtureAsync"),
+        "one fixture load",
+    );
+
+    const ensureDar = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "ensureExampleDarUploadedAsync"),
+        "one DAR upload/visibility check",
+    );
+
+    const resolveParty = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "resolveExamplePartyAsync"),
+        "one party resolution",
+    );
+
+    const compatibility = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "readWorkflowCompatibilityAsync"),
+        "one participant compatibility check",
+    );
+
+    const ledgerEnd = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "getLedgerEndAsync"),
+        "one ledger-end read",
+    );
+
+    expect(deadline.getStart(sourceFile)).toBeLessThan(
+        fixture.getStart(sourceFile),
+    );
+    expect(fixture.getStart(sourceFile)).toBeLessThan(
+        ensureDar.getStart(sourceFile),
+    );
+    expect(ensureDar.getStart(sourceFile)).toBeLessThan(
+        resolveParty.getStart(sourceFile),
+    );
+    expect(resolveParty.getStart(sourceFile)).toBeLessThan(
+        compatibility.getStart(sourceFile),
+    );
+    expect(compatibility.getStart(sourceFile)).toBeLessThan(
+        ledgerEnd.getStart(sourceFile),
+    );
+
+    expect(resolveParty.arguments).toHaveLength(3);
+    expect(isIdentifierNamed(resolveParty.arguments[2], deadlineName)).toBe(true);
+
+    const actorName = declaredNameForExpression(resolveParty);
+
+    const ledgerEndOptions = ledgerEnd.arguments[1];
+
+    expect(
+        ledgerEndOptions !== undefined
+        && isCallExpression(ledgerEndOptions)
+        && isNamedCall(ledgerEndOptions, "createRequestOptions")
+        && isIdentifierNamed(ledgerEndOptions.expression.expression, deadlineName),
+    ).toBe(true);
+
+    const ledgerEndName = declaredNameForExpression(ledgerEnd);
+
+    const savedOffsets: string[] = [];
+
+    const findSavedOffset = (node: Node): void => {
+        if (
+            isVariableDeclaration(node)
+            && isIdentifier(node.name)
+            && node.initializer !== undefined
+            && isPropertyAccessExpression(node.initializer)
+            && node.initializer.name.text === "offset"
+            && isIdentifierNamed(node.initializer.expression, ledgerEndName)
+        ) {
+            savedOffsets.push(node.name.text);
+        }
+
+        forEachChild(node, findSavedOffset);
+    };
+
+    findSavedOffset(sourceFile);
+
+    expect(savedOffsets).toHaveLength(1);
+
+    const [savedOffsetName] = savedOffsets;
+
+    if (savedOffsetName === undefined) {
+        return;
+    }
+
+    const getCompletions = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "getCompletionsAsync"),
+        "one completion stream creation",
+    );
+
+    const savedOffsetValidations: Node[] = [];
+
+    const findSavedOffsetValidation = (node: Node): void => {
+        if (
+            isIfStatement(node)
+            && containsTrimOfIdentifier(node.expression, savedOffsetName)
+            && containsThrow(node.thenStatement)
+        ) {
+            savedOffsetValidations.push(node);
+        }
+
+        forEachChild(node, findSavedOffsetValidation);
+    };
+
+    findSavedOffsetValidation(sourceFile);
+
+    expect(savedOffsetValidations).toHaveLength(1);
+
+    const [savedOffsetValidation] = savedOffsetValidations;
+
+    if (savedOffsetValidation === undefined) {
+        return;
+    }
+
+    expect(savedOffsetValidation.getStart(sourceFile)).toBeLessThan(
+        getCompletions.getStart(sourceFile),
+    );
+
+    const completionRequest = getCompletions.arguments[0];
+
+    expect(completionRequest !== undefined && isCallExpression(completionRequest)).toBe(true);
+
+    if (completionRequest === undefined || !isCallExpression(completionRequest)) {
+        return;
+    }
+
+    expect(
+        isPropertyAccessExpression(completionRequest.expression)
+        && completionRequest.expression.name.text === "create"
+        && isPropertyAccessExpression(completionRequest.expression.expression)
+        && completionRequest.expression.expression.name.text === "GetCompletionsRequest",
+    ).toBe(true);
+
+    const completionRequestInit = completionRequest.arguments[0];
+
+    expect(isObjectLiteralExpression(completionRequestInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(completionRequestInit)) {
+        return;
+    }
+
+    const beginExclusive = getObjectPropertyExpression(
+        completionRequestInit,
+        "beginExclusive",
+    );
+
+    const parties = getObjectPropertyExpression(
+        completionRequestInit,
+        "parties",
+    );
+
+    expect(
+        beginExclusive !== undefined
+        && isIdentifierNamed(beginExclusive, savedOffsetName),
+    ).toBe(true);
+    expect(
+        parties !== undefined
+        && isArrayLiteralExpression(parties)
+        && parties.elements.length === 1
+        && isPropertyAccessExpression(parties.elements[0])
+        && parties.elements[0].name.text === "party"
+        && isIdentifierNamed(parties.elements[0].expression, actorName),
+    ).toBe(true);
+
+    const completionOptions = getCompletions.arguments[1];
+
+    expect(
+        completionOptions !== undefined
+        && isCallExpression(completionOptions)
+        && isNamedCall(completionOptions, "createRequestOptions")
+        && isIdentifierNamed(completionOptions.expression.expression, deadlineName),
+    ).toBe(true);
+
+    const streamName = declaredNameForExpression(getCompletions);
+
+    const iteratorDeclarations: string[] = [];
+
+    const findIterator = (node: Node): void => {
+        if (
+            isVariableDeclaration(node)
+            && isIdentifier(node.name)
+            && node.initializer !== undefined
+            && isCallExpression(node.initializer)
+            && isElementAccessExpression(node.initializer.expression)
+            && isIdentifierNamed(node.initializer.expression.expression, streamName)
+        ) {
+            iteratorDeclarations.push(node.name.text);
+        }
+
+        forEachChild(node, findIterator);
+    };
+
+    findIterator(sourceFile);
+
+    expect(iteratorDeclarations).toHaveLength(1);
+
+    const [iteratorName] = iteratorDeclarations;
+
+    if (iteratorName === undefined) {
+        return;
+    }
+
+    const firstRead = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "next")
+            && isPropertyAccessExpression(call.expression)
+            && isIdentifierNamed(call.expression.expression, iteratorName),
+        "one first completion-stream read",
+    );
+
+    const wrapper = expectSingleCall(
+        sourceFile,
+        call => isNamedCall(call, "submitAndWaitForCommandCompletionAsync"),
+        "one completion correlation wrapper call",
+    );
+
+    expect(firstRead.getStart(sourceFile)).toBeLessThan(
+        wrapper.getStart(sourceFile),
+    );
+
+    const firstReadName = declaredNameForExpression(firstRead);
+
+    const wrapperInit = wrapper.arguments[0];
+
+    expect(isObjectLiteralExpression(wrapperInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(wrapperInit)) {
+        return;
+    }
+
+    const wrapperIterator = getObjectPropertyExpression(wrapperInit, "iterator");
+
+    const wrapperFirstRead = getObjectPropertyExpression(
+        wrapperInit,
+        "firstNextPromise",
+    );
+
+    const expectedUser = getObjectPropertyExpression(
+        wrapperInit,
+        "expectedUserId",
+    );
+
+    expect(
+        wrapperIterator !== undefined
+        && isIdentifierNamed(wrapperIterator, iteratorName),
+    ).toBe(true);
+    expect(
+        wrapperFirstRead !== undefined
+        && isIdentifierNamed(wrapperFirstRead, firstReadName),
+    ).toBe(true);
+    expect(
+        expectedUser !== undefined
+        && isIdentifierNamed(expectedUser, configuredUserName),
+    ).toBe(true);
+
+    const submitAsync = getObjectPropertyExpression(wrapperInit, "submitAsync");
+
+    expect(isArrowFunction(submitAsync)).toBe(true);
+
+    if (!isArrowFunction(submitAsync)) {
+        return;
+    }
+
+    const commandSubmission = expectSingleCall(
+        submitAsync,
+        call => isNamedCall(call, "submitAndWaitForTransactionAsync"),
+        "one transaction submission in the correlation wrapper",
+    );
+
+    const commandRequest = commandSubmission.arguments[0];
+
+    expect(commandRequest !== undefined && isCallExpression(commandRequest)).toBe(true);
+
+    if (commandRequest === undefined || !isCallExpression(commandRequest)) {
+        return;
+    }
+
+    expect(isNamedCall(commandRequest, "buildCreateMessageRequest")).toBe(true);
+
+    const commandRequestInit = commandRequest.arguments[0];
+
+    expect(isObjectLiteralExpression(commandRequestInit)).toBe(true);
+
+    if (!isObjectLiteralExpression(commandRequestInit)) {
+        return;
+    }
+
+    const requestUser = getObjectPropertyExpression(commandRequestInit, "userId");
+
+    expect(
+        requestUser !== undefined
+        && isIdentifierNamed(requestUser, configuredUserName),
+    ).toBe(true);
+
+    const submissionOptions = commandSubmission.arguments[1];
+
+    expect(
+        submissionOptions !== undefined
+        && isCallExpression(submissionOptions)
+        && isNamedCall(submissionOptions, "createRequestOptions")
+        && isIdentifierNamed(submissionOptions.expression.expression, deadlineName),
+    ).toBe(true);
+
+    expect(
+        collectCalls(
+            sourceFile,
+            call => isPropertyAccessExpression(call.expression)
+                && call.expression.name.text === "return",
+        ),
+    ).toHaveLength(0);
 }
 
 describe("application example source contracts", () => {
@@ -965,6 +1510,12 @@ describe("application example source contracts", () => {
             "Warning: created contracts and localnet ledger state are durable and are not cleaned up.",
         );
         expect(source).not.toMatch(/\b(?:AbortController|sleep|setTimeout|polling)\b/);
+    });
+
+    it("correlates a command completion from a saved ledger end with the raw configured user", () => {
+        expectCommandCompletionCorrelationSource(
+            readExampleSource("94-command-completion-correlation.ts"),
+        );
     });
 
     it("reads a configured user and its rights without mutating user state", () => {
