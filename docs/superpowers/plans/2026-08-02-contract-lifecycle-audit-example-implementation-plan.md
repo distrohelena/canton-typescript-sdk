@@ -494,7 +494,7 @@
 
   ```bash
   rtk npm run start:local-participant-358
-  rtk bash -lc 'set -euo pipefail; eval "$(rtk bash node/start-local-participant-358.sh --refresh-token)"; first_output="$(rtk npm run example:workflow:contract-lifecycle-audit)"; printf "%s\n" "$first_output"; actor_358="$(printf "%s\n" "$first_output" | rtk sed -n "s/^Actor party: //p" | rtk head -n 1)"; [[ -n "$actor_358" ]]; SDK_EXAMPLE_PARTY="$actor_358" rtk npm run example:workflow:contract-lifecycle-audit'
+  rtk bash -lc 'set -euo pipefail; eval "$(rtk bash node/start-local-participant-358.sh --refresh-token)"; export SDK_EXAMPLE_LEDGER_ENDPOINT="localhost:${PARTICIPANT_358_LEDGER_PORT:-8901}"; export SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT="localhost:${PARTICIPANT_358_LEDGER_PORT:-8901}"; export SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT="localhost:${PARTICIPANT_358_ADMIN_PORT:-8902}"; first_output="$(rtk npm run example:workflow:contract-lifecycle-audit)"; printf "%s\n" "$first_output"; actor_358="$(printf "%s\n" "$first_output" | rtk sed -n "s/^Actor party: //p" | rtk head -n 1)"; [[ -n "$actor_358" ]]; SDK_EXAMPLE_PARTY="$actor_358" rtk npm run example:workflow:contract-lifecycle-audit'
   rtk npm run stop:local-participant-358
   ```
 
