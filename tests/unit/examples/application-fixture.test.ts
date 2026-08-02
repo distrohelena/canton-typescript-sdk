@@ -11,11 +11,13 @@ import {
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it, vi } from "vitest";
 import {
+    assertExactCreatedMessagePayload,
     buildCreateMessageRequest,
     buildCreateAndReplaceMessageTextRequest,
     buildReplaceMessageTextRequest,
     EXAMPLE_DAR_SHA256,
     extractCreatedContract,
+    extractSoleCreatedContract,
     extractReplacementContracts,
     readCreatedMessageText,
     loadExampleApplicationFixtureAsync,
@@ -302,11 +304,24 @@ describe("transaction event extraction", () => {
         });
     });
 
-    it("extracts the active replacement from an atomic ACS-delta response without a transient archive", () => {
-        expect(extractCreatedContract({ events: [replacementCreated] })).toEqual({
+    it("extracts the sole active replacement from an atomic ACS-delta response", () => {
+        expect(extractSoleCreatedContract({ events: [replacementCreated] })).toEqual({
             contractId: "#replacement",
             event: replacementCreated.event.created,
         });
+        expect(() =>
+            extractSoleCreatedContract({
+                events: [
+                    replacementCreated,
+                    {
+                        event: {
+                            oneofKind: "created",
+                            created: { contractId: "#other-replacement" },
+                        },
+                    },
+                ],
+            }),
+        ).toThrow(/exactly one created event/i);
     });
 
     it.each([
@@ -461,7 +476,70 @@ describe("transaction event extraction", () => {
             ).toThrow(/text field/i);
         }
     });
+
+    it("requires the exact decoded Message sender, recipient, and text payload", () => {
+        const event = {
+            contractId: "#message",
+            createArguments: messageArguments("Alice::1", "Alice::1", "replacement"),
+        };
+
+        expect(() =>
+            assertExactCreatedMessagePayload({
+                event,
+                sender: "Alice::1",
+                recipient: "Alice::1",
+                text: "replacement",
+            }),
+        ).not.toThrow();
+
+        for (const createArguments of [
+            messageArguments("Bob::1", "Alice::1", "replacement"),
+            messageArguments("Alice::1", "Bob::1", "replacement"),
+            messageArguments("Alice::1", "Alice::1", "wrong"),
+            ledgerApiV2.Record.create({
+                fields: [
+                    ...messageArguments("Alice::1", "Alice::1", "replacement").fields,
+                    {
+                        label: "extra",
+                        value: { sum: { oneofKind: "text", text: "unexpected" } },
+                    },
+                ],
+            }),
+        ]) {
+            expect(() =>
+                assertExactCreatedMessagePayload({
+                    event: { contractId: "#message", createArguments },
+                    sender: "Alice::1",
+                    recipient: "Alice::1",
+                    text: "replacement",
+                }),
+            ).toThrow(/exact Message payload/i);
+        }
+    });
 });
+
+function messageArguments(
+    sender: string,
+    recipient: string,
+    text: string,
+): ledgerApiV2.Record {
+    return ledgerApiV2.Record.create({
+        fields: [
+            {
+                label: "sender",
+                value: { sum: { oneofKind: "party", party: sender } },
+            },
+            {
+                label: "recipient",
+                value: { sum: { oneofKind: "party", party: recipient } },
+            },
+            {
+                label: "text",
+                value: { sum: { oneofKind: "text", text } },
+            },
+        ],
+    });
+}
 
 describe("resolveExamplePartyAsync", () => {
     it("uses the configured party without allocating one", async () => {

@@ -1,6 +1,7 @@
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it } from "vitest";
 import {
+    assertAtomicMessageTerminalState,
     buildActiveContractsRequest,
     buildUpdatesRequest,
     assertExactlyOneActiveMessage,
@@ -378,6 +379,97 @@ describe("application example ledger requests", () => {
         ).not.toThrow();
     });
 
+    it("proves the exact atomic terminal Message state", () => {
+        const replacement = exactActiveMessage(
+            "#replacement",
+            "Alice::1",
+            "Alice::1",
+            "atomic-replacement",
+        );
+
+        expect(
+            assertAtomicMessageTerminalState({
+                messages: [replacement],
+                initialText: "atomic-initial",
+                replacementText: "atomic-replacement",
+                responseContractId: "#replacement",
+                party: "Alice::1",
+            }),
+        ).toBe(replacement);
+
+        expect(() =>
+            assertAtomicMessageTerminalState({
+                messages: [
+                    exactActiveMessage(
+                        "#initial",
+                        "Alice::1",
+                        "Alice::1",
+                        "atomic-initial",
+                    ),
+                    replacement,
+                ],
+                initialText: "atomic-initial",
+                replacementText: "atomic-replacement",
+                responseContractId: "#replacement",
+                party: "Alice::1",
+            }),
+        ).toThrow(/initial Message.*active/i);
+
+        expect(() =>
+            assertAtomicMessageTerminalState({
+                messages: [
+                    replacement,
+                    exactActiveMessage(
+                        "#duplicate",
+                        "Alice::1",
+                        "Alice::1",
+                        "atomic-replacement",
+                    ),
+                ],
+                initialText: "atomic-initial",
+                replacementText: "atomic-replacement",
+                responseContractId: "#replacement",
+                party: "Alice::1",
+            }),
+        ).toThrow(/exactly one active Message/i);
+
+        expect(() =>
+            assertAtomicMessageTerminalState({
+                messages: [replacement],
+                initialText: "atomic-initial",
+                replacementText: "atomic-replacement",
+                responseContractId: "#different",
+                party: "Alice::1",
+            }),
+        ).toThrow(/response.*contract ID/i);
+    });
+
+    it.each([
+        ["sender", "Bob::1", "Alice::1", "atomic-replacement"],
+        ["recipient", "Alice::1", "Bob::1", "atomic-replacement"],
+        ["text", "Alice::1", "Alice::1", "wrong"],
+    ] as const)(
+        "rejects an atomic replacement with the wrong %s",
+        (_field, sender, recipient, text) => {
+            expect(() =>
+                assertAtomicMessageTerminalState({
+                    messages: [
+                        exactActiveMessage(
+                            "#replacement",
+                            sender,
+                            recipient,
+                            text,
+                        ),
+                    ],
+                    initialText: "atomic-initial",
+                    replacementText: "atomic-replacement",
+                    responseContractId: "#replacement",
+                    party: "Alice::1",
+                }),
+            ).toThrow();
+        },
+    );
+
     it("rejects a changed active-contract snapshot while collecting messages", async () => {
         let page = 0;
 
@@ -731,6 +823,33 @@ function activeMessage(
                 label: "text",
                 value: { sum: { oneofKind: "text", text } },
             }],
+        }),
+    });
+}
+
+function exactActiveMessage(
+    contractId: string,
+    sender: string,
+    recipient: string,
+    text: string,
+): ledgerApiV2.CreatedEvent {
+    return ledgerApiV2.CreatedEvent.create({
+        contractId,
+        createArguments: ledgerApiV2.Record.create({
+            fields: [
+                {
+                    label: "sender",
+                    value: { sum: { oneofKind: "party", party: sender } },
+                },
+                {
+                    label: "recipient",
+                    value: { sum: { oneofKind: "party", party: recipient } },
+                },
+                {
+                    label: "text",
+                    value: { sum: { oneofKind: "text", text } },
+                },
+            ],
         }),
     });
 }

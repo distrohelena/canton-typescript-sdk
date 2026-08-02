@@ -9,14 +9,15 @@ import {
 import {
     buildCreateAndReplaceMessageTextRequest,
     ensureExampleDarUploadedAsync,
-    extractCreatedContract,
+    extractSoleCreatedContract,
     loadExampleApplicationFixtureAsync,
     readCreatedMessageText,
     resolveExamplePartyAsync,
 } from "./shared/application-fixture.js";
 import {
+    assertAtomicMessageTerminalState,
     buildActiveContractsRequest,
-    findActiveMessageAcrossPagesAsync,
+    collectActiveMessagesAcrossPagesAsync,
 } from "./shared/ledger-requests.js";
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
@@ -26,11 +27,14 @@ import {
     classifyWorkflowFailure,
     type WorkflowFailureKind,
 } from "./shared/workflow-errors.js";
+import { runClientWorkflowWithDisposalAsync } from "./shared/update-stream-lifecycle.js";
 
 runExampleAsync("atomic-create-and-exercise", async () => {
     const client = createExampleClient();
 
-    try {
+    await runClientWorkflowWithDisposalAsync({
+        disposeAsync: () => client.disposeAsync(),
+        runWorkflowAsync: async () => {
         const fixture = await loadExampleApplicationFixtureAsync();
 
         const deadline = createWorkflowDeadline({
@@ -116,16 +120,20 @@ runExampleAsync("atomic-create-and-exercise", async () => {
                 new RequestOptions({ timeoutMs: deadline.remainingMs() }),
             );
 
-        const submittedReplacement = extractCreatedContract(validResponse);
+        const submittedReplacement = extractSoleCreatedContract(validResponse);
 
         const request = buildActiveContractsRequest({
             party: actor.party,
             templateId: fixture.templateId,
         });
 
-        const replacement = await findActiveMessageAcrossPagesAsync({
+        const runMessages = await collectActiveMessagesAcrossPagesAsync({
             request,
-            contractId: submittedReplacement.contractId,
+            predicate: message => {
+                const text = readCreatedMessageText(message);
+
+                return text === initialText || text === replacementText;
+            },
             timeoutMs: deadline.remainingMs(),
             readPageAsync: pageRequest =>
                 client.stateService.getActiveContractsPageAsync(
@@ -134,21 +142,17 @@ runExampleAsync("atomic-create-and-exercise", async () => {
                 ),
         });
 
-        if (replacement === undefined) {
-            throw new Error(
-                `Replacement Message '${submittedReplacement.contractId}' was not present in the active-contract snapshot.`,
-            );
-        }
+        const activeReplacement = assertAtomicMessageTerminalState({
+            messages: runMessages,
+            initialText,
+            replacementText,
+            responseContractId: submittedReplacement.contractId,
+            party: actor.party,
+        });
 
-        const actualReplacementText = readCreatedMessageText(replacement);
+        const actualReplacementText = readCreatedMessageText(activeReplacement);
 
-        if (replacementText !== actualReplacementText) {
-            throw new Error(
-                `Replacement Message '${submittedReplacement.contractId}' did not retain the requested replacement text.`,
-            );
-        }
-
-        const replacementPayload = JSON.stringify(replacement.createArguments);
+        const replacementPayload = JSON.stringify(activeReplacement.createArguments);
 
         if (replacementPayload === undefined) {
             throw new Error(
@@ -161,10 +165,12 @@ runExampleAsync("atomic-create-and-exercise", async () => {
         console.log(`Release core: ${compatibility.releaseCore}`);
         console.log(`Compatibility path: ${compatibility.path}`);
         console.log(`Invalid choice kind: ${invalidChoiceKind}`);
-        console.log(`Replacement contract: ${submittedReplacement.contractId}`);
+        console.log(
+            "Atomic terminal proof: initial Message absent; exactly one replacement Message is active.",
+        );
+        console.log(`Replacement contract: ${activeReplacement.contractId}`);
         console.log(`Replacement payload: ${replacementPayload}`);
         console.log(`Replacement text: ${actualReplacementText}`);
-    } finally {
-        await client.disposeAsync();
-    }
+        },
+    });
 });

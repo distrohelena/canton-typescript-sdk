@@ -61,6 +61,25 @@ export function createClientDisposalLifecycle(
     };
 }
 
+export async function runClientWorkflowWithDisposalAsync<T>(init: {
+    readonly disposeAsync: () => PromiseLike<unknown> | undefined;
+    readonly runWorkflowAsync: () => Promise<T>;
+}): Promise<T> {
+    const clientDisposal = createClientDisposalLifecycle(init.disposeAsync);
+
+    let primaryFailed = false;
+
+    try {
+        return await init.runWorkflowAsync();
+    } catch (error) {
+        primaryFailed = true;
+
+        throw error;
+    } finally {
+        await clientDisposal.disposeUnlessStartedAsync(primaryFailed);
+    }
+}
+
 export async function expectIdleUpdateStreamTimeoutAsync<TUpdate>(init: {
     readonly iterator: AsyncIterator<TUpdate>;
     readonly firstNextPromise: Promise<IteratorResult<TUpdate>>;

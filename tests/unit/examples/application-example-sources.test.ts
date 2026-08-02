@@ -118,7 +118,7 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
     expect(source).toMatch(/extractReplacementContracts\(/);
     expect(source).toMatch(/assertMessageContractAbsent\(/);
     expect(source).toMatch(/assertExactlyOneActiveMessage\(/);
-    expect(source).toMatch(/assertExpectedReplacementPayload\(\s*\{/s);
+    expect(source).toMatch(/assertExactCreatedMessagePayload\(\s*\{/s);
     expect(source).toMatch(/collectActiveMessagesAcrossPagesAsync\(/);
     expect(source).toMatch(/classifyWorkflowFailure\(/);
     expect(source).toMatch(/kind:\s*"staleContract"/);
@@ -309,7 +309,16 @@ describe("application example source contracts", () => {
     it("proves atomic create-and-exercise failure and active replacement under one workflow deadline", () => {
         const source = readExampleSource("90-atomic-create-and-exercise.ts");
 
-        expectStandaloneCleanup(source);
+        expect(source).toMatch(/runExampleAsync\(\s*"atomic-create-and-exercise"/);
+        expect(source).toMatch(/const\s+client\s*=\s*createExampleClient\(\);/);
+        expect(source).toMatch(
+            /await\s+runClientWorkflowWithDisposalAsync\(\s*\{\s*disposeAsync:\s*\(\)\s*=>\s*client\.disposeAsync\(\),\s*runWorkflowAsync:\s*async\s*\(\)\s*=>\s*\{/s,
+        );
+        expect([
+            ...source.matchAll(/runClientWorkflowWithDisposalAsync\(/g),
+        ]).toHaveLength(1);
+        expect([...source.matchAll(/client\.disposeAsync\(\)/g)]).toHaveLength(1);
+        expect(source).not.toMatch(/finally\s*\{/);
         expect(source).toContain("loadExampleApplicationFixtureAsync()");
         expect(source).toMatch(
             /const\s+deadline\s*=\s*createWorkflowDeadline\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\),\s*\}\s*\);/s,
@@ -392,23 +401,31 @@ describe("application example source contracts", () => {
             /buildCreateAndReplaceMessageTextRequest\(\s*\{[\s\S]*?text:\s*initialText,[\s\S]*?replacement:\s*replacementText,[\s\S]*?commandId:\s*validCommandId,/s,
         );
         expect(source).toMatch(
-            /const\s+submittedReplacement\s*=\s*extractCreatedContract\(validResponse\);/,
+            /const\s+submittedReplacement\s*=\s*extractSoleCreatedContract\(validResponse\);/,
         );
         expect(source).not.toMatch(/extractReplacementContracts/);
         expect(source).not.toMatch(/archivedContractId|Archived transient contract/);
         expect(source).toContain("buildActiveContractsRequest({");
+        expect([
+            ...source.matchAll(/collectActiveMessagesAcrossPagesAsync\(/g),
+        ]).toHaveLength(1);
+        expect(source).not.toMatch(/findActiveMessageAcrossPagesAsync\(/);
         expect(source).toMatch(
-            /findActiveMessageAcrossPagesAsync\(\s*\{[\s\S]*?contractId:\s*submittedReplacement\.contractId,[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
+            /collectActiveMessagesAcrossPagesAsync\(\s*\{[\s\S]*?predicate:\s*message\s*=>\s*\{\s*const\s+text\s*=\s*readCreatedMessageText\(message\);\s*return\s+text\s*===\s*initialText\s*\|\|\s*text\s*===\s*replacementText;\s*\},[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
         );
-        expect(source).toMatch(/readCreatedMessageText\(replacement\)/);
-        expect(source).toMatch(/replacementText\s*!==\s*actualReplacementText/);
+        expect(source).toMatch(
+            /const\s+activeReplacement\s*=\s*assertAtomicMessageTerminalState\(\s*\{\s*messages:\s*runMessages,\s*initialText,\s*replacementText,\s*responseContractId:\s*submittedReplacement\.contractId,\s*party:\s*actor\.party,\s*\}\s*\);/s,
+        );
         expect(source).toContain("Actor party: ${actor.party}");
         expect(source).toContain("Participant version: ${compatibility.participantVersion}");
         expect(source).toContain("Release core: ${compatibility.releaseCore}");
         expect(source).toContain("Compatibility path: ${compatibility.path}");
         expect(source).toContain("Invalid choice kind: ${invalidChoiceKind}");
         expect(source).toContain(
-            "Replacement contract: ${submittedReplacement.contractId}",
+            "Replacement contract: ${activeReplacement.contractId}",
+        );
+        expect(source).toContain(
+            "Atomic terminal proof: initial Message absent; exactly one replacement Message is active.",
         );
         expect(source).toContain("Replacement payload: ${replacementPayload}");
         expect(source).toContain("Replacement text: ${actualReplacementText}");

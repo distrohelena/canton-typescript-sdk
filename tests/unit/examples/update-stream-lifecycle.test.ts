@@ -6,6 +6,7 @@ import {
     expectIdleUpdateStreamTimeoutAsync,
     mapUpdateStreamError,
     matchResumedUpdateAsync,
+    runClientWorkflowWithDisposalAsync,
     submitAndMatchUpdateAsync,
 } from "../../../examples/shared/update-stream-lifecycle.js";
 
@@ -494,6 +495,60 @@ describe("update stream lifecycle", () => {
                 cancelAsync: async () => undefined,
             }),
         ).rejects.toBe(readFailure);
+    });
+});
+
+describe("client workflow lifecycle", () => {
+    it("returns the workflow value and disposes exactly once", async () => {
+        let disposeCalls = 0;
+
+        await expect(
+            runClientWorkflowWithDisposalAsync({
+                disposeAsync: async () => {
+                    disposeCalls += 1;
+                },
+                runWorkflowAsync: async () => "workflow-result",
+            }),
+        ).resolves.toBe("workflow-result");
+        expect(disposeCalls).toBe(1);
+    });
+
+    it("rethrows the exact workflow failure when disposal also fails", async () => {
+        const workflowFailure = new Error("workflow failed");
+
+        let disposeCalls = 0;
+
+        await expect(
+            runClientWorkflowWithDisposalAsync({
+                disposeAsync: async () => {
+                    disposeCalls += 1;
+
+                    throw new Error("dispose failed");
+                },
+                runWorkflowAsync: async () => {
+                    throw workflowFailure;
+                },
+            }),
+        ).rejects.toBe(workflowFailure);
+        expect(disposeCalls).toBe(1);
+    });
+
+    it("surfaces the exact disposal failure after workflow success", async () => {
+        const disposalFailure = new Error("dispose failed");
+
+        let disposeCalls = 0;
+
+        await expect(
+            runClientWorkflowWithDisposalAsync({
+                disposeAsync: async () => {
+                    disposeCalls += 1;
+
+                    throw disposalFailure;
+                },
+                runWorkflowAsync: async () => undefined,
+            }),
+        ).rejects.toBe(disposalFailure);
+        expect(disposeCalls).toBe(1);
     });
 });
 

@@ -187,6 +187,37 @@ export function extractCreatedContract(response: {
     );
 }
 
+export function extractSoleCreatedContract(response: {
+    events: readonly unknown[];
+}): { contractId: string; event: Record<string, unknown> } {
+    const createdContracts: Array<{
+        contractId: string;
+        event: Record<string, unknown>;
+    }> = [];
+
+    for (const responseEvent of response.events) {
+        const event = eventPayload(responseEvent, "created");
+
+        const contractId = contractIdFromEvent(event);
+
+        if (contractId !== undefined && event !== undefined) {
+            createdContracts.push({ contractId, event });
+        }
+    }
+
+    if (createdContracts.length === 0) {
+        throw new Error(
+            "Expected a created event with a non-empty contract ID in the command response.",
+        );
+    } else if (createdContracts.length !== 1) {
+        throw new Error(
+            "Expected exactly one created event with a non-empty contract ID in the command response.",
+        );
+    }
+
+    return createdContracts[0]!;
+}
+
 export function extractReplacementContracts(response: {
     events: readonly unknown[];
 }): {
@@ -255,6 +286,52 @@ export function readCreatedMessageText(event: {
     }
 
     return text.sum.text;
+}
+
+export function assertExactCreatedMessagePayload(init: {
+    readonly event: {
+        readonly contractId: string;
+        readonly createArguments?: unknown;
+    };
+    readonly sender: string;
+    readonly recipient: string;
+    readonly text: string;
+}): void {
+    if (!ledgerApiV2.Record.is(init.event.createArguments)) {
+        throw exactMessagePayloadError(init.event.contractId);
+    }
+
+    const expectedFields = [
+        { label: "sender", kind: "party", value: init.sender },
+        { label: "recipient", kind: "party", value: init.recipient },
+        { label: "text", kind: "text", value: init.text },
+    ] as const;
+
+    if (init.event.createArguments.fields.length !== expectedFields.length) {
+        throw exactMessagePayloadError(init.event.contractId);
+    }
+
+    for (const expected of expectedFields) {
+        const field = init.event.createArguments.fields.find(
+            candidate => candidate.label === expected.label,
+        );
+
+        if (field?.value === undefined) {
+            throw exactMessagePayloadError(init.event.contractId);
+        } else if (expected.kind === "party") {
+            if (
+                field.value.sum.oneofKind !== "party"
+                || field.value.sum.party !== expected.value
+            ) {
+                throw exactMessagePayloadError(init.event.contractId);
+            }
+        } else if (
+            field.value.sum.oneofKind !== "text"
+            || field.value.sum.text !== expected.value
+        ) {
+            throw exactMessagePayloadError(init.event.contractId);
+        }
+    }
 }
 
 export async function resolveExamplePartyAsync(
@@ -412,6 +489,12 @@ function contractIdFromEvent(
     const contractId = event.contractId.trim();
 
     return contractId || undefined;
+}
+
+function exactMessagePayloadError(contractId: string): Error {
+    return new Error(
+        `Created Message '${contractId}' did not contain the exact Message payload.`,
+    );
 }
 
 interface RemainingBudget {

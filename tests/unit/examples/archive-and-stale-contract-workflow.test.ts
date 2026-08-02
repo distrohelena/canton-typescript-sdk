@@ -104,7 +104,7 @@ describe("archive and stale-contract workflow", () => {
                 runArchiveAndStaleContractWorkflowAsync(
                     createDependencies({ replacementPartyMismatch }),
                 ),
-            ).rejects.toThrow("exact replacement payload");
+            ).rejects.toThrow("exact Message payload");
         },
     );
 

@@ -1,6 +1,9 @@
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import type { ExampleTemplateId } from "./application-fixture.js";
-import { readCreatedMessageText } from "./application-fixture.js";
+import {
+    assertExactCreatedMessagePayload,
+    readCreatedMessageText,
+} from "./application-fixture.js";
 
 export function buildActiveContractsRequest(init: {
     readonly party: string;
@@ -304,6 +307,51 @@ export function assertExactlyOneActiveMessage(init: {
     }
 
     return message;
+}
+
+export function assertAtomicMessageTerminalState(init: {
+    readonly messages: readonly ledgerApiV2.CreatedEvent[];
+    readonly initialText: string;
+    readonly replacementText: string;
+    readonly responseContractId: string;
+    readonly party: string;
+}): ledgerApiV2.CreatedEvent {
+    requireNonEmpty("initial Message text", init.initialText);
+    requireNonEmpty("replacement Message text", init.replacementText);
+    requireNonEmpty("response contract ID", init.responseContractId);
+    requireNonEmpty("actor party", init.party);
+
+    const initialMessages = init.messages.filter(
+        message => readCreatedMessageText(message) === init.initialText,
+    );
+
+    if (initialMessages.length !== 0) {
+        throw new Error(
+            `Expected the initial Message to be absent, but found ${initialMessages.length} active.`,
+        );
+    }
+
+    const replacement = assertExactlyOneActiveMessage({
+        messages: init.messages.filter(
+            message => readCreatedMessageText(message) === init.replacementText,
+        ),
+        textMarker: init.replacementText,
+    });
+
+    if (replacement.contractId !== init.responseContractId) {
+        throw new Error(
+            "The active replacement did not match the response created contract ID.",
+        );
+    }
+
+    assertExactCreatedMessagePayload({
+        event: replacement,
+        sender: init.party,
+        recipient: init.party,
+        text: init.replacementText,
+    });
+
+    return replacement;
 }
 
 export function assertMessageContractAbsent(init: {
