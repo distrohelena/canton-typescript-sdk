@@ -18,7 +18,10 @@ import {
     assertUpdateLookupMatchesCapturedMessageTransaction,
     captureExactMessageTransaction,
 } from "./update-lookup-reconciliation.js";
-import { cleanupWithoutMaskingAsync } from "./update-stream-lifecycle.js";
+import {
+    cleanupWithoutMaskingAsync,
+    mapUpdateStreamError,
+} from "./update-stream-lifecycle.js";
 import {
     readWorkflowCompatibilityAsync,
     type WorkflowCompatibility,
@@ -120,7 +123,7 @@ export async function runUpdateLookupReconciliationWorkflowAsync(
 
         const created = extractCreatedContract(submitted);
 
-        let next = await firstNextPromise;
+        let next = await awaitUpdateStreamReadAsync(firstNextPromise);
 
         let captured;
 
@@ -142,7 +145,7 @@ export async function runUpdateLookupReconciliationWorkflowAsync(
                 break;
             }
 
-            next = await iterator.next();
+            next = await awaitUpdateStreamReadAsync(iterator.next());
         }
 
         const byId = await dependencies.client.updateService.getUpdateByIdAsync(
@@ -187,3 +190,13 @@ export const updateLookupReconciliationWorkflowDefaults = {
     createDeadline: (init: { timeoutMs: number }) => new OperationDeadline(init),
     timeoutMs: exampleTimeoutMs,
 };
+
+async function awaitUpdateStreamReadAsync<T>(
+    nextPromise: Promise<IteratorResult<T>>,
+): Promise<IteratorResult<T>> {
+    try {
+        return await nextPromise;
+    } catch (error) {
+        throw mapUpdateStreamError(error);
+    }
+}

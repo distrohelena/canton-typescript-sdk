@@ -1,5 +1,6 @@
 import {
     CantonClient,
+    GrpcTransportError,
     OperationDeadline,
     RequestOptions,
     SubmitCommandRequest,
@@ -97,6 +98,42 @@ describe("update lookup reconciliation workflow", () => {
             }))).rejects.toBe(primary);
             expect(returns).toEqual(["return"]);
         }
+    });
+
+    it("maps a deadline from the primed first stream read while preserving its cause and cleanup semantics", async () => {
+        const deadline = deadlineExceeded();
+
+        const cleanup = new Error("return failed");
+
+        const returns: string[] = [];
+
+        const result = runUpdateLookupReconciliationWorkflowAsync(createDependencies({
+            streamResponses: [Promise.reject(deadline)],
+            returnFailure: cleanup,
+            returns,
+        }));
+
+        await expect(result).rejects.toThrow(/update stream timed out.*SDK_EXAMPLE_TIMEOUT_MS/i);
+        await expect(result).rejects.toMatchObject({ cause: deadline });
+        expect(returns).toEqual(["return"]);
+    });
+
+    it("maps a deadline from a later stream read while preserving its cause and cleanup semantics", async () => {
+        const deadline = deadlineExceeded();
+
+        const cleanup = new Error("return failed");
+
+        const returns: string[] = [];
+
+        const result = runUpdateLookupReconciliationWorkflowAsync(createDependencies({
+            streamResponses: [unrelatedResponse(), Promise.reject(deadline)],
+            returnFailure: cleanup,
+            returns,
+        }));
+
+        await expect(result).rejects.toThrow(/update stream timed out.*SDK_EXAMPLE_TIMEOUT_MS/i);
+        await expect(result).rejects.toMatchObject({ cause: deadline });
+        expect(returns).toEqual(["return"]);
     });
 
     it("surfaces a cleanup failure after an otherwise successful reconciliation", async () => {
@@ -263,4 +300,20 @@ function requireOptions(options: RequestOptions | undefined): RequestOptions {
     }
 
     return options;
+}
+
+function deadlineExceeded(): GrpcTransportError {
+    const parsed = GrpcTransportError.fromUnknown(
+        Object.assign(new Error("deadline exceeded"), {
+            name: "RpcError",
+            code: "DEADLINE_EXCEEDED",
+            meta: {},
+        }),
+    );
+
+    if (parsed === undefined) {
+        throw new Error("Expected a normalized deadline-exceeded test error.");
+    }
+
+    return parsed;
 }
