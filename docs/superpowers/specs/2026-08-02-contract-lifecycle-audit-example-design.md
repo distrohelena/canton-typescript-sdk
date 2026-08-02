@@ -17,7 +17,7 @@ Add the script:
 
 to `package.json`, and add that command to the README Workflow examples list
 and explanation.  The example remains repository-only: `package.json` packs
-only `dist`, `node`, and `README.md`, while `.gitignore` excludes runtime
+only `dist`, `node`, `README.md`, and `LICENSE`, while `.gitignore` excludes runtime
 `.generated/` material.  Do not change the pinned DAR, any production SDK
 surface, generated protobuf code, or the existing application workflows.
 
@@ -77,7 +77,7 @@ The public method signatures are
 `contractService.getContractAsync(request, options)` and
 `eventQueryService.getEventsByContractIdAsync(request, options)`.  The
 namespace also exports `CreatedEvent`, `ArchivedEvent`, `EventFormat`,
-`Filters`, `CumulativeFilter`, and `TemplateFilter`; helper implementation may
+`Filters`, `CumulativeFilter`, `TemplateFilter`, and `Identifier`; helper implementation may
 use their type names but must obtain runtime messages with their generated
 `.create(...)` factories.  This keeps oneof and optional-field checks aligned
 with the current generated code rather than with invented DTOs.
@@ -113,7 +113,7 @@ timeout.
    actor with `resolveExamplePartyAsync(client, process.env, deadline)`, and
    read `readWorkflowCompatibilityAsync(client, deadline)`.  Preserve the
    established default/explicit party modes: a nonblank `SDK_EXAMPLE_PARTY` is
-   used as supplied; otherwise allocate the existing fallback party.  Warn when
+   used as supplied; otherwise allocate a new fallback party.  Warn when
    fallback allocation made durable topology state and always warn that DAR and
    contract state remain durable.
 2. Generate `runId` from `randomBytes(12).toString("hex")`; derive distinct
@@ -125,7 +125,8 @@ timeout.
    `text === originalText`, then use `extractCreatedContract` to require its
    nonempty original ID.  The expected original payload is exactly the
    three-field labelled record `{ sender: actor.party, recipient: actor.party,
-   text: originalText }`; it is not a loose text-marker match.
+   text: originalText }`; it is not a loose text-marker match and introduces no
+   second party.
 3. Issue the direct active read visibly in the example:
 
    ```ts
@@ -143,7 +144,9 @@ timeout.
    `createArguments` through `assertExactCreatedMessagePayload`.  Assert the
    documented visible-party fields: `witnessParties` is exactly `[actor.party]`
    as a set, `signatories` is exactly `[actor.party]`, and `observers` is
-   exactly `[actor.party]`.  Do not assert the five ContractService fields the
+   exactly `[]`.  This is a self-party Message: because one party is both
+   sender/signatory and recipient/observer, the `CreatedEvent` contract says
+   observers never contain signatories.  Do not assert the five ContractService fields the
    proto says cannot be populated; in particular do not treat their generated
    defaults as evidence.  Do not print raw request credentials, bearer tokens,
    DAR bytes, or unbounded payload objects.
@@ -155,12 +158,14 @@ timeout.
    one-replacement transition before calling either read API.
 5. Repeat the exact direct lookup structure for the replacement ID and
    `[actor.party]`, with fresh options.  Require a materialized created event,
-   the replacement ID, fixture template ID, visible-party/signatory/observer
-   sets, and exact three-field replacement payload.  It must not read the old
-   ID through ContractService after the consuming exercise.
+   the replacement ID, fixture template ID, exact
+   `witnessParties === [actor.party]`, `signatories === [actor.party]`,
+   `observers === []`, and exact three-field replacement payload.  It must not
+   read the old ID through ContractService after the consuming exercise.
 6. Build a fresh explicit Message `EventFormat` for the original history and
-   invoke `eventQueryService.getEventsByContractIdAsync` with fresh deadline
-   options:
+   pass its generated request to the bounded EventQuery projection loop below;
+   each loop attempt invokes `eventQueryService.getEventsByContractIdAsync`
+   with fresh deadline options:
 
    ```ts
    ledgerApiV2.GetEventsByContractIdRequest.create({
@@ -168,19 +173,19 @@ timeout.
        eventFormat: ledgerApiV2.EventFormat.create({
            filtersByParty: {
                [actor.party]: ledgerApiV2.Filters.create({
-                   cumulative: [{
+                   cumulative: [ledgerApiV2.CumulativeFilter.create({
                        identifierFilter: {
                            oneofKind: "templateFilter",
-                           templateFilter: {
-                               templateId: {
+                           templateFilter: ledgerApiV2.TemplateFilter.create({
+                               templateId: ledgerApiV2.Identifier.create({
                                    packageId: fixture.templateId.packageId,
                                    moduleName: fixture.templateId.moduleName,
                                    entityName: fixture.templateId.entityName,
-                               },
+                               }),
                                includeCreatedEventBlob: false,
-                           },
+                           }),
                        },
-                   }],
+                   })],
                }),
            },
            verbose: true,
@@ -197,14 +202,14 @@ timeout.
    `text` labels used by the exact payload helper.  Do not use a wildcard,
    `filtersForAnyParty`, a ledger-effects transaction shape, or an omitted
    `eventFormat`.
-7. Require exactly the response's one `created` and one `archived` members;
-   this unary response has no event array to count.  Require
+7. Require exactly the completed loop response's one `created` and one
+   `archived` members; this unary response has no event array to count. Require
    `created.createdEvent` and `archived.archivedEvent`, both nonempty trimmed
    `synchronizerId` values, exact original contract ID on each event, and the
    fixture template ID on each.  Require the historical created event to carry
    the exact original Message payload.  Its witnesses/signatories/observers
-   must agree with the known actor topology.  The archive's witnesses must be
-   `[actor.party]`; its payload is intentionally absent because `ArchivedEvent`
+   must be exactly `[actor.party]`, `[actor.party]`, and `[]`, respectively.
+   The archive's witnesses must be `[actor.party]`; its payload is intentionally absent because `ArchivedEvent`
    has no create arguments.  The proof is therefore a strict lineage statement:
    one known original ID was created with the exact original payload and then
    archived, while `ReplaceText` independently created the distinct active
@@ -215,18 +220,75 @@ timeout.
    release core, and compatibility path.  Do not print bearer tokens, refreshed
    sidecar credentials, endpoint authorization metadata, or the raw DAR.
 
-There is no ACS traversal, sleep, polling loop, update stream, update-by-ID,
-offset, hash, database/PQS query, or stale command in this audit.  The command
-responses make the transition immediate, and the two unary read contracts are
-the behavior being demonstrated.
+### Bounded EventQuery projection loop
+
+The history call in step 6 is an example-local bounded projection read, not an
+assumption that the command response and EventQuery index become visible in the
+same instant.  Add `waitForCompleteOriginalHistoryAsync` under
+`examples/shared/contract-lifecycle-audit.ts`; it receives the immutable
+generated request, the one workflow `OperationDeadline`, an injected
+`readHistoryAsync(request, options)`, and an injected `sleepAsync(milliseconds)`.
+The production wrapper supplies the actual EventQuery call and a local
+`setTimeout` promise.  Tests supply both a deterministic deadline clock through
+`new OperationDeadline({ timeoutMs, now })` and a sleep fake that advances that
+clock.  No core/public poll helper is reused or exported: the existing
+`src/core/polling/poll-until-async.ts` owns an independent relative timeout and
+would not express the workflow's single absolute deadline or this response
+validation rule.
+
+Use a fixed example-private `EVENT_QUERY_PROJECTION_POLL_INTERVAL_MS = 100`.
+On every iteration, first call `deadline.createRequestOptions()` and only then
+dispatch `readHistoryAsync`.  Thus every dispatched unary call gets fresh,
+shrinking options and a deadline that expired before dispatch produces no RPC.
+Do not retry either create or `ReplaceText` submission.
+
+After a successful EventQuery response, validate every side that is present
+before deciding whether to retry.  A present `created` must contain a present
+`createdEvent` with the original ID, fixture template, exact original payload,
+`signatories === [actor.party]`, `observers === []`, and
+`witnessParties === [actor.party]` (set comparisons with exact cardinality).
+A present `archived` must contain a present `archivedEvent` with the original
+ID, fixture template, and `witnessParties === [actor.party]`.  Every present
+wrapper must also have a nonblank `synchronizerId`.  These are structural
+validation failures and throw immediately; they are never reclassified as
+eventual consistency and never retried.
+
+The sole retryable result is an otherwise-valid response with one or both
+top-level members absent: `created === undefined` and/or `archived ===
+undefined`.  Record the missing names and increment the attempt count only for
+the call that was dispatched.  Before sleeping, call
+`deadline.remainingTimeoutMs()`, then sleep for
+`Math.min(EVENT_QUERY_PROJECTION_POLL_INTERVAL_MS, remainingMs)`.  At the next
+iteration the fresh `createRequestOptions()` check prevents another dispatch if
+that bounded delay consumed the remaining budget.  A `TimeoutError` from either
+pre-dispatch deadline check is converted to one credential-safe structural
+diagnostic with only `attempts`, `missing=created|archived`,
+`originalContractId`, and `replacementContractId`; preserve the timeout as its
+cause.  A timeout while no call was dispatched reports `attempts=0` and both
+missing sides.  Do not include a raw response, payload text, party name,
+endpoint, headers, token, or transport metadata in this diagnostic.
+
+Do not catch errors thrown by `readHistoryAsync`: gRPC/transport errors,
+including a deadline that expired after dispatch, propagate unchanged.  The
+loop owns no stream or socket cleanup.  Its caller remains within
+`runClientWorkflowWithDisposalAsync`, so client-disposal failure cannot mask a
+submission, direct-read, validation, EventQuery, or projection-timeout primary
+failure.
+
+There is no ACS traversal, update stream, update-by-ID, offset, hash,
+database/PQS query, stale command, or submission retry in this audit.  The
+history read has the bounded projection loop specified above; it exists only
+because command completion and the EventQuery projection can become visible at
+different times.  The two unary read contracts remain the behavior being
+demonstrated.
 
 ## Helper boundaries and failure ownership
 
 Keep the script standalone in the user-facing sense: it can run without another
 workflow and shows both primary service calls and generated request factories.
-Reuse only established fixture/command/payload helpers.  If needed for
-readability, add a narrowly example-private
-`examples/shared/contract-lifecycle-audit.ts` with three cohesive functions:
+Reuse only established fixture/command/payload helpers.  Add the narrowly
+example-private `examples/shared/contract-lifecycle-audit.ts` with four cohesive
+functions:
 
 - `buildMessageLifecycleEventFormat(party, templateId)` creates the exact
   generated `EventFormat` above;
@@ -234,10 +296,15 @@ readability, add a narrowly example-private
   ContractService fields and exact Message payload;
 - `assertArchivedMessageHistory(...)` validates the original's create/archive
   lineage and synchronizer IDs.
+- `waitForCompleteOriginalHistoryAsync(...)` owns only the injected,
+  deadline-bounded EventQuery projection loop above; it neither constructs a
+  client nor retries a command.
 
 The helper must not own client construction, command submission, environment
-selection, version handling, deadlines, or logging.  It takes values already
-returned by the calls and throws structural errors.  Keep it in `examples/`;
+selection, version handling, deadline construction/reset, or logging.  The
+projection function may consume the caller's one supplied deadline, but cannot
+create a second full timeout.  The assertion functions take values already
+returned by calls and throw structural errors.  Keep it in `examples/`;
 the audit provides only one consumer and there is no mature generic SDK
 contract-lifecycle API, cancellation policy, historical-read abstraction, or
 cross-transport contract to publish.  Therefore no code enters `src/`,
@@ -261,21 +328,43 @@ branch on server message prose.  A JSON client must reject at its existing
 
 Implement test-first before the script/helper:
 
-1. Add focused unit tests for the example-private assertion/builder module.
-   Construct generated `ledgerApiV2` messages and cover the exact
-   `filtersByParty` template filter, `verbose: true`, no wildcard/any-party
-   filter, and expected labelled payload.  Cover direct lookup acceptance and
-   rejection for absent created event, wrong contract ID/template/payload,
-   wrong visibility sets, and each forbidden ContractService-only field being
-   ignored rather than asserted.  Cover history acceptance only when created
-   plus archived refer to the original and both synchronizer IDs are nonblank;
-   reject a missing member, original/replacement ID confusion, wrong created
-   payload, wrong template/witnesses, and empty synchronizer IDs.
+1. Add focused unit tests for the example-private assertion/builder/projection
+   module.  Construct generated `ledgerApiV2` messages and cover the exact
+   factory nesting: `EventFormat.create`, `Filters.create`,
+   `CumulativeFilter.create`, `TemplateFilter.create`, and `Identifier.create`,
+   with the `identifierFilter` `templateFilter` oneof.  Assert
+   `filtersByParty`, `verbose: true`, no wildcard/any-party filter, and the
+   expected labelled payload.  Cover direct lookup acceptance and rejection for
+   absent created event, wrong contract ID/template/payload, wrong visibility
+   sets, and the self-party invariants `signatories === [actor.party]`,
+   `observers === []`, and `witnessParties === [actor.party]`.  Cover history
+   acceptance only when created plus archived refer to the original, the
+   created event has those same self-party invariants, and both synchronizer
+   IDs are nonblank; reject a missing inner event, original/replacement ID
+   confusion, wrong created payload/template/witnesses/signatories/observers,
+   and empty synchronizer IDs.  All generated Message event fixtures use one
+   actor for sender and recipient; do not add a second-party fixture to make an
+   observer assertion easier.
+
+   Test the projection loop with an injected `OperationDeadline` clock and
+   injected sleep fake: immediate complete history dispatches once and never
+   sleeps; a valid created-only first response sleeps no more than the remaining
+   budget then accepts the delayed archive; expiry after an incomplete response
+   yields the restricted timeout diagnostic and sends no extra RPC; a malformed
+   present created or archived side fails immediately without sleep/retry; and
+   an EventQuery transport error is the unchanged thrown value.  Assert fresh
+   `RequestOptions` per dispatched attempt, the capped sleep duration, no
+   dispatch after deadline expiry, and a timeout diagnostic containing only
+   attempt count/missing sides/contract IDs—not token, endpoint, party, payload,
+   header, or raw response.  Cover workflow disposal where a primary
+   projection/submission failure and a concurrent disposal failure occur so the
+   primary error wins.
 2. Extend `tests/unit/examples/application-example-sources.test.ts` with
    durable source-contract checks for example 95: one deadline is made before
    fixture work, common fixture/party/compatibility setup receives it, both
    direct lookups have explicit `[actor.party]` querying parties and fresh
-   options, history has explicit Message `EventFormat` and fresh options,
+   options, history has explicit Message `EventFormat`, an example-local
+   bounded projection loop, and fresh options on every attempt,
    `ReplaceText` has exact original/different replacement IDs, and the source
    contains no `getUpdateById`, `getUpdateByOffset`, `getUpdateByHash`, version
    branch, or message-text error matching.  The test must not overfit local
@@ -321,12 +410,17 @@ proved.
   TypeScript example and README-documented workflow command.
 - One absolute deadline covers DAR setup, party resolution, compatibility read,
   submission, both direct reads, and historical query, with fresh request
-  options per unary call and primary-error-safe disposal.
+  options per unary call/each bounded history attempt and primary-error-safe
+  disposal.
 - It proves the exact run-scoped Message payload before and after the consuming
   replacement, passes explicit querying parties to both direct reads, and never
-  relies on ContractService fields the proto says are unavailable.
+  relies on ContractService fields the proto says are unavailable.  For the
+  self-party Message, both direct and historical created-event checks require
+  signatories/witnesses `[actor.party]` and observers `[]`.
 - It proves a strict original create/archive lineage with nonempty creation and
-  archival synchronizer IDs through an explicit labelled Message EventFormat.
+  archival synchronizer IDs through an explicit labelled Message EventFormat,
+  retrying only a valid but incomplete EventQuery projection within the same
+  deadline.
 - It is gRPC-only, has no speculative old-contract lookup assertion, no JSON
   support work, no update lookup, future fields, message-text matching, or
   version branch; generic SDK lifecycle code is intentionally not introduced.
