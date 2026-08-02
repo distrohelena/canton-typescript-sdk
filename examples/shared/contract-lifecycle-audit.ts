@@ -1,8 +1,15 @@
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
+    OperationDeadline,
+    RequestOptions,
+    TimeoutError,
+} from "@distrohelena/canton-typescript-sdk";
+import {
     assertExactCreatedMessagePayload,
     type ExampleTemplateId,
 } from "./application-fixture.js";
+
+export const EVENT_QUERY_PROJECTION_POLL_INTERVAL_MS = 100;
 
 export function buildMessageLifecycleEventFormat(
     party: string,
@@ -89,29 +96,170 @@ export function assertArchivedMessageHistory(init: {
         throw new Error("Contract history must contain created and archived wrappers.");
     }
 
-    requireNonEmpty("created synchronizer ID", created.synchronizerId);
-    requireNonEmpty("archived synchronizer ID", archived.synchronizerId);
-
-    if (created.createdEvent === undefined || archived.archivedEvent === undefined) {
-        throw new Error("Contract history wrappers must contain their events.");
-    }
-
-    assertExactCreatedMessage({
-        event: created.createdEvent,
-        contractId: init.originalContractId,
+    assertCreatedHistoryWrapper({
+        created,
+        originalContractId: init.originalContractId,
         party: init.party,
         templateId: init.templateId,
         text: init.text,
     });
-
-    assertExactArchivedMessage({
-        event: archived.archivedEvent,
-        contractId: init.originalContractId,
+    assertArchivedHistoryWrapper({
+        archived,
+        originalContractId: init.originalContractId,
         party: init.party,
         templateId: init.templateId,
     });
 
     return { created, archived };
+}
+
+export async function waitForCompleteOriginalHistoryAsync(init: {
+    request: ledgerApiV2.GetEventsByContractIdRequest;
+    deadline: OperationDeadline;
+    readHistoryAsync: (
+        request: ledgerApiV2.GetEventsByContractIdRequest,
+        options: RequestOptions,
+    ) => Promise<ledgerApiV2.GetEventsByContractIdResponse>;
+    sleepAsync: (milliseconds: number) => Promise<void>;
+    contractId: string;
+    replacementContractId: string;
+    party: string;
+    templateId: ExampleTemplateId;
+    text: string;
+}): Promise<ledgerApiV2.GetEventsByContractIdResponse> {
+    let attempts = 0;
+
+    let missing = ["created", "archived"];
+
+    for (;;) {
+        let options: RequestOptions;
+
+        try {
+            options = init.deadline.createRequestOptions();
+        } catch (error) {
+            throwProjectionTimeout(error, init, attempts, missing);
+        }
+
+        attempts += 1;
+
+        const response = await init.readHistoryAsync(init.request, options);
+
+        if (response.created !== undefined) {
+            assertCreatedHistoryWrapper({
+                created: response.created,
+                originalContractId: init.contractId,
+                party: init.party,
+                templateId: init.templateId,
+                text: init.text,
+            });
+        }
+
+        if (response.archived !== undefined) {
+            assertArchivedHistoryWrapper({
+                archived: response.archived,
+                originalContractId: init.contractId,
+                party: init.party,
+                templateId: init.templateId,
+            });
+        }
+
+        if (response.created !== undefined && response.archived !== undefined) {
+            assertArchivedMessageHistory({
+                response,
+                originalContractId: init.contractId,
+                party: init.party,
+                templateId: init.templateId,
+                text: init.text,
+            });
+
+            return response;
+        }
+
+        missing = [
+            ...(response.created === undefined ? ["created"] : []),
+            ...(response.archived === undefined ? ["archived"] : []),
+        ];
+
+        let remainingTimeoutMs: number;
+
+        try {
+            remainingTimeoutMs = init.deadline.remainingTimeoutMs();
+        } catch (error) {
+            throwProjectionTimeout(error, init, attempts, missing);
+        }
+
+        await init.sleepAsync(Math.min(
+            EVENT_QUERY_PROJECTION_POLL_INTERVAL_MS,
+            remainingTimeoutMs,
+        ));
+    }
+}
+
+function assertCreatedHistoryWrapper(init: {
+    readonly created: ledgerApiV2.Created;
+    readonly originalContractId: string;
+    readonly party: string;
+    readonly templateId: ExampleTemplateId;
+    readonly text: string;
+}): void {
+    requireNonEmpty("original contract ID", init.originalContractId);
+    requireNonEmpty("party", init.party);
+    requireTemplateId(init.templateId);
+    requireNonEmpty("created synchronizer ID", init.created.synchronizerId);
+
+    if (init.created.createdEvent === undefined) {
+        throw new Error("The created contract history wrapper must contain an event.");
+    }
+
+    assertExactCreatedMessage({
+        event: init.created.createdEvent,
+        contractId: init.originalContractId,
+        party: init.party,
+        templateId: init.templateId,
+        text: init.text,
+    });
+}
+
+function assertArchivedHistoryWrapper(init: {
+    readonly archived: ledgerApiV2.Archived;
+    readonly originalContractId: string;
+    readonly party: string;
+    readonly templateId: ExampleTemplateId;
+}): void {
+    requireNonEmpty("original contract ID", init.originalContractId);
+    requireNonEmpty("party", init.party);
+    requireTemplateId(init.templateId);
+    requireNonEmpty("archived synchronizer ID", init.archived.synchronizerId);
+
+    if (init.archived.archivedEvent === undefined) {
+        throw new Error("The archived contract history wrapper must contain an event.");
+    }
+
+    assertExactArchivedMessage({
+        event: init.archived.archivedEvent,
+        contractId: init.originalContractId,
+        party: init.party,
+        templateId: init.templateId,
+    });
+}
+
+function throwProjectionTimeout(
+    error: unknown,
+    init: {
+        readonly contractId: string;
+        readonly replacementContractId: string;
+    },
+    attempts: number,
+    missing: readonly string[],
+): never {
+    if (!(error instanceof TimeoutError)) {
+        throw error;
+    }
+
+    throw new Error(
+        `EventQuery projection timed out: attempts=${attempts}, missing=${missing.join("|")}, originalContractId=${init.contractId}, replacementContractId=${init.replacementContractId}`,
+        { cause: error },
+    );
 }
 
 function assertExactCreatedMessage(init: {
