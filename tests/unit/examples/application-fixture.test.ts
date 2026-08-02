@@ -145,7 +145,7 @@ describe("example application package setup", () => {
         expect(uploadDarFileAsync).toHaveBeenCalledOnce();
     });
 
-    it("uses a fresh remaining-timeout RequestOptions for every DAR network call", async () => {
+    it("uses a fresh RequestOptions for every DAR network call", async () => {
         const fixture = await loadExampleApplicationFixtureAsync();
 
         const listPackagesAsync = vi
@@ -155,10 +155,10 @@ describe("example application package setup", () => {
 
         const uploadDarFileAsync = vi.fn().mockResolvedValue({});
 
-        const remainingTimeoutMs = vi.fn()
-            .mockReturnValueOnce(300)
-            .mockReturnValueOnce(200)
-            .mockReturnValueOnce(100);
+        const createRequestOptions = vi.fn()
+            .mockReturnValueOnce({ timeoutMs: 300 })
+            .mockReturnValueOnce({ timeoutMs: 200 })
+            .mockReturnValueOnce({ timeoutMs: 100 });
 
         await ensureExampleDarUploadedAsync(
             {
@@ -166,10 +166,10 @@ describe("example application package setup", () => {
                 packageManagementService: { uploadDarFileAsync },
             } as never,
             fixture,
-            { remainingTimeoutMs },
+            { createRequestOptions } as never,
         );
 
-        expect(remainingTimeoutMs).toHaveBeenCalledTimes(3);
+        expect(createRequestOptions).toHaveBeenCalledTimes(3);
 
         const options = [
             listPackagesAsync.mock.calls[0]?.[1],
@@ -584,20 +584,20 @@ describe("resolveExamplePartyAsync", () => {
         expect(request.userId).toBe("ledger-api-user");
     });
 
-    it("uses a fresh remaining-timeout RequestOptions for party allocation", async () => {
+    it("uses a fresh RequestOptions for party allocation", async () => {
         const allocatePartyAsync = vi.fn().mockResolvedValue({
             party: "allocated::party",
         });
 
-        const remainingTimeoutMs = vi.fn().mockReturnValue(123);
+        const createRequestOptions = vi.fn().mockReturnValue({ timeoutMs: 123 });
 
         await resolveExamplePartyAsync(
             { partyManagementService: { allocatePartyAsync } } as never,
             {},
-            { remainingTimeoutMs },
+            { createRequestOptions } as never,
         );
 
-        expect(remainingTimeoutMs).toHaveBeenCalledOnce();
+        expect(createRequestOptions).toHaveBeenCalledOnce();
         expect(allocatePartyAsync.mock.calls[0]?.[1]?.timeoutMs).toBe(123);
     });
 

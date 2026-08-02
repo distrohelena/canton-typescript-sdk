@@ -3,6 +3,7 @@ import {
     CreateAndExerciseCommand,
     DamlParty,
     DamlRecord,
+    OperationDeadline,
     RequestOptions,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
@@ -22,7 +23,6 @@ import {
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
 import { runExampleAsync } from "./shared/run.js";
 import { readWorkflowCompatibilityAsync } from "./shared/workflow-compatibility.js";
-import { createWorkflowDeadline } from "./shared/workflow-deadline.js";
 import {
     classifyWorkflowFailure,
     type WorkflowFailureKind,
@@ -35,23 +35,17 @@ runExampleAsync("atomic-create-and-exercise", async () => {
     await runClientWorkflowWithDisposalAsync({
         disposeAsync: () => client.disposeAsync(),
         runWorkflowAsync: async () => {
-        const fixture = await loadExampleApplicationFixtureAsync();
-
-        const deadline = createWorkflowDeadline({
+        const deadline = new OperationDeadline({
             timeoutMs: exampleTimeoutMs(),
         });
 
-        await ensureExampleDarUploadedAsync(client, fixture, {
-            remainingTimeoutMs: deadline.remainingMs,
-        });
+        const fixture = await loadExampleApplicationFixtureAsync();
 
-        const actor = await resolveExamplePartyAsync(client, process.env, {
-            remainingTimeoutMs: deadline.remainingMs,
-        });
+        await ensureExampleDarUploadedAsync(client, fixture, deadline);
 
-        const compatibility = await readWorkflowCompatibilityAsync(client, {
-            remainingTimeoutMs: deadline.remainingMs,
-        });
+        const actor = await resolveExamplePartyAsync(client, process.env, deadline);
+
+        const compatibility = await readWorkflowCompatibilityAsync(client, deadline);
 
         if (actor.allocated) {
             console.warn(
@@ -95,7 +89,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
         try {
             await client.commandService.submitAndWaitForTransactionAsync(
                 invalidRequest,
-                new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+                deadline.createRequestOptions(),
             );
 
             throw new Error("The invalid CreateAndExercise choice unexpectedly succeeded.");
@@ -117,7 +111,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
                     replacement: replacementText,
                     commandId: validCommandId,
                 }),
-                new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+                deadline.createRequestOptions(),
             );
 
         const submittedReplacement = extractSoleCreatedContract(validResponse);
@@ -134,11 +128,11 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
                 return text === initialText || text === replacementText;
             },
-            timeoutMs: deadline.remainingMs(),
-            readPageAsync: pageRequest =>
+            timeoutMs: deadline.remainingTimeoutMs(),
+            readPageAsync: (pageRequest, remainingTimeoutMs) =>
                 client.stateService.getActiveContractsPageAsync(
                     pageRequest,
-                    new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+                    new RequestOptions({ timeoutMs: remainingTimeoutMs }),
                 ),
         });
 

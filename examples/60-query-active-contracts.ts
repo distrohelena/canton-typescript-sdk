@@ -1,4 +1,7 @@
-import { RequestOptions } from "@distrohelena/canton-typescript-sdk";
+import {
+    OperationDeadline,
+    RequestOptions,
+} from "@distrohelena/canton-typescript-sdk";
 import {
     buildCreateMessageRequest,
     ensureExampleDarUploadedAsync,
@@ -19,11 +22,13 @@ runExampleAsync("query-active-contracts", async () => {
     const client = createExampleClient();
 
     try {
+        const deadline = new OperationDeadline({ timeoutMs: exampleTimeoutMs() });
+
         const fixture = await loadExampleApplicationFixtureAsync();
 
-        await ensureExampleDarUploadedAsync(client, fixture);
+        await ensureExampleDarUploadedAsync(client, fixture, deadline);
 
-        const actor = await resolveExamplePartyAsync(client);
+        const actor = await resolveExamplePartyAsync(client, process.env, deadline);
 
         if (actor.allocated) {
             console.warn(
@@ -42,6 +47,7 @@ runExampleAsync("query-active-contracts", async () => {
                     templateId: fixture.templateId,
                     text: "Hello from the Canton TypeScript SDK",
                 }),
+                deadline.createRequestOptions(),
             );
 
         const created = extractCreatedContract(createResponse);
@@ -54,7 +60,7 @@ runExampleAsync("query-active-contracts", async () => {
         const message = await findActiveMessageAcrossPagesAsync({
             request,
             contractId: created.contractId,
-            timeoutMs: exampleTimeoutMs(),
+            timeoutMs: deadline.remainingTimeoutMs(),
             readPageAsync: (pageRequest, remainingTimeoutMs) =>
                 client.stateService.getActiveContractsPageAsync(
                     pageRequest,

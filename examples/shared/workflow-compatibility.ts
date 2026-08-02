@@ -1,9 +1,7 @@
-import {
-    CantonClient,
-    RequestOptions,
-} from "@distrohelena/canton-typescript-sdk";
+import { CantonClient } from "@distrohelena/canton-typescript-sdk";
 import { comDigitalasset } from "@distrohelena/canton-typescript-sdk/protobuf";
 import type { WorkflowFailureKind } from "./workflow-errors.js";
+import type { RequestOptionsFactory } from "./request-options-factory.js";
 
 export interface WorkflowCompatibility {
     readonly participantVersion: string;
@@ -38,13 +36,13 @@ export function parseWorkflowReleaseCore(
 
 export async function readWorkflowCompatibilityAsync(
     client: Pick<CantonClient, "participantStatusService">,
-    budget: { readonly remainingTimeoutMs: () => number },
+    requestOptionsFactory: RequestOptionsFactory,
 ): Promise<WorkflowCompatibility> {
     const request = comDigitalasset.canton.admin.participant.v30.ParticipantStatusRequest.create();
 
     const response = await client.participantStatusService.getParticipantStatusAsync(
         request,
-        new RequestOptions({ timeoutMs: budget.remainingTimeoutMs() }),
+        requestOptionsFactory.createRequestOptions(),
     );
 
     if (response.kind.oneofKind !== "status") {

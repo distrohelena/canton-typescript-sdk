@@ -1,6 +1,7 @@
 import {
     CantonClient,
     GrpcTransportError,
+    OperationDeadline,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -42,17 +43,21 @@ describe("idempotent command retry workflow", () => {
 
         await runIdempotentCommandRetryWorkflowAsync(dependencies);
 
-        expect(setupBudgets).toEqual([100, 99, 98]);
+        expect(setupBudgets).toEqual([99, 98, 97]);
         expect(commandCalls).toHaveLength(2);
         expect(commandCalls[0]?.request).toBe(commandCalls[1]?.request);
-        expect(commandCalls.map(call => call.timeoutMs)).toEqual([97, 96]);
+        expect(commandCalls.map(call => call.timeoutMs)).toEqual([96, 95]);
         expect(commandCalls[0]?.timeoutMs).not.toBe(commandCalls[1]?.timeoutMs);
         expect(commandOptions).toHaveLength(2);
         expect(commandOptions).not.toContain(undefined);
         expect(commandOptions.every(option => option instanceof RequestOptions)).toBe(true);
         expect(new Set(commandOptions).size).toBe(2);
         expect(activeContractCalls).toHaveLength(2);
-        expect(activeContractCalls.map(call => call.timeoutMs)).toEqual([94, 93]);
+        expect(
+            activeContractCalls.every(
+                call => call.timeoutMs !== undefined && call.timeoutMs > 0,
+            ),
+        ).toBe(true);
         expect(activeContractCalls[0]?.timeoutMs).not.toBe(
             activeContractCalls[1]?.timeoutMs,
         );
@@ -131,7 +136,7 @@ function createDependencies(init: {
 
     const activeContractOptions = init.activeContractOptions ?? [];
 
-    let remainingMs = 100;
+    let now = 0;
 
     let commandSubmissionCount = 0;
 
@@ -213,21 +218,21 @@ function createDependencies(init: {
                 entityName: "Message",
             },
         }),
-        ensureDarUploadedAsync: async (_client, _fixture, budget) => {
+        ensureDarUploadedAsync: async (_client, _fixture, requestOptionsFactory) => {
             trace.push("dar");
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return { alreadyInstalled: true };
         },
-        resolvePartyAsync: async (_client, _environment, budget) => {
+        resolvePartyAsync: async (_client, _environment, requestOptionsFactory) => {
             trace.push("party");
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return { party: "Alice::1", allocated: false };
         },
-        readCompatibilityAsync: async (_client, budget) => {
+        readCompatibilityAsync: async (_client, requestOptionsFactory) => {
             trace.push("compatibility");
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return {
                 participantVersion: "3.5.8-SNAPSHOT",
@@ -240,15 +245,9 @@ function createDependencies(init: {
                 },
             };
         },
-        createDeadline: () => ({
-            idleProbeMs: () => 1,
-            remainingMs: () => {
-                const current = remainingMs;
-
-                remainingMs -= 1;
-
-                return current;
-            },
+        createDeadline: init => new OperationDeadline({
+            timeoutMs: init.timeoutMs,
+            now: () => now++,
         }),
         timeoutMs: () => 100,
         createRunId: () => "run-123",

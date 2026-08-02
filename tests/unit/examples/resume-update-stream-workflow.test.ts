@@ -1,6 +1,7 @@
 import {
     CantonClient,
     GrpcTransportError,
+    OperationDeadline,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -32,10 +33,10 @@ describe("resume update-stream workflow", () => {
 
         const result = await runResumeUpdateStreamWorkflowAsync(dependencies);
 
-        expect(setupBudgets).toEqual([100, 99, 98]);
-        expect(new Set(setupBudgetObjects).size).toBe(3);
+        expect(setupBudgets).toEqual([99, 98, 97]);
+        expect(new Set(setupBudgetObjects).size).toBe(1);
         expect(streamBegins).toEqual(["saved-offset", "saved-offset"]);
-        expect(options.map(option => option.timeoutMs)).toEqual([97, 96, 2, 95, 94]);
+        expect(options.map(option => option.timeoutMs)).toEqual([96, 95, 23, 93, 92]);
         expect(new Set(options).size).toBe(5);
         expect(result).toEqual({
             preContractId: "#pre",
@@ -104,7 +105,7 @@ function createDependencies(init: {
         updateFor("#post", "post-update", "post-offset"),
     ];
 
-    let remainingMs = 100;
+    let now = 0;
 
     let streamCount = 0;
 
@@ -160,22 +161,22 @@ function createDependencies(init: {
             },
         } as unknown as CantonClient,
         loadFixtureAsync: async () => fixture(),
-        ensureDarUploadedAsync: async (_client, _fixture, budget) => {
+        ensureDarUploadedAsync: async (_client, _fixture, requestOptionsFactory) => {
             trace.push("dar");
-            setupBudgetObjects.push(budget);
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgetObjects.push(requestOptionsFactory);
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
         },
-        resolvePartyAsync: async (_client, _environment, budget) => {
+        resolvePartyAsync: async (_client, _environment, requestOptionsFactory) => {
             trace.push("party");
-            setupBudgetObjects.push(budget);
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgetObjects.push(requestOptionsFactory);
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return { party: "Alice::1", allocated: false };
         },
-        readCompatibilityAsync: async (_client, budget) => {
+        readCompatibilityAsync: async (_client, requestOptionsFactory) => {
             trace.push("compatibility");
-            setupBudgetObjects.push(budget);
-            setupBudgets.push(budget.remainingTimeoutMs());
+            setupBudgetObjects.push(requestOptionsFactory);
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return {
                 participantVersion: "3.5.8-SNAPSHOT",
@@ -188,9 +189,9 @@ function createDependencies(init: {
                 },
             };
         },
-        createDeadline: () => ({
-            idleProbeMs: () => 2,
-            remainingMs: () => remainingMs--,
+        createDeadline: init => new OperationDeadline({
+            timeoutMs: init.timeoutMs,
+            now: () => now++,
         }),
         timeoutMs: () => 100,
         createRunId: () => "run-123",

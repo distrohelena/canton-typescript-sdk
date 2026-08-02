@@ -1,5 +1,6 @@
 import {
     CantonClient,
+    OperationDeadline,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -22,18 +23,11 @@ import {
     readWorkflowCompatibilityAsync,
     type WorkflowCompatibility,
 } from "./workflow-compatibility.js";
-import {
-    createWorkflowDeadline,
-    type WorkflowDeadline,
-} from "./workflow-deadline.js";
+import type { RequestOptionsFactory } from "./request-options-factory.js";
 import {
     classifyWorkflowFailure,
     type WorkflowFailureKind,
 } from "./workflow-errors.js";
-
-type RemainingBudget = {
-    readonly remainingTimeoutMs: () => number;
-};
 
 type ExampleLogger = {
     log(message: string): void;
@@ -46,18 +40,18 @@ export interface IdempotentCommandRetryWorkflowDependencies {
     readonly ensureDarUploadedAsync: (
         client: CantonClient,
         fixture: ExampleApplicationFixture,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<unknown>;
     readonly resolvePartyAsync: (
         client: CantonClient,
         environment: NodeJS.ProcessEnv,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<{ party: string; allocated: boolean }>;
     readonly readCompatibilityAsync: (
         client: CantonClient,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<WorkflowCompatibility>;
-    readonly createDeadline: (init: { timeoutMs: number }) => WorkflowDeadline;
+    readonly createDeadline: (init: { timeoutMs: number }) => OperationDeadline;
     readonly timeoutMs: () => number;
     readonly createRunId: () => string;
     readonly logger: ExampleLogger;
@@ -66,25 +60,23 @@ export interface IdempotentCommandRetryWorkflowDependencies {
 export async function runIdempotentCommandRetryWorkflowAsync(
     dependencies: IdempotentCommandRetryWorkflowDependencies,
 ): Promise<void> {
-    const fixture = await dependencies.loadFixtureAsync();
-
     const deadline = dependencies.createDeadline({
         timeoutMs: dependencies.timeoutMs(),
     });
 
-    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, {
-        remainingTimeoutMs: deadline.remainingMs,
-    });
+    const fixture = await dependencies.loadFixtureAsync();
+
+    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, deadline);
 
     const actor = await dependencies.resolvePartyAsync(
         dependencies.client,
         process.env,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     const compatibility = await dependencies.readCompatibilityAsync(
         dependencies.client,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     if (actor.allocated) {
@@ -114,7 +106,7 @@ export async function runIdempotentCommandRetryWorkflowAsync(
     const firstResponse =
         await dependencies.client.commandService.submitAndWaitForTransactionAsync(
             retryRequest,
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
     if (!firstResponse.transactionId.trim()) {
@@ -132,7 +124,7 @@ export async function runIdempotentCommandRetryWorkflowAsync(
     try {
         await dependencies.client.commandService.submitAndWaitForTransactionAsync(
             retryRequest,
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
         throw new Error("The duplicate command retry unexpectedly succeeded.");
@@ -153,11 +145,11 @@ export async function runIdempotentCommandRetryWorkflowAsync(
     const activeMessages = await collectActiveMessagesAcrossPagesAsync({
         request,
         textMarker: marker,
-        timeoutMs: deadline.remainingMs(),
-        readPageAsync: pageRequest =>
+        timeoutMs: deadline.remainingTimeoutMs(),
+        readPageAsync: (pageRequest, remainingTimeoutMs) =>
             dependencies.client.stateService.getActiveContractsPageAsync(
                 pageRequest,
-                new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+                new RequestOptions({ timeoutMs: remainingTimeoutMs }),
             ),
     });
 
@@ -197,6 +189,6 @@ export const idempotentCommandRetryWorkflowDefaults = {
     ensureDarUploadedAsync: ensureExampleDarUploadedAsync,
     resolvePartyAsync: resolveExamplePartyAsync,
     readCompatibilityAsync: readWorkflowCompatibilityAsync,
-    createDeadline: createWorkflowDeadline,
+    createDeadline: (init: { timeoutMs: number }) => new OperationDeadline(init),
     timeoutMs: exampleTimeoutMs,
 };

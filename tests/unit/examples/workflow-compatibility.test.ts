@@ -25,15 +25,15 @@ describe("parseWorkflowReleaseCore", () => {
 });
 
 describe("readWorkflowCompatibilityAsync", () => {
-    it("reads active participant status with a fresh remaining-timeout RequestOptions", async () => {
+    it("reads active participant status with a fresh RequestOptions", async () => {
         const getParticipantStatusAsync = vi.fn().mockResolvedValue(activeStatus("3.5.8+build.1"));
 
-        const remainingTimeoutMs = vi.fn().mockReturnValue(456);
+        const createRequestOptions = vi.fn().mockReturnValue({ timeoutMs: 456 });
 
         await expect(
             readWorkflowCompatibilityAsync(
                 { participantStatusService: { getParticipantStatusAsync } } as never,
-                { remainingTimeoutMs },
+                { createRequestOptions } as never,
             ),
         ).resolves.toEqual({
             participantVersion: "3.5.8+build.1",
@@ -45,10 +45,10 @@ describe("readWorkflowCompatibilityAsync", () => {
                 staleContract: ["INVALID_ARGUMENT", "NOT_FOUND"],
             },
         });
-        expect(remainingTimeoutMs).toHaveBeenCalledOnce();
+        expect(createRequestOptions).toHaveBeenCalledOnce();
         expect(getParticipantStatusAsync).toHaveBeenCalledWith(
             expect.objectContaining({}),
-            expect.any(RequestOptions),
+            expect.objectContaining({ timeoutMs: 456 }),
         );
         expect(getParticipantStatusAsync.mock.calls[0]?.[1]?.timeoutMs).toBe(456);
         expect(
@@ -72,7 +72,7 @@ describe("readWorkflowCompatibilityAsync", () => {
                         getParticipantStatusAsync: vi.fn().mockResolvedValue(response),
                     },
                 } as never,
-                { remainingTimeoutMs: () => 100 },
+                { createRequestOptions: () => new RequestOptions({ timeoutMs: 100 }) },
             ),
         ).rejects.toThrow(/participant/i);
     });

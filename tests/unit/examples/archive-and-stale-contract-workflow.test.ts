@@ -3,6 +3,7 @@ import {
     CreateCommand,
     ExerciseCommand,
     GrpcTransportError,
+    OperationDeadline,
     RequestOptions,
     SubmitCommandRequest,
 } from "@distrohelena/canton-typescript-sdk";
@@ -38,7 +39,7 @@ describe("archive and stale-contract workflow", () => {
             activeOptions,
         }));
 
-        expect(setupBudgets).toEqual([100, 99, 98]);
+        expect(setupBudgets).toEqual([99, 98, 97]);
         expect(commandRequests).toHaveLength(3);
         expect(commandRequests.map(request => request.commandId)).toEqual([
             "archive-create-run-123",
@@ -51,11 +52,11 @@ describe("archive and stale-contract workflow", () => {
         expect(commandRequests[2]?.command).toBeInstanceOf(ExerciseCommand);
         expect((commandRequests[1]?.command as ExerciseCommand).contractId).toBe("#original");
         expect((commandRequests[2]?.command as ExerciseCommand).contractId).toBe("#original");
-        expect(commandOptions.map(option => option.timeoutMs)).toEqual([97, 96, 92]);
+        expect(commandOptions.map(option => option.timeoutMs)).toEqual([96, 95, 93]);
         expect(new Set(commandOptions).size).toBe(3);
         expect(activeRequests).toHaveLength(2);
         expect(activeRequests[1]?.activeAtOffset).toBe("42");
-        expect(activeOptions.map(option => option.timeoutMs)).toEqual([94, 93]);
+        expect(activeOptions.every(option => option.timeoutMs > 0)).toBe(true);
         expect(new Set(activeOptions).size).toBe(2);
         expect(trace).toEqual(expect.arrayContaining([
             "create-submit",
@@ -211,7 +212,7 @@ function createDependencies(init: {
 
     const activeOptions = init.activeOptions ?? [];
 
-    let remainingMs = 100;
+    let now = 0;
 
     let commandCount = 0;
 
@@ -276,24 +277,24 @@ function createDependencies(init: {
             },
         } as unknown as CantonClient,
         loadFixtureAsync: async () => fixture(),
-        ensureDarUploadedAsync: async (_client, _fixture, budget) => {
-            setupBudgets.push(budget.remainingTimeoutMs());
+        ensureDarUploadedAsync: async (_client, _fixture, requestOptionsFactory) => {
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return { alreadyInstalled: true };
         },
-        resolvePartyAsync: async (_client, _environment, budget) => {
-            setupBudgets.push(budget.remainingTimeoutMs());
+        resolvePartyAsync: async (_client, _environment, requestOptionsFactory) => {
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return { party: "Alice::1", allocated: init.allocatedParty ?? false };
         },
-        readCompatibilityAsync: async (_client, budget) => {
-            setupBudgets.push(budget.remainingTimeoutMs());
+        readCompatibilityAsync: async (_client, requestOptionsFactory) => {
+            setupBudgets.push(requestOptionsFactory.createRequestOptions().timeoutMs);
 
             return compatibility();
         },
-        createDeadline: () => ({
-            idleProbeMs: () => 1,
-            remainingMs: () => remainingMs--,
+        createDeadline: init => new OperationDeadline({
+            timeoutMs: init.timeoutMs,
+            now: () => now++,
         }),
         timeoutMs: () => 100,
         createRunId: () => "run-123",

@@ -1,5 +1,6 @@
 import {
     CantonClient,
+    OperationDeadline,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import {
@@ -25,18 +26,11 @@ import {
     readWorkflowCompatibilityAsync,
     type WorkflowCompatibility,
 } from "./workflow-compatibility.js";
-import {
-    createWorkflowDeadline,
-    type WorkflowDeadline,
-} from "./workflow-deadline.js";
+import type { RequestOptionsFactory } from "./request-options-factory.js";
 import {
     classifyWorkflowFailure,
     type WorkflowFailureKind,
 } from "./workflow-errors.js";
-
-type RemainingBudget = {
-    readonly remainingTimeoutMs: () => number;
-};
 
 type ExampleLogger = {
     log(message: string): void;
@@ -49,18 +43,18 @@ export interface ArchiveAndStaleContractWorkflowDependencies {
     readonly ensureDarUploadedAsync: (
         client: CantonClient,
         fixture: ExampleApplicationFixture,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<unknown>;
     readonly resolvePartyAsync: (
         client: CantonClient,
         environment: NodeJS.ProcessEnv,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<{ party: string; allocated: boolean }>;
     readonly readCompatibilityAsync: (
         client: CantonClient,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<WorkflowCompatibility>;
-    readonly createDeadline: (init: { timeoutMs: number }) => WorkflowDeadline;
+    readonly createDeadline: (init: { timeoutMs: number }) => OperationDeadline;
     readonly timeoutMs: () => number;
     readonly createRunId: () => string;
     readonly logger: ExampleLogger;
@@ -69,25 +63,23 @@ export interface ArchiveAndStaleContractWorkflowDependencies {
 export async function runArchiveAndStaleContractWorkflowAsync(
     dependencies: ArchiveAndStaleContractWorkflowDependencies,
 ): Promise<void> {
-    const fixture = await dependencies.loadFixtureAsync();
-
     const deadline = dependencies.createDeadline({
         timeoutMs: dependencies.timeoutMs(),
     });
 
-    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, {
-        remainingTimeoutMs: deadline.remainingMs,
-    });
+    const fixture = await dependencies.loadFixtureAsync();
+
+    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, deadline);
 
     const actor = await dependencies.resolvePartyAsync(
         dependencies.client,
         process.env,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     const compatibility = await dependencies.readCompatibilityAsync(
         dependencies.client,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     if (actor.allocated) {
@@ -120,7 +112,7 @@ export async function runArchiveAndStaleContractWorkflowAsync(
                 text: originalText,
                 commandId: originalCommandId,
             }),
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
     const originalContract = extractCreatedContract(originalResponse);
@@ -134,7 +126,7 @@ export async function runArchiveAndStaleContractWorkflowAsync(
                 replacement: replacementText,
                 commandId: replacementCommandId,
             }),
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
     const replacementContracts = extractReplacementContracts(replacementResponse);
@@ -158,11 +150,11 @@ export async function runArchiveAndStaleContractWorkflowAsync(
 
             return text === originalText || text === replacementText;
         },
-        timeoutMs: deadline.remainingMs(),
-        readPageAsync: pageRequest =>
+        timeoutMs: deadline.remainingTimeoutMs(),
+        readPageAsync: (pageRequest, remainingTimeoutMs) =>
             dependencies.client.stateService.getActiveContractsPageAsync(
                 pageRequest,
-                new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+                new RequestOptions({ timeoutMs: remainingTimeoutMs }),
             ),
     });
 
@@ -210,7 +202,7 @@ export async function runArchiveAndStaleContractWorkflowAsync(
                 replacement: `archive-stale-replacement-${runId}`,
                 commandId: staleCommandId,
             }),
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
     } catch (error) {
         staleFailureKind = classifyWorkflowFailure({
@@ -243,6 +235,6 @@ export const archiveAndStaleContractWorkflowDefaults = {
     ensureDarUploadedAsync: ensureExampleDarUploadedAsync,
     resolvePartyAsync: resolveExamplePartyAsync,
     readCompatibilityAsync: readWorkflowCompatibilityAsync,
-    createDeadline: createWorkflowDeadline,
+    createDeadline: (init: { timeoutMs: number }) => new OperationDeadline(init),
     timeoutMs: exampleTimeoutMs,
 };

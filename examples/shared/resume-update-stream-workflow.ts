@@ -1,6 +1,7 @@
 import {
     CantonClient,
     GetLedgerEndRequest,
+    OperationDeadline,
     RequestOptions,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -17,10 +18,7 @@ import {
     matchCreatedMessageUpdate,
 } from "./ledger-requests.js";
 import { exampleTimeoutMs } from "./localnet.js";
-import {
-    createWorkflowDeadline,
-    type WorkflowDeadline,
-} from "./workflow-deadline.js";
+import type { RequestOptionsFactory } from "./request-options-factory.js";
 import {
     expectIdleUpdateStreamTimeoutAsync,
     matchResumedUpdateAsync,
@@ -29,10 +27,6 @@ import {
     readWorkflowCompatibilityAsync,
     type WorkflowCompatibility,
 } from "./workflow-compatibility.js";
-
-type RemainingBudget = {
-    readonly remainingTimeoutMs: () => number;
-};
 
 type ExampleLogger = {
     log(message: string): void;
@@ -45,18 +39,18 @@ export interface ResumeUpdateStreamWorkflowDependencies {
     readonly ensureDarUploadedAsync: (
         client: CantonClient,
         fixture: ExampleApplicationFixture,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<unknown>;
     readonly resolvePartyAsync: (
         client: CantonClient,
         environment: NodeJS.ProcessEnv,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<{ party: string; allocated: boolean }>;
     readonly readCompatibilityAsync: (
         client: CantonClient,
-        budget: RemainingBudget,
+        requestOptionsFactory: RequestOptionsFactory,
     ) => Promise<WorkflowCompatibility>;
-    readonly createDeadline: (init: { timeoutMs: number }) => WorkflowDeadline;
+    readonly createDeadline: (init: { timeoutMs: number }) => OperationDeadline;
     readonly timeoutMs: () => number;
     readonly createRunId: () => string;
     readonly logger: ExampleLogger;
@@ -72,25 +66,23 @@ export interface ResumeUpdateStreamResult {
 export async function runResumeUpdateStreamWorkflowAsync(
     dependencies: ResumeUpdateStreamWorkflowDependencies,
 ): Promise<ResumeUpdateStreamResult> {
-    const fixture = await dependencies.loadFixtureAsync();
-
     const deadline = dependencies.createDeadline({
         timeoutMs: dependencies.timeoutMs(),
     });
 
-    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, {
-        remainingTimeoutMs: deadline.remainingMs,
-    });
+    const fixture = await dependencies.loadFixtureAsync();
+
+    await dependencies.ensureDarUploadedAsync(dependencies.client, fixture, deadline);
 
     const actor = await dependencies.resolvePartyAsync(
         dependencies.client,
         process.env,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     const compatibility = await dependencies.readCompatibilityAsync(
         dependencies.client,
-        { remainingTimeoutMs: deadline.remainingMs },
+        deadline,
     );
 
     if (actor.allocated) {
@@ -113,14 +105,14 @@ export async function runResumeUpdateStreamWorkflowAsync(
                 text: `resume-pre-${runId}`,
                 commandId: `resume-pre-${runId}`,
             }),
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
     const preContract = extractCreatedContract(preResponse);
 
     const ledgerEnd = await dependencies.client.stateService.getLedgerEndAsync(
         new GetLedgerEndRequest(),
-        new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+        deadline.createRequestOptions(),
     );
 
     const savedOffset = ledgerEnd.offset.trim();
@@ -129,13 +121,15 @@ export async function runResumeUpdateStreamWorkflowAsync(
         throw new Error("The ledger end returned an empty offset.");
     }
 
+    const idleTimeoutMs = Math.max(1, Math.min(2_000, Math.floor(deadline.remainingTimeoutMs() / 4)));
+
     const idleStream = dependencies.client.updateService.getUpdatesAsync(
         buildUpdatesRequest({
             beginExclusive: savedOffset,
             party: actor.party,
             templateId: fixture.templateId,
         }),
-        new RequestOptions({ timeoutMs: deadline.idleProbeMs() }),
+        new RequestOptions({ timeoutMs: idleTimeoutMs }),
     );
 
     const idleIterator = idleStream[Symbol.asyncIterator]();
@@ -157,7 +151,7 @@ export async function runResumeUpdateStreamWorkflowAsync(
                 text: `resume-post-${runId}`,
                 commandId: `resume-post-${runId}`,
             }),
-            new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+            deadline.createRequestOptions(),
         );
 
     const postContract = extractCreatedContract(postResponse);
@@ -168,7 +162,7 @@ export async function runResumeUpdateStreamWorkflowAsync(
             party: actor.party,
             templateId: fixture.templateId,
         }),
-        new RequestOptions({ timeoutMs: deadline.remainingMs() }),
+        deadline.createRequestOptions(),
     );
 
     const resumedIterator = resumedStream[Symbol.asyncIterator]();
@@ -225,6 +219,6 @@ export const resumeUpdateStreamWorkflowDefaults = {
     ensureDarUploadedAsync: ensureExampleDarUploadedAsync,
     resolvePartyAsync: resolveExamplePartyAsync,
     readCompatibilityAsync: readWorkflowCompatibilityAsync,
-    createDeadline: createWorkflowDeadline,
+    createDeadline: (init: { timeoutMs: number }) => new OperationDeadline(init),
     timeoutMs: exampleTimeoutMs,
 };

@@ -13,6 +13,9 @@ const packageVisibilityProof =
 const createMessageSubmission =
     /client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateMessageRequest\(\s*\{\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,\s*text:\s*"Hello from the Canton TypeScript SDK",\s*\}\s*\),\s*\)/s;
 
+const deadlineBoundCreateMessageSubmission =
+    /client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateMessageRequest\(\s*\{\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,\s*text:\s*"Hello from the Canton TypeScript SDK",\s*\}\s*\),\s*\w+\.createRequestOptions\(\),\s*\)/s;
+
 const replaceMessageSubmission =
     /client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildReplaceMessageTextRequest\(\s*\{\s*party:\s*actor\.party,\s*templateId:\s*fixture\.templateId,\s*contractId:\s*original\.contractId,\s*replacement:\s*"Updated by ReplaceText",\s*\}\s*\),\s*\)/s;
 
@@ -96,9 +99,10 @@ function expectResumeUpdateWorkflowSource(source: string): void {
 
     const savedOffsetPath = new RegExp(`beginExclusive\\s*:\\s*${savedOffset}`);
 
-    expect(source).toMatch(/createWorkflowDeadline/);
-    expect(source).toMatch(/remainingTimeoutMs\s*:\s*\w+\.remainingMs/);
-    expect(source).toMatch(/timeoutMs\s*:\s*\w+\.idleProbeMs\(\)/);
+    expect(source).toMatch(/new\s+OperationDeadline/);
+    expect(source).toMatch(/createRequestOptions\(\)/);
+    expect(source).toMatch(/const\s+idleTimeoutMs\s*=\s*Math\.max\(\s*1,\s*Math\.min\(\s*2_000,\s*Math\.floor\(\s*\w+\.remainingTimeoutMs\(\)\s*\/\s*4\s*\)\s*\)\s*\)\s*;/s);
+    expect(source).toMatch(/timeoutMs\s*:\s*idleTimeoutMs/);
     expect(source).toMatch(savedOffsetPath);
     expect(source).toMatch(/expectIdleUpdateStreamTimeoutAsync/);
     expect(source).toMatch(/matchResumedUpdateAsync/);
@@ -112,8 +116,8 @@ function expectResumeUpdateWorkflowSource(source: string): void {
 }
 
 function expectArchiveAndStaleContractWorkflowSource(source: string): void {
-    expect(source).toMatch(/createWorkflowDeadline/);
-    expect(source).toMatch(/remainingTimeoutMs\s*:\s*\w+\.remainingMs/);
+    expect(source).toMatch(/new\s+OperationDeadline/);
+    expect(source).toMatch(/createRequestOptions\(\)/);
     expect(source).toMatch(/extractCreatedContract\(/);
     expect(source).toMatch(/extractReplacementContracts\(/);
     expect(source).toMatch(/assertMessageContractAbsent\(/);
@@ -128,7 +132,7 @@ function expectArchiveAndStaleContractWorkflowSource(source: string): void {
     expect(source).toMatch(/archivedContractId\s*!==\s*\w+\.contractId/);
     expect(source).toMatch(/replacementContractId\s*===\s*\w+\.contractId/);
     expect(source).toContain("archived original unexpectedly succeeded");
-    expect(source).toMatch(/new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*\w+\.remainingMs\(\)\s*\}\s*\)/);
+    expect(source).toMatch(/\.createRequestOptions\(\)/);
     expect(source).toContain("Original contract ID:");
     expect(source).toContain("Replacement contract ID:");
     expect(source).toContain("Replacement payload:");
@@ -321,19 +325,19 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(/finally\s*\{/);
         expect(source).toContain("loadExampleApplicationFixtureAsync()");
         expect(source).toMatch(
-            /const\s+deadline\s*=\s*createWorkflowDeadline\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\),\s*\}\s*\);/s,
+            /const\s+deadline\s*=\s*new\s+OperationDeadline\(\s*\{\s*timeoutMs:\s*exampleTimeoutMs\(\),\s*\}\s*\);/s,
         );
         expect(source).toMatch(
-            /ensureExampleDarUploadedAsync\(\s*client,\s*fixture,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+            /ensureExampleDarUploadedAsync\(\s*client,\s*fixture,\s*deadline\s*\)/s,
         );
         expect(source).toMatch(
-            /resolveExamplePartyAsync\(\s*client,\s*process\.env,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+            /resolveExamplePartyAsync\(\s*client,\s*process\.env,\s*deadline\s*\)/s,
         );
         expect(source).toMatch(
-            /readWorkflowCompatibilityAsync\(\s*client,\s*\{\s*remainingTimeoutMs:\s*deadline\.remainingMs,\s*\}\s*\)/s,
+            /readWorkflowCompatibilityAsync\(\s*client,\s*deadline\s*\)/s,
         );
 
-        const deadline = source.indexOf("const deadline = createWorkflowDeadline(");
+        const deadline = source.indexOf("const deadline = new OperationDeadline(");
 
         const ensureDar = source.indexOf("ensureExampleDarUploadedAsync(");
 
@@ -343,7 +347,7 @@ describe("application example source contracts", () => {
 
         const invalidSubmission = requireSourceMatch(
             source,
-            /await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*invalidRequest,\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);/s,
+            /await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*invalidRequest,\s*deadline\.createRequestOptions\(\),\s*\);/s,
             "the invalid command RPC submission with its own deadline budget",
         );
 
@@ -355,11 +359,11 @@ describe("application example source contracts", () => {
 
         const validSubmission = requireSourceMatch(
             source,
-            /const\s+validResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateAndReplaceMessageTextRequest\([\s\S]*?\),\s*new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),\s*\);/s,
+            /const\s+validResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateAndReplaceMessageTextRequest\([\s\S]*?\),\s*deadline\.createRequestOptions\(\),\s*\);/s,
             "the valid atomic command RPC submission with its own deadline budget",
         );
 
-        expect(deadline).toBeGreaterThan(source.indexOf("loadExampleApplicationFixtureAsync()"));
+        expect(deadline).toBeLessThan(source.indexOf("loadExampleApplicationFixtureAsync()"));
         expect(ensureDar).toBeGreaterThan(deadline);
         expect(resolveParty).toBeGreaterThan(ensureDar);
         expect(compatibility).toBeGreaterThan(resolveParty);
@@ -386,7 +390,7 @@ describe("application example source contracts", () => {
         expect(
             [
                 ...commandRegion.matchAll(
-                    /new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\)/g,
+                    /deadline\.createRequestOptions\(\)/g,
                 ),
             ],
         ).toHaveLength(2);
@@ -411,7 +415,7 @@ describe("application example source contracts", () => {
         ]).toHaveLength(1);
         expect(source).not.toMatch(/findActiveMessageAcrossPagesAsync\(/);
         expect(source).toMatch(
-            /collectActiveMessagesAcrossPagesAsync\(\s*\{[\s\S]*?predicate:\s*message\s*=>\s*\{\s*const\s+text\s*=\s*readCreatedMessageText\(message\);\s*return\s+text\s*===\s*initialText\s*\|\|\s*text\s*===\s*replacementText;\s*\},[\s\S]*?timeoutMs:\s*deadline\.remainingMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*deadline\.remainingMs\(\)\s*\}\s*\),/s,
+            /collectActiveMessagesAcrossPagesAsync\(\s*\{[\s\S]*?predicate:\s*message\s*=>\s*\{\s*const\s+text\s*=\s*readCreatedMessageText\(message\);\s*return\s+text\s*===\s*initialText\s*\|\|\s*text\s*===\s*replacementText;\s*\},[\s\S]*?timeoutMs:\s*deadline\.remainingTimeoutMs\(\),[\s\S]*?getActiveContractsPageAsync\([\s\S]*?new\s+RequestOptions\(\s*\{\s*timeoutMs:\s*remainingTimeoutMs\s*\}\s*\),/s,
         );
         expect(source).toMatch(
             /const\s+activeReplacement\s*=\s*assertAtomicMessageTerminalState\(\s*\{\s*messages:\s*runMessages,\s*initialText,\s*replacementText,\s*responseContractId:\s*submittedReplacement\.contractId,\s*party:\s*actor\.party,\s*\}\s*\);/s,
@@ -503,8 +507,8 @@ describe("application example source contracts", () => {
         )).not.toThrow();
         expect(() => expectResumeUpdateWorkflowSource(
             workflowSource.replace(
-                "new RequestOptions({ timeoutMs: deadline.idleProbeMs() })",
-                "new RequestOptions({ timeoutMs: deadline.remainingMs() })",
+                "const idleTimeoutMs = Math.max(1, Math.min(2_000, Math.floor(deadline.remainingTimeoutMs() / 4)))",
+                "const idleTimeoutMs = deadline.remainingTimeoutMs()",
             ),
         )).toThrow();
         expect(() => expectResumeUpdateWorkflowSource(
@@ -519,13 +523,13 @@ describe("application example source contracts", () => {
         const source = readExampleSource("60-query-active-contracts.ts");
 
         expectStandaloneCleanup(source);
-        expect(source).toMatch(createMessageSubmission);
+        expect(source).toMatch(deadlineBoundCreateMessageSubmission);
         expect(source).toMatch(
             /const\s+created\s*=\s*extractCreatedContract\(createResponse\);/,
         );
         expect(source).toContain("buildActiveContractsRequest({");
         expect(source).toContain("findActiveMessageAcrossPagesAsync({");
-        expect(source).toContain("timeoutMs: exampleTimeoutMs(),");
+        expect(source).toContain("timeoutMs: deadline.remainingTimeoutMs(),");
         expect(source).toMatch(activeContractPageRead);
         expect(source).toContain("message.createArguments");
         expect(source).toContain(

@@ -19,6 +19,7 @@ import {
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { createPartyHint } from "./localnet.js";
+import type { RequestOptionsFactory } from "./request-options-factory.js";
 
 export const EXAMPLE_DAR_SHA256 =
     "307cf7c52ac2770d1d1a2c5e1ec56a78ab7c70e7809c0cfb419abadb93cc6e29";
@@ -56,12 +57,12 @@ export function provePackageVisibility(init: {
 export async function ensureExampleDarUploadedAsync(
     client: Pick<CantonClient, "packageService" | "packageManagementService">,
     fixture: ExampleApplicationFixture,
-    budget?: RemainingBudget,
+    requestOptionsFactory?: RequestOptionsFactory,
 ): Promise<{ alreadyInstalled: boolean }> {
     const beforeRequest = ledgerApiV2.ListPackagesRequest.create();
 
-    const before = await callWithBudget(
-        budget,
+    const before = await callWithRequestOptions(
+        requestOptionsFactory,
         options => client.packageService.listPackagesAsync(beforeRequest, options),
         () => client.packageService.listPackagesAsync(beforeRequest),
     );
@@ -70,8 +71,8 @@ export async function ensureExampleDarUploadedAsync(
         darFile: fixture.darBytes,
     });
 
-    await callWithBudget(
-        budget,
+    await callWithRequestOptions(
+        requestOptionsFactory,
         options =>
             client.packageManagementService.uploadDarFileAsync(
                 uploadRequest,
@@ -82,8 +83,8 @@ export async function ensureExampleDarUploadedAsync(
 
     const afterRequest = ledgerApiV2.ListPackagesRequest.create();
 
-    const after = await callWithBudget(
-        budget,
+    const after = await callWithRequestOptions(
+        requestOptionsFactory,
         options => client.packageService.listPackagesAsync(afterRequest, options),
         () => client.packageService.listPackagesAsync(afterRequest),
     );
@@ -337,7 +338,7 @@ export function assertExactCreatedMessagePayload(init: {
 export async function resolveExamplePartyAsync(
     client: Pick<CantonClient, "partyManagementService">,
     environment: NodeJS.ProcessEnv = process.env,
-    budget?: RemainingBudget,
+    requestOptionsFactory?: RequestOptionsFactory,
 ): Promise<{ party: string; allocated: boolean }> {
     const configuredParty = environment.SDK_EXAMPLE_PARTY?.trim();
 
@@ -355,8 +356,8 @@ export async function resolveExamplePartyAsync(
         userId,
     });
 
-    const response = await callWithBudget(
-        budget,
+    const response = await callWithRequestOptions(
+        requestOptionsFactory,
         options => client.partyManagementService.allocatePartyAsync(request, options),
         () => client.partyManagementService.allocatePartyAsync(request),
     );
@@ -497,20 +498,14 @@ function exactMessagePayloadError(contractId: string): Error {
     );
 }
 
-interface RemainingBudget {
-    readonly remainingTimeoutMs: () => number;
-}
-
-function callWithBudget<T>(
-    budget: RemainingBudget | undefined,
+function callWithRequestOptions<T>(
+    requestOptionsFactory: RequestOptionsFactory | undefined,
     withOptions: (options: RequestOptions) => Promise<T>,
     withoutOptions: () => Promise<T>,
 ): Promise<T> {
-    if (budget === undefined) {
+    if (requestOptionsFactory === undefined) {
         return withoutOptions();
     }
 
-    return withOptions(
-        new RequestOptions({ timeoutMs: budget.remainingTimeoutMs() }),
-    );
+    return withOptions(requestOptionsFactory.createRequestOptions());
 }
