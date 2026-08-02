@@ -144,7 +144,7 @@ npm run example:workflow:atomic
 npm run example:workflow:retry
 npm run example:workflow:resume
 npm run example:workflow:stale-contract
-npm run example:workflow:completion-correlation
+npm run example:workflow:command-completion
 ```
 
 They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
@@ -153,7 +153,7 @@ workflow also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
 party to rerun the established workflows against that party and avoid fallback
 allocation. The fixture DAR remains installed after a run.
 
-The completion-correlation workflow (`npm run example:workflow:completion-correlation`)
+The completion-correlation workflow (`npm run example:workflow:command-completion`)
 is a standalone successful proof that creates durable Message state. It uses the
 same normal `SDK_EXAMPLE_*` configuration: `SDK_EXAMPLE_LEDGER_ENDPOINT`,
 `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`,

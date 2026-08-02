@@ -1544,12 +1544,15 @@ describe("application example source contracts", () => {
         ).replace(/\s+/g, " ");
 
         expect(
-            packageJson.scripts["example:workflow:completion-correlation"],
+            packageJson.scripts["example:workflow:command-completion"],
         ).toBe(
             "npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts",
         );
+        expect(
+            packageJson.scripts["example:workflow:completion-correlation"],
+        ).toBeUndefined();
         expect(workflowDocumentation).toContain(
-            "npm run example:workflow:completion-correlation",
+            "npm run example:workflow:command-completion",
         );
         expect(workflowDocumentation).toContain("standalone");
         expect(workflowDocumentation).toContain("durable Message state");
