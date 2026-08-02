@@ -346,6 +346,25 @@ Implement test-first before the script/helper:
    actor for sender and recipient; do not add a second-party fixture to make an
    observer assertion easier.
 
+   Include an accepted direct-lookup fixture built with
+   `ledgerApiV2.GetContractResponse.create({ createdEvent:
+   ledgerApiV2.CreatedEvent.create(...) })` whose supported fields and exact
+   self-party Message payload are correct while every
+   ContractService-unavailable field is deliberately non-default:
+   `offset: "42"`, `nodeId: 7`, `createdEventBlob: Uint8Array.of(1, 2)`,
+   `interfaceViews: [ledgerApiV2.InterfaceView.create({ interfaceId:
+   ledgerApiV2.Identifier.create({ packageId: "interface-package",
+   moduleName: "Fixture", entityName: "View" }), viewStatus:
+   google.rpc.Status.create({ code: 0, message: "fixture interface view" }),
+   implementationPackageId: "interface-package" })]`, and `acsDelta: true`.
+   The fixture imports `google` alongside `ledgerApiV2` from the public
+   `/protobuf` entry point.  The generated
+   `CreatedEvent` types are respectively `string`, `number`, `Uint8Array`,
+   `InterfaceView[]`, and `boolean`.  `assertDirectMessageLookup` must accept
+   that response without reading or comparing any of those five fields.  This
+   is a regression test for the ContractService proto rule that they are not
+   populated by that endpoint, not a claim that EventQuery must ignore them.
+
    Test the projection loop with an injected `OperationDeadline` clock and
    injected sleep fake: immediate complete history dispatches once and never
    sleeps; a valid created-only first response sleeps no more than the remaining
