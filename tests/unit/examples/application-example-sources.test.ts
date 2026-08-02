@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,6 +57,10 @@ const replacementContractProof =
 
 const examplesDirectory = fileURLToPath(
     new URL("../../../examples", import.meta.url),
+);
+
+const repositoryDirectory = fileURLToPath(
+    new URL("../../../", import.meta.url),
 );
 
 const getLedgerEndRequest =
@@ -326,6 +331,16 @@ function readRootPackageJson(): {
 
 function readReadme(): string {
     return readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
+}
+
+function readRootGitignore(): readonly string[] {
+    return readFileSync(new URL("../../../.gitignore", import.meta.url), "utf8")
+        .split("\n")
+        .map(line => line.replace(/\r$/, ""));
+}
+
+function readPublicIndex(): string {
+    return readFileSync(new URL("../../../src/index.ts", import.meta.url), "utf8");
 }
 
 function readReadmeParagraph(readme: string, marker: string): string {
@@ -1516,6 +1531,103 @@ describe("application example source contracts", () => {
         expectCommandCompletionCorrelationSource(
             readExampleSource("94-command-completion-correlation.ts"),
         );
+    });
+
+    it("documents the standalone command-completion correlation workflow and its supported surface", () => {
+        const packageJson = readRootPackageJson();
+
+        const readme = readReadme();
+
+        const workflowDocumentation = readReadmeParagraph(
+            readme,
+            "The completion-correlation workflow",
+        ).replace(/\s+/g, " ");
+
+        expect(
+            packageJson.scripts["example:workflow:completion-correlation"],
+        ).toBe(
+            "npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts",
+        );
+        expect(workflowDocumentation).toContain(
+            "npm run example:workflow:completion-correlation",
+        );
+        expect(workflowDocumentation).toContain("standalone");
+        expect(workflowDocumentation).toContain("durable Message state");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_LEDGER_ENDPOINT");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT");
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT",
+        );
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_BEARER_TOKEN");
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_LEDGER_BEARER_TOKEN",
+        );
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN",
+        );
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN",
+        );
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_TLS_ROOT_CERTIFICATE",
+        );
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_PARTY");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_PARTY_PREFIX");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_TIMEOUT_MS");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_USER_ID");
+        expect(workflowDocumentation).toContain("absent");
+        expect(workflowDocumentation).toContain("blank");
+        expect(workflowDocumentation).toContain("untrimmed");
+        expect(workflowDocumentation).toContain("exactly submitted");
+        expect(workflowDocumentation).toContain("exactly matched");
+        expect(workflowDocumentation).toContain("Ledger API user/subject");
+        expect(workflowDocumentation).toContain("does not inspect the token");
+        expect(workflowDocumentation).toContain("saved exclusive offset");
+        expect(workflowDocumentation).toContain("first stream read");
+        expect(workflowDocumentation).toContain("before submission");
+        expect(workflowDocumentation).toContain("successful");
+        expect(workflowDocumentation).not.toContain("rejected-command assertion");
+        expect(workflowDocumentation).toContain("No public");
+        expect(workflowDocumentation).toContain(
+            "wait-for-command-completion helper",
+        );
+        expect(workflowDocumentation).toContain("API");
+        expect(workflowDocumentation).toContain("example-only");
+
+        const serviceMapEntry = readServiceMapEntry(
+            readme,
+            "commandCompletionService.getCompletionsAsync",
+        );
+
+        expect(serviceMapEntry).toContain("`grpc` only");
+        expect(serviceMapEntry).toContain("existing");
+        expect(serviceMapEntry).toContain("streaming");
+        expect(serviceMapEntry).not.toContain("placeholder");
+
+        const publicIndex = readPublicIndex();
+
+        expect(publicIndex).not.toContain(
+            "submitAndWaitForCommandCompletionAsync",
+        );
+        expect(publicIndex).not.toContain("command-completion-correlation");
+
+        const gitignoreLines = readRootGitignore();
+
+        expect(
+            gitignoreLines.filter(line => line === ".superpowers/sdd/"),
+        ).toHaveLength(1);
+        expect(gitignoreLines).not.toContain(".superpowers/");
+        expect(gitignoreLines).not.toContain("docs/superpowers/");
+        expect(() => execFileSync(
+            "git",
+            [
+                "check-ignore",
+                "-q",
+                "--",
+                ".superpowers/sdd/2026-08-02-command-completion-correlation/success-357-default.md",
+            ],
+            { cwd: repositoryDirectory },
+        )).not.toThrow();
     });
 
     it("reads a configured user and its rights without mutating user state", () => {

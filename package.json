@@ -98,6 +98,7 @@
         "example:workflow:retry": "npm run build && node --loader ts-node/esm examples/91-idempotent-command-retry.ts",
         "example:workflow:resume": "npm run build && node --loader ts-node/esm examples/92-resume-update-stream.ts",
         "example:workflow:stale-contract": "npm run build && node --loader ts-node/esm examples/93-archive-and-stale-contract.ts",
+        "example:workflow:completion-correlation": "npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts",
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix --max-warnings=0",
         "start:local-ledger": "bash node/start-local.sh",

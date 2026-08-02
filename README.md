@@ -132,25 +132,44 @@ npm run example:topology:party-hosting
 
 ### Workflow examples
 
-The four workflow examples are standalone proofs, not a sequence: each uploads
-or verifies the fixture DAR, resolves a party, reads the participant status,
-and creates its own run-scoped data. First make a Canton participant available
-and verify the source with `npm run examples:check`; the default endpoints and
-authentication environment variables are documented below. Run any example
-independently:
+The four established workflow examples are standalone proofs, not a sequence:
+each uploads or verifies the fixture DAR, resolves a party, reads the
+participant status, and creates its own run-scoped data. First make a Canton
+participant available and verify the source with `npm run examples:check`; the
+default endpoints and authentication environment variables are documented below.
+Run any example independently:
 
 ```bash
 npm run example:workflow:atomic
 npm run example:workflow:retry
 npm run example:workflow:resume
 npm run example:workflow:stale-contract
+npm run example:workflow:completion-correlation
 ```
 
 They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
 causes fallback party allocation, which creates durable topology state; every
 workflow also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
-party to rerun all four against that party and avoid fallback allocation. The
-fixture DAR remains installed after a run.
+party to rerun the established workflows against that party and avoid fallback
+allocation. The fixture DAR remains installed after a run.
+
+The completion-correlation workflow (`npm run example:workflow:completion-correlation`)
+is a standalone successful proof that creates durable Message state. It uses the
+same normal `SDK_EXAMPLE_*` configuration: `SDK_EXAMPLE_LEDGER_ENDPOINT`,
+`SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`,
+`SDK_EXAMPLE_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`,
+`SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`,
+`SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`,
+`SDK_EXAMPLE_TLS_ROOT_CERTIFICATE`, `SDK_EXAMPLE_PARTY`,
+`SDK_EXAMPLE_PARTY_PREFIX`, and `SDK_EXAMPLE_TIMEOUT_MS`.
+`SDK_EXAMPLE_USER_ID` is mandatory: absent or blank input is rejected, while
+every nonblank value is preserved untrimmed and exactly submitted and exactly
+matched in the completion. With bearer authentication, the configured declared
+user must equal the token's Ledger API user/subject; the example does not inspect
+the token. It keeps the ledger end as its saved exclusive offset and begins the
+first stream read before submission.
+No public wait-for-command-completion helper or API is introduced; the
+correlation helper remains example-only.
 
 Each program prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
@@ -710,7 +729,7 @@ unsupported query features reject with `QueryCapabilityError`.
 - `stateService.getActiveContractsPagesAsync(...)`: `grpc` only, lazy raw bounded traversal
 - `stateService.getActiveContractsAsync(...)`: `json` only, existing distinct streaming read
 - `updateService.getUpdatesAsync(...)`: `grpc` only
-- `commandCompletionService`: placeholder, no methods yet
+- `commandCompletionService.getCompletionsAsync(...)`: `grpc` only, existing streaming API
 - `eventQueryService`: placeholder, no methods yet
 - `contractService`: placeholder, no methods yet
 

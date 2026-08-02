@@ -4,3 +4,4 @@ dist/
 tests/live/.artifacts/
 .generated/
 node/.generated/
+.superpowers/sdd/
