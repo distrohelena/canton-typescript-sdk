@@ -72,7 +72,11 @@ export function normalizeFindUnique(relation: QueryRelation, args: unknown): Nor
         throw new Error(`findUnique.where must contain one declared unique key of ${relation}`);
     }
 
-    const children = fields.map((field) => scalar(field, where[field]));
+    const children = fields.map((field) => {
+        assertUniqueEqualityValue(field, where[field]);
+
+        return scalar(field, where[field]);
+    });
 
     return {
         kind: "findUnique",
@@ -406,9 +410,15 @@ function normalizeIncludes(relation: QueryRelation, value: unknown): readonly No
 
         const settings = option === true ? {} : object(option, `${edgeName} include option`);
 
-        assertKnown(settings, ["where", "select", "include", "orderBy", "skip", "take"], `${edgeName} include option`);
+        assertKnown(
+            settings,
+            edge.cardinality === "many"
+                ? ["where", "select", "include", "orderBy", "skip", "take"]
+                : ["where", "select", "include", "orderBy"],
+            `${edgeName} include option`,
+        );
 
-        const page = normalizePage(settings);
+        const page = edge.cardinality === "many" ? normalizePage(settings) : { skip: 0, take: undefined };
 
         if (edge.cardinality === "many" && page.take === undefined) {
             throw new Error(`${edgeName} is a to-many relation and requires a non-negative take`);
@@ -488,7 +498,9 @@ function normalizeParties(relation: QueryRelation, value: unknown): readonly str
 }
 
 function normalizeAggregates(relation: QueryRelation, value: UnknownRecord): NormalizedAggregateSelection {
-    const fields = queryRelationMetadata[relation].numericFields;
+    const fields = queryRelationMetadata[relation].fields;
+
+    assertKnown(value, ["count", "min", "max", "sum"], "aggregate");
 
     const normalize = (name: "min" | "max" | "sum"): readonly string[] => {
         const selected = value[name];
@@ -496,7 +508,7 @@ function normalizeAggregates(relation: QueryRelation, value: UnknownRecord): Nor
         if (selected === undefined) {
             return [];
         } else if (!Array.isArray(selected) || selected.some((field) => typeof field !== "string" || !fields.includes(field))) {
-            throw new Error(`${name} must contain numeric fields of ${relation}`);
+            throw new Error(`${name} must contain fields of ${relation}`);
         }
 
         return [...new Set(selected)];
@@ -608,6 +620,12 @@ function validateOperatorValue(operator: ScalarOperator, value: unknown, field: 
         throw new Error(`in for ${field} must be an array`);
     } else if (operator === "has" && typeof value !== "string") {
         throw new Error(`has for ${field} must be a string`);
+    }
+}
+
+function assertUniqueEqualityValue(field: string, value: unknown): void {
+    if (value !== null && typeof value === "object" && !(value instanceof Date) && !(value instanceof Uint8Array)) {
+        throw new Error(`findUnique.where.${field} must be a scalar equality value`);
     }
 }
 

@@ -53,6 +53,20 @@ describe("canonical query normalizer", () => {
         expect(normalizeGroupBy("events", { by: ["type", { transaction: { effectiveAt: { bucket: "day" } } }], aggregate: { count: true, sum: ["pk"] } })).toMatchObject({ kind: "groupBy", relation: "events" });
     });
 
+    it("accepts aggregate selections for every public row field", () => {
+        expect(normalizeAggregate("packages", {
+            min: ["id"],
+            max: ["name"],
+            sum: ["version"],
+        })).toMatchObject({
+            aggregates: {
+                min: ["id"],
+                max: ["name"],
+                sum: ["version"],
+            },
+        });
+    });
+
     it.each([
         ["unknown fields", () => normalizeFindMany("packages", { where: { nope: { equals: "x" } } })],
         ["invalid operators", () => normalizeFindMany("packages", { where: { id: { contains: "x" } } })],
@@ -62,7 +76,10 @@ describe("canonical query normalizer", () => {
         ["empty selections", () => normalizeFindMany("packages", { select: { id: false } })],
         ["illegal relation quantifier", () => normalizeFindMany("contracts", { where: { contractType: { some: { pk: { equals: "1" } } } } })],
         ["unbounded to-many include", () => normalizeFindMany("contracts", { include: { exercises: true } })],
-    ])("rejects %s before I/O", (_name, normalize) => {
-        expect(normalize).toThrow();
+        ["operator-shaped unique values", () => normalizeFindUnique("packages", { where: { id: { contains: "x" } } })],
+        ["unknown group aggregates", () => normalizeGroupBy("packages", { by: ["id"], aggregate: { average: ["pk"] } })],
+        ["to-one include pages", () => normalizeFindMany("contracts", { include: { contractType: { take: 1 } } })],
+    ])("rejects %s before I/O", (name, normalize) => {
+        expect(normalize).toThrow(name === "unknown group aggregates" ? "average is not supported" : undefined);
     });
 });
