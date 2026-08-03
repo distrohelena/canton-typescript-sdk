@@ -7,6 +7,7 @@ const removedModuleName = ["submit", "command", "request"].join("-");
 interface ReceiverScope {
     readonly parent?: ReceiverScope;
     readonly requestReceivers: Map<string, boolean>;
+    varScope: ReceiverScope;
 }
 
 function isSubmitCommandsRequestName(name: ts.EntityName): boolean {
@@ -88,8 +89,15 @@ function bindNamesFromType(
     }
 }
 
-function createScope(parent?: ReceiverScope): ReceiverScope {
-    return { parent, requestReceivers: new Map() };
+function createScope(parent?: ReceiverScope, isVarScope = false): ReceiverScope {
+    const scope = {
+        parent,
+        requestReceivers: new Map<string, boolean>(),
+    } as ReceiverScope;
+
+    scope.varScope = isVarScope || parent === undefined ? scope : parent.varScope;
+
+    return scope;
 }
 
 function findReceiver(scope: ReceiverScope, name: string): boolean {
@@ -145,7 +153,7 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
 
     const visit = (node: ts.Node, scope: ReceiverScope): void => {
         if (ts.isFunctionLike(node)) {
-            const functionScope = createScope(scope);
+            const functionScope = createScope(scope, true);
 
             const signature = node as ts.SignatureDeclarationBase;
 
@@ -203,8 +211,12 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
             for (const statement of node.statements) {
                 if (ts.isVariableStatement(statement)) {
                     for (const declaration of statement.declarationList.declarations) {
+                        const targetScope = statement.declarationList.flags & ts.NodeFlags.BlockScoped
+                            ? blockScope
+                            : blockScope.varScope;
+
                         bindNames(
-                            blockScope,
+                            targetScope,
                             declaration.name,
                             false,
                         );
@@ -229,7 +241,7 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
 
             if (initializer !== undefined && ts.isVariableDeclarationList(initializer)) {
                 for (const declaration of initializer.declarations) {
-                    const targetScope = initializer.flags & ts.NodeFlags.Let
+                    const targetScope = initializer.flags & ts.NodeFlags.BlockScoped
                         ? loopScope
                         : scope;
 
@@ -262,11 +274,18 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
                 }
             }
 
-            bindNamesFromType(scope, node.name, node.type);
+            const declarationList = node.parent;
+
+            const targetScope = ts.isVariableDeclarationList(declarationList) &&
+                declarationList.flags & ts.NodeFlags.BlockScoped
+                ? scope
+                : scope.varScope;
+
+            bindNamesFromType(targetScope, node.name, node.type);
 
             if (node.type === undefined) {
                 bindNames(
-                    scope,
+                    targetScope,
                     node.name,
                     isSubmitCommandsRequestConstruction(node.initializer),
                 );
