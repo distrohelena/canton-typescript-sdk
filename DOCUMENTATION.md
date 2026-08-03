@@ -1443,17 +1443,6 @@ Notes:
 - `json` does not support external command signing
 - `transactionId` carries the ledger update id returned by the transport
 
-### `commandService.submitParticipantLocalAndWaitAsync(request)`
-
-Submits one non-empty ordered atomic command batch through ordinary participant
-submission and waits for its result. It is supported on both `json` and `grpc`.
-Unlike signer-configured `submitAndWaitAsync`, which uses interactive external
-signing on gRPC, this method deliberately bypasses any configured
-`commandSigner`. The signer itself remains gRPC-only.
-
-Parameters and response fields are the same as
-`commandService.submitAndWaitAsync(request)`.
-
 Example:
 
 ```ts
@@ -1511,6 +1500,38 @@ new SubmitCommandsRequest({
 
 No compatibility alias exists. For an atomic sequence, put every independent
 command in `commands` in the order Canton must interpret them.
+
+### `commandService.submitParticipantLocalAndWaitAsync(request)`
+
+Submits one non-empty ordered atomic command batch through ordinary participant
+submission and waits for its result. It is supported on both `json` and `grpc`.
+Unlike signer-configured `submitAndWaitAsync`, which uses interactive external
+signing on gRPC, this method deliberately bypasses any configured
+`commandSigner`. The signer itself remains gRPC-only.
+
+Parameters and response fields are the same as
+`commandService.submitAndWaitAsync(request)`.
+
+Example:
+
+```ts
+const participantLocalResponse =
+    await client.commandService.submitParticipantLocalAndWaitAsync(
+        new SubmitCommandsRequest({
+            applicationId: "app-1",
+            actAs: ["Alice"],
+            commands: [
+                new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({
+                        issuer: "Alice",
+                        owner: "Bob",
+                    }),
+                }),
+            ],
+        }),
+    );
+```
 
 ### `commandSubmissionService.submitAsync(request)`
 
