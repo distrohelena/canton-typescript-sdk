@@ -1,4 +1,9 @@
 import { PqsSchemaProfileError } from "../errors/pqs-schema-profile-error.js";
+import {
+    queryRelationEdges,
+    queryRelationMetadata,
+    type QueryRelation,
+} from "../canonical/query-schema.js";
 
 const schemaIdentifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -15,6 +20,28 @@ export const requiredPqsRelations = [
 
 export type PqsRelation = (typeof requiredPqsRelations)[number];
 
+const queryRelationByPqsRelation: Readonly<Record<PqsRelation, QueryRelation>> = {
+    __contracts: "contracts",
+    __contract_tpe: "contractTypes",
+    __events: "events",
+    __exercises: "exercises",
+    __exercise_tpe: "exerciseTypes",
+    __packages: "packages",
+    __transactions: "transactions",
+    __watermark: "watermark",
+};
+
+const pqsRelationByQueryRelation: Readonly<Record<QueryRelation, PqsRelation>> = {
+    contracts: "__contracts",
+    contractTypes: "__contract_tpe",
+    events: "__events",
+    exercises: "__exercises",
+    exerciseTypes: "__exercise_tpe",
+    packages: "__packages",
+    transactions: "__transactions",
+    watermark: "__watermark",
+};
+
 export interface PqsRelationEdge {
     readonly target: PqsRelation;
     readonly sourceColumn: string;
@@ -23,48 +50,29 @@ export interface PqsRelationEdge {
     readonly nullable: boolean;
 }
 
-export const pqsRelationEdges: Readonly<Partial<Record<PqsRelation, Readonly<Record<string, PqsRelationEdge>>>>> = {
-    __contracts: {
-        contractType: { target: "__contract_tpe", sourceColumn: "tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
-        createdTransaction: { target: "__transactions", sourceColumn: "created_at_ix", targetColumn: "ix", cardinality: "one", nullable: false },
-        archivedTransaction: { target: "__transactions", sourceColumn: "archived_at_ix", targetColumn: "ix", cardinality: "one", nullable: true },
-        exercises: { target: "__exercises", sourceColumn: "contract_id", targetColumn: "contract_id", cardinality: "many", nullable: false },
-    },
-    __contract_tpe: {
-        contracts: { target: "__contracts", sourceColumn: "pk", targetColumn: "tpe_pk", cardinality: "many", nullable: false },
-        exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "contract_tpe_pk", cardinality: "many", nullable: false },
-    },
-    __events: {
-        transaction: { target: "__transactions", sourceColumn: "tx_ix", targetColumn: "ix", cardinality: "one", nullable: false },
-        exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "exercise_event_pk", cardinality: "many", nullable: false },
-    },
-    __exercises: {
-        exerciseType: { target: "__exercise_tpe", sourceColumn: "tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
-        contractType: { target: "__contract_tpe", sourceColumn: "contract_tpe_pk", targetColumn: "pk", cardinality: "one", nullable: false },
-        event: { target: "__events", sourceColumn: "exercise_event_pk", targetColumn: "pk", cardinality: "one", nullable: true },
-        transaction: { target: "__transactions", sourceColumn: "exercised_at_ix", targetColumn: "ix", cardinality: "one", nullable: true },
-        package: { target: "__packages", sourceColumn: "package_pk", targetColumn: "pk", cardinality: "one", nullable: false },
-        contract: { target: "__contracts", sourceColumn: "contract_id", targetColumn: "contract_id", cardinality: "one", nullable: false },
-    },
-    __exercise_tpe: { exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "tpe_pk", cardinality: "many", nullable: false } },
-    __packages: { exercises: { target: "__exercises", sourceColumn: "pk", targetColumn: "package_pk", cardinality: "many", nullable: false } },
-    __transactions: {
-        events: { target: "__events", sourceColumn: "ix", targetColumn: "tx_ix", cardinality: "many", nullable: false },
-        createdContracts: { target: "__contracts", sourceColumn: "ix", targetColumn: "created_at_ix", cardinality: "many", nullable: false },
-        archivedContracts: { target: "__contracts", sourceColumn: "ix", targetColumn: "archived_at_ix", cardinality: "many", nullable: false },
-        exercises: { target: "__exercises", sourceColumn: "ix", targetColumn: "exercised_at_ix", cardinality: "many", nullable: false },
-    },
+const pqsEdgeColumns: Readonly<Partial<Record<PqsRelation, Readonly<Record<string, { readonly sourceColumn: string; readonly targetColumn: string }>>>>> = {
+    __contracts: { contractType: { sourceColumn: "tpe_pk", targetColumn: "pk" }, createdTransaction: { sourceColumn: "created_at_ix", targetColumn: "ix" }, archivedTransaction: { sourceColumn: "archived_at_ix", targetColumn: "ix" }, exercises: { sourceColumn: "contract_id", targetColumn: "contract_id" } },
+    __contract_tpe: { contracts: { sourceColumn: "pk", targetColumn: "tpe_pk" }, exercises: { sourceColumn: "pk", targetColumn: "contract_tpe_pk" } },
+    __events: { transaction: { sourceColumn: "tx_ix", targetColumn: "ix" }, exercises: { sourceColumn: "pk", targetColumn: "exercise_event_pk" } },
+    __exercises: { exerciseType: { sourceColumn: "tpe_pk", targetColumn: "pk" }, contractType: { sourceColumn: "contract_tpe_pk", targetColumn: "pk" }, event: { sourceColumn: "exercise_event_pk", targetColumn: "pk" }, transaction: { sourceColumn: "exercised_at_ix", targetColumn: "ix" }, package: { sourceColumn: "package_pk", targetColumn: "pk" }, contract: { sourceColumn: "contract_id", targetColumn: "contract_id" } },
+    __exercise_tpe: { exercises: { sourceColumn: "pk", targetColumn: "tpe_pk" } },
+    __packages: { exercises: { sourceColumn: "pk", targetColumn: "package_pk" } },
+    __transactions: { events: { sourceColumn: "ix", targetColumn: "tx_ix" }, createdContracts: { sourceColumn: "ix", targetColumn: "created_at_ix" }, archivedContracts: { sourceColumn: "ix", targetColumn: "archived_at_ix" }, exercises: { sourceColumn: "ix", targetColumn: "exercised_at_ix" } },
 };
 
-const pqsJsonFields: Readonly<Partial<Record<PqsRelation, readonly string[]>>> = {
-    __contracts: ["payload"],
-    __exercises: ["argument", "result"],
-    __transactions: ["traceContext"],
-};
+export const pqsRelationEdges: Readonly<Partial<Record<PqsRelation, Readonly<Record<string, PqsRelationEdge>>>>> = Object.fromEntries(
+    requiredPqsRelations.map((relation) => [relation, Object.fromEntries(
+        Object.entries(queryRelationEdges[queryRelationByPqsRelation[relation]] ?? {}).map(([name, edge]) => {
+            const columns = pqsEdgeColumns[relation]?.[name];
 
-const pqsBucketFields: Readonly<Partial<Record<PqsRelation, readonly string[]>>> = {
-    __transactions: ["effectiveAt"],
-};
+            if (columns === undefined) {
+                throw new Error(`Missing physical PQS edge mapping for ${relation}.${name}`);
+            }
+
+            return [name, { target: pqsRelationByQueryRelation[edge.target], ...columns, cardinality: edge.cardinality, nullable: edge.nullable }];
+        }),
+    )]),
+);
 
 export interface PqsRelationMetadata {
     readonly fields: Readonly<Record<string, string>>;
@@ -76,16 +84,24 @@ export interface PqsRelationMetadata {
     readonly stringFields?: readonly string[];
 }
 
-export const pqsRelationMetadata: Readonly<Record<PqsRelation, PqsRelationMetadata>> = {
-    __contracts: { fields: {}, uniqueKeys: [["contractId"]], numericFields: ["createdEventOffset", "archivedEventOffset"], arrayFields: ["witnesses"], dateFields: ["createdAt", "archivedAt"], binaryFields: [] },
-    __contract_tpe: { fields: { pk: "pk", payloadType: "payload_type", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn" }, uniqueKeys: [["pk"]], numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [] },
-    __events: { fields: { pk: "pk", txIx: "tx_ix", eventId: "event_id", type: "type" }, uniqueKeys: [["pk"]], numericFields: ["pk", "txIx"], arrayFields: [], dateFields: [], binaryFields: [], stringFields: ["eventId", "type"] },
-    __exercises: { fields: { tpePk: "tpe_pk", contractTpePk: "contract_tpe_pk", exerciseEventPk: "exercise_event_pk", exercisedAtIx: "exercised_at_ix", contractId: "contract_id", argument: "argument", result: "result", redactionId: "redaction_id", packagePk: "package_pk", controllers: "controllers", lastDescendantNodeId: "last_descendant_node_id", witnesses: "witnesses" }, uniqueKeys: [], numericFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk", "lastDescendantNodeId"], arrayFields: ["controllers", "witnesses"], dateFields: [], binaryFields: [] },
-    __exercise_tpe: { fields: { pk: "pk", choice: "choice", consuming: "consuming", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn", choiceFqn: "choice_fqn" }, uniqueKeys: [["pk"]], numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [] },
-    __packages: { fields: { pk: "pk", name: "name", version: "version", id: "id" }, uniqueKeys: [["pk"], ["id"]], numericFields: ["pk"], arrayFields: [], dateFields: [], binaryFields: [], stringFields: ["name", "version", "id"] },
-    __transactions: { fields: { ix: "ix", offset: "offset", transactionId: "transaction_id", effectiveAt: "effective_at", workflowId: "workflow_id", domainId: "domain_id", traceContext: "trace_context", externalTransactionHash: "external_transaction_hash", paidTrafficCost: "paid_traffic_cost" }, uniqueKeys: [["ix"], ["offset"]], numericFields: ["ix", "offset", "paidTrafficCost"], arrayFields: [], dateFields: ["effectiveAt"], binaryFields: ["externalTransactionHash"] },
-    __watermark: { fields: { singleton: "singleton", ix: "ix", offset: "offset", instanceId: "instance_id" }, uniqueKeys: [["singleton"]], numericFields: ["ix", "offset"], arrayFields: [], dateFields: [], binaryFields: [] },
+const pqsFields: Readonly<Record<PqsRelation, Readonly<Record<string, string>>>> = {
+    __contracts: {},
+    __contract_tpe: { pk: "pk", payloadType: "payload_type", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn" },
+    __events: { pk: "pk", txIx: "tx_ix", eventId: "event_id", type: "type" },
+    __exercises: { tpePk: "tpe_pk", contractTpePk: "contract_tpe_pk", exerciseEventPk: "exercise_event_pk", exercisedAtIx: "exercised_at_ix", contractId: "contract_id", argument: "argument", result: "result", redactionId: "redaction_id", packagePk: "package_pk", controllers: "controllers", lastDescendantNodeId: "last_descendant_node_id", witnesses: "witnesses" },
+    __exercise_tpe: { pk: "pk", choice: "choice", consuming: "consuming", aliases: "aliases", packageName: "package_name", moduleName: "module_name", entityName: "entity_name", templateFqn: "template_fqn", choiceFqn: "choice_fqn" },
+    __packages: { pk: "pk", name: "name", version: "version", id: "id" },
+    __transactions: { ix: "ix", offset: "offset", transactionId: "transaction_id", effectiveAt: "effective_at", workflowId: "workflow_id", domainId: "domain_id", traceContext: "trace_context", externalTransactionHash: "external_transaction_hash", paidTrafficCost: "paid_traffic_cost" },
+    __watermark: { singleton: "singleton", ix: "ix", offset: "offset", instanceId: "instance_id" },
 };
+
+export const pqsRelationMetadata: Readonly<Record<PqsRelation, PqsRelationMetadata>> = Object.fromEntries(
+    requiredPqsRelations.map((relation) => {
+        const logical = queryRelationMetadata[queryRelationByPqsRelation[relation]];
+
+        return [relation, { fields: pqsFields[relation], uniqueKeys: logical.uniqueKeys, numericFields: logical.numericFields, arrayFields: logical.arrayFields, dateFields: logical.dateFields, binaryFields: logical.binaryFields, stringFields: logical.stringFields }];
+    }),
+) as Record<PqsRelation, PqsRelationMetadata>;
 
 export const requiredPqsColumns: Readonly<
     Record<PqsRelation, readonly string[]>
@@ -173,11 +189,11 @@ export class PqsSchemaProfileV1 {
     }
 
     public static jsonField(relation: PqsRelation, field: string): boolean {
-        return pqsJsonFields[relation]?.includes(field) ?? false;
+        return queryRelationMetadata[queryRelationByPqsRelation[relation]].jsonFields.includes(field);
     }
 
     public static bucketField(relation: PqsRelation, field: string): boolean {
-        return pqsBucketFields[relation]?.includes(field) ?? false;
+        return queryRelationMetadata[queryRelationByPqsRelation[relation]].bucketFields.includes(field);
     }
 }
 
