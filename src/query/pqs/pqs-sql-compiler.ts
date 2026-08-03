@@ -37,7 +37,7 @@ export function compileContractFindMany(
 
     const offsetSql = query.skip === 0 ? "" : `offset ${addValue(query.skip)}`;
 
-    const included = compileCanonicalProfileIncludes("__contracts", "contract_row", query.includes, profile, addValue);
+    const included = compileCanonicalPhysicalIncludes("__contracts", "contract_row", query.includes, profile, addValue);
     const jsonProjection = (query.select?.json ?? []).map((projection) => {
         const text = `contract_row.payload #>> ${addValue(projection.path)}::text[]`;
         const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
@@ -70,12 +70,11 @@ ${offsetSql}`,
     };
 }
 
-function compileCanonicalProfileIncludes(source: PqsRelation, parentAlias: string, includes: readonly NormalizedInclude[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): readonly string[] {
+export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlias: string, includes: readonly NormalizedInclude[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): readonly string[] {
     return includes.map((include) => {
         const edge = pqsRelationEdges[source]?.[include.edge];
         if (edge === undefined || edge.target !== pqsRelation(include.relation)) throw new Error(`Invalid canonical include ${include.edge}`);
         const alias = `"${include.edge}"`;
-        const nested = compileCanonicalProfileIncludes(edge.target, alias, include.includes, profile, add);
         const fields = compileCanonicalIncludedFields(edge.target, include.select, alias, profile);
         const json = (include.select?.json ?? []).flatMap((projection) => {
             const column = edge.target === "__contracts" ? projection.field === "payload" ? "payload" : undefined : pqsRelationMetadata[edge.target].fields[projection.field];
@@ -84,6 +83,7 @@ function compileCanonicalProfileIncludes(source: PqsRelation, parentAlias: strin
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             return [`'${projection.name}'`, expression];
         });
+        const nested = compileCanonicalPhysicalIncludes(edge.target, alias, include.includes, profile, add);
         const nestedFields = nested.flatMap((selection) => {
             const match = /^(.*) as "([^"]+)"$/.exec(selection);
             return match === null ? [] : [`'${match[2]}'`, match[1]];
