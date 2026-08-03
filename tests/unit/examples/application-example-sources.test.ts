@@ -2619,7 +2619,11 @@ describe("application example source contracts", () => {
             "comDigitalasset.canton.admin.pruning.v30.GetParticipantScheduleRequest.create()",
         );
         expect(workflowSource).toMatch(
-            /comDigitalasset\.canton\.admin\.participant\.v30\.GetSafePruningOffsetRequest\.create\(\s*\{\s*ledgerEnd:\s*\w+\.text,?\s*\}\s*\)/s,
+            /comDigitalasset\.canton\.admin\.participant\.v30\.GetSafePruningOffsetRequest\.create\(\s*\{\s*beforeOrAt:\s*createCurrentPruningTimestamp\(dependencies\.now\),\s*ledgerEnd:\s*\w+\.text,?\s*\}\s*\)/s,
+        );
+        expect(workflowSource).toContain("readonly now: () => Date;");
+        expect(workflowSource).not.toContain(
+            "counterParticipantsCommitmentsState:",
         );
         expect([
             ...workflowSource.matchAll(/createRequestOptions\(\)/g),
@@ -2667,6 +2671,9 @@ describe("application example source contracts", () => {
         expect(workflowDocumentation).toContain("all-divulged");
         expect(workflowDocumentation).toContain("schedule");
         expect(workflowDocumentation).toContain("safe-pruning");
+        expect(workflowDocumentation).toContain("beforeOrAt");
+        expect(workflowDocumentation).toContain("current timestamp");
+        expect(workflowDocumentation).toContain("commitment-state");
         expect(workflowDocumentation).toContain("3.5.7");
         expect(workflowDocumentation).toContain("3.5.8");
     });

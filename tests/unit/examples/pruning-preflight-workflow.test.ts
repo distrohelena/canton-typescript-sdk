@@ -46,6 +46,7 @@ describe("pruning preflight workflow", () => {
             comDigitalasset.canton.admin.pruning.v30.GetScheduleRequest.create(),
             comDigitalasset.canton.admin.pruning.v30.GetParticipantScheduleRequest.create(),
             comDigitalasset.canton.admin.participant.v30.GetSafePruningOffsetRequest.create({
+                beforeOrAt: { seconds: "1700000000", nanos: 123_000_000 },
                 ledgerEnd: "50",
             }),
         ]);
@@ -91,6 +92,23 @@ describe("pruning preflight workflow", () => {
         expect(trace).toEqual(["deadline", "before", "ledger-end", "after"]);
     });
 
+    it("rejects an invalid injected current timestamp before the safe-pruning read", async () => {
+        const trace: string[] = [];
+
+        await expect(runPruningPreflightWorkflowAsync(createDependencies({
+            trace,
+            now: () => new Date(Number.NaN),
+        }))).rejects.toThrow(/current timestamp/i);
+        expect(trace).toEqual([
+            "deadline",
+            "before",
+            "ledger-end",
+            "after",
+            "schedule",
+            "participant-schedule",
+        ]);
+    });
+
     it("preserves a primary workflow error when established runner disposal also fails", async () => {
         const { runClientWorkflowWithDisposalAsync } = await import(
             "../../../examples/shared/update-stream-lifecycle.js"
@@ -127,6 +145,7 @@ function createDependencies(init: {
     readonly ledgerEnd?: string;
     readonly afterParticipant?: string;
     readonly afterAllDivulged?: string;
+    readonly now?: () => Date;
 } = {}): PruningPreflightWorkflowDependencies {
     const trace = init.trace ?? [];
 
@@ -213,6 +232,7 @@ function createDependencies(init: {
             });
         },
         timeoutMs: () => 100,
+        now: init.now ?? (() => new Date(1_700_000_000_123)),
         logger: { log: message => init.logs?.push(message) },
     };
 }

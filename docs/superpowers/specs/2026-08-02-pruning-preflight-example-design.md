@@ -38,6 +38,7 @@ The public surface is sufficient without a new SDK export:
   participant-admin calls.
 - `client.pruningService.getSafePruningOffsetAsync(
   comDigitalasset.canton.admin.participant.v30.GetSafePruningOffsetRequest.create({
+  beforeOrAt,
   ledgerEnd,
   }), options)` exposes an explicit generated oneof.
 
@@ -100,7 +101,15 @@ participant-admin reads with fresh deadline options:
 
 1. schedule (`GetScheduleRequest.create()`),
 2. participant schedule (`GetParticipantScheduleRequest.create()`), and
-3. safe pruning (`GetSafePruningOffsetRequest.create({ ledgerEnd })`).
+3. safe pruning (`GetSafePruningOffsetRequest.create({ beforeOrAt, ledgerEnd })`).
+
+`beforeOrAt` is a current `google.protobuf.Timestamp` generated from an
+injected clock. The helper requires a valid `Date` in the protobuf Timestamp
+range and derives exact integral `seconds` and `nanos`; invalid clocks fail
+before the safe-pruning call. The request deliberately leaves
+`counterParticipantsCommitmentsState` absent. This same request shape is used
+unchanged on both 3.5.7 and 3.5.8: both require the timestamp as well as the
+saved ledger-end snapshot.
 
 The helper normalizes these into bounded context:
 
@@ -139,10 +148,11 @@ integers; all monotonicity/range failures; inclusive precedence;
 cover absent schedules, participant `pruneInternallyOnly`, each safe-pruning
 oneof, invalid safe offsets, and prove context cannot alter classification.
 Workflow tests prove exactly one deadline, fresh options, exact authoritative
-call order, context only afterward, generated factories, no retry, bounded
-output, and disposal primary-error safety. Source contracts prohibit version
-branches, JSON transport, mutations, update lookup, DAR, party allocation, and
-raw numeric comparison.
+call order, context only afterward, generated factories including the
+validated injected current timestamp and absent commitment state, no retry,
+bounded output, and disposal primary-error safety. Source contracts prohibit
+version branches, JSON transport, mutations, update lookup, DAR, party
+allocation, and raw numeric comparison.
 
 Live evidence is an eight-row sanitized matrix: 3.5.7 and 3.5.8, each with a
 default-target run and an independently selected explicit-target run. Both
