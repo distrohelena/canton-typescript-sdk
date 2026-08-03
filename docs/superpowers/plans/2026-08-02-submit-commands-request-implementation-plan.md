@@ -179,6 +179,7 @@ rtk git commit -m "feat: add plural command submission request"
 - Modify: `tests/unit/grpc/grpc-interactive-command-mapper.test.ts`
 - Modify: `tests/unit/json/json-command-submission.test.ts`
 - Modify: `tests/unit/services/command-payload-builder.test.ts`
+- Modify: `tests/unit/grpc/grpc-command-runtime.test.ts`
 
 - [ ] **Step 1: Write failing ordered-batch mapper tests**
 
@@ -196,10 +197,12 @@ expect(payload).toMatchObject({
 expect(payload).not.toHaveProperty("command");
 ```
 
+In `grpc-command-runtime.test.ts`, add the two-command interactive preparation assertion before changing production code. Capture the generated `PrepareSubmissionRequest` and require both mapped commands in original order; also require `PreparedCommandSubmission.request.commands` to retain the same two command objects.
+
 - [ ] **Step 2: Run RED**
 
 ```bash
-rtk proxy npx vitest run tests/unit/grpc/grpc-commands-mapper.test.ts tests/unit/grpc/grpc-interactive-command-mapper.test.ts tests/unit/json/json-command-submission.test.ts tests/unit/services/command-payload-builder.test.ts --maxWorkers=1 --testTimeout=15000
+rtk proxy npx vitest run tests/unit/grpc/grpc-commands-mapper.test.ts tests/unit/grpc/grpc-interactive-command-mapper.test.ts tests/unit/grpc/grpc-command-runtime.test.ts tests/unit/json/json-command-submission.test.ts tests/unit/services/command-payload-builder.test.ts --maxWorkers=1 --testTimeout=15000
 ```
 
 Expected: the current singleton mappers expose one command or still require the singular request.
@@ -237,7 +240,7 @@ rtk git diff --check
 - [ ] **Step 5: Commit**
 
 ```bash
-rtk git add src/core/types/requests/submit-commands-request.ts src/core/types/requests/submit-command-request.ts src/core/types/prepared-command-submission.ts src/core/transports/transport.interface.ts src/index.ts src/services/command/command-service-client.ts src/services/command-submission/command-submission-service-client.ts src/services/commands/command-submission-pipeline.ts src/services/commands/command-payload-builder.ts src/client/service-registry.ts src/transports/grpc/grpc-transport.ts src/transports/grpc/mappers/commands-mapper.ts src/transports/grpc/mappers/interactive-command-mapper.ts src/transports/json/json-transport.ts src/transports/json/mappers/commands-mapper.ts src/testing/runtime/declarative-action-executor.ts tests/unit/grpc/grpc-commands-mapper.test.ts tests/unit/grpc/grpc-interactive-command-mapper.test.ts tests/unit/json/json-command-submission.test.ts tests/unit/services/command-payload-builder.test.ts
+rtk git add src/core/types/requests/submit-commands-request.ts src/core/types/requests/submit-command-request.ts src/core/types/prepared-command-submission.ts src/core/transports/transport.interface.ts src/index.ts src/services/command/command-service-client.ts src/services/command-submission/command-submission-service-client.ts src/services/commands/command-submission-pipeline.ts src/services/commands/command-payload-builder.ts src/client/service-registry.ts src/transports/grpc/grpc-transport.ts src/transports/grpc/mappers/commands-mapper.ts src/transports/grpc/mappers/interactive-command-mapper.ts src/transports/json/json-transport.ts src/transports/json/mappers/commands-mapper.ts src/testing/runtime/declarative-action-executor.ts tests/unit/grpc/grpc-commands-mapper.test.ts tests/unit/grpc/grpc-interactive-command-mapper.test.ts tests/unit/grpc/grpc-command-runtime.test.ts tests/unit/json/json-command-submission.test.ts tests/unit/services/command-payload-builder.test.ts
 rtk git commit -m "feat: migrate SDK to atomic command batches"
 ```
 
@@ -248,9 +251,9 @@ rtk git commit -m "feat: migrate SDK to atomic command batches"
 **Files:**
 - Modify all directly corresponding unit tests under `tests/unit/services`, `tests/unit/grpc`, `tests/unit/signing`, and `tests/unit/testing`.
 
-- [ ] **Step 1: Establish RED with the migrated client/pipeline tests**
+- [ ] **Step 1: Capture the consumer-migration RED before editing those tests**
 
-Mechanically migrate the selected client, pipeline, signing, and declarative-action tests to `SubmitCommandsRequest({ commands: [...] })` before production signatures. Add an assertion that `PreparedCommandSubmission.request.commands` retains both original commands after `prepareAsync`.
+After Task 2 deletes the singular request, run the selected client, pipeline, signing, and declarative-action suites without editing them first.
 
 Run:
 
@@ -258,11 +261,11 @@ Run:
 rtk proxy npx vitest run tests/unit/services/command-submission-pipeline.test.ts tests/unit/services/grpc-command-signing.test.ts tests/unit/services/json-command-signing-not-supported.test.ts tests/unit/signing/interactive-command-signing-contracts.test.ts tests/unit/testing/declarative-action-executor.test.ts tests/unit/grpc/grpc-command-runtime.test.ts --maxWorkers=1 --testTimeout=15000
 ```
 
-Expected: module or construction failures because these consumers still import or instantiate the deleted singular request.
+Expected: module/import failures because these consumers still import or instantiate the deleted singular request. This is an explicit migration inventory; the two-command preparation behavior was already driven RED-first in Task 2.
 
 - [ ] **Step 2: Migrate every selected consumer**
 
-Replace imports, annotations, and constructors with `SubmitCommandsRequest({ commands: [...] })`. Add the two-command prepared-submission assertion without changing signing behavior.
+Replace imports, annotations, and constructors with `SubmitCommandsRequest({ commands: [...] })` without changing signing behavior.
 
 - [ ] **Step 3: Run GREEN, build, and transport surface checks**
 
@@ -288,8 +291,30 @@ rtk git commit -m "refactor: migrate command submission surface"
 **Files:**
 - Modify remaining files under `tests/integration`, `tests/contract`, `tests/live`, `tests/unit`, `examples/shared`, and `examples` containing the old identifier or module path.
 - Modify: `tests/unit/public/submit-commands-public-surface.test.ts`
+- Create: `tests/unit/public/submit-commands-source-guard.ts`
 
-- [ ] **Step 1: Capture the migration RED inventory**
+- [ ] **Step 1: Write controlled failing tests for the absence guard**
+
+Before removing the remaining consumer references, extend `submit-commands-public-surface.test.ts` to import `findRemovedSubmitCommandUsages` from the not-yet-created test helper and prove it reports each controlled violation independently:
+
+```ts
+expect(scan("const x: SubmitCommandRequest = value")).toContain("SubmitCommandRequest");
+expect(scan('from "./submit-command-request.js"')).toContain("submit-command-request");
+expect(scan("request.command")).toContain("request.command");
+expect(scan("request.commands\nrequest.commandId")).toEqual([]);
+```
+
+Run:
+
+```bash
+rtk proxy npx vitest run tests/unit/public/submit-commands-public-surface.test.ts --maxWorkers=1 --testTimeout=15000
+```
+
+Expected: failure because `submit-commands-source-guard.ts` does not exist.
+
+- [ ] **Step 2: Implement the exact test-only scanner and capture migration inventory**
+
+Create the helper with exact identifier/module-token checks and TypeScript AST property-access checks. Make the controlled tests pass before applying it to repository files.
 
 Run:
 
@@ -300,7 +325,7 @@ rtk npm run examples:check
 
 Expected: remaining old test/example/document references and example typecheck failures.
 
-- [ ] **Step 2: Migrate all singleton callers mechanically**
+- [ ] **Step 3: Migrate all singleton callers mechanically**
 
 For every ordinary caller, apply only this semantic rewrite:
 
@@ -316,24 +341,24 @@ new SubmitCommandsRequest({ commands: [command] })
 
 Migrate typed arrays, fixture return types, transport mocks, callback annotations, live-fuzz fixtures, and contract/integration imports. Preserve each caller's command order and existing behavior. Do not add compatibility casts.
 
-- [ ] **Step 3: Implement the exact absence guard**
+- [ ] **Step 4: Apply the proven absence guard to the repository**
 
-At this stage, the public-surface test recursively reads handwritten `src`, `examples`, and `tests`, excluding generated protobufs and historical spec/plan docs. Use TypeScript AST for property access and fail only when the property identifier is exactly `command` on an expression whose static source text is `request` or a known `SubmitCommandsRequest` variable. Separately search exact identifier/module-path tokens. Task 6 extends the guard to README and `DOCUMENTATION.md` after their deliberate migration.
+At this stage, the public-surface test runs the already-proven helper across handwritten `src`, `examples`, and `tests`, excluding generated protobufs and historical spec/plan docs. Task 6 extends the guard to README and `DOCUMENTATION.md` after their deliberate migration.
 
 Require the packed/root API to export `SubmitCommandsRequest` and `NonEmptyLedgerCommands` in declarations and not export `SubmitCommandRequest`.
 
-- [ ] **Step 4: Run GREEN across migrated consumers**
+- [ ] **Step 5: Run GREEN across every migrated consumer before committing**
 
 ```bash
 rtk npm run examples:check
-rtk proxy npx vitest run tests/unit/public/submit-commands-public-surface.test.ts tests/integration/grpc/grpc-transport.integration.test.ts tests/integration/json/json-transport.integration.test.ts tests/contract/shared/command-submission.grpc.contract.test.ts tests/unit/examples/application-fixture.test.ts tests/unit/live/live-stateful-fuzzing.test.ts --maxWorkers=1 --testTimeout=15000
+rtk proxy npx vitest run tests/unit/public/submit-commands-public-surface.test.ts tests/integration/grpc/grpc-transport.integration.test.ts tests/integration/json/json-transport.integration.test.ts tests/contract/shared/command-submission.grpc.contract.test.ts tests/live/specs/live-stateful-fuzzing.test.ts tests/unit/examples/application-fixture.test.ts tests/unit/examples/archive-and-stale-contract-workflow.test.ts tests/unit/examples/contract-lifecycle-audit-workflow.test.ts tests/unit/examples/update-lookup-reconciliation-workflow.test.ts tests/unit/live/live-stateful-fuzzing.test.ts --maxWorkers=1 --testTimeout=15000
 rtk rg -n 'SubmitCommandRequest|submit-command-request' src examples tests
 rtk git diff --check
 ```
 
 Expected: tests pass and `rg` returns no matches.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 Stage all migrated consumer and absence-guard files, then:
 
