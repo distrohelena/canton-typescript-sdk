@@ -2412,7 +2412,7 @@ describe("application example source contracts", () => {
         ).toBe(
             "npm run build && node --loader ts-node/esm examples/95-contract-lifecycle-audit.ts",
         );
-        expect(readme).toContain("The seven workflow examples are standalone proofs");
+        expect(readme).toContain("The eight stateful workflow examples are standalone proofs");
         expect(readme).toContain("npm run example:workflow:contract-lifecycle-audit");
         expect(workflowDocumentation).toContain("standalone");
         expect(workflowDocumentation).toContain("gRPC-only");
@@ -2581,7 +2581,7 @@ describe("application example source contracts", () => {
         ).toBe(
             "npm run build && node --loader ts-node/esm examples/96-update-lookup-reconciliation.ts",
         );
-        expect(readme).toContain("The seven workflow examples are standalone proofs");
+        expect(readme).toContain("The eight stateful workflow examples are standalone proofs");
         expect(readme).toContain("npm run example:workflow:update-lookup-reconciliation");
         expect(workflowDocumentation).toContain("standalone");
         expect(workflowDocumentation).toContain("gRPC-only");

@@ -132,7 +132,7 @@ npm run example:topology:party-hosting
 
 ### Workflow examples
 
-The seven workflow examples are standalone proofs, not a sequence:
+The eight stateful workflow examples are standalone proofs, not a sequence:
 each uploads or verifies the fixture DAR, resolves a party, reads the
 participant status, and creates its own run-scoped data. First make a Canton
 participant available and verify the source with `npm run examples:check`; the
@@ -152,7 +152,7 @@ npm run example:workflow:pruning-preflight
 npm run example:workflow:participant-local
 ```
 
-Those seven established stateful workflows intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
+Those eight established stateful workflows intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
 causes fallback party allocation, which creates durable topology state; every
 one also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
 party to rerun the established workflows against that party and avoid fallback
@@ -204,7 +204,7 @@ The update-lookup reconciliation workflow (`npm run example:workflow:update-look
 
 The pruning-preflight workflow (`npm run example:workflow:pruning-preflight`) is a standalone gRPC-only, read-only operator check. It requires `SDK_EXAMPLE_OFFSET` to be a canonical positive decimal integer and uses the normal endpoint, authentication, and timeout variables: `SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`, `SDK_EXAMPLE_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`, and `SDK_EXAMPLE_TIMEOUT_MS`. The participant-admin credential is required for the schedule and safe-pruning context reads. Its safe-pruning context request sends the saved ledger end and a validated current timestamp encoded in `beforeOrAt`; it leaves commitment-state absent. It does not mutate the participant or create durable state: no party, DAR, command, update query, schedule change, or pruning request is made. The later participant watermark classifies the supplied offset as `alreadyPruned`, `beyondLedgerEnd`, or `notObservedPruned`; all-divulged watermarks and schedule/safe-pruning context are reported separately and do not alter that result. `notObservedPruned` is not proven queryable, because pruning can race after the later observation and other query preconditions can still fail. The unchanged implementation is supported on Participant 3.5.7 and the isolated Participant 3.5.8 sidecar.
 
-Each of the seven established stateful workflows prints its actor plus the full participant version returned by the
+Each of the eight established stateful workflows prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
 `Participant version:`, `Release core:`, and `Compatibility path:`. The current
 stateful-workflow implementation uses one common-code path for release cores 3.5.7 and 3.5.8. It
@@ -232,7 +232,7 @@ request and is not a retry proof. The resume example treats the saved offset as
 exclusive, so its resumed stream must observe only updates after the saved
 ledger end.
 
-The seven established stateful workflow sources and unit contracts were developed
+The eight established stateful workflow sources and unit contracts were developed
 and live-tested against authenticated Participant 3.5.7 and the isolated
 Participant 3.5.8. Both final-tree matrices selected the same unchanged implementation and common
 compatibility path. The normalized outcome comparison is identical: atomic
@@ -240,7 +240,7 @@ reports `invalidChoice` before its replacement proof, retry reports
 `duplicateCommand` with one active contract, resume reports `idle-timeout` and
 a post-offset update, and stale-contract reports `staleContract`.
 
-For those seven established stateful workflows, the best multi-version path reads the authenticated full version, parses its
+For those eight established stateful workflows, the best multi-version path reads the authenticated full version, parses its
 release core, and uses data-only structured compatibility for observed
 outcomes. A behavioral difference is introduced only after live proof; it is
 never inferred from a container tag, endpoint, or prose error message. For the

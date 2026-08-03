@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+    CommandServiceClient,
     CreateAndExerciseCommand,
     CreateCommand,
     DamlRecord,
@@ -7,6 +8,7 @@ import {
     DamlParty,
     ExerciseByKeyCommand,
     ExerciseCommand,
+    RequestOptions,
     SubmitCommandsRequest,
 } from "../../../src";
 import {
@@ -297,5 +299,65 @@ describe("json command submission mapper", () => {
         });
 
         expect(response.transactionId).toBe("tx-1");
+    });
+
+    it("submits participant-local commands through ordinary JSON without signing", async () => {
+        const postAsync = vi.fn(async () => ({
+            result: {
+                commandId: "cmd-local-json",
+                updateId: "tx-local-json",
+            },
+        }));
+
+        const signAsync = vi.fn(async () => {
+            throw new Error("external signer must not be called");
+        });
+
+        const client = new CommandServiceClient(
+            new JsonTransport({
+                getAsync: async () => {
+                    throw new Error("not used");
+                },
+                postAsync,
+            }),
+            { signAsync },
+        );
+
+        const request = new SubmitCommandsRequest({
+            applicationId: "app-local-json",
+            actAs: ["Alice"],
+            commandId: "cmd-local-json",
+            commands: [new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({ issuer: "Alice" }),
+            })],
+        });
+
+        const options = new RequestOptions({ timeoutMs: 250 });
+
+        const result = await client.submitParticipantLocalAndWaitAsync(request, options);
+
+        expect(result).toMatchObject({
+            commandId: "cmd-local-json",
+            transactionId: "tx-local-json",
+        });
+        expect(postAsync).toHaveBeenCalledOnce();
+        expect(postAsync).toHaveBeenCalledWith(
+            "/v2/commands/submit-and-wait",
+            {
+                commandId: "cmd-local-json",
+                actAs: ["Alice"],
+                readAs: [],
+                commands: [{
+                    CreateCommand: {
+                        templateId: "Main:Iou",
+                        createArguments: { issuer: "Alice" },
+                    },
+                }],
+                applicationId: "app-local-json",
+            },
+            options,
+        );
+        expect(signAsync).not.toHaveBeenCalled();
     });
 });
