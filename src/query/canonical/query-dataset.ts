@@ -171,6 +171,16 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
             if (definition.cardinality === "one" && [...buckets.values()].some((targets) => targets.length > 1)) {
                 throw new Error(`Dataset ${relation}.${edge} has multiple to-one targets`);
+            } else if (definition.cardinality === "one" && !definition.nullable) {
+                for (const [index, source] of rows.entries()) {
+                    const values = lookup.privateKeys === undefined
+                        ? lookup.from!.map((path) => atPath(source, path))
+                        : lookup.privateKeys.source[index]!;
+
+                    if (values.some((value) => value === null || value === undefined) || !buckets.has(compositeKey(values))) {
+                        throw new Error(`Dataset ${relation}.${edge} has no target`);
+                    }
+                }
             }
 
             relationIndexes.set(edge, { targets: new Map([...buckets.entries()].map(([key, targets]) => [key, Object.freeze(targets)])), ...(sourcePrivateKeys === undefined ? {} : { sourcePrivateKeys }) });

@@ -118,6 +118,7 @@ describe("createQueryDataset", () => {
             ...input.rows,
             contracts: [{ ...input.rows.contracts[0]!, packageId: "creation-package" }],
             contractTypes: [{ ...input.rows.contractTypes[0]!, packageName: "representative-package" }],
+            exercises: [],
         };
         (input.edges.contracts as Record<string, unknown>).contractType = {
             privateKeys: {
@@ -154,7 +155,7 @@ describe("createQueryDataset", () => {
     it("permits empty private joins and resolves private keys from raw precompiled rows", () => {
         const empty = mutableDataset();
 
-        empty.rows = { ...empty.rows, contracts: [], contractTypes: [] };
+        empty.rows = { ...empty.rows, contracts: [], contractTypes: [], exercises: [] };
         (empty.edges.contracts as Record<string, unknown>).contractType = { privateKeys: { source: [], target: [] } };
         (empty.edges.contractTypes as Record<string, unknown>).contracts = { privateKeys: { source: [], target: [] } };
         expect(createQueryDataset(empty)).toBeTruthy();
@@ -165,5 +166,25 @@ describe("createQueryDataset", () => {
             privateKeys: { source: [["pkg-app", "App", "Asset"], ["pkg-app", "App", "Asset"], ["pkg-other", "Other", "Note"]], target: [["pkg-app", "App", "Asset"], ["pkg-other", "Other", "Note"]] },
         };
         expect(relatedQueryRows(raw, "contracts", raw.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ pk: "10" })]);
+    });
+
+    it("rejects missing required to-one targets for public and private edge keys", () => {
+        const missingPublic = mutableDataset();
+
+        missingPublic.rows = {
+            ...missingPublic.rows,
+            contracts: [{ ...missingPublic.rows.contracts[0]!, createdEventOffset: "999" }, ...missingPublic.rows.contracts.slice(1)],
+        };
+        expect(() => createQueryDataset(missingPublic)).toThrow("contracts.createdTransaction has no target");
+
+        const missingPrivate = mutableDataset();
+
+        (missingPrivate.edges.contracts as Record<string, unknown>).contractType = {
+            privateKeys: {
+                source: [["missing"], ["missing"], ["missing"]],
+                target: [["present-one"], ["present-two"]],
+            },
+        };
+        expect(() => createQueryDataset(missingPrivate)).toThrow("contracts.contractType has no target");
     });
 });

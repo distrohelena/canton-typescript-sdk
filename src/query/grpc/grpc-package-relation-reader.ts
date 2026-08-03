@@ -2,7 +2,7 @@ import { CantonError } from "../../core/errors/canton-error.js";
 import { DamlLfPackageLoader } from "../../daml-lf/daml-lf-package-loader.js";
 import { DamlLfTemplate } from "../../daml-lf/model/daml-lf-template.js";
 import { Archive, HashFunction as ArchiveHashFunction } from "../../transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
-import type { GetPackageResponse, ListPackagesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import { HashFunction as PackageServiceHashFunction, type GetPackageResponse, type ListPackagesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { validDottedNameString, validNameString, validPackageIdString } from "./grpc-query-value-mapper.js";
 
 export interface GrpcPackageService {
@@ -98,7 +98,7 @@ export class GrpcPackageRelationReader {
                 throw new Error("Package Service response hash does not match its request");
             } else if (!(response.archivePayload instanceof Uint8Array) || response.archivePayload.length === 0) {
                 throw new Error("Package Service response archive payload is missing");
-            } else if (response.hashFunction !== 0) {
+            } else if (response.hashFunction !== PackageServiceHashFunction.SHA256) {
                 throw new Error("Package Service response uses an unsupported hash function");
             }
 

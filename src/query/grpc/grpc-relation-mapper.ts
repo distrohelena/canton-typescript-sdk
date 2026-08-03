@@ -213,6 +213,8 @@ export function createGrpcQueryDataset(
         throw new ValidationError("gRPC query snapshot instance id is missing");
     }
 
+    validateGrpcPackageMetadata(packages);
+
     const packageById = new Map<string, GrpcPackageMetadata>();
 
     for (const pkg of packages) {
@@ -352,6 +354,144 @@ export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): r
 
 function compareTemplateMetadata(left: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }, right: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }): number {
     return left.package.id.localeCompare(right.package.id) || left.template.moduleName.localeCompare(right.template.moduleName) || left.template.entityName.localeCompare(right.template.entityName);
+}
+
+function validateGrpcPackageMetadata(packages: readonly GrpcPackageMetadata[]): void {
+    if (!Array.isArray(packages)) {
+        throw new ValidationError("gRPC query package metadata is not an array");
+    }
+
+    const packageIds = new Set<string>();
+
+    const packageNameVersions = new Set<string>();
+
+    for (const pkg of packages) {
+        if (pkg === null || typeof pkg !== "object") {
+            throw new ValidationError("gRPC query package metadata is invalid");
+        }
+
+        const packageId = packageText((pkg as Partial<GrpcPackageMetadata>).id, "id");
+
+        validPackageIdString(packageId, "package metadata id");
+
+        const packageName = packageText((pkg as Partial<GrpcPackageMetadata>).name, "name");
+
+        const packageVersion = packageText((pkg as Partial<GrpcPackageMetadata>).version, "version");
+
+        if (packageIds.has(packageId)) {
+            throw new ValidationError(`gRPC query has duplicate package metadata ${packageId}`);
+        }
+
+        packageIds.add(packageId);
+
+        const nameVersion = `${packageName}\u0000${packageVersion}`;
+
+        if (packageNameVersions.has(nameVersion)) {
+            throw new ValidationError(`gRPC query has duplicate package metadata ${packageName}@${packageVersion}`);
+        }
+
+        packageNameVersions.add(nameVersion);
+
+        const templates = (pkg as Partial<GrpcPackageMetadata>).templates;
+
+        if (!Array.isArray(templates)) {
+            throw new ValidationError(`gRPC query package ${packageId} templates are invalid`);
+        }
+
+        const templateIdentities = new Set<string>();
+
+        for (const template of templates) {
+            validatePackageTemplate(packageId, packageName, template, templateIdentities);
+        }
+    }
+}
+
+function validatePackageTemplate(packageId: string, packageName: string, template: unknown, identities: Set<string>): void {
+    if (template === null || typeof template !== "object") {
+        throw new ValidationError(`gRPC query package ${packageId} template is invalid`);
+    }
+
+    const value = template as Partial<GrpcPackageMetadata["templates"][number]>;
+
+    const moduleName = dottedPackageName(value.moduleName, `package ${packageId} template module`);
+
+    const entityName = dottedPackageName(value.entityName, `package ${packageId} template entity`);
+
+    const identity = templateIdentity(packageId, moduleName, entityName);
+
+    if (identities.has(identity)) {
+        throw new ValidationError(`gRPC query has duplicate DAML-LF template ${identity}`);
+    }
+
+    identities.add(identity);
+
+    if (value.payloadType !== "template") {
+        throw new ValidationError(`gRPC query package ${packageId} template payload type is invalid`);
+    }
+
+    exactAlias(value.aliases, `${moduleName}:${entityName}`, `package ${packageId} template`);
+    exactText(value.templateFqn, `${packageName}:${moduleName}:${entityName}`, `package ${packageId} template FQN`);
+
+    if (!Array.isArray(value.choices)) {
+        throw new ValidationError(`gRPC query package ${packageId} template choices are invalid`);
+    }
+
+    const choiceNames = new Set<string>();
+
+    for (const choice of value.choices) {
+        if (choice === null || typeof choice !== "object") {
+            throw new ValidationError(`gRPC query package ${packageId} choice is invalid`);
+        }
+
+        const choiceValue = choice as Partial<GrpcPackageMetadata["templates"][number]["choices"][number]>;
+
+        if (typeof choiceValue.choice !== "string") {
+            throw new ValidationError(`gRPC query package ${packageId} choice name is invalid`);
+        }
+
+        validNameString(choiceValue.choice, `package ${packageId} choice name`);
+
+        if (choiceNames.has(choiceValue.choice)) {
+            throw new ValidationError(`gRPC query has duplicate DAML-LF choice ${packageId}:${moduleName}:${entityName}:${choiceValue.choice}`);
+        }
+
+        choiceNames.add(choiceValue.choice);
+
+        if (typeof choiceValue.consuming !== "boolean") {
+            throw new ValidationError(`gRPC query package ${packageId} choice consuming flag is invalid`);
+        }
+
+        exactAlias(choiceValue.aliases, `${moduleName}:${entityName}:${choiceValue.choice}`, `package ${packageId} choice`);
+        exactText(choiceValue.choiceFqn, `${packageName}:${moduleName}:${entityName}:${choiceValue.choice}`, `package ${packageId} choice FQN`);
+    }
+}
+
+function packageText(value: unknown, name: string): string {
+    if (typeof value !== "string" || value.length === 0 || /[:\u0000-\u001F\u007F]/.test(value)) {
+        throw new ValidationError(`gRPC query package metadata ${name} is invalid`);
+    }
+
+    return value;
+}
+
+function dottedPackageName(value: unknown, name: string): string {
+    if (typeof value !== "string") {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
+    }
+
+    return validDottedNameString(value, name);
+}
+
+function exactAlias(value: unknown, expected: string, name: string): void {
+    if (!Array.isArray(value) || value.length !== 1 || value[0] !== expected) {
+        throw new ValidationError(`gRPC query ${name} aliases are invalid`);
+    }
+}
+
+function exactText(value: unknown, expected: string, name: string): void {
+    if (value !== expected) {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
+    }
 }
 
 function templateIdentity(packageId: string, moduleName: string, entityName: string): string {

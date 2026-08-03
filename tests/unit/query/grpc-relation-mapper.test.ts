@@ -343,13 +343,43 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(dataset.edges.contracts!.contractType!.privateKeys).toEqual({ source: [], target: [] });
         expect(dataset.sourceLocalKeys.exercises).toEqual([["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]]);
     });
+
+    it.each([
+        ["invalid package id", { id: "bad!" }],
+        ["colon in package name", { name: "bad:name" }],
+        ["control in package version", { version: "1\n0" }],
+        ["missing templates", { templates: undefined }],
+        ["non-template payload", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, payloadType: "record" }] }],
+        ["wrong template alias", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, aliases: ["wrong"] }] }],
+        ["package-id qualified template FQN", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, templateFqn: "pkg-id:Main:Asset" }] }],
+        ["missing choice consuming flag", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, choices: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!.choices[0]!, consuming: undefined }] }] }],
+        ["wrong choice alias", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, choices: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!.choices[0]!, aliases: ["wrong"] }] }] }],
+        ["duplicate template", { templates: [packageMetadata("pkg-id", "app", true).templates[0]!, packageMetadata("pkg-id", "app", true).templates[0]!] }],
+        ["duplicate choice despite consuming change", { templates: [{ ...packageMetadata("pkg-id", "app", true).templates[0]!, choices: [packageMetadata("pkg-id", "app", true).templates[0]!.choices[0]!, { ...packageMetadata("pkg-id", "app", true).templates[0]!.choices[0]!, consuming: false }] }] }],
+    ])("rejects malformed caller package metadata: %s", (_name, patch) => {
+        const metadata = { ...packageMetadata("pkg-id", "app", true), ...patch } as unknown as GrpcPackageMetadata;
+
+        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [metadata], "0", "grpc://participant")).toThrow(ValidationError);
+    });
+
+    it("accepts same-name packages at different versions while rejecting ACS-only missing transaction targets", () => {
+        const older = packageMetadata("pkg-old", "app", true, "1.0.0");
+
+        const representative = packageMetadata("pkg-id", "app", true, "2.0.0");
+
+        const duplicateVersion = packageMetadata("pkg-duplicate", "app", true, "2.0.0");
+
+        expect(createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant").rows.packages).toHaveLength(2);
+        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant")).toThrow(ValidationError);
+        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([], [active(create())]), [representative], "10", "grpc://participant")).toThrow("contracts.createdTransaction has no target");
+    });
 });
 
-function packageMetadata(id: string, name: string, consuming: boolean): GrpcPackageMetadata {
+function packageMetadata(id: string, name: string, consuming: boolean, version = "1.0.0"): GrpcPackageMetadata {
     return {
         id,
         name,
-        version: "1.0.0",
+        version,
         templates: [{
             moduleName: "Main",
             entityName: "Asset",
