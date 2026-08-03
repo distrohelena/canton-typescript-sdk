@@ -273,11 +273,49 @@ limit $1
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'null-only in never matches' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = any($1)",
+    "values": [
+      [
+        null,
+      ],
+    ],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'nullable descending ordering follows …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
     "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" desc, "ix" asc",
     "values": [],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'nullable equality follows PostgreSQL …' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = $1",
+    "values": [
+      null,
+    ],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'nullable in ignores null candidates' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = any($1)",
+    "values": [
+      [
+        null,
+        "wf",
+      ],
+    ],
   },
 ]
 `;

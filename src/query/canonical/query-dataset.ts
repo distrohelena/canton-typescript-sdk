@@ -50,6 +50,24 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
         for (const key of localKeys) {
             validateUniquePaths(rows, key, `${relation} source-local key`);
         }
+    }
+
+    for (const relation of relations) {
+        const rows = dataset.rows[relation];
+
+        if (!Array.isArray(rows)) {
+            throw new Error(`Dataset is missing ${relation} rows`);
+        }
+
+        const localKeys = dataset.sourceLocalKeys[relation];
+
+        if (!Array.isArray(localKeys)) {
+            throw new Error(`Dataset is missing ${relation} source-local keys`);
+        }
+
+        for (const key of localKeys) {
+            validateUniquePaths(rows, key, `${relation} source-local key`);
+        }
 
         const edgeDefinitions = queryRelationEdges[relation] ?? {};
 
