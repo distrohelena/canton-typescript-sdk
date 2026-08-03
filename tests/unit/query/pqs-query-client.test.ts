@@ -18,6 +18,31 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).toContain("order by contract_row.contract_id asc");
     });
 
+    it("waits for PQS readiness before executing logical contract reads", async () => {
+        let release!: () => void;
+        const ready = new Promise<void>((resolve) => { release = resolve; });
+        const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), ready);
+
+        const many = client.contracts.findMany({ select: { contractId: true } });
+        const unique = client.contracts.findUnique({ where: { contractId: "cid" }, select: { contractId: true } });
+        await Promise.resolve();
+        expect(query).not.toHaveBeenCalled();
+
+        release();
+        await expect(many).resolves.toEqual([{ contractId: "cid" }]);
+        await expect(unique).resolves.toEqual({ contractId: "cid" });
+        expect(query).toHaveBeenCalledTimes(2);
+    });
+
+    it("wraps rejected logical contract readiness", async () => {
+        const query = vi.fn();
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), Promise.reject({ code: "schema" }));
+
+        await expect(client.contracts.findMany({ select: { contractId: true } })).rejects.toMatchObject({ operation: "contracts.findMany", code: "schema" });
+        expect(query).not.toHaveBeenCalled();
+    });
+
     it("maps logical contract rows from parameterized queries", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [

@@ -169,6 +169,7 @@ export class PqsQueryClient implements QueryClient {
     private async findContractsAsync(query: NormalizedFindManyQuery): Promise<readonly ContractResult[]> {
         const compiled = compileContractFindMany(query, this.profile);
         try {
+            await this.ready;
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => this.mapPhysicalRow(contractRootRow(row), compiled.resultShape, contractRootScalars(row)) as unknown as ContractResult);
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
