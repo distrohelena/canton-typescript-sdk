@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
     CreateAndExerciseCommand,
+    CreateCommand,
     DamlParty,
     DamlRecord,
     OperationDeadline,
@@ -8,16 +9,15 @@ import {
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
-    buildCreateAndReplaceMessageTextRequest,
     ensureExampleDarUploadedAsync,
-    extractSoleCreatedContract,
     loadExampleApplicationFixtureAsync,
     readCreatedMessageText,
     resolveExamplePartyAsync,
 } from "./shared/application-fixture.js";
 import {
-    assertAtomicMessageTerminalState,
+    assertAtomicMessageBatchState,
     buildActiveContractsRequest,
+    extractTwoCreatedContractIds,
 } from "./shared/ledger-requests.js";
 import { createExampleActiveContractsTraversalOptions } from "./shared/active-contracts-traversal.js";
 import { createExampleClient, exampleTimeoutMs } from "./shared/localnet.js";
@@ -59,9 +59,11 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         const runId = randomBytes(12).toString("hex");
 
-        const initialText = `atomic-initial-${runId}`;
+        const invalidFirstText = `atomic-invalid-first-${runId}`;
 
-        const replacementText = `atomic-replacement-${runId}`;
+        const firstText = `atomic-valid-first-${runId}`;
+
+        const secondText = `atomic-valid-second-${runId}`;
 
         const invalidCommandId = `atomic-invalid-${runId}`;
 
@@ -71,16 +73,26 @@ runExampleAsync("atomic-create-and-exercise", async () => {
             applicationId: "canton-typescript-sdk-examples",
             actAs: [actor.party],
             readAs: [actor.party],
-            commands: [new CreateAndExerciseCommand({
-                templateId: fixture.templateId,
-                createArguments: new DamlRecord({
-                    sender: new DamlParty(actor.party),
-                    recipient: new DamlParty(actor.party),
-                    text: initialText,
+            commands: [
+                new CreateCommand({
+                    templateId: fixture.templateId,
+                    createArguments: new DamlRecord({
+                        sender: new DamlParty(actor.party),
+                        recipient: new DamlParty(actor.party),
+                        text: invalidFirstText,
+                    }),
                 }),
-                choice: "UnknownChoice",
-                choiceArgument: new DamlRecord({}),
-            })],
+                new CreateAndExerciseCommand({
+                    templateId: fixture.templateId,
+                    createArguments: new DamlRecord({
+                        sender: new DamlParty(actor.party),
+                        recipient: new DamlParty(actor.party),
+                        text: invalidFirstText,
+                    }),
+                    choice: "UnknownChoice",
+                    choiceArgument: new DamlRecord({}),
+                }),
+            ],
             commandId: invalidCommandId,
         });
 
@@ -102,19 +114,37 @@ runExampleAsync("atomic-create-and-exercise", async () => {
             });
         }
 
-        const validResponse =
-            await client.commandService.submitAndWaitForTransactionAsync(
-                buildCreateAndReplaceMessageTextRequest({
-                    party: actor.party,
+        const validRequest = new SubmitCommandsRequest({
+            applicationId: "canton-typescript-sdk-examples",
+            actAs: [actor.party],
+            readAs: [actor.party],
+            commands: [
+                new CreateCommand({
                     templateId: fixture.templateId,
-                    text: initialText,
-                    replacement: replacementText,
-                    commandId: validCommandId,
+                    createArguments: new DamlRecord({
+                        sender: new DamlParty(actor.party),
+                        recipient: new DamlParty(actor.party),
+                        text: firstText,
+                    }),
                 }),
-                deadline.createRequestOptions(),
-            );
+                new CreateCommand({
+                    templateId: fixture.templateId,
+                    createArguments: new DamlRecord({
+                        sender: new DamlParty(actor.party),
+                        recipient: new DamlParty(actor.party),
+                        text: secondText,
+                    }),
+                }),
+            ],
+            commandId: validCommandId,
+        });
 
-        const submittedReplacement = extractSoleCreatedContract(validResponse);
+        const validResponse = await client.commandService.submitAndWaitForTransactionAsync(
+            validRequest,
+            deadline.createRequestOptions(),
+        );
+
+        const responseContractIds = extractTwoCreatedContractIds(validResponse);
 
         const request = buildActiveContractsRequest({
             party: actor.party,
@@ -140,29 +170,25 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
                 const text = readCreatedMessageText(message);
 
-                if (text === initialText || text === replacementText) {
+                if (
+                    text === invalidFirstText
+                    || text === firstText
+                    || text === secondText
+                ) {
                     runMessages.push(message);
                 }
             }
         }
 
-        const activeReplacement = assertAtomicMessageTerminalState({
+        const [activeFirst, activeSecond] = assertAtomicMessageBatchState({
             messages: runMessages,
-            initialText,
-            replacementText,
-            responseContractId: submittedReplacement.contractId,
+            invalidFirstText,
+            firstText,
+            secondText,
+            responseContractIds,
             party: actor.party,
+            templateId: fixture.templateId,
         });
-
-        const actualReplacementText = readCreatedMessageText(activeReplacement);
-
-        const replacementPayload = JSON.stringify(activeReplacement.createArguments);
-
-        if (replacementPayload === undefined) {
-            throw new Error(
-                `Replacement Message '${submittedReplacement.contractId}' has a create payload that cannot be rendered.`,
-            );
-        }
 
         console.log(`Actor party: ${actor.party}`);
         console.log(`Participant version: ${compatibility.participantVersion}`);
@@ -170,11 +196,10 @@ runExampleAsync("atomic-create-and-exercise", async () => {
         console.log(`Compatibility path: ${compatibility.path}`);
         console.log(`Invalid choice kind: ${invalidChoiceKind}`);
         console.log(
-            "Atomic terminal proof: initial Message absent; exactly one replacement Message is active.",
+            "Atomic batch proof: rejected first Message absent; both valid Messages are active exactly once.",
         );
-        console.log(`Replacement contract: ${activeReplacement.contractId}`);
-        console.log(`Replacement payload: ${replacementPayload}`);
-        console.log(`Replacement text: ${actualReplacementText}`);
+        console.log(`First valid Message contract: ${activeFirst.contractId}`);
+        console.log(`Second valid Message contract: ${activeSecond.contractId}`);
         },
     });
 });

@@ -192,9 +192,10 @@ stateful-workflow implementation uses one common-code path for release cores 3.5
 adds a version-specific behavioral difference only after live evidence proves
 one; it does not infer compatibility from a container tag or endpoint.
 
-- `example:workflow:atomic` first proves that an invalid choice is rejected,
-  then proves an atomic create-and-exercise by reading the created replacement
-  and its exact text.
+- `example:workflow:atomic` first proves that a two-command batch with an
+  invalid second command is rejected without creating its valid first Message,
+  then proves that two independent creates commit atomically and remain active
+  with their exact payloads.
 - `example:workflow:retry` submits a caller-controlled command ID with a
   deduplication duration, retries the exact same request, classifies the
   duplicate outcome, and proves that exactly one matching contract is active.
@@ -706,6 +707,8 @@ const contracts = await manager.query.contracts.findMany({
     take: 50,
 });
 
+// A SubmitCommandsRequest contains a non-empty ordered atomic command batch:
+// all commands commit together, or none of them do.
 await manager.grpc.commandService.submitAndWaitAsync(/* existing command request */);
 await manager.disposeAsync();
 ```

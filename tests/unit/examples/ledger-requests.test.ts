@@ -2,6 +2,7 @@ import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it } from "vitest";
 import * as ledgerRequests from "../../../examples/shared/ledger-requests.js";
 import {
+    assertAtomicMessageBatchState,
     assertAtomicMessageTerminalState,
     assertExactlyOneActiveMessage,
     assertMessageContractAbsent,
@@ -87,6 +88,56 @@ describe("application example ledger requests", () => {
             responseContractId: "#replacement",
             party: "Alice::1",
         })).toBe(replacement);
+    });
+
+    it("proves a rejected first batch create is absent while both atomic batch creates are active", () => {
+        const invalidFirstText = "invalid-first";
+
+        const firstText = "valid-first";
+
+        const secondText = "valid-second";
+
+        const first = exactMessage("#first", firstText);
+
+        const second = exactMessage("#second", secondText);
+
+        expect(assertAtomicMessageBatchState({
+            messages: [first, second],
+            invalidFirstText,
+            firstText,
+            secondText,
+            responseContractIds: ["#first", "#second"],
+            party: "Alice::1",
+            templateId,
+        })).toEqual([first, second]);
+
+        expect(() => assertAtomicMessageBatchState({
+            messages: [exactMessage("#invalid", invalidFirstText), first, second],
+            invalidFirstText,
+            firstText,
+            secondText,
+            responseContractIds: ["#first", "#second"],
+            party: "Alice::1",
+            templateId,
+        })).toThrow(/absent/i);
+        expect(() => assertAtomicMessageBatchState({
+            messages: [first, exactMessage("#duplicate", firstText), second],
+            invalidFirstText,
+            firstText,
+            secondText,
+            responseContractIds: ["#first", "#second"],
+            party: "Alice::1",
+            templateId,
+        })).toThrow(/exactly one/i);
+        expect(() => assertAtomicMessageBatchState({
+            messages: [first, second],
+            invalidFirstText,
+            firstText,
+            secondText,
+            responseContractIds: ["#first", "#other"],
+            party: "Alice::1",
+            templateId,
+        })).toThrow(/response created contract IDs/i);
     });
 
     it("builds and matches the generated ACS-delta update request", () => {
@@ -208,6 +259,11 @@ function exactMessage(
 ): ledgerApiV2.CreatedEvent {
     return ledgerApiV2.CreatedEvent.create({
         contractId,
+        templateId: ledgerApiV2.Identifier.create({
+            packageId: templateId.packageId,
+            moduleName: templateId.moduleName,
+            entityName: templateId.entityName,
+        }),
         createArguments: ledgerApiV2.Record.create({
             fields: [
                 { label: "sender", value: { sum: { oneofKind: "party", party: "Alice::1" } } },

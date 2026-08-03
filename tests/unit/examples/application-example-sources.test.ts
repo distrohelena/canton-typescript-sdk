@@ -93,6 +93,47 @@ function readSharedExampleSource(name: string): string {
     );
 }
 
+function expectSubmitCommandsRequestsToContainBatches(source: string): void {
+    const sourceFile = createSourceFile(
+        "90-atomic-create-and-exercise.ts",
+        source,
+        ScriptTarget.Latest,
+        true,
+        ScriptKind.TS,
+    );
+
+    let requestCount = 0;
+
+    const visit = (node: Node): void => {
+        if (
+            isNewExpression(node)
+            && isIdentifier(node.expression)
+            && node.expression.text === "SubmitCommandsRequest"
+            && isObjectLiteralExpression(node.arguments?.[0])
+        ) {
+            const commands = node.arguments[0].properties.find(
+                property => isPropertyAssignment(property)
+                    && property.name.getText(sourceFile) === "commands",
+            );
+
+            if (
+                !isPropertyAssignment(commands)
+                || !isArrayLiteralExpression(commands.initializer)
+            ) {
+                throw new Error("SubmitCommandsRequest must have an array commands property.");
+            }
+
+            expect(commands.initializer.elements).toHaveLength(2);
+            requestCount += 1;
+        }
+
+        forEachChild(node, visit);
+    };
+
+    visit(sourceFile);
+    expect(requestCount).toBe(2);
+}
+
 function expectSdkActiveContractsTraversal(
     sourcePath: string,
     source: string,
@@ -1951,7 +1992,7 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(prohibitedCreateExerciseWorkarounds);
     });
 
-    it("proves atomic create-and-exercise failure and active replacement under one workflow deadline", () => {
+    it("proves atomic batch rejection and active creates under one workflow deadline", () => {
         const source = readExampleSource("90-atomic-create-and-exercise.ts");
 
         expect(source).toMatch(/runExampleAsync\(\s*"atomic-create-and-exercise"/);
@@ -2000,7 +2041,7 @@ describe("application example source contracts", () => {
 
         const validSubmission = requireSourceMatch(
             source,
-            /const\s+validResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*buildCreateAndReplaceMessageTextRequest\([\s\S]*?\),\s*deadline\.createRequestOptions\(\),\s*\);/s,
+            /const\s+validResponse\s*=\s*await\s+client\.commandService\.submitAndWaitForTransactionAsync\(\s*validRequest,\s*deadline\.createRequestOptions\(\),\s*\);/s,
             "the valid atomic command RPC submission with its own deadline budget",
         );
 
@@ -2042,33 +2083,18 @@ describe("application example source contracts", () => {
         expect(source).toMatch(
             /new\s+CreateAndExerciseCommand\(\s*\{[\s\S]*?choice:\s*"UnknownChoice",/s,
         );
-        expect(source).toMatch(
-            /buildCreateAndReplaceMessageTextRequest\(\s*\{[\s\S]*?text:\s*initialText,[\s\S]*?replacement:\s*replacementText,[\s\S]*?commandId:\s*validCommandId,/s,
-        );
-        expect(source).toMatch(
-            /const\s+submittedReplacement\s*=\s*extractSoleCreatedContract\(validResponse\);/,
-        );
         expect(source).not.toMatch(/extractReplacementContracts/);
         expect(source).not.toMatch(/archivedContractId|Archived transient contract/);
         expect(source).toContain("buildActiveContractsRequest({");
         expect(source).toContain("readCreatedMessageText(message)");
-        expect(source).toContain("text === initialText || text === replacementText");
-        expect(source).toMatch(
-            /const\s+activeReplacement\s*=\s*assertAtomicMessageTerminalState\(\s*\{\s*messages:\s*runMessages,\s*initialText,\s*replacementText,\s*responseContractId:\s*submittedReplacement\.contractId,\s*party:\s*actor\.party,\s*\}\s*\);/s,
-        );
         expect(source).toContain("Actor party: ${actor.party}");
         expect(source).toContain("Participant version: ${compatibility.participantVersion}");
         expect(source).toContain("Release core: ${compatibility.releaseCore}");
         expect(source).toContain("Compatibility path: ${compatibility.path}");
         expect(source).toContain("Invalid choice kind: ${invalidChoiceKind}");
         expect(source).toContain(
-            "Replacement contract: ${activeReplacement.contractId}",
+            "Atomic batch proof: rejected first Message absent; both valid Messages are active exactly once.",
         );
-        expect(source).toContain(
-            "Atomic terminal proof: initial Message absent; exactly one replacement Message is active.",
-        );
-        expect(source).toContain("Replacement payload: ${replacementPayload}");
-        expect(source).toContain("Replacement text: ${actualReplacementText}");
         expect(source).toContain(
             "Warning: fallback party allocation creates durable localnet topology state and is not cleaned up.",
         );
@@ -2078,6 +2104,28 @@ describe("application example source contracts", () => {
         expect(source).not.toMatch(/\b(?:sleep|setTimeout)\b/i);
         expect(source).not.toMatch(/error\.message|RegExp|match\s*\(/);
         expect(source).not.toMatch(/participantVersion\s*(?:===|!==)|switch\s*\(\s*compatibility\.participantVersion/);
+    });
+
+    it("proves a genuine two-command atomic batch without singleton plural requests", () => {
+        const source = readExampleSource("90-atomic-create-and-exercise.ts");
+
+        expect(source).toMatch(/const\s+invalidFirstText\s*=\s*`atomic-invalid-first-\$\{runId\}`;/);
+        expect(source).toMatch(/const\s+firstText\s*=\s*`atomic-valid-first-\$\{runId\}`;/);
+        expect(source).toMatch(/const\s+secondText\s*=\s*`atomic-valid-second-\$\{runId\}`;/);
+        expect(source).toMatch(
+            /const\s+invalidRequest\s*=\s*new\s+SubmitCommandsRequest\(\s*\{[\s\S]*?commands:\s*\[\s*new\s+CreateCommand\([\s\S]*?text:\s*invalidFirstText,[\s\S]*?new\s+CreateAndExerciseCommand\(\s*\{[\s\S]*?choice:\s*"UnknownChoice",[\s\S]*?\],/s,
+        );
+        expect(source).toMatch(
+            /const\s+validRequest\s*=\s*new\s+SubmitCommandsRequest\(\s*\{[\s\S]*?commands:\s*\[\s*new\s+CreateCommand\([\s\S]*?text:\s*firstText,[\s\S]*?new\s+CreateCommand\([\s\S]*?text:\s*secondText,[\s\S]*?\],/s,
+        );
+        expect([...source.matchAll(/client\.commandService\.submitAndWaitForTransactionAsync\(/g)])
+            .toHaveLength(2);
+        expectSubmitCommandsRequestsToContainBatches(source);
+        expect(source).toMatch(/const\s+responseContractIds\s*=\s*extractTwoCreatedContractIds\(validResponse\);/);
+        expect(source).toMatch(
+            /assertAtomicMessageBatchState\(\s*\{[\s\S]*?invalidFirstText,[\s\S]*?firstText,[\s\S]*?secondText,[\s\S]*?responseContractIds,[\s\S]*?party:\s*actor\.party,[\s\S]*?templateId:\s*fixture\.templateId,[\s\S]*?\}\s*\)/s,
+        );
+        expect(source).toContain("Atomic batch proof: rejected first Message absent; both valid Messages are active exactly once.");
     });
 
     it("runs the idempotent retry workflow as a standalone example with bounded cleanup", () => {
