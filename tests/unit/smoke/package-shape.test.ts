@@ -37,6 +37,7 @@ import {
     PackageServiceClient,
     PackageStatus,
     ParticipantPermission,
+    QuerySnapshotIncompleteError,
     RequestOptions,
     TopologyBaseQuery,
     TopologyBaseResult,
@@ -57,6 +58,7 @@ import {
     VersionServiceClient,
     WaitForPartyHostingRequest,
 } from "../../../src";
+import type { ContractCacheResult, QueryClient } from "../../../src";
 import { comDaml, comDigitalasset, google } from "../../../src/protobuf";
 
 const ledgerApi = comDaml.ledger.api.v2;
@@ -96,6 +98,7 @@ describe("package surface", () => {
         expect(PackageManagementServiceClient).toBeTypeOf("function");
         expect(ParticipantPackageServiceClient).toBeTypeOf("function");
         expect(EndpointNotConfiguredError).toBeTypeOf("function");
+        expect(QuerySnapshotIncompleteError).toBeTypeOf("function");
         expect(RequestOptions).toBeTypeOf("function");
         expect(TransportKind.grpc).toBe("grpc");
         expect(AdminNodeStatus).toBeTypeOf("function");
@@ -276,6 +279,16 @@ describe("package surface", () => {
         ).toBeInstanceOf(ParticipantDarDescription);
         expect(HashFunction.sha256).toBe("sha256");
         expect(PackageStatus.registered).toBe("registered");
+    });
+
+    it("exports the query cache lifecycle and incomplete snapshot contracts", () => {
+        declare const query: QueryClient;
+
+        declare const cacheResult: ContractCacheResult;
+
+        void query.cacheContracts;
+        void query.invalidateContractsCache;
+        void cacheResult;
     });
 
     it("does not export legacy root surface names", async () => {

@@ -275,6 +275,44 @@ async function validateSubmitCommandsExportAsync(tarballPath, destinationPath) {
     );
 }
 
+async function validateQueryParityExportsAsync(tarballPath, destinationPath) {
+    const declaration = await runCommandAsync("tar", [
+        "-xOf", tarballPath, "package/dist/index.d.ts",
+    ]);
+    for (const requiredName of ["QuerySnapshotIncompleteError", "ContractCacheResult", "QueryClient"]) {
+        if (!declaration.includes(requiredName)) {
+            throw new Error(`Packed declarations are missing ${requiredName}.`);
+        }
+    }
+
+    const unpackedPath = join(destinationPath, "query-parity-unpacked");
+    const packagePath = join(unpackedPath, "package");
+    const consumerPath = join(unpackedPath, "consumer");
+    const packageLinkPath = join(consumerPath, "node_modules/@distrohelena/canton-typescript-sdk");
+
+    await mkdir(unpackedPath, { recursive: true });
+    await runCommandAsync("tar", ["-xf", tarballPath, "-C", unpackedPath]);
+    await mkdir(join(consumerPath, "node_modules/@distrohelena"), { recursive: true });
+    await symlink(packagePath, packageLinkPath, "dir");
+    await symlink(resolve(process.cwd(), "node_modules"), join(packagePath, "node_modules"), "dir");
+
+    await executeFileAsync("node", ["--input-type=module", "--eval", [
+        'import { QuerySnapshotIncompleteError } from "@distrohelena/canton-typescript-sdk";',
+        'if (typeof QuerySnapshotIncompleteError !== "function") throw new Error("missing incomplete snapshot error export");',
+    ].join("\n")], { cwd: consumerPath });
+
+    const typeConsumerPath = join(consumerPath, "query-parity-consumer.ts");
+    await writeFile(
+        typeConsumerPath,
+        'import type { ContractCacheResult, QueryClient } from "@distrohelena/canton-typescript-sdk";\ndeclare const query: QueryClient;\nconst cached: Promise<ContractCacheResult> = query.cacheContracts();\nconst invalidated: Promise<void> = query.invalidateContractsCache({ parties: ["Alice"] });\nvoid cached;\nvoid invalidated;\n',
+    );
+    await executeFileAsync(
+        resolve(process.cwd(), "node_modules/.bin/tsc"),
+        ["--noEmit", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", typeConsumerPath],
+        { cwd: consumerPath },
+    );
+}
+
 async function writeStdoutLineAsync(value) {
     await new Promise((resolve, reject) => {
         process.stdout.write(`${value}\n`, (error) => {
@@ -370,6 +408,10 @@ async function verifyPackAsync() {
             packedTarball.packDestinationPath,
         );
         await validateSubmitCommandsExportAsync(
+            packedTarball.tarballPath,
+            packedTarball.packDestinationPath,
+        );
+        await validateQueryParityExportsAsync(
             packedTarball.tarballPath,
             packedTarball.packDestinationPath,
         );

@@ -288,6 +288,11 @@ async function allocateOrUsePartyAsync(
 }
 
 async function assertMainIouPackageAsync(client: CantonClient): Promise<void> {
+    await resolveLiveIouPackageIdAsync(client);
+}
+
+/** Resolves the package which owns the shared Main:Iou live fixture. */
+export async function resolveLiveIouPackageIdAsync(client: CantonClient): Promise<string> {
     const packageIds = (
         await client.packageService.listPackagesAsync(new ListPackagesRequest())
     ).packageIds;
@@ -337,7 +342,7 @@ async function assertMainIouPackageAsync(client: CantonClient): Promise<void> {
         );
 
         if (hasIou) {
-            return;
+            return packageId;
         }
     }
 

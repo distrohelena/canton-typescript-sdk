@@ -702,12 +702,13 @@ signature format and algorithm. This convenience operation is gRPC-only.
 
 ## Canton Manager queries
 
-`CantonManager` keeps gRPC as the write path and selects a single query source
-at initialization. PQS exposes the complete PQS relation surface; gRPC exposes
-an all-hosted-party active-contract snapshot.
+`CantonManager` keeps gRPC as the write path and selects one typed-query source
+at initialization. The same typed query function works with either gRPC or
+PQS; source selection changes how the data is read, not the query grammar.
 
 ```ts
 import {
+    CantonClientOptions,
     CantonManager,
     CreateCommand,
     DamlRecord,
@@ -717,21 +718,33 @@ import {
     TransportKind,
 } from "@distrohelena/canton-typescript-sdk";
 
-const manager = new CantonManager({
-    grpc: { transportKind: TransportKind.grpc, ledgerEndpoint: "localhost:6865" },
-    querySource: QuerySource.pqs,
+const options = {
+    grpc: new CantonClientOptions({
+        transportKind: TransportKind.grpc,
+        ledgerEndpoint: "localhost:6865",
+    }),
     pqs: { connectionString: process.env.PQS_URL!, schema: "public" },
     cache: { store: new MemoryQueryCache(), ttlMs: 5_000 },
-});
+};
 
-const contracts = await manager.query.contracts.findMany({
-    where: { templateId: { equals: "packageId:Module:Template" }, active: true },
+const readIous = (manager: CantonManager) => manager.query.contracts.findMany({
+    where: { templateId: { moduleName: { equals: "Main" }, entityName: { equals: "Iou" } } },
+    orderBy: [{ createdAt: "desc" }],
     take: 50,
 });
 
+const pqsManager = new CantonManager({ ...options, querySource: QuerySource.pqs });
+const grpcManager = new CantonManager({ ...options, querySource: QuerySource.grpc });
+const pqsContracts = await readIous(pqsManager);
+const grpcContracts = await readIous(grpcManager);
+
+// gRPC caching is explicit and point-in-time; ordinary reads never populate it.
+await grpcManager.query.cacheContracts({ parties: ["Alice"] });
+await grpcManager.query.invalidateContractsCache({ parties: ["Alice"] });
+
 // A SubmitCommandsRequest contains a non-empty ordered atomic command batch:
 // all commands commit together, or none of them do.
-await manager.grpc.commandService.submitAndWaitAsync(
+await grpcManager.grpc.commandService.submitAndWaitAsync(
     new SubmitCommandsRequest({
         applicationId: "example-app",
         actAs: ["Alice"],
@@ -743,32 +756,48 @@ await manager.grpc.commandService.submitAndWaitAsync(
         ],
     }),
 );
-await manager.disposeAsync();
+await Promise.all([pqsManager.disposeAsync(), grpcManager.disposeAsync()]);
 ```
 
 To migrate a prior singleton submission, pass `commands: [previousCommand]`.
 There is no compatibility alias; put multiple independent commands in that
 array in their required atomic order.
 
-With `QuerySource.grpc`, omit `pqs`; contract queries fetch the participant's
-active-contract snapshot using the Ledger API wildcard for all hosted parties.
-PQS-only relation delegates and raw SQL then reject with `QueryCapabilityError`.
+An options object may contain both `grpc` and `pqs`; the PQS setting is used
+only when `querySource` is `pqs`. Both sources expose `contracts`,
+`contractTypes`, `events`, `exercises`, `exerciseTypes`, `packages`,
+`transactions`, and `watermark`, including filters, includes, ordering,
+pagination, projections, grouping, and aggregates. Literal parity requires
+PQS and gRPC to observe the same participant-visible data; independently
+configured participants can legitimately see different contracts.
 
-PQS managers expose `contracts`, `contractTypes`, `events`, `exercises`,
-`exerciseTypes`, `packages`, `transactions`, and `watermark`. Raw SQL is
-available through `manager.query.$queryRaw(...)` when the selected client is
-PQS-specific. It accepts one read-only statement with positional parameters;
-use a read-only PostgreSQL role as defense in depth.
+`cacheContracts` is a gRPC-only explicit prewarm of active contracts for one
+party scope. It needs a cache store and a positive TTL; reads may use a valid
+entry but never renew it. A cached gRPC result is internally consistent at its
+`activeAtOffset`, so it can be stale until expiry, refresh, or
+`invalidateContractsCache`. Under PQS the same lifecycle calls are safe no-ops
+and `cacheContracts` returns `{ source: QuerySource.pqs, cached: false }`.
 
-The PQS relation delegates use a Prisma-like surface: `findMany({ where,
+PQS database `pk`/`ix` values and gRPC synthetic `pk`/`ix` values are
+source-local. They are typed, ordered, and referentially consistent within a
+source, but not portable across sources; use contract IDs, package IDs,
+transaction IDs, and ledger offsets for cross-source identity. If pruning has
+removed history needed by a gRPC typed query, it rejects with
+`QuerySnapshotIncompleteError` rather than returning partial rows, groups, or
+aggregates.
+
+Raw SQL is the sole PQS-only query operation: use
+`pqsManager.query.$queryRaw(...)` for one read-only statement with positional
+parameters and a read-only PostgreSQL role. `$queryRaw` on a gRPC manager
+rejects with `QueryCapabilityError`.
+
+The typed relation delegates use a Prisma-like surface: `findMany({ where,
 select, orderBy, skip, take })`, `findUnique({ where, select })`, `count`, and
 `aggregate({ count, min, max, sum })`. Filters support `equals`, `in`,
 `{ is: null }`, `{ isNot: null }`, and `{ has: party }` on array fields.
 Ordering accepts one field. `exercises` intentionally has no `findUnique`
 because the v1 PQS profile does not declare a stable key. The manager validates
-the selected PQS schema profile before its first query. In gRPC mode, only the
-active-contract `findMany`, `findUnique`, and `count` subset is available;
-unsupported query features reject with `QueryCapabilityError`.
+the selected PQS schema profile before its first PQS query.
 
 - Ledger endpoint:
 - `versionService.getLedgerApiVersionAsync(...)`: `json`, `grpc`
