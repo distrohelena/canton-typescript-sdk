@@ -17,6 +17,8 @@ import type {
 import {
     queryRelationEdges,
     queryRelationMetadata,
+    type QueryRelationEdge,
+    type QueryRelationMetadata,
     type QueryRelation,
 } from "./query-schema.js";
 
@@ -36,7 +38,15 @@ const jsonScalarTypes = new Set(["text", "numeric", "boolean", "timestamp"]);
 
 const buckets = new Set(["hour", "day", "week", "month"]);
 
+export class QueryValidationError extends Error {
+    public constructor(message: string) {
+        super(message);
+        this.name = "QueryValidationError";
+    }
+}
+
 export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): NormalizedFindManyQuery {
+    return normalized(() => {
     const source = object(args, "findMany args");
 
     assertKnown(source, ["parties", "where", "select", "include", "orderBy", "skip", "take"], relation);
@@ -57,16 +67,18 @@ export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): 
         take: page.take,
         activeOnly: relation === "contracts" && provesActive(predicate),
     };
+    });
 }
 
 export function normalizeFindUnique(relation: QueryRelation, args: unknown): NormalizedFindUniqueQuery {
+    return normalized(() => {
     const source = object(args, "findUnique args");
 
     assertKnown(source, ["where", "select", "include"], relation);
 
     const where = object(source.where, "findUnique.where");
 
-    const metadata = queryRelationMetadata[relation];
+    const metadata = relationMetadata(relation);
 
     const fields = Object.keys(where);
 
@@ -75,7 +87,7 @@ export function normalizeFindUnique(relation: QueryRelation, args: unknown): Nor
     }
 
     const children = fields.map((field) => {
-        assertUniqueEqualityValue(field, where[field]);
+        assertUniqueEqualityValue(metadata, field, where[field]);
 
         return scalar(field, where[field]);
     });
@@ -87,9 +99,11 @@ export function normalizeFindUnique(relation: QueryRelation, args: unknown): Nor
         select: source.select === undefined ? undefined : normalizeSelection(relation, source.select),
         includes: source.include === undefined ? [] : normalizeIncludes(relation, source.include),
     };
+    });
 }
 
 export function normalizeCount(relation: QueryRelation, args: unknown = {}): NormalizedCountQuery {
+    return normalized(() => {
     const source = object(args, "count args");
 
     assertKnown(source, ["parties", "where"], relation);
@@ -103,9 +117,11 @@ export function normalizeCount(relation: QueryRelation, args: unknown = {}): Nor
         predicate,
         activeOnly: relation === "contracts" && provesActive(predicate),
     };
+    });
 }
 
 export function normalizeAggregate(relation: QueryRelation, args: unknown): NormalizedAggregateQuery {
+    return normalized(() => {
     const source = object(args, "aggregate args");
 
     assertKnown(source, ["where", "count", "min", "max", "sum"], relation);
@@ -116,9 +132,11 @@ export function normalizeAggregate(relation: QueryRelation, args: unknown): Norm
         predicate: source.where === undefined ? undefined : normalizePredicate(relation, source.where),
         aggregates: normalizeAggregates(relation, source),
     };
+    });
 }
 
 export function normalizeGroupBy(relation: QueryRelation, args: unknown): NormalizedGroupByQuery {
+    return normalized(() => {
     const source = object(args, "groupBy args");
 
     assertKnown(source, ["where", "by", "aggregate"], relation);
@@ -134,6 +152,7 @@ export function normalizeGroupBy(relation: QueryRelation, args: unknown): Normal
         by: source.by.map((key) => normalizeGroupKey(relation, key)),
         aggregates: normalizeAggregates(relation, object(source.aggregate, "groupBy.aggregate"), true),
     };
+    });
 }
 
 function normalizePredicate(relation: QueryRelation, value: unknown): QueryPredicate | undefined {
@@ -172,13 +191,13 @@ function normalizePredicate(relation: QueryRelation, value: unknown): QueryPredi
             continue;
         }
 
-        const edge = queryRelationEdges[relation]?.[field];
+        const edge = relationEdge(relation, field);
 
         if (edge !== undefined) {
             children.push(normalizeRelationPredicate(field, edge.target, edge.cardinality, operand));
 
             continue;
-        } else if (!queryRelationMetadata[relation].fields.includes(field)) {
+        } else if (!relationMetadata(relation).fields.includes(field)) {
             throw new Error(`${field} is not a field of ${relation}`);
         }
 
@@ -199,7 +218,7 @@ function normalizeTemplateId(value: unknown): readonly QueryPredicate[] {
 function normalizePayloadMatch(value: unknown, prefix: readonly string[] = ["payload"]): readonly QueryPredicate[] {
     const match = object(value, "payload filter");
 
-    if (Object.keys(match).length !== 1 || !("match" in match)) {
+    if (Object.keys(match).length !== 1 || !Object.hasOwn(match, "match")) {
         throw new Error("payload filter must contain match");
     }
 
@@ -253,11 +272,13 @@ function normalizeRelationPredicate(edge: string, target: QueryRelation, cardina
 function normalizeScalarFilter(relation: QueryRelation, field: string, value: unknown): readonly QueryPredicate[] {
     if (relation === "contracts" && field === "witnesses") {
         return normalizeContractWitnesses(value);
-    } else if (!isFilter(value)) {
+    } else if (relation === "contracts" && field === "active" && typeof value === "boolean") {
         return [scalar(field, value)];
+    } else if (!isFilter(value)) {
+        throw new Error(`${field} must be a filter object`);
     }
 
-    const metadata = queryRelationMetadata[relation];
+    const metadata = relationMetadata(relation);
 
     const base = field.split(".")[0];
 
@@ -278,15 +299,17 @@ function normalizeScalarFilter(relation: QueryRelation, field: string, value: un
             throw new Error(`${operator} is not supported for ${field}`);
         }
 
-        const allowed = metadata.arrayFields.includes(base)
+        const kind = scalarKind(metadata, base);
+
+        const allowed = kind === "string-array"
             ? new Set<ScalarOperator>(["equals", "in", "is", "isNot", "has"])
-            : metadata.stringFields.includes(base) ? stringOperators : metadata.numericFields.includes(base) || metadata.dateFields.includes(base) ? orderedOperators : new Set<ScalarOperator>(["equals", "in", "is", "isNot"]);
+            : kind === "string" ? stringOperators : kind === "numeric-string" || kind === "timestamp" ? orderedOperators : new Set<ScalarOperator>(["equals", "in", "is", "isNot"]);
 
         if (!allowed.has(operator as ScalarOperator)) {
             throw new Error(`${operator} is not supported for ${field}`);
         }
 
-        validateOperatorValue(operator as ScalarOperator, operand, field);
+        validateOperatorValue(operator as ScalarOperator, operand, field, kind, metadata.nullableFields.includes(base));
 
         return { kind: "scalar", path, operator: operator as ScalarOperator, value: operand };
     });
@@ -306,7 +329,7 @@ function normalizeJsonFilter(field: string, value: UnknownRecord): readonly Quer
             throw new Error(`${operator} is not supported for ${field}`);
         }
 
-        validateOperatorValue(operator as ScalarOperator, operand, field);
+        validateOperatorValue(operator as ScalarOperator, operand, field, "string", true);
 
         return { kind: "scalar", path: [field, ...path], operator: operator as ScalarOperator, value: operand };
     });
@@ -324,7 +347,7 @@ function normalizePayloadScalarFilter(path: readonly string[], value: UnknownRec
             throw new Error(`${operator} is not supported for payload`);
         }
 
-        validateOperatorValue(operator as ScalarOperator, operand, "payload");
+        validateOperatorValue(operator as ScalarOperator, operand, "payload", "string", false);
 
         return { kind: "scalar", path, operator: operator as ScalarOperator, value: operand };
     });
@@ -332,7 +355,7 @@ function normalizePayloadScalarFilter(path: readonly string[], value: UnknownRec
 
 function normalizeTemplateScalarFilter(field: string, value: unknown): readonly QueryPredicate[] {
     if (!isFilter(value)) {
-        return [scalar(`templateId.${field}`, value)];
+        throw new Error(`templateId.${field} must be a filter object`);
     }
 
     const entries = Object.entries(value);
@@ -346,7 +369,7 @@ function normalizeTemplateScalarFilter(field: string, value: unknown): readonly 
             throw new Error(`${operator} is not supported for templateId.${field}`);
         }
 
-        validateOperatorValue(operator as ScalarOperator, operand, `templateId.${field}`);
+        validateOperatorValue(operator as ScalarOperator, operand, `templateId.${field}`, "string", false);
 
         return { kind: "scalar", path: ["templateId", field], operator: operator as ScalarOperator, value: operand };
     });
@@ -368,7 +391,7 @@ function normalizeSelection(relation: QueryRelation, value: unknown): Normalized
             }
 
             continue;
-        } else if (!queryRelationMetadata[relation].fields.includes(field)) {
+        } else if (!relationMetadata(relation).fields.includes(field)) {
             throw new Error(`${field} is not a field of ${relation}`);
         }
 
@@ -391,7 +414,7 @@ function normalizeJsonSelection(relation: QueryRelation, name: string, value: un
 
     assertKnown(projection, ["field", "path", "as"], `select.json.${name}`);
 
-    if (typeof projection.field !== "string" || !queryRelationMetadata[relation].jsonFields.includes(projection.field)) {
+    if (typeof projection.field !== "string" || !relationMetadata(relation).jsonFields.includes(projection.field)) {
         throw new Error(`${String(projection.field)} is not a JSON field of ${relation}`);
     } else if (typeof projection.as !== "string" || !jsonScalarTypes.has(projection.as)) {
         throw new Error(`select.json.${name}.as is invalid`);
@@ -404,7 +427,7 @@ function normalizeIncludes(relation: QueryRelation, value: unknown): readonly No
     const include = object(value, "include");
 
     return Object.entries(include).map(([edgeName, option]) => {
-        const edge = queryRelationEdges[relation]?.[edgeName];
+        const edge = relationEdge(relation, edgeName);
 
         if (edge === undefined) {
             throw new Error(`${edgeName} is not a relation of ${relation}`);
@@ -443,7 +466,7 @@ function normalizeIncludes(relation: QueryRelation, value: unknown): readonly No
 }
 
 function normalizeOrderBy(relation: QueryRelation, value: unknown): readonly NormalizedOrder[] {
-    const metadata = queryRelationMetadata[relation];
+    const metadata = relationMetadata(relation);
 
     const requested: NormalizedOrder[] = [];
 
@@ -476,9 +499,9 @@ function normalizeOrderBy(relation: QueryRelation, value: unknown): readonly Nor
 }
 
 function normalizePage(value: UnknownRecord): { readonly skip: number; readonly take?: number } {
-    const skip = value.skip === undefined ? 0 : value.skip;
+    const skip = Object.hasOwn(value, "skip") ? value.skip : 0;
 
-    const take = value.take;
+    const take = Object.hasOwn(value, "take") ? value.take : undefined;
 
     if (typeof skip !== "number" || (take !== undefined && typeof take !== "number")) {
         throw new Error("skip and take must be numbers");
@@ -502,7 +525,9 @@ function normalizeParties(relation: QueryRelation, value: unknown): readonly str
 }
 
 function normalizeAggregates(relation: QueryRelation, value: UnknownRecord, numericOnly = false): NormalizedAggregateSelection {
-    const fields = numericOnly ? queryRelationMetadata[relation].numericFields : queryRelationMetadata[relation].fields;
+    const metadata = relationMetadata(relation);
+
+    const fields = numericOnly ? metadata.numericFields : metadata.fields;
 
     assertKnown(value, ["count", "min", "max", "sum"], "aggregate");
 
@@ -532,7 +557,7 @@ function normalizeAggregates(relation: QueryRelation, value: UnknownRecord, nume
 }
 
 function normalizeGroupKey(relation: QueryRelation, value: unknown): NormalizedGroupKey {
-    const metadata = queryRelationMetadata[relation];
+    const metadata = relationMetadata(relation);
 
     if (typeof value === "string") {
         if (!metadata.groupFields.includes(value)) {
@@ -560,7 +585,7 @@ function normalizeGroupKey(relation: QueryRelation, value: unknown): NormalizedG
         return { kind: "bucket", path: [field], bucket: bucket(nested) };
     }
 
-    const edge = queryRelationEdges[relation]?.[field];
+    const edge = relationEdge(relation, field);
 
     if (edge?.cardinality !== "one") {
         throw new Error("group key must be a field, JSON projection, or a to-one time bucket");
@@ -570,7 +595,7 @@ function normalizeGroupKey(relation: QueryRelation, value: unknown): NormalizedG
 
     const targetEntries = Object.entries(target);
 
-    if (targetEntries.length !== 1 || !queryRelationMetadata[edge.target].bucketFields.includes(targetEntries[0][0])) {
+    if (targetEntries.length !== 1 || !relationMetadata(edge.target).bucketFields.includes(targetEntries[0][0])) {
         throw new Error("group key must use a profiled time bucket");
     }
 
@@ -617,20 +642,84 @@ function provesActive(predicate: QueryPredicate | undefined): boolean {
     return false;
 }
 
-function validateOperatorValue(operator: ScalarOperator, value: unknown, field: string): void {
-    if ((operator === "is" || operator === "isNot") && value !== null) {
-        throw new Error(`${operator} for ${field} must be null`);
-    } else if (operator === "in" && !Array.isArray(value)) {
-        throw new Error(`in for ${field} must be an array`);
-    } else if (operator === "has" && typeof value !== "string") {
-        throw new Error(`has for ${field} must be a string`);
+type ScalarKind = "string" | "numeric-string" | "timestamp" | "boolean" | "json" | "string-array" | "binary";
+
+function validateOperatorValue(operator: ScalarOperator, value: unknown, field: string, kind: ScalarKind, nullable: boolean): void {
+    if (operator === "is" || operator === "isNot") {
+        if (value !== null) {
+            throw new Error(`${operator} for ${field} must be null`);
+        } else if (!nullable) {
+            throw new Error(`${field} is not nullable`);
+        }
+
+        return;
+    } else if (operator === "in") {
+        if (!Array.isArray(value)) {
+            throw new Error(`in for ${field} must be an array`);
+        }
+
+        value.forEach((item) => validateScalarValue(item, field, kind, nullable));
+
+        return;
+    } else if (operator === "has") {
+        if (kind !== "string-array" || typeof value !== "string") {
+            throw new Error(`has for ${field} must be a string array membership value`);
+        }
+
+        return;
+    }
+
+    validateScalarValue(value, field, kind, nullable);
+}
+
+function validateScalarValue(value: unknown, field: string, kind: ScalarKind, nullable: boolean): void {
+    if (value === null) {
+        if (!nullable) {
+            throw new Error(`${field} is not nullable`);
+        }
+
+        return;
+    }
+
+    const valid = kind === "string" || kind === "numeric-string" || kind === "json"
+        ? typeof value === "string"
+        : kind === "boolean" ? typeof value === "boolean"
+            : kind === "timestamp" ? value instanceof Date && !Number.isNaN(value.getTime())
+                : kind === "string-array" ? Array.isArray(value) && value.every((item) => typeof item === "string")
+                    : kind === "binary" ? value instanceof Uint8Array
+                        : false;
+
+    if (!valid) {
+        throw new Error(`${field} has an invalid ${kind} value`);
     }
 }
 
-function assertUniqueEqualityValue(field: string, value: unknown): void {
-    if (value !== null && typeof value === "object" && !(value instanceof Date) && !(value instanceof Uint8Array)) {
-        throw new Error(`findUnique.where.${field} must be a scalar equality value`);
+function scalarKind(metadata: QueryRelationMetadata, field: string): ScalarKind {
+    if (metadata.stringFields.includes(field)) {
+        return "string";
+    } else if (metadata.numericFields.includes(field)) {
+        return "numeric-string";
+    } else if (metadata.dateFields.includes(field)) {
+        return "timestamp";
+    } else if (metadata.booleanFields.includes(field)) {
+        return "boolean";
+    } else if (metadata.jsonFields.includes(field)) {
+        return "json";
+    } else if (metadata.arrayFields.includes(field)) {
+        return "string-array";
+    } else if (metadata.binaryFields.includes(field)) {
+        return "binary";
     }
+
+    throw new Error(`${field} has no scalar kind`);
+}
+
+function assertUniqueEqualityValue(metadata: QueryRelationMetadata, field: string, value: unknown): void {
+    if (!metadata.fields.includes(field)) {
+        throw new Error(`${field} is not a field of a unique key`);
+    }
+
+    validateScalarValue(value, `findUnique.where.${field}`, scalarKind(metadata, field), metadata.nullableFields.includes(field));
 }
 
 function normalizeContractWitnesses(value: unknown): readonly QueryPredicate[] {
@@ -667,6 +756,64 @@ function isScalarFilter(value: unknown): value is UnknownRecord {
     return isFilter(value) && Object.keys(value).some((key) => scalarOperators.has(key as ScalarOperator));
 }
 
+function relationMetadata(relation: QueryRelation): QueryRelationMetadata {
+    if (!Object.hasOwn(queryRelationMetadata, relation)) {
+        throw new Error(`${String(relation)} is not a query relation`);
+    }
+
+    return queryRelationMetadata[relation];
+}
+
+function relationEdge(relation: QueryRelation, edge: string): QueryRelationEdge | undefined {
+    const edges = Object.hasOwn(queryRelationEdges, relation) ? queryRelationEdges[relation] : undefined;
+
+    return edges !== undefined && Object.hasOwn(edges, edge) ? edges[edge] : undefined;
+}
+
+function normalized<T>(build: () => T): T {
+    try {
+        return deepFreeze(clone(build()));
+    } catch (error) {
+        if (error instanceof QueryValidationError) {
+            throw error;
+        }
+
+        throw new QueryValidationError(error instanceof Error ? error.message : "Invalid query arguments");
+    }
+}
+
+function clone<T>(value: T): T {
+    if (Array.isArray(value)) {
+        return value.map((item) => clone(item)) as T;
+    } else if (value instanceof Date) {
+        return value.toISOString() as T;
+    } else if (value instanceof Uint8Array) {
+        return Array.from(value) as T;
+    } else if (value !== null && typeof value === "object") {
+        const copy: Record<string, unknown> = {};
+
+        for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+            copy[key] = clone(child);
+        }
+
+        return copy as T;
+    }
+
+    return value;
+}
+
+function deepFreeze<T>(value: T): T {
+    if (value !== null && typeof value === "object" && !(value instanceof Uint8Array)) {
+        for (const child of Object.values(value as Record<string, unknown>)) {
+            deepFreeze(child);
+        }
+
+        Object.freeze(value);
+    }
+
+    return value;
+}
+
 function assertKnown(value: UnknownRecord, allowed: readonly string[], label: string): void {
     for (const key of Object.keys(value)) {
         if (!allowed.includes(key)) {
@@ -680,11 +827,13 @@ function bucket(value: unknown): "hour" | "day" | "week" | "month" {
 
     assertKnown(source, ["bucket"], "time bucket");
 
-    if (typeof source.bucket !== "string" || !buckets.has(source.bucket)) {
+    const bucketValue = Object.hasOwn(source, "bucket") ? source.bucket : undefined;
+
+    if (typeof bucketValue !== "string" || !buckets.has(bucketValue)) {
         throw new Error("invalid time bucket");
     }
 
-    return source.bucket as "hour" | "day" | "week" | "month";
+    return bucketValue as "hour" | "day" | "week" | "month";
 }
 
 function fail(message: string): never {

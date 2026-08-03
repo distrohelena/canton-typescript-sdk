@@ -19,15 +19,151 @@ describe("canonical query normalizer", () => {
             include: { exercises: { take: 25 } },
         });
 
-        expect(query).toMatchObject({
+        expect(query).toEqual({
+            kind: "findMany",
             relation: "contracts",
             parties: ["Alice", "Bob"],
+            predicate: {
+                kind: "and",
+                children: [
+                    { kind: "scalar", path: ["active"], operator: "equals", value: true },
+                    { kind: "relation", edge: "exercises", quantifier: "some", predicate: { kind: "scalar", path: ["witnesses"], operator: "has", value: "Alice" } },
+                ],
+            },
+            includes: [{
+                edge: "exercises",
+                relation: "exercises",
+                cardinality: "many",
+                includes: [],
+                orderBy: [
+                    { path: ["tpePk"], direction: "asc" },
+                    { path: ["contractTpePk"], direction: "asc" },
+                    { path: ["exerciseEventPk"], direction: "asc" },
+                    { path: ["contractId"], direction: "asc" },
+                ],
+                predicate: undefined,
+                select: undefined,
+                skip: 0,
+                take: 25,
+            }],
+            select: undefined,
             activeOnly: true,
             orderBy: [
                 { path: ["createdAt"], direction: "desc" },
                 { path: ["contractId"], direction: "asc" },
             ],
+            skip: 0,
+            take: undefined,
         });
+    });
+
+    it.each([
+        ["and", { and: [{ active: true }, { contractId: { equals: "cid" } }] }, true],
+        ["or branches all active", { or: [{ active: true }, { and: [{ active: true }, { contractId: { equals: "cid" } }] }] }, true],
+        ["or branch without active", { or: [{ active: true }, { contractId: { equals: "cid" } }] }, false],
+        ["not", { not: { active: true } }, false],
+    ])("proves active-only only when %s", (_name, where, activeOnly) => {
+        expect(normalizeFindMany("contracts", { where }).activeOnly).toBe(activeOnly);
+    });
+
+    it.each([
+        ["contracts", "createdAt", "contractId"], ["contractTypes", "packageName", "pk"], ["events", "eventId", "pk"], ["exercises", "controllers", "contractId"],
+        ["exerciseTypes", "choice", "pk"], ["packages", "name", "pk"], ["transactions", "effectiveAt", "ix"], ["watermark", "instanceId", "singleton"],
+    ] as const)("adds stable final ordering for %s", (relation, orderField, finalField) => {
+        const orderBy = normalizeFindMany(relation, { orderBy: [{ [orderField]: "desc" }] }).orderBy;
+
+        expect(orderBy.at(-1)).toEqual({ path: [finalField], direction: "asc" });
+    });
+
+    it("copies and freezes a normalized plan", () => {
+        const args = {
+            parties: ["Bob", "Alice"],
+            where: { contractId: { in: ["cid-1"] } },
+            select: { json: { owner: { field: "payload", path: ["owner"], as: "text" } }, contractId: true },
+            orderBy: [{ contractId: "asc" }],
+        } as const;
+
+        const query = normalizeFindMany("contracts", args);
+
+        (args.parties as string[]).push("Mallory");
+        (args.where.contractId.in as string[]).push("cid-2");
+        (args.select.json.owner.path as string[]).push("city");
+
+        expect(query).toMatchObject({
+            parties: ["Alice", "Bob"],
+            predicate: { value: ["cid-1"] },
+            select: { json: [{ path: ["owner"] }] },
+        });
+        expect(Object.isFrozen(query)).toBe(true);
+        expect(Object.isFrozen(query.orderBy)).toBe(true);
+        expect(Object.isFrozen(query.orderBy[0])).toBe(true);
+        expect(Object.isFrozen(query.orderBy[0].path)).toBe(true);
+        expect(Object.isFrozen(query.predicate)).toBe(true);
+        expect(Object.isFrozen((query.predicate as { readonly value: readonly string[] }).value)).toBe(true);
+        expect(Object.isFrozen(query.select)).toBe(true);
+        expect(Object.isFrozen(query.select?.json)).toBe(true);
+    });
+
+    it.each(["toString", "constructor", "__proto__"])("rejects inherited key %s with a validation error", (key) => {
+        const where = Object.create(null) as Record<string, unknown>;
+
+        where[key] = { equals: "x" };
+
+        expect(() => normalizeFindMany("packages", { where })).toThrow(`${key} is not a field of packages`);
+        try {
+            normalizeFindMany("packages", { where });
+        } catch (error) {
+            expect(error).toMatchObject({ name: "QueryValidationError", message: `${key} is not a field of packages` });
+        }
+    });
+
+    it("rejects inherited payload, page, and bucket grammar", () => {
+        const payload = Object.create({ match: { owner: { equals: "Alice" } } }) as Record<string, unknown>;
+
+        payload.toString = true;
+
+        const page = Object.create({ take: 1 }) as Record<string, unknown>;
+
+        const timeBucket = Object.create({ bucket: "day" }) as Record<string, unknown>;
+
+        expect(() => normalizeFindMany("contracts", { where: { payload } })).toThrow();
+        expect(() => normalizeFindMany("contracts", { include: { exercises: page } })).toThrow();
+        expect(() => normalizeGroupBy("transactions", { by: [{ effectiveAt: timeBucket }], aggregate: { count: true } })).toThrow();
+    });
+
+    it("canonicalizes mutable timestamp and binary literals into immutable values", () => {
+        const timestamp = new Date("2026-08-03T00:00:00.000Z");
+
+        const hash = new Uint8Array([1, 2]);
+
+        const timestampQuery = normalizeFindMany("transactions", { where: { effectiveAt: { equals: timestamp } } });
+
+        const binaryQuery = normalizeFindMany("transactions", { where: { externalTransactionHash: { equals: hash } } });
+
+        const normalizedTimestamp = (timestampQuery.predicate as { readonly value: unknown }).value;
+
+        const normalizedHash = (binaryQuery.predicate as { readonly value: readonly number[] }).value;
+
+        timestamp.setTime(0);
+        hash[0] = 9;
+
+        expect(normalizedTimestamp).toBe("2026-08-03T00:00:00.000Z");
+        expect(normalizedHash).toEqual([1, 2]);
+        expect(Object.isFrozen(normalizedHash)).toBe(true);
+    });
+
+    it.each([
+        ["plain scalar instead of filter", () => normalizeFindMany("packages", { where: { id: "pkg" } })],
+        ["string pattern number", () => normalizeFindMany("packages", { where: { id: { like: 1 } } })],
+        ["numeric string number", () => normalizeFindMany("packages", { where: { pk: { equals: 1 } } })],
+        ["boolean string", () => normalizeFindMany("contracts", { where: { active: { equals: "true" } } })],
+        ["timestamp string", () => normalizeFindMany("transactions", { where: { effectiveAt: { gt: "today" } } })],
+        ["JSON path number", () => normalizeFindMany("transactions", { where: { traceContext: { path: ["trace"], equals: 1 } } })],
+        ["array member number", () => normalizeFindMany("contractTypes", { where: { aliases: { has: 1 } } })],
+        ["null for required field", () => normalizeFindMany("packages", { where: { id: { is: null } } })],
+        ["invalid in item", () => normalizeFindMany("packages", { where: { id: { in: ["pkg", 1] } } })],
+    ])("rejects invalid runtime scalar %s", (_name, normalize) => {
+        expect(normalize).toThrow();
     });
 
     it.each([

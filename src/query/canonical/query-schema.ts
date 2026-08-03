@@ -27,6 +27,8 @@ export interface QueryRelationMetadata {
     readonly arrayFields: readonly string[];
     readonly dateFields: readonly string[];
     readonly binaryFields: readonly string[];
+    readonly booleanFields: readonly string[];
+    readonly nullableFields: readonly string[];
     readonly stringFields: readonly string[];
     readonly jsonFields: readonly string[];
     readonly bucketFields: readonly string[];
@@ -71,38 +73,38 @@ export const queryRelationMetadata: Readonly<Record<QueryRelation, QueryRelation
         uniqueKeys: [["contractId"]], stableOrder: ["contractId"],
         orderFields: ["contractId", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt"],
         groupFields: ["contractId", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "witnesses"],
-        numericFields: ["createdEventOffset", "archivedEventOffset"], arrayFields: ["witnesses"], dateFields: ["createdAt", "archivedAt"], binaryFields: [], stringFields: ["contractId", "packageId"], jsonFields: ["payload"], bucketFields: [],
+        numericFields: ["createdEventOffset", "archivedEventOffset"], arrayFields: ["witnesses"], dateFields: ["createdAt", "archivedAt"], binaryFields: [], booleanFields: ["active"], nullableFields: ["packageId", "createdAt", "archivedEventOffset", "archivedAt"], stringFields: ["contractId", "packageId"], jsonFields: ["payload"], bucketFields: [],
     },
     contractTypes: {
         fields: ["pk", "payloadType", "aliases", "packageName", "moduleName", "entityName", "templateFqn"],
         uniqueKeys: [["pk"]], stableOrder: ["pk"], orderFields: ["pk", "payloadType", "aliases", "packageName", "moduleName", "entityName", "templateFqn"], groupFields: ["pk", "payloadType", "aliases", "packageName", "moduleName", "entityName", "templateFqn"],
-        numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [], stringFields: ["payloadType", "packageName", "moduleName", "entityName", "templateFqn"], jsonFields: [], bucketFields: [],
+        numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [], booleanFields: [], nullableFields: [], stringFields: ["payloadType", "packageName", "moduleName", "entityName", "templateFqn"], jsonFields: [], bucketFields: [],
     },
     events: {
         fields: ["pk", "txIx", "eventId", "type"], uniqueKeys: [["pk"]], stableOrder: ["pk"], orderFields: ["pk", "txIx", "eventId", "type"], groupFields: ["pk", "txIx", "eventId", "type"],
-        numericFields: ["pk", "txIx"], arrayFields: [], dateFields: [], binaryFields: [], stringFields: ["eventId", "type"], jsonFields: [], bucketFields: [],
+        numericFields: ["pk", "txIx"], arrayFields: [], dateFields: [], binaryFields: [], booleanFields: [], nullableFields: [], stringFields: ["eventId", "type"], jsonFields: [], bucketFields: [],
     },
     exercises: {
         fields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "contractId", "argument", "result", "redactionId", "packagePk", "controllers", "lastDescendantNodeId", "witnesses"],
         uniqueKeys: [], stableOrder: ["tpePk", "contractTpePk", "exerciseEventPk", "contractId"], orderFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "contractId", "argument", "result", "redactionId", "packagePk", "controllers", "lastDescendantNodeId", "witnesses"], groupFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "contractId", "argument", "result", "redactionId", "packagePk", "controllers", "lastDescendantNodeId", "witnesses"],
-        numericFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk", "lastDescendantNodeId"], arrayFields: ["controllers", "witnesses"], dateFields: [], binaryFields: [], stringFields: ["contractId", "redactionId"], jsonFields: ["argument", "result"], bucketFields: [],
+        numericFields: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk", "lastDescendantNodeId"], arrayFields: ["controllers", "witnesses"], dateFields: [], binaryFields: [], booleanFields: [], nullableFields: ["exerciseEventPk", "exercisedAtIx", "redactionId"], stringFields: ["contractId", "redactionId"], jsonFields: ["argument", "result"], bucketFields: [],
     },
     exerciseTypes: {
         fields: ["pk", "choice", "consuming", "aliases", "packageName", "moduleName", "entityName", "templateFqn", "choiceFqn"],
         uniqueKeys: [["pk"]], stableOrder: ["pk"], orderFields: ["pk", "choice", "consuming", "aliases", "packageName", "moduleName", "entityName", "templateFqn", "choiceFqn"], groupFields: ["pk", "choice", "consuming", "aliases", "packageName", "moduleName", "entityName", "templateFqn", "choiceFqn"],
-        numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [], stringFields: ["choice", "packageName", "moduleName", "entityName", "templateFqn", "choiceFqn"], jsonFields: [], bucketFields: [],
+        numericFields: ["pk"], arrayFields: ["aliases"], dateFields: [], binaryFields: [], booleanFields: ["consuming"], nullableFields: [], stringFields: ["choice", "packageName", "moduleName", "entityName", "templateFqn", "choiceFqn"], jsonFields: [], bucketFields: [],
     },
     packages: {
         fields: ["pk", "name", "version", "id"], uniqueKeys: [["pk"], ["id"]], stableOrder: ["pk"], orderFields: ["pk", "name", "version", "id"], groupFields: ["pk", "name", "version", "id"],
-        numericFields: ["pk"], arrayFields: [], dateFields: [], binaryFields: [], stringFields: ["name", "version", "id"], jsonFields: [], bucketFields: [],
+        numericFields: ["pk"], arrayFields: [], dateFields: [], binaryFields: [], booleanFields: [], nullableFields: [], stringFields: ["name", "version", "id"], jsonFields: [], bucketFields: [],
     },
     transactions: {
         fields: ["ix", "offset", "transactionId", "effectiveAt", "workflowId", "domainId", "traceContext", "externalTransactionHash", "paidTrafficCost"],
         uniqueKeys: [["ix"], ["offset"]], stableOrder: ["ix"], orderFields: ["ix", "offset", "transactionId", "effectiveAt", "workflowId", "domainId", "traceContext", "externalTransactionHash", "paidTrafficCost"], groupFields: ["ix", "offset", "transactionId", "effectiveAt", "workflowId", "domainId", "traceContext", "externalTransactionHash", "paidTrafficCost"],
-        numericFields: ["ix", "offset", "paidTrafficCost"], arrayFields: [], dateFields: ["effectiveAt"], binaryFields: ["externalTransactionHash"], stringFields: ["transactionId", "workflowId", "domainId"], jsonFields: ["traceContext"], bucketFields: ["effectiveAt"],
+        numericFields: ["ix", "offset", "paidTrafficCost"], arrayFields: [], dateFields: ["effectiveAt"], binaryFields: ["externalTransactionHash"], booleanFields: [], nullableFields: ["transactionId", "effectiveAt", "workflowId", "domainId", "traceContext", "externalTransactionHash", "paidTrafficCost"], stringFields: ["transactionId", "workflowId", "domainId"], jsonFields: ["traceContext"], bucketFields: ["effectiveAt"],
     },
     watermark: {
         fields: ["singleton", "ix", "offset", "instanceId"], uniqueKeys: [["singleton"]], stableOrder: ["singleton"], orderFields: ["singleton", "ix", "offset", "instanceId"], groupFields: ["singleton", "ix", "offset", "instanceId"],
-        numericFields: ["ix", "offset"], arrayFields: [], dateFields: [], binaryFields: [], stringFields: ["instanceId"], jsonFields: [], bucketFields: [],
+        numericFields: ["ix", "offset"], arrayFields: [], dateFields: [], binaryFields: [], booleanFields: ["singleton"], nullableFields: ["ix", "offset", "instanceId"], stringFields: ["instanceId"], jsonFields: [], bucketFields: [],
     },
 };
