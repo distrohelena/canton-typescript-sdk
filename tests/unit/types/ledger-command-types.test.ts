@@ -5,7 +5,7 @@ import {
     DamlRecord,
     ExerciseByKeyCommand,
     ExerciseCommand,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     TemplateId,
     ValidationError,
 } from "../../../src";
@@ -152,43 +152,43 @@ describe("ledger command sdk types", () => {
 
     it("accepts every command kind in submit requests", () => {
         const requests = [
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId,
                     createArguments: new DamlRecord({}),
-                }),
+                })],
             }),
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new ExerciseCommand({
+                commands: [new ExerciseCommand({
                     templateId,
                     contractId: "00abc",
                     choice: "Archive",
                     choiceArgument: {},
-                }),
+                })],
             }),
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new ExerciseByKeyCommand({
+                commands: [new ExerciseByKeyCommand({
                     templateId,
                     contractKey: { owner: "Alice" },
                     choice: "Archive",
                     choiceArgument: {},
-                }),
+                })],
             }),
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateAndExerciseCommand({
+                commands: [new CreateAndExerciseCommand({
                     templateId,
                     createArguments: new DamlRecord({}),
                     choice: "CreateAndArchive",
                     choiceArgument: {},
-                }),
+                })],
             }),
         ];
 

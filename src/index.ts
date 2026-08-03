@@ -296,7 +296,8 @@ export { ListIdentityProviderConfigsRequest } from "./core/types/requests/list-i
 export { ListKeyOwnersRequest } from "./core/types/requests/list-key-owners-request.js";
 export { ListUserRightsRequest } from "./core/types/requests/list-user-rights-request.js";
 export { ListUsersRequest } from "./core/types/requests/list-users-request.js";
-export { SubmitCommandRequest } from "./core/types/requests/submit-command-request.js";
+export { SubmitCommandsRequest } from "./core/types/requests/submit-commands-request.js";
+export type { NonEmptyLedgerCommands } from "./core/types/requests/submit-commands-request.js";
 export { TopologyListPartiesRequest } from "./core/types/requests/topology-list-parties-request.js";
 export { WaitForPartyHostingRequest } from "./core/types/requests/wait-for-party-hosting-request.js";
 export { GrantUserRightsRequest } from "./core/types/requests/grant-user-rights-request.js";
