@@ -130,9 +130,14 @@ describe("mapGrpcQueryRelationFragment", () => {
     });
 
     it("validates generated relation names, package IDs, and transaction LedgerStrings", () => {
-        const valid = CreatedEvent.create({ ...create(), templateId: { packageId: "p".repeat(64), moduleName: `M${"a".repeat(999)}`, entityName: `E${"a".repeat(999)}` }, representativePackageId: "r".repeat(64) });
+        const valid = CreatedEvent.create({ ...create(), templateId: { packageId: "p".repeat(64), moduleName: "Sample.Module", entityName: "Outer.Inner" }, representativePackageId: "r".repeat(64) });
 
         expect(mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: valid } })])]).contracts).toHaveLength(1);
+        for (const moduleName of [".A", "A.", "A..B", "A.bad-name", `A.${"A".repeat(1001)}`]) {
+            expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), templateId: { ...template, moduleName } }) } })])])).toThrow(ValidationError);
+        }
+
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), templateId: { ...template, entityName: "Outer..Inner" } }) } })])])).toThrow(ValidationError);
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), templateId: { ...template, moduleName: "1Bad" } }) } })])])).toThrow(ValidationError);
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), representativePackageId: "bad!" }) } })])])).toThrow(ValidationError);
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), choice: "bad-name" }) } })])])).toThrow(ValidationError);

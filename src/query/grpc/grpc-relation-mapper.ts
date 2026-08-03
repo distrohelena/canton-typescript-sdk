@@ -4,7 +4,7 @@ import type { ContractRow, EventRow, ExerciseRow, TransactionRow } from "../mode
 import type { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import type { Transaction } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
-import { mapGrpcQueryValue, validLedgerString, validNameString, validPackageIdString, validPartyId } from "./grpc-query-value-mapper.js";
+import { mapGrpcQueryValue, validDottedNameString, validLedgerString, validNameString, validPackageIdString, validPartyId } from "./grpc-query-value-mapper.js";
 
 type TemplateId = NonNullable<CreatedEvent["templateId"]>;
 
@@ -479,8 +479,8 @@ function requiredTemplate(template: TemplateId | undefined, name: string): Templ
     }
 
     validPackageIdString(template.packageId, `${name} package id`);
-    validNameString(template.moduleName, `${name} module name`);
-    validNameString(template.entityName, `${name} entity name`);
+    validDottedNameString(template.moduleName, `${name} module name`);
+    validDottedNameString(template.entityName, `${name} entity name`);
 
     return template;
 }

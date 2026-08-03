@@ -231,6 +231,15 @@ export function validNameString(value: string, name = "name"): string {
     return value;
 }
 
+/** Validates an Identifier module or entity name as nonempty dot-separated NameString segments. */
+export function validDottedNameString(value: string, name = "dotted name"): string {
+    for (const segment of value.split(".")) {
+        validNameString(segment, name);
+    }
+
+    return value;
+}
+
 /** Validates a generated PackageIdString without applying it to arbitrary package-name text. */
 export function validPackageIdString(value: string, name = "package id"): string {
     if (!/^[A-Za-z0-9\-_ ]{1,64}$/.test(value)) {
