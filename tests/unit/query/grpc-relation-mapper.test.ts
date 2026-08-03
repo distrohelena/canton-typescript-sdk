@@ -8,11 +8,13 @@ import { GetActiveContractsResponse } from "../../../src/transports/grpc/generat
 
 const template = { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" };
 
-const create = (contractId = "C1") => CreatedEvent.create({ offset: "10", nodeId: 1, contractId, templateId: template, packageName: "app", witnessParties: ["Alice"], createdAt: { seconds: "1700000000", nanos: 123_000_000 }, createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } });
+const create = (contractId = "C1") => CreatedEvent.create({ offset: "10", nodeId: 1, contractId, templateId: template, packageName: "app", representativePackageId: "pkg-id", witnessParties: ["Alice"], signatories: ["Alice"], createdAt: { seconds: "1700000000", nanos: 123_000_000 }, createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } });
 
 const exercise = (consuming = true) => ExercisedEvent.create({ offset: "20", nodeId: 2, contractId: "C1", templateId: template, packageName: "app", choice: "Archive", choiceArgument: Value.create({ sum: { oneofKind: "record", record: { fields: [{ label: "by", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } }), exerciseResult: Value.create({ sum: { oneofKind: "unit", unit: {} } }), actingParties: ["Alice"], witnessParties: ["Alice"], consuming, lastDescendantNodeId: 2 });
 
-const transaction = (offset: string, events: Event[]) => Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000100", nanos: 456_000_000 }, workflowId: "workflow", synchronizerId: "sync", traceContext: { traceId: "trace", spanId: "span", traceFlags: 1 }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "9007199254740993", events });
+const transaction = (offset: string, events: Event[]) => Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000100", nanos: 456_000_000 }, recordTime: { seconds: "1700000101", nanos: 0 }, workflowId: "workflow", synchronizerId: "sync", traceContext: { traceId: "trace", spanId: "span", traceFlags: 1 }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "9007199254740993", events });
+
+const active = (created: CreatedEvent) => GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } });
 
 describe("mapGrpcQueryRelationFragment", () => {
     it("materializes transaction, event, contract, and exercise rows without package/type fabrication", () => {
@@ -52,7 +54,7 @@ describe("mapGrpcQueryRelationFragment", () => {
     });
 
     it("rejects ACS data that conflicts with the complete history", () => {
-        const contradictoryAcs = GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: CreatedEvent.create({ ...create(), offset: "99" }) } } });
+        const contradictoryAcs = active(CreatedEvent.create({ ...create(), offset: "99" }));
 
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [contradictoryAcs])).toThrow(/ACS.*conflicts/i);
     });
@@ -95,23 +97,24 @@ describe("mapGrpcQueryRelationFragment", () => {
     ])("rejects ACS conflicts in creation %s facts", (_name, conflict) => {
         const history = [transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])];
 
-        const active = GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: conflict } } });
+        const snapshot = active(conflict);
 
-        expect(() => mapGrpcQueryRelationFragment(history, [active])).toThrow(/ACS.*conflicts/i);
+        expect(() => mapGrpcQueryRelationFragment(history, [snapshot])).toThrow(/ACS.*conflicts/i);
     });
 
     it("accepts one exact ACS/history duplicate but rejects duplicate ACS contract entries", () => {
         const history = [transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])];
 
-        const active = GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create() } } });
+        const snapshot = active(create());
 
-        expect(mapGrpcQueryRelationFragment(history, [active]).contracts).toHaveLength(1);
-        expect(() => mapGrpcQueryRelationFragment([], [active, active])).toThrow(/duplicate ACS/i);
+        expect(mapGrpcQueryRelationFragment(history, [snapshot]).contracts).toHaveLength(1);
+        expect(() => mapGrpcQueryRelationFragment([], [snapshot, snapshot])).toThrow(/duplicate ACS/i);
     });
 
     it.each([
         ["empty transaction events", () => mapGrpcQueryRelationFragment([transaction("10", [])])],
         ["missing effective time", () => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), effectiveAt: undefined })])],
+        ["missing record time", () => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), recordTime: undefined })])],
         ["blank update id", () => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), updateId: "" })])],
         ["blank synchronizer", () => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), synchronizerId: "" })])],
         ["blank created package name", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), packageName: "" }) } })])])],
@@ -119,11 +122,32 @@ describe("mapGrpcQueryRelationFragment", () => {
         ["blank created contract id", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), contractId: "" }) } })])])],
         ["missing created time", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), createdAt: undefined }) } })])])],
         ["empty created witnesses", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), witnessParties: [] }) } })])])],
+        ["blank created witness", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), witnessParties: [""] }) } })])])],
+        ["empty created signatories", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), signatories: [] }) } })])])],
+        ["blank created observer", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), observers: [""] }) } })])])],
+        ["blank representative package", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), representativePackageId: "" }) } })])])],
         ["empty exercise choice", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), choice: "" }) } })])])],
         ["empty exercise actors", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), actingParties: [] }) } })])])],
         ["empty exercise witnesses", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), witnessParties: [] }) } })])])],
+        ["exercise descendant below node", () => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), lastDescendantNodeId: 1 }) } })])])],
         ["zero transaction offset", () => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), offset: "0" }) } })]), offset: "0" })])],
     ])("rejects malformed required gRPC data: %s", (_name, invoke) => {
         expect(invoke).toThrow(ValidationError);
+    });
+
+    it.each([
+        ["blank synchronizer", GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "", reassignmentCounter: "0" } } })],
+        ["blank reassignment counter", GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "sync", reassignmentCounter: "" } } })],
+        ["signed reassignment counter", GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "sync", reassignmentCounter: "-1" } } })],
+        ["leading-zero reassignment counter", GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "sync", reassignmentCounter: "01" } } })],
+        ["overflow reassignment counter", GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "sync", reassignmentCounter: "18446744073709551616" } } })],
+    ])("rejects malformed ActiveContract %s", (_name, snapshot) => {
+        expect(() => mapGrpcQueryRelationFragment([], [snapshot])).toThrow(ValidationError);
+    });
+
+    it("accepts the uint64 reassignment counter boundary", () => {
+        const snapshot = GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: create(), synchronizerId: "sync", reassignmentCounter: "18446744073709551615" } } });
+
+        expect(mapGrpcQueryRelationFragment([], [snapshot]).contracts).toHaveLength(1);
     });
 });

@@ -172,7 +172,7 @@ function date(value: number): number {
 }
 
 function numeric(value: string): string {
-    if (!/^[+-]?\d+(?:\.\d*)?$/.test(value)) {
+    if (!/^[+-]?\d{1,38}(?:\.\d{0,37})?$/.test(value)) {
         throw new ValidationError("gRPC query numeric is invalid");
     }
 

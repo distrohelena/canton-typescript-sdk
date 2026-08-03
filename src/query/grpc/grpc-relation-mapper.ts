@@ -235,6 +235,10 @@ function validatePending(transaction: Transaction, event: CreatedEvent | Exercis
         immutableStrings(event.actingParties, "exercise acting parties", true);
         immutableStrings(event.witnessParties, "exercise witnesses", true);
         validNodeId(event.lastDescendantNodeId, "last descendant node id");
+
+        if (event.lastDescendantNodeId < event.nodeId) {
+            throw new ValidationError("gRPC query exercise last descendant node id precedes its node id");
+        }
     } else {
         creationDescriptor(event, event.offset);
     }
@@ -296,7 +300,11 @@ function activeCreatedEvents(responses: readonly GetActiveContractsResponse[]): 
     return responses.map((response) => {
         if (response.contractEntry.oneofKind !== "activeContract" || response.contractEntry.activeContract.createdEvent === undefined) {
             throw new ValidationError("gRPC query ACS contains incomplete assigned or unassigned contract data");
+        } else if (response.contractEntry.activeContract.synchronizerId.length === 0) {
+            throw new ValidationError("gRPC query ACS active contract synchronizer id is missing");
         }
+
+        uint64(response.contractEntry.activeContract.reassignmentCounter, "ACS active contract reassignment counter");
 
         return response.contractEntry.activeContract.createdEvent;
     });
@@ -310,6 +318,8 @@ function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreat
         throw new ValidationError("gRPC query created event contract id is missing");
     } else if (event.packageName.length === 0) {
         throw new ValidationError("gRPC query created event package name is missing");
+    } else if (event.representativePackageId.length === 0) {
+        throw new ValidationError("gRPC query created event representative package id is missing");
     }
 
     const template = requiredTemplate(event.templateId, "created event template");
@@ -319,6 +329,9 @@ function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreat
     }
 
     const createdAt = requiredTimestamp(event.createdAt, "created event time");
+
+    immutableStrings(event.signatories, "created event signatories", true);
+    immutableStrings(event.observers, "created event observers");
 
     return {
         contractId: event.contractId,
@@ -342,6 +355,7 @@ function validateTransaction(transaction: Transaction): void {
     }
 
     timestamp(transaction.effectiveAt, "transaction effective time", true);
+    timestamp(transaction.recordTime, "transaction record time", true);
 }
 
 function packageIdsFor(event: CreatedEvent | ExercisedEvent): readonly string[] {
@@ -423,6 +437,15 @@ function signedInt64(value: string, name: string): string {
         throw new ValidationError(`gRPC query ${name} is invalid`);
     } else if (BigInt(value) < -9_223_372_036_854_775_808n || BigInt(value) > 9_223_372_036_854_775_807n) {
         throw new ValidationError(`gRPC query ${name} is outside the int64 range`);
+    }
+
+    return value;
+}
+function uint64(value: string, name: string): string {
+    if (!/^(?:0|[1-9]\d*)$/.test(value)) {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
+    } else if (BigInt(value) > 18_446_744_073_709_551_615n) {
+        throw new ValidationError(`gRPC query ${name} is outside the uint64 range`);
     }
 
     return value;
