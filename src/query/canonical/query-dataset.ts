@@ -6,6 +6,8 @@ export type QueryRowSets = Readonly<Record<QueryRelation, readonly QueryRow[]>>;
 
 /** A directional join from the owning row to a target relation row. */
 export interface QueryEdgeLookup {
+    /** Whether the snapshot contains every target needed to traverse this edge. Defaults to true. */
+    readonly complete?: boolean;
     /** Public row paths, retained for legacy datasets. */
     readonly from?: readonly string[];
     readonly to?: readonly string[];
@@ -30,6 +32,15 @@ export interface QueryDataset {
     readonly rows: QueryRowSets;
     readonly edges: QueryEdgeLookups;
     readonly sourceLocalKeys: Readonly<Record<QueryRelation, readonly (readonly string[])[]>>;
+}
+
+/** An edge is declared by the schema but its targets were unavailable in this snapshot. */
+export class IncompleteQueryEdgeError extends Error {
+    public constructor(public readonly relation: QueryRelation, public readonly edge: string) {
+        super(`Dataset edge ${relation}.${edge} is incomplete`);
+        this.name = "IncompleteQueryEdgeError";
+        Object.freeze(this);
+    }
 }
 
 interface EdgeIndex {
@@ -131,6 +142,8 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
             if (lookup === undefined) {
                 throw new Error(`Dataset is missing ${relation}.${edge} edge`);
+            } else if (lookup.complete !== undefined && typeof lookup.complete !== "boolean") {
+                throw new Error(`Dataset ${relation}.${edge} completeness marker is invalid`);
             }
 
             const targetRows = dataset.rows[definition.target];
@@ -171,7 +184,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
             if (definition.cardinality === "one" && [...buckets.values()].some((targets) => targets.length > 1)) {
                 throw new Error(`Dataset ${relation}.${edge} has multiple to-one targets`);
-            } else if (definition.cardinality === "one" && !definition.nullable) {
+            } else if (definition.cardinality === "one" && !definition.nullable && lookup.complete !== false) {
                 for (const [index, source] of rows.entries()) {
                     const values = lookup.privateKeys === undefined
                         ? lookup.from!.map((path) => atPath(source, path))
@@ -219,6 +232,8 @@ export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation,
 
     if (snapshotRow === undefined) {
         throw new Error(`Query row does not belong to ${relation} dataset`);
+    } else if (lookup.complete === false) {
+        throw new IncompleteQueryEdgeError(relation, edge);
     }
 
     const values = lookup.privateKeys === undefined

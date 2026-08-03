@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { CantonError } from "../../core/errors/canton-error.js";
 import { DamlLfPackageLoader } from "../../daml-lf/daml-lf-package-loader.js";
 import { DamlLfTemplate } from "../../daml-lf/model/daml-lf-template.js";
@@ -49,7 +50,7 @@ export class GrpcPackageRelationReader {
     ) {}
 
     public async readAllAsync(): Promise<readonly GrpcPackageMetadata[]> {
-        let response: ListPackagesResponse;
+        let response: unknown;
 
         try {
             response = await this.packageService.listPackagesAsync({});
@@ -57,29 +58,31 @@ export class GrpcPackageRelationReader {
             throw new GrpcPackageRelationError("<list>", errorMessage(error));
         }
 
-        if (!Array.isArray(response.packageIds)) {
+        if (response === null || typeof response !== "object" || !Array.isArray((response as Partial<ListPackagesResponse>).packageIds) || (response as ListPackagesResponse).packageIds.length === 0) {
             throw new GrpcPackageRelationError("<list>", "Package Service returned no package IDs");
         }
 
-        return this.readPackagesAsync(response.packageIds);
+        return this.readPackagesAsync((response as ListPackagesResponse).packageIds);
     }
 
     public async readPackagesAsync(packageIds: readonly string[]): Promise<readonly GrpcPackageMetadata[]> {
-        const promised = new Map<string, Promise<GrpcPackageMetadata>>();
+        const uniquePackageIds = new Set<string>();
 
         for (const packageId of packageIds) {
             try {
                 validPackageIdString(packageId, "package id");
+
+                if (!/^[0-9a-f]{64}$/.test(packageId)) {
+                    throw new Error("Package Service package ID is not a lowercase SHA-256 digest");
+                }
             } catch (error) {
                 throw new GrpcPackageRelationError(packageId, errorMessage(error));
             }
 
-            if (!promised.has(packageId)) {
-                promised.set(packageId, this.readPackageAsync(packageId));
-            }
+            uniquePackageIds.add(packageId);
         }
 
-        const packages = await Promise.all([...promised.values()]);
+        const packages = await Promise.all([...uniquePackageIds].map((packageId) => this.readPackageAsync(packageId)));
 
         return Object.freeze(packages.slice().sort((left, right) => left.id.localeCompare(right.id)));
     }
@@ -100,6 +103,12 @@ export class GrpcPackageRelationReader {
                 throw new Error("Package Service response archive payload is missing");
             } else if (response.hashFunction !== PackageServiceHashFunction.SHA256) {
                 throw new Error("Package Service response uses an unsupported hash function");
+            }
+
+            const digest = createHash("sha256").update(response.archivePayload).digest("hex");
+
+            if (digest !== packageId || digest !== response.hash) {
+                throw new Error("Package Service response archive payload does not match its SHA-256 hash");
             }
 
             const archive = Archive.toBinary({

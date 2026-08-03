@@ -305,6 +305,14 @@ export function createGrpcQueryDataset(
 
     const watermark: readonly WatermarkRow[] = [{ singleton: true, ix: endInclusive, offset: endInclusive, instanceId }];
 
+    const transactionOffsets = new Set(fragment.transactions.map((transaction) => transaction.ix));
+
+    const activeContractIds = new Set(fragment.activeContractIdentities.map((identity) => identity.contractId));
+
+    const contractsWithoutCreatedTransaction = fragment.contracts.filter((contract) => !transactionOffsets.has(contract.createdEventOffset));
+
+    const createdTransactionIncomplete = contractsWithoutCreatedTransaction.length > 0 && contractsWithoutCreatedTransaction.every((contract) => activeContractIds.has(contract.contractId));
+
     return createQueryDataset({
         rows: {
             contracts: fragment.contracts as unknown as readonly QueryRow[],
@@ -322,7 +330,7 @@ export function createGrpcQueryDataset(
         edges: {
             contracts: {
                 contractType: { privateKeys: { source: contractPrivateKeys, target: templatePrivateKeys } },
-                createdTransaction: { from: ["createdEventOffset"], to: ["ix"] },
+                createdTransaction: { from: ["createdEventOffset"], to: ["ix"], ...(createdTransactionIncomplete ? { complete: false } : {}) },
                 archivedTransaction: { from: ["archivedEventOffset"], to: ["ix"] },
                 exercises: { from: ["contractId"], to: ["contractId"] },
             },

@@ -1,29 +1,46 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { Archive } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
 import { HashFunction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { GrpcPackageRelationReader } from "../../../src/query/grpc/grpc-package-relation-reader.js";
 
-function packageResponse(id = "sample-hash") {
+function fixturePackage() {
     const archive = Archive.fromBinary(SampleLfPackageFixture.createLf2ArchiveBytes());
 
+    const id = createHash("sha256").update(archive.payload).digest("hex");
+
+    return {
+        id,
+        payload: archive.payload,
+        response: {
+            hashFunction: HashFunction.SHA256,
+            archivePayload: archive.payload,
+            hash: id,
+        },
+    };
+}
+
+function packageResponse(id: string, payload = fixturePackage().payload) {
     return {
         hashFunction: HashFunction.SHA256,
-        archivePayload: archive.payload,
+        archivePayload: payload,
         hash: id,
     };
 }
 
 describe("GrpcPackageRelationReader", () => {
     it("loads all listed LF2 packages and maps package/template/choice metadata", async () => {
-        const listPackagesAsync = vi.fn(async () => ({ packageIds: ["sample-hash"] }));
+        const fixture = fixturePackage();
 
-        const getPackageAsync = vi.fn(async ({ packageId }: { packageId: string }) => packageResponse(packageId));
+        const listPackagesAsync = vi.fn(async () => ({ packageIds: [fixture.id] }));
+
+        const getPackageAsync = vi.fn(async () => fixture.response);
 
         const reader = new GrpcPackageRelationReader({ listPackagesAsync, getPackageAsync });
 
         await expect(reader.readAllAsync()).resolves.toEqual([expect.objectContaining({
-            id: "sample-hash",
+            id: fixture.id,
             name: "sample-package",
             version: "1.0.0",
             templates: [expect.objectContaining({
@@ -41,30 +58,72 @@ describe("GrpcPackageRelationReader", () => {
             })],
         })]);
         expect(listPackagesAsync).toHaveBeenCalledExactlyOnceWith({});
-        expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: "sample-hash" });
+        expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
     it("loads only referenced packages and deduplicates repeated package identities in one query", async () => {
+        const fixture = fixturePackage();
+
         const listPackagesAsync = vi.fn(async () => ({ packageIds: ["ignored"] }));
 
-        const getPackageAsync = vi.fn(async ({ packageId }: { packageId: string }) => packageResponse(packageId));
+        const getPackageAsync = vi.fn(async () => fixture.response);
 
         const reader = new GrpcPackageRelationReader({ listPackagesAsync, getPackageAsync });
 
-        const packages = await reader.readPackagesAsync(["second", "sample-hash", "second"]);
+        const packages = await reader.readPackagesAsync([fixture.id, fixture.id]);
 
-        expect(packages.map((item) => item.id)).toEqual(["sample-hash", "second"]);
+        expect(packages.map((item) => item.id)).toEqual([fixture.id]);
         expect(listPackagesAsync).not.toHaveBeenCalled();
-        expect(getPackageAsync).toHaveBeenCalledTimes(2);
-        expect(getPackageAsync.mock.calls).toEqual([[{ packageId: "second" }], [{ packageId: "sample-hash" }]]);
+        expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
     it("turns malformed package data into an explicit typed failure without a partial result", async () => {
+        const malformedPayload = new Uint8Array([1]);
+
+        const malformedId = createHash("sha256").update(malformedPayload).digest("hex");
+
         const reader = new GrpcPackageRelationReader({
-            listPackagesAsync: async () => ({ packageIds: ["bad"] }),
-            getPackageAsync: async () => ({ hashFunction: HashFunction.SHA256, archivePayload: new Uint8Array([1]), hash: "bad" }),
+            listPackagesAsync: async () => ({ packageIds: [malformedId] }),
+            getPackageAsync: async () => ({ hashFunction: HashFunction.SHA256, archivePayload: malformedPayload, hash: malformedId }),
         });
 
-        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "bad" });
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: malformedId });
+    });
+
+    it.each([
+        ["payload digest differs", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: "0".repeat(64), response: packageResponse("0".repeat(64), fixture.payload) })],
+        ["response hash differs", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: fixture.id, response: packageResponse("0".repeat(64), fixture.payload) })],
+        ["payload is corrupted", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: fixture.id, response: packageResponse(fixture.id, Uint8Array.from([...fixture.payload.slice(0, -1), fixture.payload.at(-1)! ^ 1])) })],
+    ])("rejects Package Service integrity failure: %s", async (_name, make) => {
+        const fixture = fixturePackage();
+
+        const mismatch = make(fixture);
+
+        const reader = new GrpcPackageRelationReader({
+            listPackagesAsync: async () => ({ packageIds: [mismatch.requestId] }),
+            getPackageAsync: async () => mismatch.response,
+        });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: mismatch.requestId });
+    });
+
+    it.each([null, undefined, 1, {}, { packageIds: undefined }, { packageIds: [] }, { packageIds: "not-an-array" }])("rejects malformed package lists as typed list failures: %j", async (response) => {
+        const reader = new GrpcPackageRelationReader({
+            listPackagesAsync: async () => response as never,
+            getPackageAsync: async () => fixturePackage().response,
+        });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
+    });
+
+    it("validates and deduplicates the complete package ID list before starting fetches", async () => {
+        const fixture = fixturePackage();
+
+        const getPackageAsync = vi.fn(async () => fixture.response);
+
+        const reader = new GrpcPackageRelationReader({ listPackagesAsync: async () => ({ packageIds: [] }), getPackageAsync });
+
+        await expect(reader.readPackagesAsync([fixture.id, "not-a-digest"])).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "not-a-digest" });
+        expect(getPackageAsync).not.toHaveBeenCalled();
     });
 });

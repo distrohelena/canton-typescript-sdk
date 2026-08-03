@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
 import { createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
 import { relatedQueryRows } from "../../../src/query/canonical/query-dataset.js";
+import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
+import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
 import type { GrpcPackageMetadata } from "../../../src/query/grpc/grpc-package-relation-reader.js";
 import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { Transaction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
@@ -321,6 +323,8 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "exerciseType")).toEqual([expect.objectContaining({ packageName: "upgrade" })]);
         expect(Object.keys(first.rows.contracts[0]!)).toEqual(["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]);
         expect(Object.keys(first.edges.contracts!.contractType!)).toEqual(["privateKeys"]);
+        expect(first.edges.contracts!.createdTransaction!.complete).not.toBe(false);
+        expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "createdTransaction")).toEqual([expect.objectContaining({ ix: "10" })]);
         expect(Object.keys(first.edges.watermark!)).toEqual([]);
     });
 
@@ -362,7 +366,7 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [metadata], "0", "grpc://participant")).toThrow(ValidationError);
     });
 
-    it("accepts same-name packages at different versions while rejecting ACS-only missing transaction targets", () => {
+    it("accepts same-name packages at different versions and marks ACS-only creation transactions incomplete", () => {
         const older = packageMetadata("pkg-old", "app", true, "1.0.0");
 
         const representative = packageMetadata("pkg-id", "app", true, "2.0.0");
@@ -371,7 +375,19 @@ describe("mapGrpcQueryRelationFragment", () => {
 
         expect(createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant").rows.packages).toHaveLength(2);
         expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant")).toThrow(ValidationError);
-        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([], [active(create())]), [representative], "10", "grpc://participant")).toThrow("contracts.createdTransaction has no target");
+
+        const history = mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [active(create())]);
+
+        expect(() => createGrpcQueryDataset({ ...history, transactions: [] }, [representative], "10", "grpc://participant")).toThrow("has no target");
+
+        const activeOnly = createGrpcQueryDataset(mapGrpcQueryRelationFragment([], [active(create())]), [representative], "10", "grpc://participant");
+
+        expect(new InMemoryQueryEvaluator().execute(activeOnly, normalizeFindMany("contracts", { select: { contractId: true } }))).toEqual([{ contractId: "C1" }]);
+        expect(activeOnly.rows.contracts[0]).not.toHaveProperty("createdTransactionComplete");
+        expect(activeOnly.edges.contracts!.createdTransaction!.complete).toBe(false);
+        expect(() => relatedQueryRows(activeOnly, "contracts", activeOnly.rows.contracts[0]!, "createdTransaction")).toThrow("Dataset edge contracts.createdTransaction is incomplete");
+        expect(() => new InMemoryQueryEvaluator().execute(activeOnly, normalizeFindMany("contracts", { include: { createdTransaction: true } }))).toThrow("Dataset edge contracts.createdTransaction is incomplete");
+        expect(() => new InMemoryQueryEvaluator().execute(activeOnly, normalizeFindMany("contracts", { where: { createdTransaction: { transactionId: { equals: "update-10" } } } }))).toThrow("Dataset edge contracts.createdTransaction is incomplete");
     });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createQueryDataset, relatedQueryRows, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
+import { createQueryDataset, IncompleteQueryEdgeError, relatedQueryRows, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
 import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
 import { queryConformanceDataset } from "./query-conformance-fixture.js";
@@ -75,6 +75,11 @@ describe("createQueryDataset", () => {
 
         (invalidLocal.sourceLocalKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
         expect(() => createQueryDataset(invalidLocal)).toThrow("source-local key path missing is invalid");
+
+        const invalidCompleteness = mutableDataset();
+
+        (invalidCompleteness.edges.contracts as Record<string, { complete: unknown }>).createdTransaction.complete = "no";
+        expect(() => createQueryDataset(invalidCompleteness)).toThrow("contracts.createdTransaction completeness marker is invalid");
     });
 
     it("rejects duplicate local keys and duplicate to-one targets while allowing to-many targets", () => {
@@ -186,5 +191,25 @@ describe("createQueryDataset", () => {
             },
         };
         expect(() => createQueryDataset(missingPrivate)).toThrow("contracts.contractType has no target");
+    });
+
+    it("permits explicitly incomplete required edges but fails deterministically when traversed", () => {
+        const input = mutableDataset();
+
+        input.rows = {
+            ...input.rows,
+            contracts: [{ ...input.rows.contracts[0]!, createdEventOffset: "999" }, ...input.rows.contracts.slice(1)],
+        };
+        (input.edges.contracts as Record<string, unknown>).createdTransaction = {
+            from: ["createdEventOffset"],
+            to: ["ix"],
+            complete: false,
+        };
+
+        const dataset = createQueryDataset(input);
+
+        expect(dataset.rows.contracts[0]).not.toHaveProperty("createdTransactionComplete");
+        expect(() => relatedQueryRows(dataset, "contracts", dataset.rows.contracts[0]!, "createdTransaction")).toThrow(IncompleteQueryEdgeError);
+        expect(() => relatedQueryRows(dataset, "contracts", dataset.rows.contracts[0]!, "createdTransaction")).toThrow("Dataset edge contracts.createdTransaction is incomplete");
     });
 });
