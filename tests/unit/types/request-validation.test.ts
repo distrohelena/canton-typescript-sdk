@@ -203,6 +203,24 @@ describe("request validation", () => {
         expect(request.commands).toEqual([command, secondCommand]);
     });
 
+    it("stores the validated command batch when a getter changes across reads", () => {
+        let commandReads = 0;
+
+        const request = new SubmitCommandsRequest({
+            applicationId: "workflow-examples",
+            actAs: ["Alice"],
+            get commands(): NonEmptyLedgerCommands {
+                commandReads += 1;
+
+                return commandReads <= 2
+                    ? [command]
+                    : ([] as unknown as NonEmptyLedgerCommands);
+            },
+        });
+
+        expect(request.commands).toEqual([command]);
+    });
+
     it.each([[], null, {}, "command"])(
         "rejects malformed runtime command batches: %o",
         (commands) => {

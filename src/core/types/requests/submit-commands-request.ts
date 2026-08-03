@@ -36,7 +36,9 @@ export class SubmitCommandsRequest {
         disclosedContracts?: readonly DisclosedContract[];
         synchronizerId?: string;
     }) {
-        if (!Array.isArray(init.commands) || init.commands.length === 0) {
+        const commands = init.commands;
+
+        if (!Array.isArray(commands) || commands.length === 0) {
             throw new ValidationError(
                 "submit requests require at least one command",
             );
@@ -63,7 +65,7 @@ export class SubmitCommandsRequest {
         this.userId = init.userId;
         this.actAs = init.actAs;
         this.readAs = init.readAs ?? [];
-        this.commands = Object.freeze([...init.commands]) as NonEmptyLedgerCommands;
+        this.commands = Object.freeze([...commands]) as NonEmptyLedgerCommands;
         this.commandId = init.commandId;
         this.deduplicationPeriod = deduplicationPeriod;
         this.disclosedContracts = init.disclosedContracts ?? [];

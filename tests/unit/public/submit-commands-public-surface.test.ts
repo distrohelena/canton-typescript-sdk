@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as sdk from "../../../src";
 import {
     CreateCommand,
     DamlRecord,
@@ -22,5 +23,9 @@ describe("SubmitCommandsRequest public surface", () => {
         });
 
         expect(request.commands).toEqual(commands);
+    });
+
+    it("does not expose the singular request from the root runtime namespace", () => {
+        expect("SubmitCommandRequest" in sdk).toBe(false);
     });
 });
