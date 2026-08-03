@@ -1,9 +1,7 @@
 import {
-    assertQueryPageArgs,
-    ContractFindManyArgs,
-    ContractGroupByArgs,
     ContractOrderBy,
 } from "../model-types.js";
+import type { NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedOrder, NormalizedSelection, QueryPredicate } from "../canonical/query-ast.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 import { PqsRelation, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
 
@@ -13,10 +11,19 @@ export interface CompiledPqsQuery {
 }
 
 export function compileContractFindMany(
-    args: ContractFindManyArgs,
+    query: NormalizedFindManyQuery,
     profile: PqsSchemaProfileV1,
 ): CompiledPqsQuery {
-    assertQueryPageArgs(args);
+    if (query.relation !== "contracts") throw new Error("compileContractFindMany requires a contracts query");
+    const args = canonicalFindManyArgs(query) as {
+        readonly where?: Record<string, unknown>;
+        readonly parties?: readonly string[];
+        readonly orderBy?: ContractOrderBy;
+        readonly take?: number;
+        readonly skip?: number;
+        readonly include?: Readonly<Record<string, unknown>>;
+        readonly select?: { readonly json?: Readonly<Record<string, { readonly field: string; readonly path: readonly string[]; readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> };
+    };
 
     const values: unknown[] = [];
 
@@ -162,6 +169,15 @@ function compileIncludedFields(
 function compilePhysicalOrderBy(relation: PqsRelation, orderBy: unknown, alias: string): string {
     if (orderBy === undefined) return "";
     if (!Array.isArray(orderBy) || orderBy.length === 0) throw new Error("Nested orderBy must be a non-empty list");
+    if (relation === "__contracts") {
+        const fields: Readonly<Record<string, string>> = {
+            contractId: "contract_id", createdEventOffset: "created_at_ix", createdAt: "created_at_ix",
+            archivedEventOffset: "archived_at_ix", archivedAt: "archived_at_ix",
+        };
+        const entries = orderBy.flatMap((entry) => entry !== null && typeof entry === "object" ? Object.entries(entry as Record<string, unknown>) : []);
+        if (entries.length !== orderBy.length || entries.some(([field, direction]) => fields[field] === undefined || (direction !== "asc" && direction !== "desc"))) throw new Error("Nested orderBy entries must have one valid direction");
+        return ` order by ${entries.map(([field, direction]) => `${alias}."${fields[field]}" ${direction}`).join(", ")}`;
+    }
     const metadata = pqsRelationMetadata[relation];
     const entries = orderBy.flatMap((entry) => entry !== null && typeof entry === "object" ? Object.entries(entry as Record<string, unknown>) : []);
     if (entries.length !== orderBy.length || entries.some(([, direction]) => direction !== "asc" && direction !== "desc")) throw new Error("Nested orderBy entries must have one valid direction");
@@ -173,9 +189,15 @@ function compilePhysicalOrderBy(relation: PqsRelation, orderBy: unknown, alias: 
 }
 
 export function compileContractGroupBy(
-    args: ContractGroupByArgs,
+    query: NormalizedGroupByQuery,
     profile: PqsSchemaProfileV1,
 ): CompiledPqsQuery {
+    if (query.relation !== "contracts") throw new Error("compileContractGroupBy requires a contracts query");
+    const args = canonicalGroupByArgs(query) as {
+        readonly by: readonly (string | { readonly payload: { readonly name: string; readonly path: readonly string[]; readonly as: "text" | "numeric" | "boolean" | "timestamp" } })[];
+        readonly where?: Record<string, unknown>;
+        readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] };
+    };
     if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires keys and an aggregate");
     const values: unknown[] = [];
     const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
@@ -319,4 +341,73 @@ function compileOrderBy(
     }
 
     return `order by ${entries.map(([field, direction]) => `${fields[field]} ${direction}`).join(", ")}`;
+}
+
+/** Converts the immutable canonical plan into the legacy shape used by the SQL emitters.
+ * This is deliberately internal to PQS: public query objects are normalized before it runs. */
+export function canonicalFindManyArgs(query: NormalizedFindManyQuery): Readonly<Record<string, unknown>> {
+    return {
+        ...(query.predicate === undefined ? {} : { where: canonicalPredicateArgs(query.predicate) }),
+        ...(query.parties === undefined ? {} : { parties: query.parties }),
+        ...(query.select === undefined ? {} : { select: canonicalSelectionArgs(query.select) }),
+        ...(query.includes.length === 0 ? {} : { include: canonicalIncludesArgs(query.includes) }),
+        ...(query.orderBy.length === 0 ? {} : { orderBy: canonicalOrderArgs(query.orderBy) }),
+        ...(query.take === undefined ? {} : { take: query.take }),
+        ...(query.skip === 0 ? {} : { skip: query.skip }),
+    };
+}
+
+export function canonicalGroupByArgs(query: NormalizedGroupByQuery): Readonly<Record<string, unknown>> {
+    return {
+        ...(query.predicate === undefined ? {} : { where: canonicalPredicateArgs(query.predicate) }),
+        by: query.by.map((key) => key.kind === "field" ? key.path[0] : key.kind === "json"
+            ? { [key.field]: { name: key.name, path: key.path, as: key.as } }
+            : key.path.length === 1 ? { [key.path[0]]: { bucket: key.bucket } }
+                : { [key.path[0]]: { [key.path[1]]: { bucket: key.bucket } } }),
+        aggregate: {
+            ...(query.aggregates.count ? { count: true } : {}),
+            ...(query.aggregates.min.length === 0 ? {} : { min: query.aggregates.min }),
+            ...(query.aggregates.max.length === 0 ? {} : { max: query.aggregates.max }),
+            ...(query.aggregates.sum.length === 0 ? {} : { sum: query.aggregates.sum }),
+        },
+    };
+}
+
+function canonicalSelectionArgs(selection: NormalizedSelection): Readonly<Record<string, unknown>> {
+    return {
+        ...Object.fromEntries(selection.fields.map((field) => [field, true])),
+        ...(selection.json.length === 0 ? {} : { json: Object.fromEntries(selection.json.map((item) => [item.name, { field: item.field, path: item.path, as: item.as }])) }),
+    };
+}
+
+function canonicalIncludesArgs(includes: readonly NormalizedInclude[]): Readonly<Record<string, unknown>> {
+    return Object.fromEntries(includes.map((include) => [include.edge, {
+        ...(include.predicate === undefined ? {} : { where: canonicalPredicateArgs(include.predicate) }),
+        ...(include.select === undefined ? {} : { select: canonicalSelectionArgs(include.select) }),
+        ...(include.includes.length === 0 ? {} : { include: canonicalIncludesArgs(include.includes) }),
+        ...(include.orderBy.length === 0 ? {} : { orderBy: canonicalOrderArgs(include.orderBy) }),
+        ...(include.take === undefined ? {} : { take: include.take }),
+        ...(include.skip === 0 ? {} : { skip: include.skip }),
+    }]));
+}
+
+function canonicalOrderArgs(orderBy: readonly NormalizedOrder[]): readonly Readonly<Record<string, "asc" | "desc">>[] {
+    return orderBy.map((order) => ({ [order.path[0]]: order.direction }));
+}
+
+export function canonicalPredicateArgs(predicate: QueryPredicate): Readonly<Record<string, unknown>> {
+    if (predicate.kind === "and" || predicate.kind === "or") return { [predicate.kind]: predicate.children.map(canonicalPredicateArgs) };
+    if (predicate.kind === "not") return { not: canonicalPredicateArgs(predicate.child) };
+    if (predicate.kind === "relation") return { [predicate.edge]: predicate.quantifier === "one" ? canonicalPredicateArgs(predicate.predicate) : { [predicate.quantifier]: canonicalPredicateArgs(predicate.predicate) } };
+    if (predicate.kind !== "scalar") throw new Error("Unknown canonical predicate");
+    const [field, ...path] = predicate.path;
+    if (field === "templateId") return { templateId: { [path[0]]: { [predicate.operator]: predicate.value } } };
+    if (field === "payload" && path.length > 0) return { payload: { match: nestedPath(path, { [predicate.operator]: predicate.value }) } };
+    if (path.length > 0) return { [field]: { path, [predicate.operator]: predicate.value } };
+    if (field === "active" && predicate.operator === "equals") return { active: predicate.value };
+    return { [field]: { [predicate.operator]: predicate.value } };
+}
+
+function nestedPath(path: readonly string[], leaf: unknown): Readonly<Record<string, unknown>> {
+    return path.reduceRight<Readonly<Record<string, unknown>>>((value, segment) => ({ [segment]: value }), leaf as Readonly<Record<string, unknown>>);
 }

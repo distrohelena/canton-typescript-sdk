@@ -17,6 +17,9 @@ import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
 import { compilePqsRelationGroupBy } from "./pqs-relational-sql-compiler.js";
+import { canonicalFindManyArgs, canonicalGroupByArgs, canonicalPredicateArgs } from "./pqs-sql-compiler.js";
+import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../canonical/query-normalizer.js";
+import type { NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery } from "../canonical/query-ast.js";
 import {
     PqsRelation,
     PqsRelationMetadata,
@@ -92,21 +95,38 @@ const logicalContractFields: readonly string[] = [
     "active",
 ];
 
+const queryRelationForPqs: Readonly<Record<PqsRelation, "contracts" | "contractTypes" | "events" | "exercises" | "exerciseTypes" | "packages" | "transactions" | "watermark">> = {
+    __contracts: "contracts", __contract_tpe: "contractTypes", __events: "events", __exercises: "exercises",
+    __exercise_tpe: "exerciseTypes", __packages: "packages", __transactions: "transactions", __watermark: "watermark",
+};
+
+function normalizedUniqueAsFindMany(query: NormalizedFindUniqueQuery): NormalizedFindManyQuery {
+    return {
+        kind: "findMany", relation: query.relation, predicate: query.predicate,
+        select: query.select, includes: query.includes,
+        orderBy: query.relation === "contracts" ? [{ path: ["contractId"], direction: "asc" }] : [],
+        skip: 0, take: 1, activeOnly: false,
+    };
+}
+
+function normalizedCountAsFindMany(query: ReturnType<typeof normalizeCount>): NormalizedFindManyQuery {
+    return {
+        kind: "findMany", relation: query.relation, parties: query.parties, predicate: query.predicate,
+        includes: [], orderBy: query.relation === "contracts" ? [{ path: ["contractId"], direction: "asc" }] : [],
+        skip: 0, activeOnly: query.activeOnly,
+    };
+}
+
 export class PqsQueryClient implements QueryClient {
     public readonly source = QuerySource.pqs;
     public readonly contracts = {
-        findMany: <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) => this.findContractsAsync(args) as Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>,
+        findMany: <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) => this.findContractsAsync(normalizeFindMany("contracts", args)) as Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>,
         findUnique: <TArgs extends ContractFindUniqueArgs>(args: TArgs) =>
-            this.findContractsAsync({
-                where: { contractId: { equals: args.where.contractId } },
-                select: args.select,
-                include: args.include,
-                take: 1,
-            }).then((rows) => rows[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined),
+            this.findContractsAsync(normalizedUniqueAsFindMany(normalizeFindUnique("contracts", args))).then((rows) => rows[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined),
         count: async (args: ContractCountArgs = {}) =>
-            (await this.findContractsAsync(args)).length,
+            (await this.findContractsAsync(normalizedCountAsFindMany(normalizeCount("contracts", args)))).length,
         aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),
-        groupBy: async (args: ContractGroupByArgs) => this.groupContractsAsync(args),
+        groupBy: async (args: ContractGroupByArgs) => this.groupContractsAsync(normalizeGroupBy("contracts", args)),
     };
     public readonly contractTypes = this.createPhysicalDelegate("__contract_tpe") as unknown as QueryClient["contractTypes"];
     public readonly events = this.createPhysicalDelegate("__events") as unknown as QueryClient["events"];
@@ -139,12 +159,16 @@ export class PqsQueryClient implements QueryClient {
     private createPhysicalDelegate(relation: PqsRelation, hasUnique = true) {
         const metadata = pqsRelationMetadata[relation];
 
-        const findMany = async (args: RuntimeFindManyArgs = {}) => this.readPhysicalAsync(relation, metadata, args);
+        const findMany = async (args: RuntimeFindManyArgs = {}) => {
+            const normalized = normalizeFindMany(queryRelationForPqs[relation], args);
+            return this.readPhysicalAsync(relation, metadata, canonicalFindManyArgs(normalized) as RuntimeFindManyArgs);
+        };
 
         const delegate = {
             findMany,
             count: async (args: { readonly where?: RuntimeFindManyArgs["where"] } = {}) => {
-                const { where, values } = this.compileWhere(relation, metadata, args.where);
+                const normalized = normalizeCount(queryRelationForPqs[relation], args);
+                const { where, values } = this.compileWhere(relation, metadata, normalized.predicate === undefined ? undefined : canonicalPredicateArgs(normalized.predicate) as RuntimeWhere);
 
                 try {
                     await this.ready;
@@ -160,7 +184,7 @@ export class PqsQueryClient implements QueryClient {
                 }
             },
             aggregate: async (args: RuntimeAggregateArgs) => this.aggregatePhysicalAsync(relation, metadata, args),
-            groupBy: async (args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } }) => this.groupPhysicalAsync(relation, args),
+            groupBy: async (args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } }) => this.groupPhysicalAsync(relation, normalizeGroupBy(queryRelationForPqs[relation], args)),
         };
 
         if (!hasUnique) {
@@ -170,22 +194,17 @@ export class PqsQueryClient implements QueryClient {
         return {
             ...delegate,
             findUnique: async (args: { readonly where: Readonly<Record<string, unknown>>; readonly select?: RuntimeFindManyArgs["select"]; readonly include?: RuntimeInclude }) => {
-                this.assertUniqueWhere(relation, metadata, args.where);
-
-                return findMany({
-                    where: Object.fromEntries(Object.entries(args.where).map(([field, value]) => [field, { equals: value }])),
-                    select: args.select,
-                    include: args.include,
-                    take: 1,
-                }).then((rows) => rows[0]);
+                const normalized = normalizeFindUnique(queryRelationForPqs[relation], args);
+                return this.readPhysicalAsync(relation, metadata, canonicalFindManyArgs(normalizedUniqueAsFindMany(normalized)) as RuntimeFindManyArgs).then((rows) => rows[0]);
             },
         };
     }
 
-    private async groupPhysicalAsync(relation: PqsRelation, args: { readonly by: readonly unknown[]; readonly where?: RuntimeWhere; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } }): Promise<readonly Record<string, string | number | Date | null>[]> {
+    private async groupPhysicalAsync(relation: PqsRelation, query: NormalizedGroupByQuery): Promise<readonly Record<string, string | number | Date | null>[]> {
         const root = relation === "__events" ? '"event"' : '"root"';
+        const args = canonicalGroupByArgs(query) as { readonly where?: RuntimeWhere };
         const filter = this.compileWhere(relation, pqsRelationMetadata[relation], args.where, undefined, root);
-        const compiled = compilePqsRelationGroupBy(relation, args, this.profile, filter.values.length);
+        const compiled = compilePqsRelationGroupBy(relation, query, this.profile, filter.values.length);
         const text = filter.where.length === 0 ? compiled.text : compiled.text.replace(" group by ", `${filter.where} group by `);
         try {
             await this.ready;
@@ -244,15 +263,16 @@ export class PqsQueryClient implements QueryClient {
         metadata: PqsRelationMetadata,
         args: RuntimeAggregateArgs,
     ): Promise<{ readonly count?: number; readonly min?: Readonly<Record<string, string | null>>; readonly max?: Readonly<Record<string, string | null>>; readonly sum?: Readonly<Record<string, string | null>> }> {
-        const { where, values } = this.compileWhere(relation, metadata, args.where);
+        const normalized = normalizeAggregate(queryRelationForPqs[relation], args);
+        const { where, values } = this.compileWhere(relation, metadata, normalized.predicate === undefined ? undefined : canonicalPredicateArgs(normalized.predicate) as RuntimeWhere);
 
         const selected: string[] = [];
 
-        if (args.count) {
+        if (normalized.aggregates.count) {
             selected.push("count(*)::text as count");
         }
 
-        for (const [operation, fields] of [["min", args.min], ["max", args.max], ["sum", args.sum]] as const) {
+        for (const [operation, fields] of [["min", normalized.aggregates.min], ["max", normalized.aggregates.max], ["sum", normalized.aggregates.sum]] as const) {
             for (const field of fields ?? []) {
                 this.assertNumericField(relation, metadata, field);
                 selected.push(`${operation}("${metadata.fields[field]}")::text as "${operation}_${field}"`);
@@ -277,8 +297,8 @@ export class PqsQueryClient implements QueryClient {
                 result.count = Number(row.count ?? 0);
             }
 
-            for (const [operation, fields] of [["min", args.min], ["max", args.max], ["sum", args.sum]] as const) {
-                if (fields !== undefined) {
+            for (const [operation, fields] of [["min", normalized.aggregates.min], ["max", normalized.aggregates.max], ["sum", normalized.aggregates.sum]] as const) {
+                if (fields.length > 0) {
                     result[operation] = Object.fromEntries(fields.map((field) => [field, nullableString(row[`${operation}_${field}`])]));
                 }
             }
@@ -607,14 +627,14 @@ export class PqsQueryClient implements QueryClient {
         });
     }
 
-    private async findContractsAsync(args: ContractFindManyArgs | ContractCountArgs): Promise<readonly ContractResult[]> {
-        const compiled = compileContractFindMany(args, this.profile);
+    private async findContractsAsync(query: NormalizedFindManyQuery): Promise<readonly ContractResult[]> {
+        const compiled = compileContractFindMany(query, this.profile);
 
         try {
-            const include = "include" in args ? args.include : undefined;
-            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, include, "select" in args ? args.select?.json : undefined));
+            const args = canonicalFindManyArgs(query) as { readonly include?: RuntimeInclude; readonly select?: RuntimeSelect };
+            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, args.include, args.select?.json));
 
-            const select = "select" in args ? args.select : undefined;
+            const select = args.select;
 
             if (select === undefined) {
                 return rows;
@@ -627,18 +647,18 @@ export class PqsQueryClient implements QueryClient {
                 throw new Error("select must include at least one field");
             }
 
-            return rows.map((row) => Object.fromEntries([...fields.map((field) => [field, row[field as keyof ContractRow]]), ...json.map((field) => [field, row[field as keyof ContractResult]])]) as ContractResult);
+            return rows.map((row) => Object.fromEntries([
+                ...fields.map((field) => [field, row[field as keyof ContractRow]]),
+                ...json.map((field) => [field, row[field as keyof ContractResult]]),
+            ]) as ContractResult);
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
         }
     }
 
     private async aggregateContractsAsync(args: Parameters<QueryClient["contracts"]["aggregate"]>[0]): Promise<Awaited<ReturnType<QueryClient["contracts"]["aggregate"]>>> {
-        if (!args.count && args.min === undefined && args.max === undefined && args.sum === undefined) {
-            throw new Error("aggregate must request at least one result");
-        }
-
-        const rows = await this.findContractsAsync({ where: args.where });
+        const normalized = normalizeAggregate("contracts", args);
+        const rows = await this.findContractsAsync({ kind: "findMany", relation: "contracts", predicate: normalized.predicate, includes: [], orderBy: [{ path: ["contractId"], direction: "asc" }], skip: 0, activeOnly: false });
 
         const result: {
             count?: number;
@@ -647,21 +667,21 @@ export class PqsQueryClient implements QueryClient {
             sum?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>;
         } = {};
 
-        if (args.count) {
+        if (normalized.aggregates.count) {
             result.count = rows.length;
         }
 
-        for (const [operation, fields] of [["min", args.min], ["max", args.max], ["sum", args.sum]] as const) {
-            if (fields !== undefined) {
-                result[operation] = Object.fromEntries(fields.map((field) => [field, aggregateNumeric(rows.map((row) => row[field]), operation)]));
+        for (const [operation, fields] of [["min", normalized.aggregates.min], ["max", normalized.aggregates.max], ["sum", normalized.aggregates.sum]] as const) {
+            if (fields.length > 0) {
+                result[operation] = Object.fromEntries(fields.map((field) => [field, aggregateNumeric(rows.map((row) => (row as unknown as Record<string, string | null>)[field]), operation)]));
             }
         }
 
         return result;
     }
 
-    private async groupContractsAsync(args: ContractGroupByArgs): Promise<readonly ContractGroupRow[]> {
-        const compiled = compileContractGroupBy(args, this.profile);
+    private async groupContractsAsync(query: NormalizedGroupByQuery): Promise<readonly ContractGroupRow[]> {
+        const compiled = compileContractGroupBy(query, this.profile);
         try {
             await this.ready;
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value instanceof Date ? value : String(value)])));

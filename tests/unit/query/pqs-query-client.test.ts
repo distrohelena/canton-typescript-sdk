@@ -123,7 +123,7 @@ describe("PQS query client", () => {
         const sql = query.mock.calls[0][0];
         expect(sql).toContain('from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'exercisedAtIx\', "exercises"."exercised_at_ix"');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
-        expect(sql).toContain('order by "exercises"."exercised_at_ix" desc limit $2) "exercises_limited"');
+        expect(sql).toContain('order by "exercises"."exercised_at_ix" desc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited"');
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 2]);
     });
@@ -232,7 +232,7 @@ describe("PQS query client", () => {
         const sql = query.mock.calls[0][0];
         expect(sql).toContain('from (select jsonb_build_object');
         expect(sql).toContain('$1 = any("witnesses")');
-        expect(sql).toContain('order by "contract_id" asc limit $2) "exercises_limited"');
+        expect(sql).toContain('order by "contract_id" asc, "tpe_pk" asc, "contract_tpe_pk" asc, "exercise_event_pk" asc limit $2) "exercises_limited"');
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 3]);
     });
@@ -394,7 +394,17 @@ describe("PQS query client", () => {
 
         await expect(
             client.packages.findMany({ where: { unexpected: { equals: "x" } } }),
-        ).rejects.toThrow("unexpected is not a field of __packages");
+        ).rejects.toThrow("unexpected is not a field of packages");
+        expect(query).not.toHaveBeenCalled();
+    });
+
+    it("rejects malformed public input before calling the executor", async () => {
+        const query = vi.fn();
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findMany({
+            where: { unknown: { equals: "x" } },
+        } as never)).rejects.toThrow("unknown is not a field of packages");
         expect(query).not.toHaveBeenCalled();
     });
 

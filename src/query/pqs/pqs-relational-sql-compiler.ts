@@ -1,5 +1,7 @@
 import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { pqsRelationEdges } from "./pqs-schema-profile.js";
+import type { NormalizedFindManyQuery, NormalizedGroupByQuery } from "../canonical/query-ast.js";
+import { canonicalFindManyArgs, canonicalGroupByArgs } from "./pqs-sql-compiler.js";
 
 export interface CompiledPqsRelationQuery {
     readonly text: string;
@@ -16,9 +18,10 @@ interface RelationFindManyArgs {
 
 export function compilePqsRelationFindMany(
     relation: PqsRelation,
-    args: RelationFindManyArgs,
+    query: NormalizedFindManyQuery,
     profile: PqsSchemaProfileV1,
 ): CompiledPqsRelationQuery {
+    const args = canonicalFindManyArgs(query) as RelationFindManyArgs;
     assertPage(args);
     const metadata = pqsRelationMetadata[relation];
     const values: unknown[] = [];
@@ -40,10 +43,11 @@ export function compilePqsRelationFindMany(
 
 export function compilePqsRelationGroupBy(
     relation: PqsRelation,
-    args: { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } },
+    query: NormalizedGroupByQuery,
     profile: PqsSchemaProfileV1,
     parameterOffset = 0,
 ): CompiledPqsRelationQuery {
+    const args = canonicalGroupByArgs(query) as { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } };
     if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires a key and aggregate");
     const metadata = pqsRelationMetadata[relation];
     const root = relation === "__events" ? "event" : "root";

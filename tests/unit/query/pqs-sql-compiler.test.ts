@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { compileContractFindMany, compileContractGroupBy } from "../../../src/query/pqs/pqs-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
+import { normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
 
 describe("PQS SQL compiler", () => {
     it("binds contract filters as positional values", () => {
         const query = compileContractFindMany(
-            {
+            normalizeFindMany("contracts", {
                 where: {
                     templateId: { packageId: { equals: "package" }, moduleName: { equals: "Module" }, entityName: { equals: "Template" } },
                     active: true,
@@ -14,7 +15,7 @@ describe("PQS SQL compiler", () => {
                 orderBy: [{ createdEventOffset: "desc" }],
                 take: 20,
                 skip: 10,
-            },
+            }),
             new PqsSchemaProfileV1("public"),
         );
 
@@ -26,7 +27,7 @@ describe("PQS SQL compiler", () => {
 
     it("narrows logical contract reads to witnesses when parties are supplied", () => {
         const compiled = compileContractFindMany(
-            { parties: ["Alice", "Bob"] },
+            normalizeFindMany("contracts", { parties: ["Alice", "Bob"] }),
             new PqsSchemaProfileV1(),
         );
 
@@ -35,13 +36,13 @@ describe("PQS SQL compiler", () => {
     });
 
     it("compiles nested range, pattern, and payload-path filters with bound values", () => {
-        const compiled = compileContractFindMany({
+        const compiled = compileContractFindMany(normalizeFindMany("contracts", {
             where: { and: [
                 { createdEventOffset: { gte: "100" } },
                 { payload: { match: { owner: { city: { ilike: "new%" } } } } },
                 { not: { active: { equals: false } } },
             ] },
-        }, new PqsSchemaProfileV1());
+        }), new PqsSchemaProfileV1());
 
         expect(compiled.text).toContain("contract_row.created_at_ix >= $1");
         expect(compiled.text).toContain("contract_row.payload #>> $2::text[] ilike $3");
@@ -50,14 +51,14 @@ describe("PQS SQL compiler", () => {
     });
 
     it("groups contracts by payload extraction and unnested witnesses", () => {
-        const query = compileContractGroupBy({
+        const query = compileContractGroupBy(normalizeGroupBy("contracts", {
             where: { active: true },
             by: [
                 { payload: { name: "owner", path: ["owner"], as: "text" } },
                 "witnesses",
             ],
             aggregate: { count: true, sum: ["createdEventOffset"] },
-        }, new PqsSchemaProfileV1());
+        }), new PqsSchemaProfileV1());
 
         expect(query.text).toContain("contract_row.payload #>> $1::text[] as \"owner\"");
         expect(query.text).toContain("cross join lateral unnest(contract_row.witnesses) as witness(value)");
@@ -66,12 +67,31 @@ describe("PQS SQL compiler", () => {
     });
 
     it("filters contracts through profiled exercise relations", () => {
-        const query = compileContractFindMany({
+        const query = compileContractFindMany(normalizeFindMany("contracts", {
             where: { exercises: { some: { witnesses: { has: "Alice" } } } },
-        }, new PqsSchemaProfileV1());
+        }), new PqsSchemaProfileV1());
 
         expect(query.text).toContain('exists (select 1 from "public"."__exercises" "exercises"');
         expect(query.text).toContain('"exercises"."contract_id" = contract_row."contract_id"');
         expect(query.values).toEqual(["Alice"]);
+    });
+
+    it("compiles canonical nested exercise predicates without changing bindings", () => {
+        const query = compileContractFindMany(normalizeFindMany("contracts", {
+            where: { exercises: { some: { witnesses: { has: "Alice" } } } },
+            take: 2,
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain('exists (select 1 from "public"."__exercises" "exercises"');
+        expect(query.values).toEqual(["Alice", 2]);
+    });
+
+    it("compiles canonical contract group queries", () => {
+        const query = compileContractGroupBy(normalizeGroupBy("contracts", {
+            by: ["witnesses"],
+            aggregate: { count: true },
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain("cross join lateral unnest(contract_row.witnesses)");
     });
 });
