@@ -1,10 +1,12 @@
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
+import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
 import { QueryCacheStore } from "../cache/query-cache-store.js";
 import { ContractRow } from "../model-types.js";
 import { ContractCacheArgs, ContractCacheResult } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
+import { mapGrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 
 type ActiveContractsReader = Pick<StateServiceClient, "getActiveContractsPageAsync">;
 
@@ -19,7 +21,7 @@ interface CachedContractSnapshot {
 
 interface MaterializedActiveContractsPage {
     readonly activeAtOffset: string;
-    readonly contracts: readonly ContractRow[];
+    readonly activeContracts: readonly GetActiveContractsResponse[];
     readonly nextPageToken: Uint8Array | undefined;
 }
 
@@ -94,7 +96,7 @@ export class GrpcContractCache {
         parties: readonly string[] | undefined,
         key: string,
     ): Promise<ContractCacheResult> {
-        const contracts: ContractRow[] = [];
+        const activeContracts: GetActiveContractsResponse[] = [];
 
         const seenPageTokens = new Set<string>();
 
@@ -119,7 +121,7 @@ export class GrpcContractCache {
                 throw new Error("Active-contracts response activeAtOffset changed during traversal.");
             }
 
-            contracts.push(...page.contracts);
+            activeContracts.push(...page.activeContracts);
             pageToken = page.nextPageToken;
 
             if (pageToken !== undefined && pageToken.length > 0) {
@@ -132,6 +134,8 @@ export class GrpcContractCache {
                 seenPageTokens.add(tokenKey);
             }
         } while (pageToken !== undefined && pageToken.length > 0);
+
+        const contracts = mapGrpcQueryRelationFragment([], activeContracts).contracts;
 
         const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
@@ -274,53 +278,6 @@ function sameParties(left: readonly string[] | undefined, right: readonly string
             && left.every((party, index) => typeof party === "string" && party === right[index]);
 }
 
-function mapGrpcContract(value: unknown): ContractRow {
-    if (value === null || typeof value !== "object") {
-        throw new Error("Active-contracts response contains an invalid contract entry.");
-    }
-
-    const entry = (value as { contractEntry?: unknown }).contractEntry;
-
-    if (entry === null || typeof entry !== "object") {
-        throw new Error("Active-contracts response contains a non-active contract entry.");
-    }
-
-    const oneofKind = (entry as { oneofKind?: unknown }).oneofKind;
-
-    const activeContract = (entry as { activeContract?: unknown }).activeContract;
-
-    if (oneofKind !== "activeContract") {
-        throw new Error("Active-contracts response contains a non-active contract entry.");
-    } else if (activeContract === null || typeof activeContract !== "object") {
-        throw new Error("Active-contracts response contains an invalid contract.");
-    }
-
-    const contract = activeContract as { contractId?: unknown; templateId?: unknown; payload?: unknown };
-
-    const contractId = contract.contractId;
-
-    const template = materializeTemplateId(contract.templateId);
-
-    const payload = copyValue(contract.payload);
-
-    if (typeof contractId !== "string" || template === undefined) {
-        throw new Error("Active-contracts response contains an invalid contract.");
-    }
-
-    return {
-        contractId,
-        templateId: template,
-        packageId: null,
-        payload,
-        witnesses: [],
-        createdEventOffset: "",
-        createdAt: null,
-        archivedEventOffset: null,
-        archivedAt: null,
-        active: true,
-    };
-}
-
 function materializeActiveContractsPage(value: unknown): MaterializedActiveContractsPage {
     try {
         if (value === null || typeof value !== "object") {
@@ -341,13 +298,13 @@ function materializeActiveContractsPage(value: unknown): MaterializedActiveContr
             throw new Error("Active-contracts response activeContracts is invalid.");
         }
 
-        const contracts = activeContracts.map(mapGrpcContract);
+        const materializedActiveContracts = activeContracts.map(materializeActiveContractResponse);
 
         const nextPageToken = materializePageToken(candidate.nextPageToken);
 
         return {
             activeAtOffset,
-            contracts,
+            activeContracts: materializedActiveContracts,
             nextPageToken,
         };
     } catch (error) {
@@ -357,6 +314,16 @@ function materializeActiveContractsPage(value: unknown): MaterializedActiveContr
 
         throw new Error("Active-contracts response is invalid.");
     }
+}
+
+function materializeActiveContractResponse(value: unknown): GetActiveContractsResponse {
+    const copy = copyValue(value);
+
+    if (copy === null || typeof copy !== "object") {
+        throw new Error("Active-contracts response contains an invalid contract entry.");
+    }
+
+    return copy as GetActiveContractsResponse;
 }
 
 function materializePageToken(value: unknown): Uint8Array | undefined {
@@ -514,8 +481,8 @@ function copyRows(rows: readonly ContractRow[]): readonly ContractRow[] {
         templateId: { ...row.templateId },
         payload: copyValue(row.payload),
         witnesses: [...row.witnesses],
-        createdAt: row.createdAt === null ? null : new Date(row.createdAt),
-        archivedAt: row.archivedAt === null ? null : new Date(row.archivedAt),
+        createdAt: row.createdAt === null ? null : new Date(row.createdAt.getTime()),
+        archivedAt: row.archivedAt === null ? null : new Date(row.archivedAt.getTime()),
     }));
 }
 

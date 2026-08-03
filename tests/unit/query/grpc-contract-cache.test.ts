@@ -2,17 +2,50 @@ import { describe, expect, it, vi } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
 import { GrpcContractCache } from "../../../src/query/grpc/grpc-contract-cache.js";
 import { QueryCacheStore } from "../../../src/query/cache/query-cache-store.js";
+import { CreatedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { GetActiveContractsPageResponse, GetActiveContractsResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
+import { Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 
-function activeContract(contractId: string) {
-    return {
+const templateId = { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" };
+
+function createdEvent(contractId: string, patch: Partial<ReturnType<typeof CreatedEvent.create>> = {}) {
+    return CreatedEvent.create({
+        offset: "10",
+        nodeId: 1,
+        contractId,
+        templateId,
+        packageName: "app",
+        representativePackageId: "pkg-id",
+        witnessParties: ["Alice"],
+        signatories: ["Alice"],
+        createdAt: { seconds: "1700000000", nanos: 123_000_000 },
+        createArguments: {
+            fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }],
+        },
+        ...patch,
+    });
+}
+
+function activeContract(
+    contractId: string,
+    synchronizerId = "sync",
+    reassignmentCounter = "0",
+    event = createdEvent(contractId),
+) {
+    return GetActiveContractsResponse.create({
         contractEntry: {
             oneofKind: "activeContract",
             activeContract: {
-                contractId,
-                templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                createdEvent: event,
+                synchronizerId,
+                reassignmentCounter,
             },
         },
-    };
+    });
+}
+
+function activePage(init: Partial<ReturnType<typeof GetActiveContractsPageResponse.create>> = {}) {
+    return GetActiveContractsPageResponse.create({ activeAtOffset: "42", ...init });
 }
 
 function store(): QueryCacheStore & { readonly values: Map<string, unknown>; readonly setAsync: ReturnType<typeof vi.fn>; readonly deleteAsync: ReturnType<typeof vi.fn> } {
@@ -32,8 +65,8 @@ function store(): QueryCacheStore & { readonly values: Map<string, unknown>; rea
 describe("gRPC contract cache", () => {
     it("prewarms every ACS page at one stable offset and writes one completed snapshot", async () => {
         const getActiveContractsPageAsync = vi.fn()
-            .mockResolvedValueOnce({ activeContracts: [activeContract("C2")], activeAtOffset: "42", nextPageToken: new Uint8Array([1]) })
-            .mockResolvedValueOnce({ activeContracts: [activeContract("C1")], activeAtOffset: "42" });
+            .mockResolvedValueOnce(activePage({ activeContracts: [activeContract("C2")], nextPageToken: new Uint8Array([1]) }))
+            .mockResolvedValueOnce(activePage({ activeContracts: [activeContract("C1")] }));
 
         const cacheStore = store();
 
@@ -51,7 +84,73 @@ describe("gRPC contract cache", () => {
 
         expect(ttlMs).toBe(100);
         expect(payload).toMatchObject({ version: 1, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100 });
-        expect((payload as { contracts: readonly unknown[] }).contracts).toHaveLength(2);
+        expect((payload as { contracts: readonly unknown[] }).contracts).toEqual([
+            expect.objectContaining({
+                contractId: "C1",
+                templateId,
+                packageId: "pkg-id",
+                payload: { owner: "Alice" },
+                witnesses: ["Alice"],
+                createdEventOffset: "10",
+                createdAt: new Date("2023-11-14T22:13:20.123Z"),
+                archivedEventOffset: null,
+                archivedAt: null,
+                active: true,
+            }),
+            expect.objectContaining({ contractId: "C2" }),
+        ]);
+    });
+
+    it("coalesces matching cross-synchronizer activations across pages deterministically", async () => {
+        const first = activeContract("C1", "sync-b", "2", createdEvent("C1", {
+            offset: "20", nodeId: 4, witnessParties: ["Bob", "Alice"],
+        }));
+
+        const second = activeContract("C1", "sync-a", "1", createdEvent("C1", {
+            offset: "15", nodeId: 3, witnessParties: ["Carol", "Alice"],
+        }));
+
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({
+            getActiveContractsPageAsync: vi.fn()
+                .mockResolvedValueOnce(activePage({ activeContracts: [first], nextPageToken: new Uint8Array([1]) }))
+                .mockResolvedValueOnce(activePage({ activeContracts: [second] })),
+        } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ contractCount: 1, activeAtOffset: "42" });
+        expect(cacheStore.setAsync.mock.calls[0]?.[1]).toMatchObject({
+            contracts: [expect.objectContaining({
+                contractId: "C1",
+                createdEventOffset: "15",
+                witnesses: ["Alice", "Bob", "Carol"],
+                payload: { owner: "Alice" },
+            })],
+        });
+    });
+
+    it("rejects conflicting and same-synchronizer duplicate activations without writing", async () => {
+        const bob = createdEvent("C1", {
+            createArguments: {
+                fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Bob" } }) }],
+            },
+        });
+
+        for (const duplicate of [
+            activeContract("C1", "sync-b", "1", bob),
+            activeContract("C1", "sync-a", "1", createdEvent("C1", { offset: "20", nodeId: 2 })),
+        ]) {
+            const cacheStore = store();
+
+            const cache = new GrpcContractCache({
+                getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage({
+                    activeContracts: [activeContract("C1", "sync-a", "0"), duplicate],
+                })),
+            } as never, cacheStore, 100, "participant", () => 1_000);
+
+            await expect(cache.cacheContracts()).rejects.toBeInstanceOf(ValidationError);
+            expect(cacheStore.setAsync).not.toHaveBeenCalled();
+        }
     });
 
     it.each([
@@ -61,7 +160,7 @@ describe("gRPC contract cache", () => {
     ])("rejects an invalid effective expiry before writing", async (ttlMs, now) => {
         const cacheStore = store();
 
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeContracts: [], activeAtOffset: "42" });
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage());
 
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, ttlMs, "participant", now);
 
@@ -77,7 +176,7 @@ describe("gRPC contract cache", () => {
         revoke();
 
         const cache = new GrpcContractCache({
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeContracts: [], activeAtOffset: "42" }),
+            getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage()),
         } as never, cacheStore, 100, "participant", () => {
             throw proxy;
         });
@@ -90,8 +189,8 @@ describe("gRPC contract cache", () => {
         const cacheStore = store();
 
         const getActiveContractsPageAsync = vi.fn()
-            .mockResolvedValueOnce({ activeContracts: [activeContract("C1")], activeAtOffset: "42", nextPageToken: new Uint8Array([1]) })
-            .mockResolvedValueOnce({ activeContracts: [activeContract("C2")], activeAtOffset: "43" });
+            .mockResolvedValueOnce(activePage({ activeContracts: [activeContract("C1")], nextPageToken: new Uint8Array([1]) }))
+            .mockResolvedValueOnce(activePage({ activeContracts: [activeContract("C2")], activeAtOffset: "43" }));
 
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
 
@@ -100,7 +199,7 @@ describe("gRPC contract cache", () => {
     });
 
     it("deduplicates concurrent prewarms for the same normalized party scope", async () => {
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeContracts: [activeContract("C1")], activeAtOffset: "42" });
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage({ activeContracts: [activeContract("C1")] }));
 
         const cacheStore = store();
 
@@ -120,7 +219,7 @@ describe("gRPC contract cache", () => {
     it("keeps wildcard, party, and endpoint scopes isolated and invalidates only the exact scope", async () => {
         const cacheStore = store();
 
-        const reader = { getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeContracts: [activeContract("C1")], activeAtOffset: "42" }) };
+        const reader = { getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage({ activeContracts: [activeContract("C1")] })) };
 
         const first = new GrpcContractCache(reader as never, cacheStore, 100, "one", () => 1_000);
 
@@ -147,7 +246,7 @@ describe("gRPC contract cache", () => {
         });
 
         const responseAsync = new Promise<unknown>((resolve) => {
-            release = () => resolve({ activeContracts: [activeContract("C1")], activeAtOffset: "42" });
+            release = () => resolve(activePage({ activeContracts: [activeContract("C1")] }));
         });
 
         const cacheStore = store();
@@ -542,43 +641,108 @@ describe("gRPC contract cache", () => {
             contractEntry: 0,
             oneofKind: 0,
             activeContract: 0,
+            createdEvent: 0,
+            synchronizerId: 0,
+            reassignmentCounter: 0,
+            offset: 0,
+            nodeId: 0,
             contractId: 0,
             templateId: 0,
             templatePackageId: 0,
             templateModuleName: 0,
             templateEntityName: 0,
-            payload: 0,
-            payloadOwner: 0,
+            createArguments: 0,
+            fields: 0,
+            fieldValue: 0,
+            witnessParties: 0,
+            witness: 0,
+            createdAt: 0,
+            timestampSeconds: 0,
+            timestampNanos: 0,
         };
 
-        const payload = Object.defineProperty({}, "owner", {
-            enumerable: true,
-            get: () => {
-                reads.payloadOwner += 1;
-
-                return "Alice";
-            },
-        });
-
-        const templateId = {
+        const statefulTemplateId = {
             get packageId() {
                 reads.templatePackageId += 1;
 
-                return reads.templatePackageId === 1 ? "pkg" : 7;
+                return reads.templatePackageId === 1 ? "pkg-id" : 7;
             },
             get moduleName() {
                 reads.templateModuleName += 1;
 
-                return "Module";
+                return reads.templateModuleName === 1 ? "Main" : 7;
             },
             get entityName() {
                 reads.templateEntityName += 1;
 
-                return "Template";
+                return reads.templateEntityName === 1 ? "Asset" : 7;
             },
         };
 
-        const active = {
+        const value = Value.create({ sum: { oneofKind: "party", party: "Alice" } });
+
+        const field = {
+            label: "owner",
+            get value() {
+                reads.fieldValue += 1;
+
+                return reads.fieldValue === 1 ? value : undefined;
+            },
+        };
+
+        const fields = [field];
+
+        Object.defineProperty(fields, Symbol.iterator, {
+            value: () => {
+                throw new Error("custom record iterator must not be used");
+            },
+        });
+
+        const createArguments = {
+            recordId: undefined,
+            get fields() {
+                reads.fields += 1;
+
+                return fields;
+            },
+        };
+
+        const witnesses = ["Alice"];
+
+        Object.defineProperty(witnesses, "0", {
+            configurable: true,
+            get: () => {
+                reads.witness += 1;
+
+                return reads.witness === 1 ? "Alice" : "Mallory";
+            },
+        });
+
+        const createdAt = {
+            get seconds() {
+                reads.timestampSeconds += 1;
+
+                return reads.timestampSeconds === 1 ? "1700000000" : "0";
+            },
+            get nanos() {
+                reads.timestampNanos += 1;
+
+                return reads.timestampNanos === 1 ? 123_000_000 : -1;
+            },
+        };
+
+        const event = {
+            ...createdEvent("C1"),
+            get offset() {
+                reads.offset += 1;
+
+                return reads.offset === 1 ? "10" : "20";
+            },
+            get nodeId() {
+                reads.nodeId += 1;
+
+                return reads.nodeId === 1 ? 1 : -1;
+            },
             get contractId() {
                 reads.contractId += 1;
 
@@ -587,12 +751,40 @@ describe("gRPC contract cache", () => {
             get templateId() {
                 reads.templateId += 1;
 
-                return reads.templateId === 1 ? templateId : 7;
+                return reads.templateId === 1 ? statefulTemplateId : 7;
             },
-            get payload() {
-                reads.payload += 1;
+            get createArguments() {
+                reads.createArguments += 1;
 
-                return reads.payload === 1 ? payload : undefined;
+                return reads.createArguments === 1 ? createArguments : undefined;
+            },
+            get witnessParties() {
+                reads.witnessParties += 1;
+
+                return reads.witnessParties === 1 ? witnesses : [];
+            },
+            get createdAt() {
+                reads.createdAt += 1;
+
+                return reads.createdAt === 1 ? createdAt : undefined;
+            },
+        };
+
+        const active = {
+            get createdEvent() {
+                reads.createdEvent += 1;
+
+                return reads.createdEvent === 1 ? event : undefined;
+            },
+            get synchronizerId() {
+                reads.synchronizerId += 1;
+
+                return reads.synchronizerId === 1 ? "sync" : "";
+            },
+            get reassignmentCounter() {
+                reads.reassignmentCounter += 1;
+
+                return reads.reassignmentCounter === 1 ? "0" : "invalid";
             },
         };
 
@@ -652,7 +844,7 @@ describe("gRPC contract cache", () => {
                 nextPageToken[0] = 9;
                 expect(request.pageToken).toEqual(new Uint8Array([1]));
 
-                return { activeContracts: [], activeAtOffset: "42" };
+                return activePage();
             });
 
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
@@ -664,8 +856,11 @@ describe("gRPC contract cache", () => {
             activeAtOffset: "42",
             contracts: [expect.objectContaining({
                 contractId: "C1",
-                templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                templateId,
                 payload: { owner: "Alice" },
+                witnesses: ["Alice"],
+                createdEventOffset: "10",
+                createdAt: new Date("2023-11-14T22:13:20.123Z"),
             })],
         });
         expect(reads).toEqual({
@@ -675,13 +870,24 @@ describe("gRPC contract cache", () => {
             contractEntry: 1,
             oneofKind: 1,
             activeContract: 1,
+            createdEvent: 1,
+            synchronizerId: 1,
+            reassignmentCounter: 1,
+            offset: 1,
+            nodeId: 1,
             contractId: 1,
             templateId: 1,
             templatePackageId: 1,
             templateModuleName: 1,
             templateEntityName: 1,
-            payload: 1,
-            payloadOwner: 1,
+            createArguments: 1,
+            fields: 1,
+            fieldValue: 1,
+            witnessParties: 1,
+            witness: 1,
+            createdAt: 1,
+            timestampSeconds: 1,
+            timestampNanos: 1,
         });
     });
 
@@ -699,7 +905,7 @@ describe("gRPC contract cache", () => {
         };
 
         const cache = new GrpcContractCache({
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeContracts: [activeContract("C1")], activeAtOffset: "42" }),
+            getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage({ activeContracts: [activeContract("C1")] })),
         } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.cacheContracts()).resolves.toEqual({
@@ -710,12 +916,12 @@ describe("gRPC contract cache", () => {
     it("fails a prewarm without writing when an ACS payload contains shared memory", async () => {
         const cacheStore = store();
 
-        const contract = activeContract("C1");
-
-        contract.contractEntry.activeContract.payload = { bytes: new Uint8Array(new SharedArrayBuffer(1)) };
+        const contract = activeContract("C1", "sync", "0", createdEvent("C1", {
+            createdEventBlob: new Uint8Array(new SharedArrayBuffer(1)),
+        }));
 
         const cache = new GrpcContractCache({
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeContracts: [contract], activeAtOffset: "42" }),
+            getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage({ activeContracts: [contract] })),
         } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.cacheContracts()).rejects.toThrow("shared memory");
@@ -774,7 +980,7 @@ describe("gRPC contract cache", () => {
     });
 
     it("reads caller parties once and translates a revoked getter failure to ValidationError", async () => {
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeContracts: [], activeAtOffset: "42" });
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage());
 
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, store(), 100, "participant", () => 1_000);
 
