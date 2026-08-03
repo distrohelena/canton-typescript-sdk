@@ -1,9 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { compileContractFindMany, compileContractGroupBy } from "../../../src/query/pqs/pqs-sql-compiler.js";
+import { compileContractAggregate, compileContractCount, compileContractFindMany, compileContractGroupBy } from "../../../src/query/pqs/pqs-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
-import { normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
+import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
 
 describe("PQS SQL compiler", () => {
+    it("compiles direct logical count and numeric aggregate plans", () => {
+        const profile = new PqsSchemaProfileV1();
+        const count = compileContractCount(normalizeCount("contracts", { parties: ["Alice"], where: { active: true } }), profile);
+        const aggregate = compileContractAggregate(normalizeAggregate("contracts", { where: { createdEventOffset: { gte: "10" } }, count: true, min: ["createdEventOffset"], sum: ["archivedEventOffset"] }), profile);
+
+        expect(count.values).toEqual([["Alice"]]);
+        expect(count.text).toContain("select count(*)::text as count from");
+        expect(count.text).toContain("contract_row.archived_at_ix is null and contract_row.witnesses && $1::text[]");
+        expect(aggregate.values).toEqual(["10"]);
+        expect(aggregate.text).toContain('min(contract_row.created_at_ix)::text as "min_createdEventOffset"');
+        expect(aggregate.text).toContain('sum(contract_row.archived_at_ix)::text as "sum_archivedEventOffset"');
+        expect(aggregate.text).not.toContain("contract_row.contract_id as contract_id");
+    });
+
+    it("returns a frozen recursive contract result shape and quotes group aliases", () => {
+        const name = 'audit"; --';
+        const query = compileContractFindMany(normalizeFindMany("contracts", {
+            select: { contractId: true },
+            include: { contractType: { select: { pk: true }, include: { exercises: { take: 1, select: { contractId: true } } } } },
+        }), new PqsSchemaProfileV1());
+
+        expect(query.resultShape).toMatchObject({ relation: "__contracts", fields: [{ name: "contractId" }], includes: [{ edge: "contractType", shape: { fields: [{ name: "pk" }], includes: [{ edge: "exercises", cardinality: "many" }] } }] });
+        expect(Object.isFrozen(query.resultShape)).toBe(true);
+        expect(compileContractGroupBy(normalizeGroupBy("contracts", {
+            by: [{ payload: { name, path: ["owner"], as: "text" } }], aggregate: { count: true },
+        }), new PqsSchemaProfileV1()).text).toContain('as "audit""; --"');
+    });
+
+    it("quotes hostile logical contract JSON aliases", () => {
+        const name = "owner'); delete from x; --";
+        const query = compileContractFindMany(normalizeFindMany("contracts", {
+            select: { json: { [name]: { field: "payload", path: ["owner"], as: "text" } } },
+            include: { exercises: { take: 1, select: { json: { [name]: { field: "argument", path: ["owner"], as: "text" } } } } },
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain(`as "owner'); delete from x; --"`);
+        expect(query.text).toContain(`'owner''); delete from x; --'`);
+    });
     it("preserves the canonical default order for logical contract reads", () => {
         const query = compileContractFindMany(normalizeFindMany("contracts", {}), new PqsSchemaProfileV1());
 

@@ -2,6 +2,10 @@ import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetada
 import { pqsRelationEdges } from "./pqs-schema-profile.js";
 import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedSelection } from "../canonical/query-ast.js";
 import { compileCanonicalPhysicalIncludes, compileCanonicalPhysicalPredicate } from "./pqs-sql-compiler.js";
+import { quotePqsIdentifier } from "./pqs-sql-syntax.js";
+import { compilePqsResultShape, type PqsIncludedResultShape, type PqsJsonResultProjection, type PqsRelationResultShape, type PqsSelectedScalarField } from "./pqs-result-shape.js";
+
+export type { PqsIncludedResultShape, PqsJsonResultProjection, PqsRelationResultShape, PqsSelectedScalarField } from "./pqs-result-shape.js";
 
 export interface CompiledPqsRelationQuery {
     readonly text: string;
@@ -10,32 +14,6 @@ export interface CompiledPqsRelationQuery {
 
 export interface CompiledPqsRelationFindManyQuery extends CompiledPqsRelationQuery {
     readonly resultShape: PqsRelationResultShape;
-}
-
-export interface PqsSelectedScalarField {
-    readonly name: string;
-}
-
-export interface PqsJsonResultProjection {
-    readonly name: string;
-    readonly field: string;
-    readonly path: readonly string[];
-    readonly as: "text" | "numeric" | "boolean" | "timestamp";
-}
-
-export interface PqsIncludedResultShape {
-    readonly edge: string;
-    readonly target: PqsRelation;
-    readonly cardinality: "one" | "many";
-    readonly shape: PqsRelationResultShape;
-}
-
-export interface PqsRelationResultShape {
-    readonly relation: PqsRelation;
-    readonly cardinality: "one" | "many";
-    readonly fields: readonly PqsSelectedScalarField[];
-    readonly json: readonly PqsJsonResultProjection[];
-    readonly includes: readonly PqsIncludedResultShape[];
 }
 
 export function compilePqsRelationFindMany(
@@ -58,10 +36,10 @@ export function compilePqsRelationFindMany(
     const offset = query.skip === 0 ? "" : ` offset ${add(query.skip)}`;
     const included = compileCanonicalPhysicalIncludes(relation, profile.relation(relation), query.includes, profile, add);
     const json = compileCanonicalJsonSelections(relation, query.select, add);
-    const shape = compileResultShape(relation, "many", query.select, query.includes);
+    const shape = compilePqsResultShape(relation, "many", query.select, query.includes);
 
     return {
-        text: `select ${[...fields.map(([field, column]) => `"${column}" as "${field}"`), ...json, ...included].join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
+        text: `select ${[...fields.map(([field, column]) => `"${column}" as "${field}"`), ...json, ...included.map((include) => include.selection)].join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
         values,
         resultShape: shape,
     };
@@ -141,7 +119,7 @@ export function compilePqsRelationGroupBy(
             const text = `"${root}"."${column}" #>> ${add(key.path)}::text[]`;
             const expression = key.as === "text" ? text : key.as === "numeric" ? `(${text})::numeric` : key.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             expressions.push(expression);
-            selected.push(`${expression} as "${key.name}"`);
+            selected.push(`${expression} as ${quotePqsIdentifier(key.name)}`);
             continue;
         }
         if (key.kind === "bucket" && key.path.length === 1) {
@@ -181,35 +159,9 @@ function compileCanonicalJsonSelections(relation: PqsRelation, selection: Normal
         const column = field(relation, pqsRelationMetadata[relation], projection.field);
         const text = `"${column}" #>> ${add(projection.path)}::text[]`;
         const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
-        return `${expression} as "${projection.name}"`;
+        return `${expression} as ${quotePqsIdentifier(projection.name)}`;
     });
 }
-
-function compileResultShape(relation: PqsRelation, cardinality: "one" | "many", selection: NormalizedSelection | undefined, includes: readonly NormalizedInclude[]): PqsRelationResultShape {
-    const fields = relation === "__contracts"
-        ? selection?.fields ?? ["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]
-        : selection?.fields ?? Object.keys(pqsRelationMetadata[relation].fields);
-    const shape: PqsRelationResultShape = {
-        relation,
-        cardinality,
-        fields: fields.map((name) => Object.freeze({ name })),
-        json: (selection?.json ?? []).map((projection) => Object.freeze({ ...projection, path: Object.freeze([...projection.path]) })),
-        includes: includes.map((include) => {
-            const edge = pqsRelationEdges[relation]?.[include.edge];
-            if (edge === undefined || edge.target !== relationForCanonical(include.relation) || edge.cardinality !== include.cardinality) throw new Error(`Invalid canonical include ${include.edge}`);
-            return Object.freeze({ edge: include.edge, target: edge.target, cardinality: include.cardinality, shape: compileResultShape(edge.target, include.cardinality, include.select, include.includes) });
-        }),
-    };
-    return freezeResultShape(shape);
-}
-
-function freezeResultShape(shape: PqsRelationResultShape): PqsRelationResultShape {
-    Object.freeze(shape.fields);
-    Object.freeze(shape.json);
-    Object.freeze(shape.includes);
-    return Object.freeze(shape);
-}
-
 function compileCanonicalOrderBy(relation: PqsRelation, metadata: PqsRelationMetadata, orderBy: NormalizedFindManyQuery["orderBy"]): string {
     if (orderBy.length === 0) return "";
     return ` order by ${orderBy.map((order) => `"${field(relation, metadata, order.path[0])}" ${order.direction}`).join(", ")}`;

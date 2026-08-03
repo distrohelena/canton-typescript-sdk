@@ -1,16 +1,28 @@
 import type { ContractOrderBy } from "../model-types.js";
-import type { NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedOrder, NormalizedSelection, QueryPredicate } from "../canonical/query-ast.js";
+import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedOrder, NormalizedSelection, QueryPredicate } from "../canonical/query-ast.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 import { PqsRelation, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
+import { quotePqsIdentifier, quotePqsString } from "./pqs-sql-syntax.js";
+import { compilePqsResultShape, type PqsRelationResultShape } from "./pqs-result-shape.js";
 
 export interface CompiledPqsQuery {
     readonly text: string;
     readonly values: readonly unknown[];
 }
+
+export interface CompiledPqsInclude {
+    readonly key: string;
+    readonly expression: string;
+    readonly selection: string;
+}
+
+export interface CompiledContractFindManyQuery extends CompiledPqsQuery {
+    readonly resultShape: PqsRelationResultShape;
+}
 export function compileContractFindMany(
     query: NormalizedFindManyQuery,
     profile: PqsSchemaProfileV1,
-): CompiledPqsQuery {
+): CompiledContractFindManyQuery {
     if (query.relation !== "contracts") throw new Error("compileContractFindMany requires a contracts query");
     const values: unknown[] = [];
 
@@ -40,7 +52,7 @@ export function compileContractFindMany(
     const jsonProjection = (query.select?.json ?? []).map((projection) => {
         const text = `contract_row.payload #>> ${addValue(projection.path)}::text[]`;
         const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
-        return `${expression} as "${projection.name}"`;
+        return `${expression} as ${quotePqsIdentifier(projection.name)}`;
     });
 
     return {
@@ -56,7 +68,7 @@ export function compileContractFindMany(
   contract_row.archived_at_ix is null as active,
   contract_row.creation_package_id as template_package_id,
   contract_tpe_row.module_name as template_module_name,
-  contract_tpe_row.entity_name as template_entity_name${[...included, ...jsonProjection].length === 0 ? "" : `,\n  ${[...included, ...jsonProjection].join(",\n  ")}`}
+  contract_tpe_row.entity_name as template_entity_name${[...included.map((include) => include.selection), ...jsonProjection].length === 0 ? "" : `,\n  ${[...included.map((include) => include.selection), ...jsonProjection].join(",\n  ")}`}
 from ${profile.relation("__contracts")} contract_row
 join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix
@@ -66,27 +78,63 @@ ${orderBy}
 ${limitSql}
 ${offsetSql}`,
         values,
+        resultShape: compilePqsResultShape("__contracts", "many", query.select, query.includes),
     };
 }
 
-export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlias: string, includes: readonly NormalizedInclude[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): readonly string[] {
+export function compileContractCount(query: NormalizedCountQuery, profile: PqsSchemaProfileV1): CompiledPqsQuery {
+    if (query.relation !== "contracts") throw new Error("compileContractCount requires a contracts query");
+    const values: unknown[] = [];
+    const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+    const where = compileContractWhere(query.predicate, query.parties, profile, add);
+    return { text: `select count(*)::text as count ${contractFrom(profile)}${where}`, values };
+}
+
+export function compileContractAggregate(query: NormalizedAggregateQuery, profile: PqsSchemaProfileV1): CompiledPqsQuery {
+    if (query.relation !== "contracts") throw new Error("compileContractAggregate requires a contracts query");
+    const values: unknown[] = [];
+    const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+    const selected: string[] = [];
+    if (query.aggregates.count) selected.push("count(*)::text as count");
+    const fields: Readonly<Record<string, string>> = { createdEventOffset: "contract_row.created_at_ix", archivedEventOffset: "contract_row.archived_at_ix" };
+    for (const [operation, requested] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) {
+        for (const field of requested) {
+            const expression = fields[field];
+            if (expression === undefined) throw new Error(`${field} is not a numeric aggregate field of contracts`);
+            selected.push(`${operation}(${expression})::text as ${quotePqsIdentifier(`${operation}_${field}`)}`);
+        }
+    }
+    if (selected.length === 0) throw new Error("aggregate must request at least one result");
+    return { text: `select ${selected.join(", ")} ${contractFrom(profile)}${compileContractWhere(query.predicate, undefined, profile, add)}`, values };
+}
+
+function contractFrom(profile: PqsSchemaProfileV1): string {
+    return `from ${profile.relation("__contracts")} contract_row join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix`;
+}
+
+function compileContractWhere(predicate: QueryPredicate | undefined, parties: readonly string[] | undefined, profile: PqsSchemaProfileV1, add: (value: unknown) => string): string {
+    const conditions = [
+        ...(predicate === undefined ? [] : [compileCanonicalContractPredicate(predicate, add, profile, "contract_row")]),
+        ...(parties === undefined ? [] : [`contract_row.witnesses && ${add(parties)}::text[]`]),
+    ];
+    return conditions.length === 0 ? "" : ` where ${conditions.join(" and ")}`;
+}
+
+export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlias: string, includes: readonly NormalizedInclude[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): readonly CompiledPqsInclude[] {
     return includes.map((include) => {
         const edge = pqsRelationEdges[source]?.[include.edge];
         if (edge === undefined || edge.target !== pqsRelation(include.relation)) throw new Error(`Invalid canonical include ${include.edge}`);
-        const alias = `"${include.edge}"`;
+        const alias = quotePqsIdentifier(include.edge);
         const fields = compileCanonicalIncludedFields(edge.target, include.select, alias, profile);
         const json = (include.select?.json ?? []).flatMap((projection) => {
             const column = edge.target === "__contracts" ? projection.field === "payload" ? "payload" : undefined : pqsRelationMetadata[edge.target].fields[projection.field];
             if (column === undefined) throw new Error(`Invalid canonical JSON projection ${projection.field}`);
             const text = `${alias}."${column}" #>> ${add(projection.path)}::text[]`;
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
-            return [`'${projection.name}'`, expression];
+            return [quotePqsString(projection.name), expression];
         });
         const nested = compileCanonicalPhysicalIncludes(edge.target, alias, include.includes, profile, add);
-        const nestedFields = nested.flatMap((selection) => {
-            const match = /^(.*) as "([^"]+)"$/.exec(selection);
-            return match === null ? [] : [`'${match[2]}'`, match[1]];
-        });
+        const nestedFields = nested.flatMap((selection) => [quotePqsString(selection.key), selection.expression]);
         const object = `jsonb_build_object(${[...fields.flatMap(([field, expression]) => [`'${field}'`, expression]), ...json.flat(), ...nestedFields].join(", ")})`;
         const filter = include.predicate === undefined ? "true" : compileCanonicalPhysicalPredicate(edge.target, include.predicate, alias, profile, add);
         const condition = `${alias}."${edge.targetColumn}" = ${parentAlias}."${edge.sourceColumn}" and (${filter})`;
@@ -96,7 +144,7 @@ export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlia
         const expression = include.cardinality === "one"
             ? `(select ${object} from ${profile.relation(edge.target)} ${alias} where ${condition})`
             : `(select coalesce(jsonb_agg("${include.edge}_limited".value), '[]'::jsonb) from (select ${object} as value from ${profile.relation(edge.target)} ${alias} where ${condition}${orderBy}${limit}${offset}) "${include.edge}_limited")`;
-        return `${expression} as "${include.edge}"`;
+        return { key: include.edge, expression, selection: `${expression} as ${quotePqsIdentifier(include.edge)}` };
     });
 }
 
@@ -210,7 +258,7 @@ export function compileContractGroupBy(
             const base = `contract_row.payload #>> ${add(key.path)}::text[]`;
             const cast = key.as === "text" ? base : `(${base})::${key.as === "numeric" ? "numeric" : key.as === "boolean" ? "boolean" : "timestamptz"}`;
             expressions.push(cast);
-            select.push(`${cast} as "${key.name}"`);
+            select.push(`${cast} as ${quotePqsIdentifier(key.name)}`);
         }
     }
     if (query.aggregates.count) select.push("count(*)::text as count");

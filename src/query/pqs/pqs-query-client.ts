@@ -5,16 +5,12 @@ import {
     ContractGroupByArgs,
     ContractGroupRow,
     ContractResult,
-    ContractRow,
-    ContractTypeRow,
-    ExerciseResult,
     JsonProjectionResult,
-    TransactionRow,
 } from "../model-types.js";
 import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
-import { compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
+import { compileContractAggregate, compileContractCount, compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
 import {
     compilePqsRelationAggregate,
     compilePqsRelationCount,
@@ -24,8 +20,8 @@ import {
     type PqsRelationResultShape,
 } from "./pqs-relational-sql-compiler.js";
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../canonical/query-normalizer.js";
-import type { NormalizedAggregateQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedJsonSelection } from "../canonical/query-ast.js";
-import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
+import type { NormalizedAggregateQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery } from "../canonical/query-ast.js";
+import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { assertReadOnlySql } from "./read-only-sql.js";
 
 export interface PqsQueryExecutor {
@@ -48,14 +44,6 @@ function normalizedUniqueAsFindMany(query: NormalizedFindUniqueQuery): Normalize
     };
 }
 
-function normalizedCountAsFindMany(query: ReturnType<typeof normalizeCount>): NormalizedFindManyQuery {
-    return {
-        kind: "findMany", relation: query.relation, parties: query.parties, predicate: query.predicate,
-        includes: [], orderBy: query.relation === "contracts" ? [{ path: ["contractId"], direction: "asc" }] : [],
-        skip: 0, activeOnly: query.activeOnly,
-    };
-}
-
 export class PqsQueryClient implements QueryClient {
     public readonly source = QuerySource.pqs;
     public readonly contracts = {
@@ -63,9 +51,8 @@ export class PqsQueryClient implements QueryClient {
             await this.findContractsAsync(normalizeFindMany("contracts", args)) as readonly (ContractResult & JsonProjectionResult<TArgs>)[],
         findUnique: async <TArgs extends ContractFindUniqueArgs>(args: TArgs) =>
             (await this.findContractsAsync(normalizedUniqueAsFindMany(normalizeFindUnique("contracts", args))))[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined,
-        count: async (args: ContractCountArgs = {}) =>
-            (await this.findContractsAsync(normalizedCountAsFindMany(normalizeCount("contracts", args)))).length,
-        aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),
+        count: async (args: ContractCountArgs = {}) => this.countContractsAsync(normalizeCount("contracts", args)),
+        aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(normalizeAggregate("contracts", args)),
         groupBy: async (args: ContractGroupByArgs) => this.groupContractsAsync(normalizeGroupBy("contracts", args)),
     };
     public readonly contractTypes = this.createPhysicalDelegate("__contract_tpe") as unknown as QueryClient["contractTypes"];
@@ -158,11 +145,11 @@ export class PqsQueryClient implements QueryClient {
         }
     }
 
-    private mapPhysicalRow(row: Record<string, unknown>, shape: PqsRelationResultShape): Record<string, unknown> {
+    private mapPhysicalRow(row: Record<string, unknown>, shape: PqsRelationResultShape, scalarSource = row): Record<string, unknown> {
         const metadata = pqsRelationMetadata[shape.relation];
         const scalar = Object.fromEntries(shape.fields
-            .filter(({ name }) => Object.hasOwn(row, name))
-            .map(({ name }) => [name, mapPhysicalValue(row[name], metadata, name)]));
+            .filter(({ name }) => Object.hasOwn(scalarSource, name) || Object.hasOwn(scalarSource, metadata.fields[name] ?? ""))
+            .map(({ name }) => [name, mapPhysicalValue(scalarSource[name] ?? scalarSource[metadata.fields[name] ?? ""], metadata, name)]));
         const projected = Object.fromEntries(shape.json.map((projection) => [projection.name, mapJsonValue(row[projection.name], projection.as)]));
         const included = Object.fromEntries(shape.includes.map((include) => [include.edge, this.mapIncludedPhysicalValue(row[include.edge], include)]));
         return { ...scalar, ...projected, ...included };
@@ -182,29 +169,36 @@ export class PqsQueryClient implements QueryClient {
     private async findContractsAsync(query: NormalizedFindManyQuery): Promise<readonly ContractResult[]> {
         const compiled = compileContractFindMany(query, this.profile);
         try {
-            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, query.includes, query.select?.json));
-            if (query.select === undefined) return rows;
-            const fields = query.select.fields;
-            const json = query.select.json.map((projection) => projection.name);
-            if (fields.length === 0 && json.length === 0) throw new Error("select must include at least one field");
-            return rows.map((row) => Object.fromEntries([
-                ...fields.map((field) => [field, row[field as keyof ContractRow]]),
-                ...json.map((field) => [field, row[field as keyof ContractResult]]),
-            ]) as ContractResult);
+            return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => this.mapPhysicalRow(contractRootRow(row), compiled.resultShape, contractRootScalars(row)) as unknown as ContractResult);
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
         }
     }
 
-    private async aggregateContractsAsync(args: Parameters<QueryClient["contracts"]["aggregate"]>[0]): Promise<Awaited<ReturnType<QueryClient["contracts"]["aggregate"]>>> {
-        const normalized = normalizeAggregate("contracts", args);
-        const rows = await this.findContractsAsync({ kind: "findMany", relation: "contracts", predicate: normalized.predicate, includes: [], orderBy: [{ path: ["contractId"], direction: "asc" }], skip: 0, activeOnly: false });
+    private async countContractsAsync(query: ReturnType<typeof normalizeCount>): Promise<number> {
+        const compiled = compileContractCount(query, this.profile);
+        try {
+            await this.ready;
+            return Number((await this.executor.query(compiled.text, compiled.values)).rows[0]?.count ?? 0);
+        } catch (cause) {
+            throw this.wrap("contracts.count", cause);
+        }
+    }
+
+    private async aggregateContractsAsync(normalized: NormalizedAggregateQuery): Promise<Awaited<ReturnType<QueryClient["contracts"]["aggregate"]>>> {
+        const compiled = compileContractAggregate(normalized, this.profile);
+        try {
+            await this.ready;
+            const row = (await this.executor.query(compiled.text, compiled.values)).rows[0] ?? {};
         const result: { count?: number; min?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>; max?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>; sum?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>> } = {};
-        if (normalized.aggregates.count) result.count = rows.length;
+        if (normalized.aggregates.count) result.count = Number(row.count ?? 0);
         for (const [operation, fields] of [["min", normalized.aggregates.min], ["max", normalized.aggregates.max], ["sum", normalized.aggregates.sum]] as const) {
-            if (fields.length > 0) result[operation] = Object.fromEntries(fields.map((field) => [field, aggregateNumeric(rows.map((row) => (row as unknown as Record<string, string | null>)[field]), operation)]));
+            if (fields.length > 0) result[operation] = Object.fromEntries(fields.map((field) => [field, nullableString(row[`${operation}_${field}`])]));
         }
         return result;
+        } catch (cause) {
+            throw this.wrap("contracts.aggregate", cause);
+        }
     }
 
     private async groupContractsAsync(query: NormalizedGroupByQuery): Promise<readonly ContractGroupRow[]> {
@@ -237,76 +231,32 @@ function mapJsonValue(value: unknown, as: "text" | "numeric" | "boolean" | "time
     if (as === "timestamp") return value instanceof Date ? value : new Date(String(value));
     return String(value);
 }
-
-function mapProfileJsonRow(value: unknown, relation: PqsRelation): Record<string, unknown> | null {
-    if (value === null || value === undefined) return null;
-    if (typeof value !== "object" || Array.isArray(value)) throw new Error(`Invalid included ${relation} row`);
-    const row = value as Record<string, unknown>;
-    const metadata = pqsRelationMetadata[relation];
-    return Object.fromEntries(Object.entries(metadata.fields).map(([field, column]) => [field, mapPhysicalValue(row[field] ?? row[column], metadata, field)]));
+function contractRootScalars(row: Record<string, unknown>): Record<string, unknown> {
+    const scalars: Record<string, unknown> = {
+        contractId: row.contract_id,
+        packageId: row.package_id,
+        payload: row.payload,
+        witnesses: row.witnesses,
+        createdEventOffset: row.created_event_offset,
+        createdAt: row.created_at,
+        archivedEventOffset: row.archived_event_offset,
+        archivedAt: row.archived_at,
+        active: row.active,
+    };
+    if (row.template_package_id !== undefined && row.template_module_name !== undefined && row.template_entity_name !== undefined) {
+        scalars.templateId = { packageId: row.template_package_id, moduleName: row.template_module_name, entityName: row.template_entity_name };
+    }
+    return scalars;
 }
 
-function mapSelectedProfileJsonRow(value: unknown, relation: PqsRelation): Record<string, unknown> | null {
-    if (value === null || value === undefined) return null;
-    if (typeof value !== "object" || Array.isArray(value)) throw new Error(`Invalid included ${relation} row`);
-    const row = value as Record<string, unknown>;
-    const metadata = pqsRelationMetadata[relation];
-    return Object.fromEntries(Object.entries(metadata.fields).filter(([field, column]) => Object.hasOwn(row, field) || Object.hasOwn(row, column)).map(([field, column]) => [field, mapPhysicalValue(row[field] ?? row[column], metadata, field)]));
-}
-
-function mapContractTypeJson(value: unknown): ContractTypeRow | undefined {
-    const row = mapProfileJsonRow(value, "__contract_tpe");
-    return row === null ? undefined : { pk: String(row.pk), payloadType: String(row.payloadType), aliases: stringArray(row.aliases), packageName: String(row.packageName), moduleName: String(row.moduleName), entityName: String(row.entityName), templateFqn: String(row.templateFqn) };
-}
-
-function mapTransactionJson(value: unknown): TransactionRow | undefined {
-    const row = mapProfileJsonRow(value, "__transactions");
-    return row === null ? undefined : { ix: String(row.ix), offset: String(row.offset), transactionId: nullableString(row.transactionId), effectiveAt: nullableDate(row.effectiveAt), workflowId: nullableString(row.workflowId), domainId: nullableString(row.domainId), traceContext: row.traceContext, externalTransactionHash: row.externalTransactionHash instanceof Uint8Array ? row.externalTransactionHash : null, paidTrafficCost: nullableString(row.paidTrafficCost) };
-}
-
-function mapSelectedRelationJson(value: unknown, relation: PqsRelation): Record<string, unknown> | undefined {
-    const row = mapSelectedProfileJsonRow(value, relation);
-    return row ?? undefined;
-}
-
-function mapExerciseJson(value: unknown): ExerciseResult {
-    const raw = value as Record<string, unknown>;
-    const row = mapSelectedProfileJsonRow(value, "__exercises");
-    if (row === null) throw new Error("Included exercise cannot be null");
-    const knownFields = new Set(Object.entries(pqsRelationMetadata.__exercises.fields).flatMap(([field, column]) => [field, column]));
-    const knownRelations = new Set(Object.keys(pqsRelationEdges.__exercises ?? {}));
-    const projections = Object.fromEntries(Object.entries(raw).filter(([name]) => !knownFields.has(name) && !knownRelations.has(name)));
+function contractRootRow(row: Record<string, unknown>): Record<string, unknown> {
     return {
         ...row,
-        ...projections,
-        ...(raw.exerciseType === undefined ? {} : { exerciseType: mapSelectedRelationJson(raw.exerciseType, "__exercise_tpe") }),
-        ...(raw.contractType === undefined ? {} : { contractType: mapSelectedRelationJson(raw.contractType, "__contract_tpe") }),
-        ...(raw.event === undefined ? {} : { event: raw.event === null ? null : mapSelectedRelationJson(raw.event, "__events") ?? null }),
-        ...(raw.transaction === undefined ? {} : { transaction: raw.transaction === null ? null : mapTransactionJson(raw.transaction) ?? null }),
-        ...(raw.package === undefined ? {} : { package: mapSelectedRelationJson(raw.package, "__packages") }),
-        ...(raw.contract === undefined ? {} : { contract: raw.contract === null ? undefined : raw.contract as ContractResult }),
-    } as ExerciseResult;
-}
-
-function mapContractRow(row: Record<string, unknown>, includes: readonly import("../canonical/query-ast.js").NormalizedInclude[], json: readonly NormalizedJsonSelection[] | undefined): ContractResult {
-    const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
-    const relations = {
-        ...(!includes.some((include) => include.edge === "contractType") ? {} : { contractType: mapContractTypeJson(row.contractType ?? row.contract_type) }),
-        ...(!includes.some((include) => include.edge === "createdTransaction") ? {} : { createdTransaction: mapTransactionJson(row.createdTransaction ?? row.created_transaction) }),
-        ...(!includes.some((include) => include.edge === "archivedTransaction") ? {} : { archivedTransaction: (row.archivedTransaction ?? row.archived_transaction) === null || (row.archivedTransaction ?? row.archived_transaction) === undefined ? null : mapTransactionJson(row.archivedTransaction ?? row.archived_transaction) ?? null }),
-        ...(!includes.some((include) => include.edge === "exercises") ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises.map(mapExerciseJson) : [] }),
+        contractType: row.contractType ?? row.contract_type,
+        createdTransaction: row.createdTransaction ?? row.created_transaction,
+        archivedTransaction: row.archivedTransaction ?? row.archived_transaction,
     };
-    const projections = Object.fromEntries((json ?? []).map((projection) => [projection.name, mapJsonValue(row[projection.name], projection.as)]));
-    return { ...base, ...relations, ...projections };
 }
 
 function nullableString(value: unknown): string | null { return value === null || value === undefined ? null : String(value); }
-function nullableDate(value: unknown): Date | null { return value === null || value === undefined ? null : value instanceof Date ? value : new Date(String(value)); }
-function stringArray(value: unknown): readonly string[] { return Array.isArray(value) ? value.map(String) : []; }
 function getPqsCode(cause: unknown): string | undefined { return typeof cause === "object" && cause !== null && "code" in cause && typeof cause.code === "string" ? cause.code : undefined; }
-function aggregateNumeric(values: readonly (string | null)[], operation: "min" | "max" | "sum"): string | null {
-    const numbers = values.filter((value): value is string => value !== null).map(BigInt);
-    if (numbers.length === 0) return null;
-    if (operation === "sum") return numbers.reduce((total, value) => total + value, 0n).toString();
-    return numbers.reduce((result, value) => operation === "min" ? value < result ? value : result : value > result ? value : result).toString();
-}

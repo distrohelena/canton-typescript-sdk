@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
 import * as relationalCompiler from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
-import { compilePqsRelationFindMany } from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
+import { compilePqsRelationFindMany, compilePqsRelationGroupBy } from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
 
 describe("PQS relational SQL compiler", () => {
+    it("quotes hostile JSON projection aliases in root, nested, and group SQL", () => {
+        const rootName = 'root"; drop table x; --';
+        const nestedName = "nested'); select 1; --";
+        const groupName = 'group"; --';
+        const profile = new PqsSchemaProfileV1();
+        const query = compilePqsRelationFindMany("__exercises", normalizeFindMany("exercises", {
+            select: { json: { [rootName]: { field: "argument", path: ["name"], as: "text" } } },
+            include: { contract: { select: { json: { [nestedName]: { field: "payload", path: ["name"], as: "text" } } } } },
+        }), profile);
+
+        expect(query.text).toContain('as "root""; drop table x; --"');
+        expect(query.text).toContain("'nested''); select 1; --'");
+        expect(compilePqsRelationGroupBy("__exercises", normalizeGroupBy("exercises", {
+            by: [{ argument: { name: groupName, path: ["name"], as: "text" } }], aggregate: { count: true },
+        }), profile).text).toContain('as "group""; --"');
+    });
     it("compiles physical counts directly from canonical predicates", () => {
         const compileCount = relationalCompiler["compilePqsRelationCount"] as undefined | ((relation: "__packages", query: ReturnType<typeof normalizeCount>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] });
 

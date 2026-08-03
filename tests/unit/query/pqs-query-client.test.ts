@@ -57,6 +57,26 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][1]).toEqual(["pkg", "Module", "Template"]);
     });
 
+    it("maps partial and nested logical contract includes from their canonical result shapes", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [{
+                contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", created_at: null, archived_event_offset: null, archived_at: null, active: true,
+                template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template",
+                contractType: { pk: "1", exercises: [{ contractId: "cid" }] }, archivedTransaction: null,
+            }],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.findMany({
+            include: {
+                contractType: { select: { pk: true }, include: { exercises: { take: 1, select: { contractId: true } } } },
+                archivedTransaction: { select: { ix: true } },
+            },
+        })).resolves.toEqual([expect.objectContaining({
+            contractId: "cid", contractType: { pk: "1", exercises: [{ contractId: "cid" }] }, archivedTransaction: null,
+        })]);
+    });
+
     it("projects contract payload JSON scalars", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template", owner: "Alice" }],
@@ -503,10 +523,7 @@ describe("PQS query client", () => {
 
     it("aggregates logical contract lifecycle offsets", async () => {
         const query = vi.fn().mockResolvedValue({
-            rows: [
-                { contract_id: "one", template_id: "pkg:M:T", package_id: "pkg", witnesses: [], created_event_offset: "10", archived_event_offset: null, active: true },
-                { contract_id: "two", template_id: "pkg:M:T", package_id: "pkg", witnesses: [], created_event_offset: "20", archived_event_offset: "30", active: false },
-            ],
+            rows: [{ count: "2", min_createdEventOffset: "10", sum_createdEventOffset: "30", sum_archivedEventOffset: "30" }],
         });
 
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
@@ -516,6 +533,19 @@ describe("PQS query client", () => {
             min: { createdEventOffset: "10" },
             sum: { createdEventOffset: "30", archivedEventOffset: "30" },
         });
+    });
+
+    it("executes direct logical contract count and aggregate SQL", async () => {
+        const query = vi.fn().mockResolvedValueOnce({ rows: [{ count: "2" }] }).mockResolvedValueOnce({ rows: [{ count: "2", min_createdEventOffset: "10", sum_createdEventOffset: "30" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.count({ parties: ["Alice"], where: { active: true } })).resolves.toBe(2);
+        await expect(client.contracts.aggregate({ count: true, min: ["createdEventOffset"], sum: ["createdEventOffset"] })).resolves.toEqual({ count: 2, min: { createdEventOffset: "10" }, sum: { createdEventOffset: "30" } });
+        expect(query.mock.calls[0][0]).toContain("select count(*)::text as count from");
+        expect(query.mock.calls[0][0]).not.toContain("contract_row.contract_id as contract_id");
+        expect(query.mock.calls[0][1]).toEqual([["Alice"]]);
+        expect(query.mock.calls[1][0]).toContain('min(contract_row.created_at_ix)::text as "min_createdEventOffset"');
+        expect(query.mock.calls[1][0]).not.toContain("contract_row.contract_id as contract_id");
     });
 
     it("groups contracts by JSON payload and witnesses", async () => {
