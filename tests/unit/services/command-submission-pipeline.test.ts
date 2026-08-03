@@ -5,6 +5,7 @@ import {
     RequestOptions,
     SubmitCommandsRequest,
 } from "../../../src";
+import { ITransport } from "../../../src/core/transports/transport.interface.js";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
 
 describe("CommandSubmissionPipeline", () => {
@@ -155,5 +156,52 @@ describe("CommandSubmissionPipeline", () => {
             }),
             undefined,
         );
+    });
+
+    it("bypasses a configured signer for participant-local submissions", async () => {
+        const signAsync = vi.fn(async () => {
+            throw new Error("participant-local submission must not sign");
+        });
+
+        const submitCommandAsync = vi.fn(async () => ({
+            commandId: "cmd-local",
+            transactionId: "tx-local",
+        }));
+
+        const transport = {
+            features: { supportsCommandSigning: true },
+            submitCommandAsync,
+        } as unknown as ITransport;
+
+        const pipeline = new CommandSubmissionPipeline({
+            transport,
+            signer: { signAsync },
+        });
+
+        const request = new SubmitCommandsRequest({
+            applicationId: "app-local",
+            actAs: ["Alice"],
+            commands: [
+                new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({ marker: "first" }),
+                }),
+                new CreateCommand({
+                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                    createArguments: new DamlRecord({ marker: "second" }),
+                }),
+            ],
+        });
+
+        const options = new RequestOptions({ timeoutMs: 5_000 });
+
+        const result = await pipeline.submitParticipantLocalAsync(request, options);
+
+        expect(result).toMatchObject({ transactionId: "tx-local" });
+        expect(signAsync).not.toHaveBeenCalled();
+        expect(submitCommandAsync).toHaveBeenCalledWith(request, undefined, options);
+        expect(request.commands.map(command =>
+            (command as CreateCommand).createArguments.fields.marker,
+        )).toEqual(["first", "second"]);
     });
 });

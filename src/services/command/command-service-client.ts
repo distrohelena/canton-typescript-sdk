@@ -28,6 +28,18 @@ export class CommandServiceClient {
     ): Promise<SubmitCommandResponse> {
         return this.pipeline.submitAsync(request, options);
     }
+
+    /**
+     * Submits through the connected participant without external command signing.
+     * A configured command signer is deliberately ignored for this call.
+     */
+    public submitParticipantLocalAndWaitAsync(
+        request: SubmitCommandsRequest,
+        options?: RequestOptions,
+    ): Promise<SubmitCommandResponse> {
+        return this.pipeline.submitParticipantLocalAsync(request, options);
+    }
+
     public prepareAsync(request: SubmitCommandsRequest, options?: RequestOptions): Promise<PreparedCommandSubmission> {
         return this.pipeline.prepareAsync(request, options);
     }
@@ -35,4 +47,3 @@ export class CommandServiceClient {
         return this.pipeline.executeAsync(prepared, signatures, options);
     }
 }
-

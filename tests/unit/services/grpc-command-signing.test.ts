@@ -86,6 +86,75 @@ describe("CommandServiceClient grpc signing", () => {
         expect(submitCommandAsync).not.toHaveBeenCalled();
     });
 
+    it("submits a participant-local command without using its configured external signer", async () => {
+        const signAsync = vi.fn(async () => {
+            throw new Error("external signer must not be called");
+        });
+
+        const submitCommandAsync = vi.fn(async () => ({
+            commandId: "cmd-local",
+            transactionId: "tx-local",
+        }));
+
+        const prepareSubmissionAsync = vi.fn(async () => {
+            throw new Error("interactive prepare must not be called");
+        });
+
+        const executeSubmissionAndWaitAsync = vi.fn(async () => {
+            throw new Error("interactive execute must not be called");
+        });
+
+        const client = new CommandServiceClient(
+            new GrpcTransport({
+                getLedgerApiVersionAsync: async () => {
+                    throw new Error("not used");
+                },
+                allocatePartyAsync: async () => {
+                    throw new Error("not used");
+                },
+                listKnownPartiesAsync: async () => {
+                    throw new Error("not used");
+                },
+                grantUserRightsAsync: async () => {
+                    throw new Error("not used");
+                },
+                uploadDarFileAsync: async () => {
+                    throw new Error("not used");
+                },
+                getActiveContractsPageAsync: async () => {
+                    throw new Error("not used");
+                },
+                getActiveContractsAsync: async () => {
+                    throw new Error("not used");
+                },
+                getUpdatesAsync: async () => {
+                    throw new Error("not used");
+                },
+                submitCommandAsync,
+                prepareSubmissionAsync,
+                executeSubmissionAndWaitAsync,
+            }),
+            { signAsync },
+        );
+
+        const request = new SubmitCommandsRequest({
+            applicationId: "app-local",
+            actAs: ["Alice"],
+            commands: [new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({ issuer: "Alice" }),
+            })],
+        });
+
+        await expect(
+            client.submitParticipantLocalAndWaitAsync(request),
+        ).resolves.toMatchObject({ transactionId: "tx-local" });
+        expect(submitCommandAsync).toHaveBeenCalledOnce();
+        expect(signAsync).not.toHaveBeenCalled();
+        expect(prepareSubmissionAsync).not.toHaveBeenCalled();
+        expect(executeSubmissionAndWaitAsync).not.toHaveBeenCalled();
+    });
+
     it("keeps command submission service unsupported for now", async () => {
         const client = new CommandSubmissionServiceClient({
             features: { supportsCommandSigning: true },

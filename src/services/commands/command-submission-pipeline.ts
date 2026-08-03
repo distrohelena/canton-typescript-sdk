@@ -34,6 +34,18 @@ export class CommandSubmissionPipeline {
             options,
         );
     }
+
+    public submitParticipantLocalAsync(
+        request: SubmitCommandsRequest,
+        options?: RequestOptions,
+    ): Promise<SubmitCommandResponse> {
+        return this.dependencies.transport.submitCommandAsync(
+            request,
+            undefined,
+            options,
+        );
+    }
+
     public submitForTransactionAsync(request: SubmitCommandsRequest, options?: RequestOptions): Promise<SubmitCommandTransactionResponse> {
         if (!this.dependencies.transport.submitCommandForTransactionAsync) {
             throw new NotSupportedError("transaction-returning command submission is not supported by the selected transport");
@@ -56,4 +68,3 @@ export class CommandSubmissionPipeline {
         return this.dependencies.transport.executePreparedCommandAndWaitAsync(prepared, signatures, options);
     }
 }
-
