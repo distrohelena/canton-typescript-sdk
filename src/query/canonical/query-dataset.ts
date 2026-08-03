@@ -6,8 +6,18 @@ export type QueryRowSets = Readonly<Record<QueryRelation, readonly QueryRow[]>>;
 
 /** A directional join from the owning row to a target relation row. */
 export interface QueryEdgeLookup {
-    readonly from: readonly string[];
-    readonly to: readonly string[];
+    /** Public row paths, retained for legacy datasets. */
+    readonly from?: readonly string[];
+    readonly to?: readonly string[];
+    /**
+     * Snapshot-local join values aligned by source/target row position. They are
+     * deliberately stored beside the rows rather than attached to them so query
+     * results expose only schema fields.
+     */
+    readonly privateKeys?: Readonly<{
+        readonly source: readonly (readonly unknown[])[];
+        readonly target: readonly (readonly unknown[])[];
+    }>;
 }
 
 export type QueryEdgeLookups = Readonly<Partial<Record<QueryRelation, Readonly<Record<string, QueryEdgeLookup>>>>>;
@@ -22,7 +32,12 @@ export interface QueryDataset {
     readonly sourceLocalKeys: Readonly<Record<QueryRelation, readonly (readonly string[])[]>>;
 }
 
-type EdgeIndexes = ReadonlyMap<QueryRelation, ReadonlyMap<string, ReadonlyMap<string, readonly QueryRow[]>>>;
+interface EdgeIndex {
+    readonly targets: ReadonlyMap<string, readonly QueryRow[]>;
+    readonly sourcePrivateKeys?: ReadonlyMap<QueryRow, readonly unknown[]>;
+}
+
+type EdgeIndexes = ReadonlyMap<QueryRelation, ReadonlyMap<string, EdgeIndex>>;
 
 const datasetIndexes = new WeakMap<QueryDataset, EdgeIndexes>();
 
@@ -74,7 +89,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
     const relations = Object.keys(queryRelationMetadata) as QueryRelation[];
 
-    const indexes = new Map<QueryRelation, ReadonlyMap<string, ReadonlyMap<string, readonly QueryRow[]>>>();
+    const indexes = new Map<QueryRelation, ReadonlyMap<string, EdgeIndex>>();
 
     for (const relation of relations) {
         const rows = dataset.rows[relation];
@@ -109,36 +124,56 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
             throw new Error(`Dataset is missing ${relation} edges`);
         }
 
-        const relationIndexes = new Map<string, ReadonlyMap<string, readonly QueryRow[]>>();
+        const relationIndexes = new Map<string, EdgeIndex>();
 
         for (const [edge, definition] of Object.entries(edgeDefinitions)) {
             const lookup = lookups[edge];
 
             if (lookup === undefined) {
                 throw new Error(`Dataset is missing ${relation}.${edge} edge`);
-            } else if (lookup.from.length !== lookup.to.length) {
-                throw new Error(`Dataset ${relation}.${edge} lookup arity differs`);
             }
-
-            validatePaths(relation, rows, lookup.from, `${relation}.${edge} source`);
 
             const targetRows = dataset.rows[definition.target];
 
-            validatePaths(definition.target, targetRows, lookup.to, `${relation}.${edge} target`);
-
             const buckets = new Map<string, QueryRow[]>();
 
-            for (const target of targetRows) {
-                const key = compositeKey(lookup.to.map((path) => atPath(target, path)));
+            let sourcePrivateKeys: ReadonlyMap<QueryRow, readonly unknown[]> | undefined;
 
-                buckets.set(key, [...(buckets.get(key) ?? []), target]);
+            if (lookup.privateKeys !== undefined) {
+                if (lookup.from !== undefined || lookup.to !== undefined) {
+                    throw new Error(`Dataset ${relation}.${edge} cannot mix public and private lookup keys`);
+                }
+
+                validatePrivateKeys(relation, edge, lookup.privateKeys, rows, targetRows);
+                sourcePrivateKeys = new Map(rows.map((row, index) => [row, lookup.privateKeys!.source[index]!]));
+
+                for (const [index, target] of targetRows.entries()) {
+                    const key = compositeKey(lookup.privateKeys.target[index]!);
+
+                    buckets.set(key, [...(buckets.get(key) ?? []), target]);
+                }
+            } else {
+                if (lookup.from === undefined || lookup.to === undefined) {
+                    throw new Error(`Dataset ${relation}.${edge} lookup is missing public paths`);
+                } else if (lookup.from.length !== lookup.to.length) {
+                    throw new Error(`Dataset ${relation}.${edge} lookup arity differs`);
+                }
+
+                validatePaths(relation, rows, lookup.from, `${relation}.${edge} source`);
+                validatePaths(definition.target, targetRows, lookup.to, `${relation}.${edge} target`);
+
+                for (const target of targetRows) {
+                    const key = compositeKey(lookup.to.map((path) => atPath(target, path)));
+
+                    buckets.set(key, [...(buckets.get(key) ?? []), target]);
+                }
             }
 
             if (definition.cardinality === "one" && [...buckets.values()].some((targets) => targets.length > 1)) {
                 throw new Error(`Dataset ${relation}.${edge} has multiple to-one targets`);
             }
 
-            relationIndexes.set(edge, new Map([...buckets.entries()].map(([key, targets]) => [key, Object.freeze(targets)])));
+            relationIndexes.set(edge, { targets: new Map([...buckets.entries()].map(([key, targets]) => [key, Object.freeze(targets)])), ...(sourcePrivateKeys === undefined ? {} : { sourcePrivateKeys }) });
         }
 
         if (Object.keys(lookups).some((edge) => edgeDefinitions[edge] === undefined)) {
@@ -176,9 +211,29 @@ export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation,
         throw new Error(`Query row does not belong to ${relation} dataset`);
     }
 
-    const values = lookup.from.map((path) => atPath(snapshotRow, path));
+    const values = lookup.privateKeys === undefined
+        ? lookup.from!.map((path) => atPath(snapshotRow, path))
+        : index.sourcePrivateKeys?.get(snapshotRow);
 
-    return values.some((value) => value === null || value === undefined) ? emptyRows : index.get(compositeKey(values)) ?? emptyRows;
+    return values === undefined || values.some((value) => value === null || value === undefined) ? emptyRows : index.targets.get(compositeKey(values)) ?? emptyRows;
+}
+
+function validatePrivateKeys(relation: QueryRelation, edge: string, keys: NonNullable<QueryEdgeLookup["privateKeys"]>, sourceRows: readonly QueryRow[], targetRows: readonly QueryRow[]): void {
+    if (!Array.isArray(keys.source) || keys.source.length !== sourceRows.length) {
+        throw new Error(`Dataset ${relation}.${edge} private source length differs`);
+    } else if (!Array.isArray(keys.target) || keys.target.length !== targetRows.length) {
+        throw new Error(`Dataset ${relation}.${edge} private target length differs`);
+    }
+
+    if (keys.source.length === 0 && keys.target.length === 0) {
+        return;
+    }
+
+    const arity = keys.source[0]?.length ?? keys.target[0]?.length;
+
+    if (arity === undefined || arity === 0 || !keys.source.every((key) => Array.isArray(key) && key.length === arity) || !keys.target.every((key) => Array.isArray(key) && key.length === arity)) {
+        throw new Error(`Dataset ${relation}.${edge} private lookup arity differs`);
+    }
 }
 
 function validateUniquePaths(relation: QueryRelation, rows: readonly QueryRow[], paths: readonly string[], label: string): void {

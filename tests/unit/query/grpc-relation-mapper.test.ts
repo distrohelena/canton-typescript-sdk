@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
-import { mapGrpcQueryRelationFragment } from "../../../src/query/grpc/grpc-relation-mapper.js";
+import { createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
+import { relatedQueryRows } from "../../../src/query/canonical/query-dataset.js";
+import type { GrpcPackageMetadata } from "../../../src/query/grpc/grpc-package-relation-reader.js";
 import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { Transaction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import { Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
@@ -288,4 +290,73 @@ describe("mapGrpcQueryRelationFragment", () => {
 
         expect(mapGrpcQueryRelationFragment([], [snapshot]).contracts).toHaveLength(1);
     });
+
+    it("assembles all eight immutable relations with private creation/type joins and a snapshot watermark", () => {
+        const upgraded = ExercisedEvent.create({ ...exercise(false), templateId: { packageId: "pkg-upgrade", moduleName: "Main", entityName: "Asset" } });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), representativePackageId: "pkg-representative" }) } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: upgraded } })]),
+        ]);
+
+        const packages: readonly GrpcPackageMetadata[] = [
+            packageMetadata("pkg-upgrade", "upgrade", false),
+            packageMetadata("pkg-representative", "representative", true),
+        ];
+
+        const first = createGrpcQueryDataset(fragment, packages, "20", "grpc://participant");
+
+        const second = createGrpcQueryDataset(fragment, [...packages].reverse(), "20", "grpc://participant");
+
+        expect(second.rows.packages.map((row) => [row.id, row.pk])).toEqual(first.rows.packages.map((row) => [row.id, row.pk]));
+        expect(second.rows.contractTypes.map((row) => [row.templateFqn, row.pk])).toEqual(first.rows.contractTypes.map((row) => [row.templateFqn, row.pk]));
+        expect(second.rows.exerciseTypes.map((row) => [row.choiceFqn, row.pk])).toEqual(first.rows.exerciseTypes.map((row) => [row.choiceFqn, row.pk]));
+        expect(first.rows.watermark).toEqual([{ singleton: true, ix: "20", offset: "20", instanceId: "grpc://participant" }]);
+        expect(first.rows.packages.map((row) => row.id)).toEqual(["pkg-representative", "pkg-upgrade"]);
+        expect(first.rows.contracts[0]).toMatchObject({ packageId: "pkg-id", templateId: { packageId: "pkg-id" } });
+        expect(first.rows.contractTypes).toContainEqual(expect.objectContaining({ packageName: "representative", payloadType: "template", templateFqn: "representative:Main:Asset" }));
+        expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ packageName: "upgrade", choice: "Archive", consuming: false, aliases: ["Main:Asset:Archive"], choiceFqn: "upgrade:Main:Asset:Archive" }));
+        expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
+        expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
+        expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "exerciseType")).toEqual([expect.objectContaining({ packageName: "upgrade" })]);
+        expect(Object.keys(first.rows.contracts[0]!)).toEqual(["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]);
+        expect(Object.keys(first.edges.contracts!.contractType!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.watermark!)).toEqual([]);
+    });
+
+    it("selects representative and exercised packages without requesting unavailable creation-package provenance", () => {
+        const upgraded = ExercisedEvent.create({ ...exercise(false), templateId: { packageId: "pkg-upgrade", moduleName: "Main", entityName: "Asset" } });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), representativePackageId: "pkg-representative" }) } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: upgraded } })]),
+        ]);
+
+        expect(referencedGrpcPackageIds(fragment)).toEqual(["pkg-representative", "pkg-upgrade"]);
+    });
+
+    it("creates a complete empty snapshot at ledger offset zero with canonical exercise keys", () => {
+        const dataset = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [], "0", "grpc://participant");
+
+        expect(dataset.rows.watermark).toEqual([{ singleton: true, ix: "0", offset: "0", instanceId: "grpc://participant" }]);
+        expect(dataset.rows.contracts).toEqual([]);
+        expect(dataset.edges.contracts!.contractType!.privateKeys).toEqual({ source: [], target: [] });
+        expect(dataset.sourceLocalKeys.exercises).toEqual([["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]]);
+    });
 });
+
+function packageMetadata(id: string, name: string, consuming: boolean): GrpcPackageMetadata {
+    return {
+        id,
+        name,
+        version: "1.0.0",
+        templates: [{
+            moduleName: "Main",
+            entityName: "Asset",
+            payloadType: "template",
+            aliases: ["Main:Asset"],
+            templateFqn: `${name}:Main:Asset`,
+            choices: [{ choice: "Archive", consuming, aliases: ["Main:Asset:Archive"], choiceFqn: `${name}:Main:Asset:Archive` }],
+        }],
+    };
+}

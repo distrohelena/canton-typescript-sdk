@@ -1,6 +1,7 @@
 import { ValidationError } from "../../core/errors/validation-error.js";
-import { immutableQueryValue } from "../canonical/query-dataset.js";
-import type { ContractRow, EventRow, ExerciseRow, TransactionRow } from "../model-types.js";
+import { createQueryDataset, immutableQueryValue, type QueryDataset, type QueryRow } from "../canonical/query-dataset.js";
+import type { ContractRow, ContractTypeRow, EventRow, ExerciseRow, ExerciseTypeRow, PackageRow, TransactionRow, WatermarkRow } from "../model-types.js";
+import type { GrpcPackageMetadata } from "./grpc-package-relation-reader.js";
 import type { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import type { Transaction } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
@@ -193,6 +194,212 @@ export function mapGrpcQueryRelationFragment(
         activeContractIdentities: activeEntries.map((entry) => ({ contractId: entry.event.contractId, synchronizerId: entry.synchronizerId, reassignmentCounter: entry.reassignmentCounter, activationOffset: entry.event.offset, activationNodeId: entry.event.nodeId }))
             .sort((left, right) => left.contractId.localeCompare(right.contractId) || left.synchronizerId.localeCompare(right.synchronizerId)),
     });
+}
+
+/**
+ * Combines the Task 5 ledger fragment with decoded LF package metadata into the
+ * complete immutable eight-relation snapshot. Private edge keys retain the
+ * creation template identity without exposing a synthetic field in contract rows.
+ */
+export function createGrpcQueryDataset(
+    fragment: GrpcQueryRelationFragment,
+    packages: readonly GrpcPackageMetadata[],
+    endInclusive: string,
+    instanceId: string,
+): QueryDataset {
+    validSnapshotOffset(endInclusive);
+
+    if (instanceId.length === 0) {
+        throw new ValidationError("gRPC query snapshot instance id is missing");
+    }
+
+    const packageById = new Map<string, GrpcPackageMetadata>();
+
+    for (const pkg of packages) {
+        if (packageById.has(pkg.id)) {
+            throw new ValidationError(`gRPC query has duplicate package metadata ${pkg.id}`);
+        }
+
+        packageById.set(pkg.id, pkg);
+    }
+
+    const templates = packages.flatMap((pkg) => pkg.templates.map((template) => ({ package: pkg, template })));
+
+    const templateByIdentity = new Map<string, (typeof templates)[number]>();
+
+    for (const entry of templates) {
+        const identity = templateIdentity(entry.package.id, entry.template.moduleName, entry.template.entityName);
+
+        if (templateByIdentity.has(identity)) {
+            throw new ValidationError(`gRPC query has duplicate DAML-LF template ${identity}`);
+        }
+
+        templateByIdentity.set(identity, entry);
+    }
+
+    const registry = keyRegistry([
+        ...packages.map((pkg) => packageIdentity(pkg.id)),
+        ...templates.map(({ package: pkg, template }) => contractIdentity({ packageId: pkg.id, moduleName: template.moduleName, entityName: template.entityName })),
+        ...templates.flatMap(({ package: pkg, template }) => template.choices.map((choice) => exerciseIdentity({ packageId: pkg.id, moduleName: template.moduleName, entityName: template.entityName }, choice.choice, choice.consuming))),
+    ]);
+
+    const packageRows: PackageRow[] = [...packages]
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .map((pkg) => ({ pk: registry.get(packageIdentity(pkg.id))!, name: pkg.name, version: pkg.version, id: pkg.id }));
+
+    const contractTypeRows: ContractTypeRow[] = [...templates]
+        .sort(compareTemplateMetadata)
+        .map(({ package: pkg, template }) => ({
+            pk: registry.get(contractIdentity({ packageId: pkg.id, moduleName: template.moduleName, entityName: template.entityName }))!,
+            payloadType: template.payloadType,
+            aliases: template.aliases,
+            packageName: pkg.name,
+            moduleName: template.moduleName,
+            entityName: template.entityName,
+            templateFqn: template.templateFqn,
+        }));
+
+    const exerciseTypeRows: ExerciseTypeRow[] = [...templates]
+        .flatMap(({ package: pkg, template }) => template.choices.map((choice) => ({ package: pkg, template, choice })))
+        .sort((left, right) => compareTemplateMetadata(left, right) || left.choice.choice.localeCompare(right.choice.choice) || Number(left.choice.consuming) - Number(right.choice.consuming))
+        .map(({ package: pkg, template, choice }) => ({
+            pk: registry.get(exerciseIdentity({ packageId: pkg.id, moduleName: template.moduleName, entityName: template.entityName }, choice.choice, choice.consuming))!,
+            choice: choice.choice,
+            consuming: choice.consuming,
+            aliases: choice.aliases,
+            packageName: pkg.name,
+            moduleName: template.moduleName,
+            entityName: template.entityName,
+            templateFqn: template.templateFqn,
+            choiceFqn: choice.choiceFqn,
+        }));
+
+    const typeIdentityByOldPk = new Map(fragment.typeIdentities.map((identity) => [identity.pk, identity]));
+
+    const packageIdByOldPk = new Map(fragment.packageIdentities.map((identity) => [identity.pk, identity.id]));
+
+    const creationByContract = new Map(fragment.creationIdentities.map((identity) => [identity.contractId, identity]));
+
+    const exercises = fragment.exercises.map((exercise) => ({
+        ...exercise,
+        tpePk: registryKeyForType(typeIdentityByOldPk.get(exercise.tpePk), registry),
+        contractTpePk: registryKeyForRepresentativeContract(exercise.contractId, creationByContract, registry),
+        packagePk: registryKeyForPackage(packageIdByOldPk.get(exercise.packagePk), registry),
+    }));
+
+    const contractPrivateKeys = fragment.contracts.map((contract) => {
+        const creation = creationByContract.get(contract.contractId);
+
+        if (creation === undefined) {
+            throw new ValidationError(`gRPC query creation identity is missing ${contract.contractId}`);
+        }
+
+        return templateKey(creation.representativePackageId ?? creation.creationPackageId, creation.templateId.moduleName, creation.templateId.entityName);
+    });
+
+    const templatePrivateKeys = [...templates]
+        .sort(compareTemplateMetadata)
+        .map(({ package: pkg, template }) => templateKey(pkg.id, template.moduleName, template.entityName));
+
+    const watermark: readonly WatermarkRow[] = [{ singleton: true, ix: endInclusive, offset: endInclusive, instanceId }];
+
+    return createQueryDataset({
+        rows: {
+            contracts: fragment.contracts as unknown as readonly QueryRow[],
+            contractTypes: contractTypeRows as unknown as readonly QueryRow[],
+            events: fragment.events as unknown as readonly QueryRow[],
+            exercises: exercises as unknown as readonly QueryRow[],
+            exerciseTypes: exerciseTypeRows as unknown as readonly QueryRow[],
+            packages: packageRows as unknown as readonly QueryRow[],
+            transactions: fragment.transactions as unknown as readonly QueryRow[],
+            watermark: watermark as unknown as readonly QueryRow[],
+        },
+        sourceLocalKeys: {
+            contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"], ["id"]], transactions: [["ix"], ["offset"]], watermark: [["singleton"]],
+        },
+        edges: {
+            contracts: {
+                contractType: { privateKeys: { source: contractPrivateKeys, target: templatePrivateKeys } },
+                createdTransaction: { from: ["createdEventOffset"], to: ["ix"] },
+                archivedTransaction: { from: ["archivedEventOffset"], to: ["ix"] },
+                exercises: { from: ["contractId"], to: ["contractId"] },
+            },
+            contractTypes: {
+                contracts: { privateKeys: { source: templatePrivateKeys, target: contractPrivateKeys } },
+                exercises: { from: ["pk"], to: ["contractTpePk"] },
+            },
+            events: { transaction: { from: ["txIx"], to: ["ix"] }, exercises: { from: ["pk"], to: ["exerciseEventPk"] } },
+            exercises: {
+                exerciseType: { from: ["tpePk"], to: ["pk"] }, contractType: { from: ["contractTpePk"], to: ["pk"] }, event: { from: ["exerciseEventPk"], to: ["pk"] }, transaction: { from: ["exercisedAtIx"], to: ["ix"] }, package: { from: ["packagePk"], to: ["pk"] }, contract: { from: ["contractId"], to: ["contractId"] },
+            },
+            exerciseTypes: { exercises: { from: ["pk"], to: ["tpePk"] } },
+            packages: { exercises: { from: ["pk"], to: ["packagePk"] } },
+            transactions: {
+                events: { from: ["ix"], to: ["txIx"] }, createdContracts: { from: ["ix"], to: ["createdEventOffset"] }, archivedContracts: { from: ["ix"], to: ["archivedEventOffset"] }, exercises: { from: ["ix"], to: ["exercisedAtIx"] },
+            },
+            watermark: {},
+        },
+    });
+}
+
+/** Package payloads required for a contract/history relation plan, excluding creation-only provenance. */
+export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): readonly string[] {
+    return Object.freeze([...new Set([
+        ...fragment.creationIdentities.map((creation) => creation.representativePackageId ?? creation.creationPackageId),
+        ...fragment.typeIdentities.filter((identity) => identity.choice !== undefined).map((identity) => identity.packageId),
+    ])].sort());
+}
+
+function compareTemplateMetadata(left: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }, right: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }): number {
+    return left.package.id.localeCompare(right.package.id) || left.template.moduleName.localeCompare(right.template.moduleName) || left.template.entityName.localeCompare(right.template.entityName);
+}
+
+function templateIdentity(packageId: string, moduleName: string, entityName: string): string {
+    return `${packageId}\u0000${moduleName}\u0000${entityName}`;
+}
+function templateKey(packageId: string, moduleName: string, entityName: string): readonly string[] {
+    return [packageId, moduleName, entityName];
+}
+function registryKeyForType(identity: GrpcQueryTypeIdentity | undefined, registry: ReadonlyMap<string, string>): string {
+    if (identity === undefined) {
+        throw new ValidationError("gRPC query relation type identity is missing");
+    }
+
+    const key = identity.choice === undefined
+        ? registry.get(contractIdentity(identity.templateId))
+        : registry.get(exerciseIdentity(identity.templateId, identity.choice, identity.consuming!));
+
+    if (key === undefined) {
+        throw new ValidationError("gRPC query relation type metadata is missing");
+    }
+
+    return key;
+}
+function registryKeyForRepresentativeContract(contractId: string, creations: ReadonlyMap<string, GrpcQueryCreationIdentity>, registry: ReadonlyMap<string, string>): string {
+    const creation = creations.get(contractId);
+
+    if (creation === undefined) {
+        throw new ValidationError(`gRPC query creation identity is missing ${contractId}`);
+    }
+
+    const packageId = creation.representativePackageId ?? creation.creationPackageId;
+
+    const key = registry.get(contractIdentity({ packageId, moduleName: creation.templateId.moduleName, entityName: creation.templateId.entityName }));
+
+    if (key === undefined) {
+        throw new ValidationError(`gRPC query representative contract type metadata is missing ${packageId}:${creation.templateId.moduleName}:${creation.templateId.entityName}`);
+    }
+
+    return key;
+}
+function registryKeyForPackage(packageId: string | undefined, registry: ReadonlyMap<string, string>): string {
+    const key = packageId === undefined ? undefined : registry.get(packageIdentity(packageId));
+
+    if (key === undefined) {
+        throw new ValidationError("gRPC query relation package metadata is missing");
+    }
+
+    return key;
 }
 
 function pendingEvent(transaction: Transaction, event: Event): PendingEvent {
@@ -519,6 +726,15 @@ function validOffset(value: string, name: string): string {
         throw new ValidationError(`gRPC query ${name} is invalid`);
     } else if (BigInt(value) > 9_223_372_036_854_775_807n) {
         throw new ValidationError(`gRPC query ${name} is outside the int64 range`);
+    }
+
+    return value;
+}
+function validSnapshotOffset(value: string): string {
+    if (!/^(?:0|[1-9]\d*)$/.test(value)) {
+        throw new ValidationError("gRPC query snapshot end offset is invalid");
+    } else if (BigInt(value) > 9_223_372_036_854_775_807n) {
+        throw new ValidationError("gRPC query snapshot end offset is outside the int64 range");
     }
 
     return value;

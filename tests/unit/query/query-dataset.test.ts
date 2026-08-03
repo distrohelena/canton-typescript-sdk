@@ -110,4 +110,60 @@ describe("createQueryDataset", () => {
         (emptyTarget.edges.contracts as Record<string, { from: string[]; to: string[] }>).exercises = { from: ["contractId"], to: ["missing"] };
         expect(() => createQueryDataset(emptyTarget)).toThrow("target path missing is invalid");
     });
+
+    it("supports frozen private edge keys without adding join metadata to public rows", () => {
+        const input = mutableDataset();
+
+        input.rows = {
+            ...input.rows,
+            contracts: [{ ...input.rows.contracts[0]!, packageId: "creation-package" }],
+            contractTypes: [{ ...input.rows.contractTypes[0]!, packageName: "representative-package" }],
+        };
+        (input.edges.contracts as Record<string, unknown>).contractType = {
+            privateKeys: {
+                source: [["creation-package", "App", "Asset"]],
+                target: [["creation-package", "App", "Asset"]],
+            },
+        };
+
+        const dataset = createQueryDataset(input);
+
+        expect(relatedQueryRows(dataset, "contracts", dataset.rows.contracts[0]!, "contractType")).toEqual([dataset.rows.contractTypes[0]]);
+        expect(Object.keys(dataset.rows.contracts[0]!)).toEqual(["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]);
+        expect(Object.isFrozen(dataset.edges.contracts!.contractType!.privateKeys!.source)).toBe(true);
+        expect(() => (dataset.edges.contracts!.contractType!.privateKeys!.source as unknown[]).push([])).toThrow();
+    });
+
+    it("rejects private edge key arity, lengths, and duplicate to-one targets", () => {
+        const short = mutableDataset();
+
+        (short.edges.contracts as Record<string, unknown>).contractType = {
+            privateKeys: { source: [], target: [["one"]] },
+        };
+        expect(() => createQueryDataset(short)).toThrow("private source length differs");
+
+        const duplicate = mutableDataset();
+
+        duplicate.rows = { ...duplicate.rows, contractTypes: [...duplicate.rows.contractTypes, { ...duplicate.rows.contractTypes[0]!, pk: "99" }] };
+        (duplicate.edges.contracts as Record<string, unknown>).contractType = {
+            privateKeys: { source: [["one"], ["two"], ["three"]], target: [["one"], ["two"], ["one"]] },
+        };
+        expect(() => createQueryDataset(duplicate)).toThrow("multiple to-one targets");
+    });
+
+    it("permits empty private joins and resolves private keys from raw precompiled rows", () => {
+        const empty = mutableDataset();
+
+        empty.rows = { ...empty.rows, contracts: [], contractTypes: [] };
+        (empty.edges.contracts as Record<string, unknown>).contractType = { privateKeys: { source: [], target: [] } };
+        (empty.edges.contractTypes as Record<string, unknown>).contracts = { privateKeys: { source: [], target: [] } };
+        expect(createQueryDataset(empty)).toBeTruthy();
+
+        const raw = mutableDataset();
+
+        (raw.edges.contracts as Record<string, unknown>).contractType = {
+            privateKeys: { source: [["pkg-app", "App", "Asset"], ["pkg-app", "App", "Asset"], ["pkg-other", "Other", "Note"]], target: [["pkg-app", "App", "Asset"], ["pkg-other", "Other", "Note"]] },
+        };
+        expect(relatedQueryRows(raw, "contracts", raw.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ pk: "10" })]);
+    });
 });
