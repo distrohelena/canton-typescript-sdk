@@ -3,7 +3,7 @@ import { CantonError } from "../../../src/core/errors/canton-error.js";
 import { MemoryQueryCache } from "../../../src/query/cache/memory-query-cache.js";
 import { PqsQueryError } from "../../../src/query/errors/pqs-query-error.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
-import { QuerySnapshotIncompleteError } from "../../../src/index.js";
+import { QuerySnapshotIncompleteError, type QuerySnapshotIncompleteReason } from "../../../src/index.js";
 import { QuerySource } from "../../../src/query/query-source.js";
 
 describe("query public contracts", () => {
@@ -26,10 +26,12 @@ describe("query public contracts", () => {
     });
 
     it("exposes incomplete gRPC snapshot diagnostics", () => {
+        const reason: QuerySnapshotIncompleteReason = "participant-pruned";
+
         const error = new QuerySnapshotIncompleteError({
             beginExclusive: "0",
             endInclusive: "42",
-            reason: "participant-pruned",
+            reason,
         });
 
         expect(error).toBeInstanceOf(CantonError);

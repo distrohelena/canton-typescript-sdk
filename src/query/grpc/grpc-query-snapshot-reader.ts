@@ -85,7 +85,7 @@ export class GrpcQuerySnapshotReader {
             throw this.historyError(endInclusive, "participant-pruned");
         }
 
-        const updateFormat = createHistoryUpdateFormat();
+        const updateFormat = freezeDeep(createHistoryUpdateFormat());
 
         const updates: GetUpdateResponseType[] = [];
 
@@ -96,6 +96,8 @@ export class GrpcQuerySnapshotReader {
         let pageToken: Uint8Array | undefined;
 
         let pagesRead = 0;
+
+        let previousUpdateOffset: bigint | undefined;
 
         while (true) {
             if (pagesRead >= this.options.maxHistoryPages) {
@@ -124,11 +126,21 @@ export class GrpcQuerySnapshotReader {
                 throw this.historyError(endInclusive, "page-boundary-mismatch");
             }
 
-            updates.push(...response.updates.map(cloneFrozenUpdate));
-
-            if (updates.length > this.options.maxHistoryUpdates) {
+            if (response.updates.length > this.options.maxHistoryUpdates - updates.length) {
                 throw this.historyError(endInclusive, "max-updates-exceeded");
             }
+
+            for (const update of response.updates) {
+                const updateOffset = parseOffset(extractUpdateOffset(update));
+
+                if (updateOffset === undefined || updateOffset <= lowest || updateOffset > highest || (previousUpdateOffset !== undefined && updateOffset <= previousUpdateOffset)) {
+                    throw this.historyError(endInclusive, "page-boundary-mismatch");
+                }
+
+                previousUpdateOffset = updateOffset;
+            }
+
+            updates.push(...response.updates.map(cloneFrozenUpdate));
 
             const nextPageToken = response.nextPageToken;
 
@@ -166,7 +178,7 @@ export class GrpcQuerySnapshotReader {
             throw this.activeError(activeAtOffset, "invalid-offset");
         }
 
-        const eventFormat = createAllPartiesEventFormat();
+        const eventFormat = freezeDeep(createAllPartiesEventFormat());
 
         const activeContracts: GetActiveContractsResponseType[] = [];
 
@@ -201,11 +213,11 @@ export class GrpcQuerySnapshotReader {
                 throw this.activeError(activeAtOffset, "empty-active-contract-page");
             }
 
-            activeContracts.push(...response.activeContracts.map(cloneFrozenActiveContract));
-
-            if (activeContracts.length > this.options.maxActiveContracts) {
+            if (response.activeContracts.length > this.options.maxActiveContracts - activeContracts.length) {
                 throw this.activeError(activeAtOffset, "max-active-contracts-exceeded");
             }
+
+            activeContracts.push(...response.activeContracts.map(cloneFrozenActiveContract));
 
             const nextPageToken = response.nextPageToken;
 
@@ -277,11 +289,25 @@ function createAllPartiesEventFormat(): EventFormat {
 }
 
 function parseOffset(value: unknown): bigint | undefined {
-    if (typeof value !== "string" || !/^\d+$/.test(value)) {
+    if (typeof value !== "string" || !/^(?:0|[1-9]\d{0,18})$/.test(value)) {
         return undefined;
     }
 
-    return BigInt(value);
+    const parsed = BigInt(value);
+
+    return parsed <= 9_223_372_036_854_775_807n ? parsed : undefined;
+}
+
+function extractUpdateOffset(update: GetUpdateResponseType): unknown {
+    const oneof = update.update as { oneofKind?: string; transaction?: { offset?: unknown }; reassignment?: { offset?: unknown }; offsetCheckpoint?: { offset?: unknown }; topologyTransaction?: { offset?: unknown } };
+
+    switch (oneof.oneofKind) {
+        case "transaction": return oneof.transaction?.offset;
+        case "reassignment": return oneof.reassignment?.offset;
+        case "offsetCheckpoint": return oneof.offsetCheckpoint?.offset;
+        case "topologyTransaction": return oneof.topologyTransaction?.offset;
+        default: return undefined;
+    }
 }
 
 function tokenKeyFor(token: Uint8Array): string {

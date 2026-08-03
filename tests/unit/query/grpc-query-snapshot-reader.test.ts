@@ -12,6 +12,10 @@ import {
 import { TransactionShape } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 
 describe("gRPC query snapshot reader", () => {
+    const transactionUpdate = (offset: string) => GetUpdateResponse.create({
+        update: { oneofKind: "transaction", transaction: { offset } },
+    });
+
     const expectImmutableBytes = (bytes: Uint8Array, expected: readonly number[]) => {
         expect(() => bytes[0] = 9).toThrow();
         expect(() => bytes.set([9])).toThrow();
@@ -143,6 +147,32 @@ describe("gRPC query snapshot reader", () => {
         expect(second.pageToken).not.toBe(token);
     });
 
+    it("keeps history request format semantics after a consumer attempts to mutate the first request", async () => {
+        const getUpdatesPageAsync = vi.fn()
+            .mockImplementationOnce(async request => {
+                try {
+                    request.updateFormat!.includeTransactions!.eventFormat!.verbose = false;
+                } catch {}
+
+                return historyPage({ highestPageOffsetInclusive: "21", nextPageToken: new Uint8Array([1]) });
+            })
+            .mockResolvedValueOnce(historyPage({ lowestPageOffsetExclusive: "21" }));
+
+        const reader = new GrpcQuerySnapshotReader(
+            {
+                getLedgerEndAsync: vi.fn(),
+                getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }),
+                getActiveContractsPageAsync: vi.fn(),
+            } as never,
+            { getUpdatesPageAsync } as never,
+        );
+
+        await expect(reader.readHistoryAsync("42")).resolves.toMatchObject({ endInclusive: "42" });
+        expect(getUpdatesPageAsync.mock.calls[1]![0].updateFormat).toMatchObject({
+            includeTransactions: { eventFormat: { verbose: true }, transactionShape: TransactionShape.LEDGER_EFFECTS },
+        });
+    });
+
     it.each([
         ["a repeated continuation token", [
             historyPage({ highestPageOffsetInclusive: "21", nextPageToken: new Uint8Array([1]) }),
@@ -202,12 +232,56 @@ describe("gRPC query snapshot reader", () => {
     });
 
     it.each([
+        ["outside the upper boundary", transactionUpdate("99")],
+        ["at the exclusive lower boundary", transactionUpdate("0")],
+        ["a malformed offset", transactionUpdate("01")],
+        ["an undefined update oneof", GetUpdateResponse.create()],
+    ])("rejects an update %s", async (_kind, update) => {
+        const { reader } = readerFor({ historyPages: [historyPage({ updates: [update] })] });
+
+        await expect(reader.readHistoryAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it.each([
+        ["duplicate", [transactionUpdate("1"), transactionUpdate("1")]],
+        ["out-of-order", [transactionUpdate("2"), transactionUpdate("1")]],
+    ])("rejects %s update offsets", async (_kind, updates) => {
+        const { reader } = readerFor({ historyPages: [historyPage({ updates })] });
+
+        await expect(reader.readHistoryAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it("accepts strictly ascending update offsets at page boundaries", async () => {
+        const { reader } = readerFor({ historyPages: [historyPage({ updates: [transactionUpdate("1"), transactionUpdate("42")] })] });
+
+        await expect(reader.readHistoryAsync("42")).resolves.toMatchObject({ updates: [expect.anything(), expect.anything()] });
+    });
+
+    it.each([
         ["pages", { maxHistoryPages: 1 }, [historyPage({ highestPageOffsetInclusive: "21", nextPageToken: new Uint8Array([1]) })]],
         ["updates", { maxHistoryUpdates: 1 }, [historyPage({ updates: [GetUpdateResponse.create(), GetUpdateResponse.create()] })]],
     ] as const)("rejects configured history %s limits", async (_kind, options, pages) => {
         const { reader } = readerFor({ options, historyPages: pages });
 
         await expect(reader.readHistoryAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it("rejects an oversized history page before serializing its updates", async () => {
+        const toBinary = vi.spyOn(GetUpdateResponse, "toBinary").mockImplementation(() => {
+            throw new Error("must not serialize");
+        });
+
+        const { reader } = readerFor({
+            options: { maxHistoryUpdates: 1 },
+            historyPages: [historyPage({ updates: [transactionUpdate("1"), transactionUpdate("2")] })],
+        });
+
+        try {
+            await expect(reader.readHistoryAsync("42")).rejects.toMatchObject({ reason: "max-updates-exceeded" });
+            expect(toBinary).not.toHaveBeenCalled();
+        } finally {
+            toBinary.mockRestore();
+        }
     });
 
     it("returns a detached frozen history snapshot", async () => {
@@ -217,7 +291,7 @@ describe("gRPC query snapshot reader", () => {
             updates: [GetUpdateResponse.create({
                 update: {
                     oneofKind: "transaction",
-                    transaction: { externalTransactionHash: sourceHash },
+                    transaction: { offset: "1", externalTransactionHash: sourceHash },
                 },
             })],
         });
@@ -290,6 +364,30 @@ describe("gRPC query snapshot reader", () => {
         });
     });
 
+    it("keeps ACS event format semantics after a consumer attempts to mutate the first request", async () => {
+        const getActiveContractsPageAsync = vi.fn()
+            .mockImplementationOnce(async request => {
+                try {
+                    request.eventFormat!.verbose = false;
+                } catch {}
+
+                return activePage({ activeContracts: [GetActiveContractsResponse.create()], nextPageToken: new Uint8Array([1]) });
+            })
+            .mockResolvedValueOnce(activePage());
+
+        const reader = new GrpcQuerySnapshotReader(
+            {
+                getLedgerEndAsync: vi.fn(),
+                getLatestPrunedOffsetsAsync: vi.fn(),
+                getActiveContractsPageAsync,
+            } as never,
+            { getUpdatesPageAsync: vi.fn() } as never,
+        );
+
+        await reader.readActiveContractsAsync("42");
+        expect(getActiveContractsPageAsync.mock.calls[1]![0].eventFormat).toMatchObject({ verbose: true });
+    });
+
     it("returns a detached frozen active-contract snapshot", async () => {
         const sourceBlob = new Uint8Array([3, 4]);
 
@@ -354,6 +452,71 @@ describe("gRPC query snapshot reader", () => {
         const { reader } = readerFor({ activePages, options });
 
         await expect(reader.readActiveContractsAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it("rejects an oversized ACS page before serializing its contracts", async () => {
+        const toBinary = vi.spyOn(GetActiveContractsResponse, "toBinary").mockImplementation(() => {
+            throw new Error("must not serialize");
+        });
+
+        const { reader } = readerFor({
+            options: { maxActiveContracts: 1 },
+            activePages: [activePage({ activeContracts: [GetActiveContractsResponse.create(), GetActiveContractsResponse.create()] })],
+        });
+
+        try {
+            await expect(reader.readActiveContractsAsync("42")).rejects.toMatchObject({ reason: "max-active-contracts-exceeded" });
+            expect(toBinary).not.toHaveBeenCalled();
+        } finally {
+            toBinary.mockRestore();
+        }
+    });
+
+    it.each(["00", "01", "+1", "-1", " 1", "", "9223372036854775808"])("rejects non-canonical signed-int64 offsets: %s", async offset => {
+        const { reader } = readerFor({ prunedUpTo: offset });
+
+        await expect(reader.readHistoryAsync(offset)).rejects.toMatchObject({
+            name: "QuerySnapshotIncompleteError",
+            endInclusive: offset,
+        });
+        await expect(reader.readActiveContractsAsync(offset)).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it.each(["00", "01", "+1", "-1", " 1", "", "9223372036854775808"])("treats non-canonical pruning, page, and ACS response offsets as incomplete: %s", async offset => {
+        const pruned = readerFor({ prunedUpTo: offset });
+
+        await expect(pruned.reader.readHistoryAsync("42")).rejects.toMatchObject({ reason: "participant-pruned" });
+        expect(pruned.getUpdatesPageAsync).not.toHaveBeenCalled();
+
+        const page = readerFor({ historyPages: [historyPage({ lowestPageOffsetExclusive: offset })] });
+
+        await expect(page.reader.readHistoryAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+
+        const acs = readerFor({ activePages: [activePage({ activeAtOffset: offset })] });
+
+        await expect(acs.reader.readActiveContractsAsync("42")).rejects.toMatchObject({ name: "QuerySnapshotIncompleteError" });
+    });
+
+    it.each(["ledger end", "pruning", "ACS"] as const)("preserves %s gRPC errors", async kind => {
+        const transportError = GrpcTransportError.fromUnknown(Object.assign(new Error("unavailable"), { name: "RpcError", code: "UNAVAILABLE" }))!;
+
+        const fake = readerFor();
+
+        if (kind === "ledger end") {
+            fake.getLedgerEndAsync.mockRejectedValueOnce(transportError);
+        }
+
+        if (kind === "pruning") {
+            fake.getLatestPrunedOffsetsAsync.mockRejectedValueOnce(transportError);
+        }
+
+        if (kind === "ACS") {
+            fake.getActiveContractsPageAsync.mockReset().mockRejectedValueOnce(transportError);
+        }
+
+        const operation = kind === "ledger end" ? fake.reader.readCurrentHistoryAsync() : kind === "pruning" ? fake.reader.readHistoryAsync("42") : fake.reader.readActiveContractsAsync("42");
+
+        await expect(operation).rejects.toBe(transportError);
     });
 
     it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])("rejects an invalid traversal limit of %p", value => {
