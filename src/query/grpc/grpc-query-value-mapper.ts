@@ -43,18 +43,14 @@ function mapValue(value: Value, depth: number): unknown {
         case "genMap": return mapGenMap(value.sum.genMap.entries, depth + 1);
         case "record": return mapRecord(value.sum.record.fields, depth + 1);
         case "variant": {
-            if (value.sum.variant.constructor.length === 0 || value.sum.variant.value === undefined) {
+            if (value.sum.variant.value === undefined) {
                 throw new ValidationError("gRPC query variant is incomplete");
             }
 
-            return { tag: value.sum.variant.constructor, value: mapValue(value.sum.variant.value, depth + 1) };
+            return { tag: validNameString(value.sum.variant.constructor, "variant constructor"), value: mapValue(value.sum.variant.value, depth + 1) };
         }
         case "enum": {
-            if (value.sum.enum.constructor.length === 0) {
-                throw new ValidationError("gRPC query enum constructor is missing");
-            }
-
-            return value.sum.enum.constructor;
+            return validNameString(value.sum.enum.constructor, "enum constructor");
         }
         case undefined: throw new ValidationError("gRPC query value has no active sum");
     }
@@ -72,7 +68,7 @@ function mapRecord(fields: readonly { readonly label: string; readonly value?: V
             throw new ValidationError(`gRPC query record field ${field.label} has no value`);
         }
 
-        defineData(output, field.label, mapValue(field.value, depth));
+        defineData(output, validNameString(field.label, `record field ${index} label`), mapValue(field.value, depth));
     }
 
     return output;
@@ -220,6 +216,24 @@ export function validPartyId(value: string): string {
 /** Validates a generated LedgerString used specifically as a contract identifier. */
 export function validLedgerString(value: string, name = "ledger string"): string {
     if (!/^[A-Za-z0-9#:\-_/ ]{1,255}$/.test(value)) {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
+    }
+
+    return value;
+}
+
+/** Validates a generated NameString used by identifiers, choices, and verbose value labels. */
+export function validNameString(value: string, name = "name"): string {
+    if (!/^[A-Za-z$_][A-Za-z0-9$_]{0,999}$/.test(value)) {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
+    }
+
+    return value;
+}
+
+/** Validates a generated PackageIdString without applying it to arbitrary package-name text. */
+export function validPackageIdString(value: string, name = "package id"): string {
+    if (!/^[A-Za-z0-9\-_ ]{1,64}$/.test(value)) {
         throw new ValidationError(`gRPC query ${name} is invalid`);
     }
 

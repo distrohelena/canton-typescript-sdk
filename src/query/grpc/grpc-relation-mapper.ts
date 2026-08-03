@@ -4,7 +4,7 @@ import type { ContractRow, EventRow, ExerciseRow, TransactionRow } from "../mode
 import type { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import type { Transaction } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
-import { mapGrpcQueryValue, validLedgerString, validPartyId } from "./grpc-query-value-mapper.js";
+import { mapGrpcQueryValue, validLedgerString, validNameString, validPackageIdString, validPartyId } from "./grpc-query-value-mapper.js";
 
 type TemplateId = NonNullable<CreatedEvent["templateId"]>;
 
@@ -222,13 +222,13 @@ function validatePending(transaction: Transaction, event: CreatedEvent | Exercis
     requiredTemplate(event.templateId, `${kind} event template`);
 
     if (isExercised(event)) {
-        if (event.choice.length === 0) {
-            throw new ValidationError("gRPC query exercise choice is missing");
-        } else if (event.packageName.length === 0) {
+        if (event.packageName.length === 0) {
             throw new ValidationError("gRPC query exercise package name is missing");
         } else if (event.choiceArgument === undefined) {
             throw new ValidationError("gRPC query exercise argument is missing");
         }
+
+        validNameString(event.choice, "exercise choice");
 
         immutableStrings(event.actingParties, "exercise acting parties", true);
         immutableStrings(event.witnessParties, "exercise witnesses", true);
@@ -338,7 +338,14 @@ function reconcileActiveContracts(contracts: Map<string, ContractRow>, creations
     const grouped = new Map<string, ActiveContractEntry[]>();
 
     for (const entry of entries) {
-        grouped.set(entry.event.contractId, [...(grouped.get(entry.event.contractId) ?? []), entry]);
+        let bucket = grouped.get(entry.event.contractId);
+
+        if (bucket === undefined) {
+            bucket = [];
+            grouped.set(entry.event.contractId, bucket);
+        }
+
+        bucket.push(entry);
     }
 
     for (const [contractId, group] of grouped) {
@@ -391,9 +398,9 @@ function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreat
 
     if (event.packageName.length === 0) {
         throw new ValidationError("gRPC query created event package name is missing");
-    } else if (event.representativePackageId.length === 0) {
-        throw new ValidationError("gRPC query created event representative package id is missing");
     }
+
+    validPackageIdString(event.representativePackageId, "created event representative package id");
 
     const template = requiredTemplate(event.templateId, "created event template");
 
@@ -421,10 +428,14 @@ function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreat
 function validateTransaction(transaction: Transaction): void {
     if (transaction.events.length === 0) {
         throw new ValidationError("gRPC query transaction has no events");
-    } else if (transaction.updateId.length === 0) {
-        throw new ValidationError("gRPC query transaction update id is missing");
     } else if (transaction.synchronizerId.length === 0) {
         throw new ValidationError("gRPC query transaction synchronizer id is missing");
+    }
+
+    validLedgerString(transaction.updateId, "transaction update id");
+
+    if (transaction.workflowId.length > 0) {
+        validLedgerString(transaction.workflowId, "transaction workflow id");
     }
 
     timestamp(transaction.effectiveAt, "transaction effective time", true);
@@ -463,9 +474,13 @@ function isExercised(event: CreatedEvent | ExercisedEvent): event is ExercisedEv
 }
 
 function requiredTemplate(template: TemplateId | undefined, name: string): TemplateId {
-    if (template === undefined || template.packageId.length === 0 || template.moduleName.length === 0 || template.entityName.length === 0) {
+    if (template === undefined) {
         throw new ValidationError(`gRPC query ${name} is missing`);
     }
+
+    validPackageIdString(template.packageId, `${name} package id`);
+    validNameString(template.moduleName, `${name} module name`);
+    validNameString(template.entityName, `${name} entity name`);
 
     return template;
 }

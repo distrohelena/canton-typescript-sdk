@@ -129,6 +129,17 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), contractId: "c".repeat(256) }) } })])])).toThrow(ValidationError);
     });
 
+    it("validates generated relation names, package IDs, and transaction LedgerStrings", () => {
+        const valid = CreatedEvent.create({ ...create(), templateId: { packageId: "p".repeat(64), moduleName: `M${"a".repeat(999)}`, entityName: `E${"a".repeat(999)}` }, representativePackageId: "r".repeat(64) });
+
+        expect(mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: valid } })])]).contracts).toHaveLength(1);
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), templateId: { ...template, moduleName: "1Bad" } }) } })])])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), representativePackageId: "bad!" }) } })])])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), choice: "bad-name" }) } })])])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), updateId: "bad!" })])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), workflowId: "bad!" })])).toThrow(ValidationError);
+    });
+
     it("orders exercise offsets numerically rather than lexicographically", () => {
         const first = ExercisedEvent.create({ ...exercise(false), offset: "2", nodeId: 2 });
 

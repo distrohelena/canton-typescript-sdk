@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
-import { mapGrpcQueryValue } from "../../../src/query/grpc/grpc-query-value-mapper.js";
+import { mapGrpcQueryValue, validNameString, validPackageIdString } from "../../../src/query/grpc/grpc-query-value-mapper.js";
 import { Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
 
 const value = (sum: Value["sum"]): Value => Value.create({ sum });
@@ -102,6 +102,23 @@ describe("mapGrpcQueryValue", () => {
         expect(() => mapGrpcQueryValue(value({ oneofKind: "party", party: "bad!" }))).toThrow(ValidationError);
         expect(() => mapGrpcQueryValue(value({ oneofKind: "contractId", contractId: "bad!" }))).toThrow(ValidationError);
         expect(() => mapGrpcQueryValue(value({ oneofKind: "party", party: "a".repeat(256) }))).toThrow(ValidationError);
+    });
+
+    it("validates generated NameString and PackageIdString boundaries", () => {
+        expect(validNameString(`A${"a".repeat(999)}`)).toHaveLength(1000);
+        expect(validPackageIdString("p".repeat(64))).toHaveLength(64);
+        expect(() => validNameString("1Name")).toThrow(ValidationError);
+        expect(() => validNameString("Name-Invalid")).toThrow(ValidationError);
+        expect(() => validNameString("A".repeat(1001))).toThrow(ValidationError);
+        expect(() => validPackageIdString("pkg!")).toThrow(ValidationError);
+        expect(() => validPackageIdString("p".repeat(65))).toThrow(ValidationError);
+    });
+
+    it("applies NameString validation to labels and constructors without restricting Text keys", () => {
+        expect(mapGrpcQueryValue(value({ oneofKind: "textMap", textMap: { entries: [{ key: "key!", value: value({ oneofKind: "text", text: "ok" }) }] } }))).toEqual({ "key!": "ok" });
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "record", record: { fields: [{ label: "1field", value: value({ oneofKind: "unit", unit: {} }) }] } }))).toThrow(ValidationError);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "variant", variant: { constructor: "bad-name", value: value({ oneofKind: "unit", unit: {} }) } }))).toThrow(ValidationError);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "enum", enum: { constructor: "bad-name" } }))).toThrow(ValidationError);
     });
 
     it("rejects nesting beyond the documented value depth before overflowing", () => {
