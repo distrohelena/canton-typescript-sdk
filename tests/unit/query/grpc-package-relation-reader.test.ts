@@ -91,6 +91,30 @@ describe("GrpcPackageRelationReader", () => {
     });
 
     it.each([
+        ["response accessor", (fixture: ReturnType<typeof fixturePackage>, thrown: unknown) => {
+            const response = Object.defineProperty({ ...fixture.response }, "hash", { get: () => {
+                throw thrown;
+            } });
+
+            return new GrpcPackageRelationReader({ listPackagesAsync: async () => ({ packageIds: [fixture.id] }), getPackageAsync: async () => response });
+        }],
+        ["package loader", (fixture: ReturnType<typeof fixturePackage>, thrown: unknown) => new GrpcPackageRelationReader(
+            { listPackagesAsync: async () => ({ packageIds: [fixture.id] }), getPackageAsync: async () => fixture.response },
+            { loadPackageOrThrow: () => {
+                throw thrown;
+            } } as never,
+        )],
+    ])("wraps an unformattable %s failure as a typed package error", async (_name, makeReader) => {
+        const fixture = fixturePackage();
+
+        const thrown = Proxy.revocable({}, {});
+
+        thrown.revoke();
+
+        await expect(makeReader(fixture, thrown.proxy).readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: fixture.id });
+    });
+
+    it.each([
         ["payload digest differs", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: "0".repeat(64), response: packageResponse("0".repeat(64), fixture.payload) })],
         ["response hash differs", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: fixture.id, response: packageResponse("0".repeat(64), fixture.payload) })],
         ["payload is corrupted", (fixture: ReturnType<typeof fixturePackage>) => ({ requestId: fixture.id, response: packageResponse(fixture.id, Uint8Array.from([...fixture.payload.slice(0, -1), fixture.payload.at(-1)! ^ 1])) })],

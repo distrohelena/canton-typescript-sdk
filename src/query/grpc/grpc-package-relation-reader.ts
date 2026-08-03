@@ -120,7 +120,7 @@ export class GrpcPackageRelationReader {
                     .map((template) => templateMetadata(packageId, pkg.packageName, module.name, template)))),
             });
         } catch (error) {
-            throw error instanceof GrpcPackageRelationError ? error : new GrpcPackageRelationError(packageId, errorMessage(error));
+            throw isGrpcPackageRelationError(error) ? error : new GrpcPackageRelationError(packageId, errorMessage(error));
         }
     }
 }
@@ -196,5 +196,13 @@ function errorMessage(error: unknown): string {
         return typeof message === "string" ? message : "Unknown package service error";
     } catch {
         return "Unknown package service error";
+    }
+}
+
+function isGrpcPackageRelationError(error: unknown): error is GrpcPackageRelationError {
+    try {
+        return error instanceof GrpcPackageRelationError;
+    } catch {
+        return false;
     }
 }
