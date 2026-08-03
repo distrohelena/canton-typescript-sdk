@@ -369,6 +369,25 @@ describe("gRPC contract cache", () => {
         expect(cacheStore.setAsync).toHaveBeenCalledOnce();
     });
 
+    it.each(["", "01", "-1", "9223372036854775808"])("treats non-canonical cached activeAtOffset %p as a miss", async (activeAtOffset) => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
+
+        cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", { version: 1, endpointScope: "participant", parties: undefined, activeAtOffset, expiresAtEpochMs: 1_100, contracts: [] });
+
+        await expect(cache.readSnapshotAsync()).resolves.toBeUndefined();
+    });
+
+    it.each(["", "01", "-1", "9223372036854775808"])("rejects non-canonical ACS prewarm activeAtOffset %p without writing", async (activeAtOffset) => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn().mockResolvedValue(activePage({ activeAtOffset })) } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).rejects.toThrow(/activeAtOffset/i);
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
     it("rejects custom-store entries with an expiry outside the Date range", async () => {
         const cacheStore = store();
 

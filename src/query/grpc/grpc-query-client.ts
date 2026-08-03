@@ -105,11 +105,11 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 
         const activeOnly = query.relation === "contracts" && isActiveOnly(query);
 
-        const cached = activeOnly && !requiresPackageMetadata(closure) && this.options.contractCache !== undefined
+        const cached = activeOnly && this.options.contractCache !== undefined
             ? await this.options.contractCache.readSnapshotAsync({ parties: partiesFor(query) })
             : undefined;
 
-        if (cached !== undefined && !needsHistory) {
+        if (cached !== undefined && !needsHistory && !requiresPackageMetadata(closure)) {
             return cachedContractsDataset(cached.contracts as unknown as readonly QueryRow[], cached.activeAtOffset, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
             const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
@@ -120,8 +120,6 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 
             const fragment = mapGrpcQueryRelationFragment(transactions);
 
-            const fragmentForDataset = cached === undefined ? fragment : { ...fragment, contracts: cached.contracts };
-
             const packageMetadata = !requiresPackageMetadata(closure)
                 ? []
                 : query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes"
@@ -129,11 +127,11 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
                     : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
 
             return packageMetadata.length === 0
-                ? fragmentDataset(fragmentForDataset, endInclusive, this.options.endpointScope ?? "ledger")
+                ? fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger")
                 : createGrpcQueryDataset(fragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
         }
 
-        const endInclusive = (await this.options.stateService.getLedgerEndAsync({})).offset;
+        const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
 
         if (query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes") {
             return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), await this.packages.readAllAsync(), endInclusive, this.options.endpointScope ?? "ledger");

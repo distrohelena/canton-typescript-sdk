@@ -220,6 +220,52 @@ describe("GrpcQueryClient", () => {
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ endOffsetInclusive: "300" });
     });
 
+    it("uses complete history rows when a party-scoped cache supplies only the offset", async () => {
+        const makeCreated = (contractId: string, witness: string, nodeId: number) => CreatedEvent.create({
+            offset: "99",
+            nodeId,
+            contractId,
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: [witness],
+            signatories: [witness],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: witness } }) }] },
+        });
+
+        const transaction = Transaction.create({
+            offset: "99",
+            updateId: "update-99",
+            effectiveAt: { seconds: "1700000000", nanos: 0 },
+            recordTime: { seconds: "1700000000", nanos: 0 },
+            synchronizerId: "sync",
+            events: [
+                Event.create({ event: { oneofKind: "created", created: makeCreated("C1", "Alice", 1) } }),
+                Event.create({ event: { oneofKind: "created", created: makeCreated("C2", "Bob", 2) } }),
+            ],
+        });
+
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "99", updates: [GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction } })] });
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: { getUpdatesPageAsync } as never,
+            packageService: {} as never,
+            contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "99", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
+        });
+
+        const rows = await client.contracts.findMany({
+            parties: ["Alice"],
+            where: { active: true },
+            select: { contractId: true },
+            include: { createdTransaction: { include: { createdContracts: { take: 10, select: { contractId: true } } } } },
+        });
+
+        expect(rows).toEqual([{ contractId: "C1", createdTransaction: expect.objectContaining({ createdContracts: [{ contractId: "C1" }, { contractId: "C2" }] }) }]);
+        expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ endOffsetInclusive: "99" });
+    });
+
     it("does not resolve packages for nonempty transaction history without a type/package closure", async () => {
         const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "1", updates: [historyUpdate()] });
 
@@ -258,6 +304,41 @@ describe("GrpcQueryClient", () => {
         expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(3);
         expect(packageService.listPackagesAsync).toHaveBeenCalledTimes(3);
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it("uses a cache offset but rereads ACS for active metadata/private joins", async () => {
+        const fixture = packageFixture();
+
+        const created = CreatedEvent.create({
+            offset: "99",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
+            packageName: "sample-package",
+            representativePackageId: fixture.id,
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "99", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
+
+        const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: packageService as never,
+            contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "99", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
+        });
+
+        await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true }, include: { contractType: { select: { entityName: true } } } })).resolves.toEqual([{ contractId: "C1", contractType: { entityName: "Iou" } }]);
+        expect(getLedgerEndAsync).not.toHaveBeenCalled();
+        expect(getActiveContractsPageAsync.mock.calls[0]![0]).toMatchObject({ activeAtOffset: "99" });
+        expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
     it("reads complete history for contracts -> contractType -> contracts and includes archived matching-template rows", async () => {
@@ -316,10 +397,13 @@ describe("GrpcQueryClient", () => {
 
         const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
 
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "400" });
+
         const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "300" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
+            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: packageService as never,
+            contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "300", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
         });
 
         const rows = await client.contracts.findMany({
@@ -330,6 +414,7 @@ describe("GrpcQueryClient", () => {
 
         expect(rows).toEqual([expect.objectContaining({ contractId: "C1", contractType: expect.objectContaining({ entityName: "Iou", contracts: expect.arrayContaining([expect.objectContaining({ contractId: "C2", active: false })]) }) })]);
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
+        expect(getLedgerEndAsync).not.toHaveBeenCalled();
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
         expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });

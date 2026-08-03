@@ -8,6 +8,7 @@ import { ContractRow } from "../model-types.js";
 import { ContractCacheArgs, ContractCacheResult } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { mapGrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
+import { isCanonicalGrpcOffset } from "./grpc-query-snapshot-reader.js";
 
 type ActiveContractsReader = Pick<StateServiceClient, "getActiveContractsPageAsync">;
 
@@ -258,8 +259,7 @@ function asCompatibleSnapshot(
             || typeof nowEpochMs !== "number"
             || !Number.isFinite(nowEpochMs)
             || !Number.isFinite(new Date(nowEpochMs).getTime())
-            || typeof activeAtOffset !== "string"
-            || activeAtOffset.trim().length === 0
+            || !isCanonicalGrpcOffset(activeAtOffset)
             || typeof expiresAtEpochMs !== "number"
             || !Number.isFinite(expiresAtEpochMs)
             || !Number.isFinite(new Date(expiresAtEpochMs).getTime())
@@ -301,7 +301,7 @@ function materializeActiveContractsPage(value: unknown): MaterializedActiveContr
 
         const activeAtOffset = candidate.activeAtOffset;
 
-        if (typeof activeAtOffset !== "string" || activeAtOffset.trim().length === 0) {
+        if (!isCanonicalGrpcOffset(activeAtOffset)) {
             throw new Error("Active-contracts response is missing activeAtOffset.");
         }
 

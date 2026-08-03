@@ -299,6 +299,10 @@ function parseOffset(value: unknown): bigint | undefined {
     return parsed <= 9_223_372_036_854_775_807n ? parsed : undefined;
 }
 
+export function isCanonicalGrpcOffset(value: unknown): value is string {
+    return parseOffset(value) !== undefined;
+}
+
 function extractUpdateOffset(update: GetUpdateResponseType): unknown {
     const oneof = update.update as { oneofKind?: string; transaction?: { offset?: unknown }; reassignment?: { offset?: unknown }; offsetCheckpoint?: { offset?: unknown }; topologyTransaction?: { offset?: unknown } };
 
