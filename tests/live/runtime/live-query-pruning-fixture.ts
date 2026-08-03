@@ -55,9 +55,9 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
         nodeIndex: 1,
     });
 
-    assertDedicatedEndpoint(environment.options.ledgerEndpoint, [
-        primary.options.ledgerEndpoint,
-        secondary.options.ledgerEndpoint,
+    assertDedicatedPruningEndpoints(environment.options, [
+        primary.options,
+        secondary.options,
     ]);
 
     const seeded = await getLiveSeededContextAsync();
@@ -127,12 +127,94 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
     }
 }
 
-function assertDedicatedEndpoint(endpoint: string | undefined, protectedEndpoints: readonly (string | undefined)[]): void {
-    if (endpoint === undefined || protectedEndpoints.some((value) => value === endpoint)) {
-        throw new Error(
-            `Live query pruning requires a dedicated extra participant endpoint; received ${endpoint ?? "<missing>"}. Start the quickstart with EXTRA_PARTICIPANTS=1.`,
-        );
+interface PruningEndpointPair {
+    readonly ledgerEndpoint?: string;
+    readonly ledgerAdminEndpoint?: string;
+}
+
+export function assertDedicatedPruningEndpoints(
+    candidate: PruningEndpointPair,
+    protectedParticipants: readonly PruningEndpointPair[],
+): void {
+    const protectedEndpoints = protectedParticipants.flatMap((participant) => [
+        participant.ledgerEndpoint,
+        participant.ledgerAdminEndpoint,
+    ]);
+
+    assertDedicatedPruningEndpoint(
+        "ledger",
+        candidate.ledgerEndpoint,
+        protectedEndpoints,
+    );
+    assertDedicatedPruningEndpoint(
+        "ledger-admin",
+        candidate.ledgerAdminEndpoint,
+        protectedEndpoints,
+    );
+}
+
+function assertDedicatedPruningEndpoint(
+    kind: "ledger" | "ledger-admin",
+    candidate: string | undefined,
+    protectedEndpoints: readonly (string | undefined)[],
+): void {
+    if (candidate === undefined) {
+        throw pruningEndpointError(kind, candidate);
     }
+
+    const protectedTargets = protectedEndpoints.map((endpoint) => {
+        if (endpoint === undefined) {
+            throw new Error(
+                `Live query pruning cannot verify ${kind} isolation because a protected participant endpoint is missing.`,
+            );
+        }
+
+        return normalizePruningEndpoint(endpoint);
+    });
+
+    if (protectedTargets.includes(normalizePruningEndpoint(candidate))) {
+        throw pruningEndpointError(kind, candidate);
+    }
+}
+
+function pruningEndpointError(kind: "ledger" | "ledger-admin", endpoint: string | undefined): Error {
+    return new Error(
+        `Live query pruning requires a dedicated ${kind} endpoint; received ${endpoint ?? "<missing>"}. Start the quickstart with EXTRA_PARTICIPANTS=1.`,
+    );
+}
+
+function normalizePruningEndpoint(endpoint: string): string {
+    const value = endpoint.trim();
+
+    if (value.length === 0) {
+        throw new Error("Live query pruning endpoint cannot be empty.");
+    }
+
+    const parsed = new URL(
+        /^[a-z][a-z\d+.-]*:\/\//iu.test(value) ? value : `grpc://${value}`,
+    );
+
+    const rawHostname = parsed.hostname.toLowerCase().replace(/\.$/u, "");
+
+    const hostname = isLocalHostname(rawHostname) ? "loopback" : rawHostname;
+
+    const defaultPort = parsed.protocol === "http:"
+        ? "80"
+        : parsed.protocol === "https:"
+            ? "443"
+            : "";
+
+    return `${hostname}:${parsed.port || defaultPort}`;
+}
+
+function isLocalHostname(hostname: string): boolean {
+    const unbracketed = hostname.replace(/^\[|\]$/gu, "");
+
+    return unbracketed === "localhost"
+        || unbracketed === "0.0.0.0"
+        || unbracketed === "::"
+        || unbracketed === "::1"
+        || /^127(?:\.\d{1,3}){3}$/u.test(unbracketed);
 }
 
 async function pruneThroughAsync(

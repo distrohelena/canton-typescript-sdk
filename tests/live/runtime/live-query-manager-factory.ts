@@ -45,7 +45,18 @@ export interface LiveQueryParityFixture {
     readonly party: string;
     readonly activeContractId: string;
     readonly archivedContractId: string;
+    readonly archivedAtOffset: string;
 }
+
+export interface LivePqsParityWaitOptions {
+    readonly timeoutMs?: number;
+    readonly intervalMs?: number;
+}
+
+type LivePqsParityReadinessFixture = Pick<
+    LiveQueryParityFixture,
+    "packageId" | "templateId" | "activeContractId" | "archivedContractId" | "archivedAtOffset"
+>;
 
 /** Builds two managers over one participant-visible ledger and its PQS index. */
 export async function createLiveQueryManagersAsync(init: {
@@ -131,6 +142,8 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
             }),
         );
 
+        const archiveEnd = await client.grpc.stateService.getLedgerEndAsync({});
+
         return {
             environment: seeded.grpcEnvironment,
             packageId,
@@ -138,38 +151,127 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
             party,
             activeContractId,
             archivedContractId,
+            archivedAtOffset: archiveEnd.offset,
         };
     } finally {
         await client.disposeAsync();
     }
 }
 
-export async function waitForLivePqsContractsAsync(
+export async function waitForLivePqsParityFixtureAsync(
     manager: CantonManager,
-    contractIds: readonly string[],
+    fixture: LivePqsParityReadinessFixture,
+    options: LivePqsParityWaitOptions = {},
 ): Promise<void> {
-    const deadline = Date.now() + pqsReadyTimeoutMs;
+    const timeoutMs = options.timeoutMs ?? pqsReadyTimeoutMs;
 
-    let lastObserved: readonly string[] = [];
+    const intervalMs = options.intervalMs ?? pqsReadyIntervalMs;
+
+    const deadline = Date.now() + timeoutMs;
+
+    let lastObserved: LivePqsParityReadiness | undefined;
 
     while (Date.now() < deadline) {
-        const rows = await manager.query.contracts.findMany({
-            where: { contractId: { in: contractIds } },
-            orderBy: [{ contractId: "asc" }],
-        });
+        lastObserved = await inspectLivePqsParityReadinessAsync(manager, fixture);
 
-        lastObserved = rows.map((row) => row.contractId);
-
-        if (contractIds.every((contractId) => lastObserved.includes(contractId))) {
+        if (isLivePqsParityFixtureReady(lastObserved, fixture)) {
             return;
         }
 
-        await delayAsync(pqsReadyIntervalMs);
+        await delayAsync(intervalMs);
     }
 
     throw new Error(
-        `PQS did not index all parity contracts within ${pqsReadyTimeoutMs}ms; expected ${contractIds.join(", ")}, observed ${lastObserved.join(", ") || "<none>"}.`,
+        `PQS did not index the complete parity fixture within ${timeoutMs}ms; observed ${JSON.stringify(lastObserved ?? {})}.`,
     );
+}
+
+interface LivePqsParityReadiness {
+    readonly contractIds: readonly string[];
+    readonly exerciseCount: number;
+    readonly eventCount: number;
+    readonly transactionCount: number;
+    readonly packageIds: readonly string[];
+    readonly contractTypeCount: number;
+    readonly exerciseTypeCount: number;
+    readonly watermarkOffsets: readonly string[];
+}
+
+async function inspectLivePqsParityReadinessAsync(
+    manager: CantonManager,
+    fixture: LivePqsParityReadinessFixture,
+): Promise<LivePqsParityReadiness> {
+    const archivedExercise = {
+        some: { contractId: { equals: fixture.archivedContractId } },
+    } as const;
+
+    const [contracts, exercises, events, transactions, packages, contractTypes, exerciseTypes, watermark] = await Promise.all([
+        manager.query.contracts.findMany({
+            where: {
+                contractId: {
+                    in: [fixture.activeContractId, fixture.archivedContractId],
+                },
+            },
+        }),
+        manager.query.exercises.findMany({
+            where: { contractId: { equals: fixture.archivedContractId } },
+        }),
+        manager.query.events.findMany({
+            where: { exercises: archivedExercise },
+        }),
+        manager.query.transactions.findMany({
+            where: { exercises: archivedExercise },
+        }),
+        manager.query.packages.findMany({
+            where: { id: { equals: fixture.packageId } },
+        }),
+        manager.query.contractTypes.findMany({
+            where: {
+                moduleName: { equals: fixture.templateId.moduleName },
+                entityName: { equals: fixture.templateId.entityName },
+                contracts: {
+                    some: { contractId: { equals: fixture.archivedContractId } },
+                },
+            },
+        }),
+        manager.query.exerciseTypes.findMany({
+            where: { exercises: archivedExercise },
+        }),
+        manager.query.watermark.findMany({
+            where: {
+                singleton: { equals: true },
+                offset: { gte: fixture.archivedAtOffset },
+            },
+        }),
+    ]);
+
+    return {
+        contractIds: contracts.map((row) => row.contractId),
+        exerciseCount: exercises.length,
+        eventCount: events.length,
+        transactionCount: transactions.length,
+        packageIds: packages.map((row) => row.id),
+        contractTypeCount: contractTypes.length,
+        exerciseTypeCount: exerciseTypes.length,
+        watermarkOffsets: watermark.flatMap((row) => row.offset === null ? [] : [row.offset]),
+    };
+}
+
+function isLivePqsParityFixtureReady(
+    readiness: LivePqsParityReadiness,
+    fixture: LivePqsParityReadinessFixture,
+): boolean {
+    return readiness.contractIds.includes(fixture.activeContractId)
+        && readiness.contractIds.includes(fixture.archivedContractId)
+        && readiness.exerciseCount > 0
+        && readiness.eventCount > 0
+        && readiness.transactionCount > 0
+        && readiness.packageIds.includes(fixture.packageId)
+        && readiness.contractTypeCount > 0
+        && readiness.exerciseTypeCount > 0
+        && readiness.watermarkOffsets.some((offset) =>
+            BigInt(offset) >= BigInt(fixture.archivedAtOffset)
+        );
 }
 
 export async function createLiveIouAsync(

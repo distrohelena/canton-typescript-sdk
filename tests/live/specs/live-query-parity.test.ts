@@ -4,7 +4,7 @@ import {
     createDefaultLiveQueryManagerOptions,
     createLiveQueryManagersAsync,
     seedLiveQueryParityFixtureAsync,
-    waitForLivePqsContractsAsync,
+    waitForLivePqsParityFixtureAsync,
 } from "../runtime/live-query-manager-factory.js";
 
 describe("live gRPC and PQS typed-query parity", () => {
@@ -20,10 +20,7 @@ describe("live gRPC and PQS typed-query parity", () => {
         managers = await createLiveQueryManagersAsync(
             createDefaultLiveQueryManagerOptions(),
         );
-        await waitForLivePqsContractsAsync(managers.pqs, [
-            fixture.activeContractId,
-            fixture.archivedContractId,
-        ]);
+        await waitForLivePqsParityFixtureAsync(managers.pqs, fixture);
 
         const query = async (manager: LiveQueryManagers["grpc"]) => ({
             lifecycle: await manager.query.contracts.findMany({
@@ -43,6 +40,14 @@ describe("live gRPC and PQS typed-query parity", () => {
                         include: exerciseRelations,
                     },
                 },
+            }),
+            exercises: await manager.query.exercises.findMany({
+                where: {
+                    contractId: { equals: fixture.archivedContractId },
+                },
+                orderBy: [{ contractId: "asc" }],
+                take: 10,
+                include: exerciseRelations,
             }),
             events: await manager.query.events.findMany({
                 where: {
@@ -77,7 +82,29 @@ describe("live gRPC and PQS typed-query parity", () => {
                 where: {
                     moduleName: { equals: fixture.templateId.moduleName },
                     entityName: { equals: fixture.templateId.entityName },
+                    contracts: {
+                        some: { contractId: { equals: fixture.archivedContractId } },
+                    },
                 },
+            }),
+            exerciseTypes: await manager.query.exerciseTypes.findMany({
+                where: {
+                    exercises: {
+                        some: { contractId: { equals: fixture.archivedContractId } },
+                    },
+                },
+                orderBy: [{ choice: "asc" }],
+            }),
+            watermark: await manager.query.watermark.findMany({
+                where: {
+                    singleton: { equals: true },
+                    offset: { gte: fixture.archivedAtOffset },
+                },
+                select: {
+                    singleton: true,
+                    offset: true,
+                },
+                orderBy: [{ offset: "asc" }],
             }),
             payloadProjection: await manager.query.contracts.findMany({
                 where: { contractId: { equals: fixture.activeContractId } },
@@ -127,6 +154,43 @@ describe("live gRPC and PQS typed-query parity", () => {
             query(managers.grpc),
             query(managers.pqs),
         ]);
+
+        const assertFixtureResults = (result: Awaited<ReturnType<typeof query>>): void => {
+            expect(result.lifecycle.map((row) => row.contractId)).toEqual([
+                fixture.activeContractId,
+                fixture.archivedContractId,
+            ].sort());
+            expect(result.nested).toHaveLength(1);
+            expect(result.nested[0]?.contractId).toBe(fixture.archivedContractId);
+            expect(result.nested[0]?.exercises?.some((row) =>
+                row.contractId === fixture.archivedContractId
+            )).toBe(true);
+            expect(result.exercises.some((row) =>
+                row.contractId === fixture.archivedContractId
+            )).toBe(true);
+            expect(result.events).not.toHaveLength(0);
+            expect(result.transactions).not.toHaveLength(0);
+            expect(result.packages.some((row) => row.id === fixture.packageId)).toBe(true);
+            expect(result.types.some((row) =>
+                row.moduleName === fixture.templateId.moduleName
+                && row.entityName === fixture.templateId.entityName
+            )).toBe(true);
+            expect(result.exerciseTypes.some((row) => row.choice === "Archive")).toBe(true);
+            expect(result.watermark.some((row) =>
+                row.offset !== null
+                && BigInt(row.offset) >= BigInt(fixture.archivedAtOffset)
+            )).toBe(true);
+            expect(result.payloadProjection).toContainEqual({
+                contractId: fixture.activeContractId,
+                issuer: fixture.party,
+            });
+            expect(result.payloadGroups).not.toHaveLength(0);
+            expect(result.partyGroups).not.toHaveLength(0);
+            expect(result.amountAggregate.count).toBe(2);
+        };
+
+        assertFixtureResults(grpc);
+        assertFixtureResults(pqs);
 
         assertSourceLocalKeyContract(grpc);
         assertSourceLocalKeyContract(pqs);
