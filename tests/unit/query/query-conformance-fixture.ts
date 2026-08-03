@@ -1,11 +1,11 @@
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
-import { immutableQueryValue, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
+import { createQueryDataset, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
 import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery } from "../../../src/query/canonical/query-ast.js";
 import type { QueryRelation } from "../../../src/query/canonical/query-schema.js";
 import type { QueryClient } from "../../../src/query/query-client.js";
 
 /** A deliberately small, immutable relational corpus shared by canonical evaluators. */
-export const queryConformanceDataset: QueryDataset = immutableQueryValue({
+export const queryConformanceDataset: QueryDataset = createQueryDataset({
     rows: Object.freeze({
         packages: Object.freeze([{ pk: "1", name: "app", version: "1", id: "pkg-app" }, { pk: "2", name: "app_%", version: "2", id: "pkg-other" }, { pk: "3", name: "\n😀", version: "3", id: "pkg-unicode" }]),
         contractTypes: Object.freeze([

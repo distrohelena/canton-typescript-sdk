@@ -26,9 +26,18 @@ type EdgeIndexes = ReadonlyMap<QueryRelation, ReadonlyMap<string, ReadonlyMap<st
 
 const datasetIndexes = new WeakMap<QueryDataset, EdgeIndexes>();
 
+const datasetPaths = Object.fromEntries((Object.keys(queryRelationMetadata) as QueryRelation[]).map((relation) => [relation, [
+    ...queryRelationMetadata[relation].fields,
+    ...(relation === "contracts" ? ["templateId.packageId", "templateId.moduleName", "templateId.entityName"] : []),
+]])) as unknown as Readonly<Record<QueryRelation, readonly string[]>>;
+
 /** Validates and freezes source-neutral rows, then builds deterministic edge indexes once. */
 export function createQueryDataset(input: QueryDataset): QueryDataset {
-    const dataset = input;
+    if (datasetIndexes.has(input)) {
+        return input;
+    }
+
+    const dataset = immutableQueryValue(input);
 
     const relations = Object.keys(queryRelationMetadata) as QueryRelation[];
 
@@ -48,7 +57,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
         }
 
         for (const key of localKeys) {
-            validateUniquePaths(rows, key, `${relation} source-local key`);
+            validateUniquePaths(relation, rows, key, `${relation} source-local key`);
         }
     }
 
@@ -57,16 +66,6 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
         if (!Array.isArray(rows)) {
             throw new Error(`Dataset is missing ${relation} rows`);
-        }
-
-        const localKeys = dataset.sourceLocalKeys[relation];
-
-        if (!Array.isArray(localKeys)) {
-            throw new Error(`Dataset is missing ${relation} source-local keys`);
-        }
-
-        for (const key of localKeys) {
-            validateUniquePaths(rows, key, `${relation} source-local key`);
         }
 
         const edgeDefinitions = queryRelationEdges[relation] ?? {};
@@ -88,11 +87,11 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
                 throw new Error(`Dataset ${relation}.${edge} lookup arity differs`);
             }
 
-            validatePaths(rows, lookup.from, `${relation}.${edge} source`);
+            validatePaths(relation, rows, lookup.from, `${relation}.${edge} source`);
 
             const targetRows = dataset.rows[definition.target];
 
-            validatePaths(targetRows, lookup.to, `${relation}.${edge} target`);
+            validatePaths(definition.target, targetRows, lookup.to, `${relation}.${edge} target`);
 
             const buckets = new Map<string, QueryRow[]>();
 
@@ -140,12 +139,12 @@ export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation,
     return values.some((value) => value === null || value === undefined) ? [] : index.get(compositeKey(values)) ?? [];
 }
 
-function validateUniquePaths(rows: readonly QueryRow[], paths: readonly string[], label: string): void {
+function validateUniquePaths(relation: QueryRelation, rows: readonly QueryRow[], paths: readonly string[], label: string): void {
     if (paths.length === 0) {
         throw new Error(`Dataset ${label} is empty`);
     }
 
-    validatePaths(rows, paths, label);
+    validatePaths(relation, rows, paths, label);
 
     const seen = new Set<string>();
 
@@ -159,7 +158,13 @@ function validateUniquePaths(rows: readonly QueryRow[], paths: readonly string[]
         seen.add(key);
     }
 }
-function validatePaths(rows: readonly QueryRow[], paths: readonly string[], label: string): void {
+function validatePaths(relation: QueryRelation, rows: readonly QueryRow[], paths: readonly string[], label: string): void {
+    for (const path of paths) {
+        if (!datasetPaths[relation].includes(path)) {
+            throw new Error(`Dataset ${label} path ${path} is invalid`);
+        }
+    }
+
     for (const row of rows) {
         for (const path of paths) {
             if (!hasPath(row, path)) {

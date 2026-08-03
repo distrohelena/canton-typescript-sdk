@@ -1,16 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { createQueryDataset, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
+import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
+import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
 import { queryConformanceDataset } from "./query-conformance-fixture.js";
 
 function mutableDataset(): QueryDataset {
-    return {
-        rows: { ...queryConformanceDataset.rows },
-        edges: Object.fromEntries(Object.entries(queryConformanceDataset.edges).map(([relation, edges]) => [relation, { ...edges }])) as QueryDataset["edges"],
-        sourceLocalKeys: { ...queryConformanceDataset.sourceLocalKeys },
-    };
+    return JSON.parse(JSON.stringify(queryConformanceDataset)) as QueryDataset;
 }
 
 describe("createQueryDataset", () => {
+    it("returns an immutable snapshot whose indexes cannot become stale after input mutation", () => {
+        const input = mutableDataset();
+
+        const dataset = createQueryDataset(input);
+
+        (input.rows.packages as Record<string, unknown>[])[0]!.id = "changed";
+        (input.rows.contracts as Record<string, unknown>[])[0]!.payload = { owner: "changed" };
+        expect(Object.isFrozen(dataset.rows.packages)).toBe(true);
+        expect(dataset.rows.packages[0]?.id).toBe("pkg-app");
+        expect(new InMemoryQueryEvaluator().execute(dataset, normalizeFindMany("packages", { select: { id: true } }))).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }, { id: "pkg-unicode" }]);
+    });
+
     it("rejects malformed relation, edge, lookup, and source-local declarations", () => {
         const missingRelation = mutableDataset();
 
@@ -55,5 +65,25 @@ describe("createQueryDataset", () => {
         expect(() => createQueryDataset(duplicateToOne)).toThrow("contracts.contractType has multiple to-one targets");
 
         expect(createQueryDataset(mutableDataset())).toBeTruthy();
+    });
+
+    it("validates declared paths even when source or target rows are empty", () => {
+        const emptyLocal = mutableDataset();
+
+        emptyLocal.rows = { ...emptyLocal.rows, packages: [] };
+        (emptyLocal.sourceLocalKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
+        expect(() => createQueryDataset(emptyLocal)).toThrow("source-local key path missing is invalid");
+
+        const emptySource = mutableDataset();
+
+        emptySource.rows = { ...emptySource.rows, contracts: [] };
+        (emptySource.edges.contracts as Record<string, { from: string[]; to: string[] }>).exercises = { from: ["missing"], to: ["contractId"] };
+        expect(() => createQueryDataset(emptySource)).toThrow("source path missing is invalid");
+
+        const emptyTarget = mutableDataset();
+
+        emptyTarget.rows = { ...emptyTarget.rows, exercises: [] };
+        (emptyTarget.edges.contracts as Record<string, { from: string[]; to: string[] }>).exercises = { from: ["contractId"], to: ["missing"] };
+        expect(() => createQueryDataset(emptyTarget)).toThrow("target path missing is invalid");
     });
 });

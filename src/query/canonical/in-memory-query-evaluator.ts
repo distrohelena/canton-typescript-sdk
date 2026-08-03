@@ -1,5 +1,5 @@
 import type { NormalizedAggregateQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedGroupKey, NormalizedInclude, NormalizedSelection, QueryPredicate } from "./query-ast.js";
-import { immutableQueryValue, relatedQueryRows, type QueryDataset, type QueryRow } from "./query-dataset.js";
+import { createQueryDataset, immutableQueryValue, relatedQueryRows, type QueryDataset, type QueryRow } from "./query-dataset.js";
 import { queryRelationEdges, queryRelationMetadata, type QueryRelation } from "./query-schema.js";
 
 type Result = Record<string, unknown>;
@@ -7,12 +7,14 @@ type Result = Record<string, unknown>;
 /** Reference evaluator for normalized canonical plans; it intentionally has no transport concerns. */
 export class InMemoryQueryEvaluator {
     public execute(dataset: QueryDataset, query: NormalizedFindManyQuery | NormalizedFindUniqueQuery | NormalizedAggregateQuery | NormalizedGroupByQuery | { readonly kind: "count"; readonly relation: QueryRelation; readonly parties?: readonly string[]; readonly predicate?: QueryPredicate; readonly activeOnly: boolean }): unknown {
+        const compiled = createQueryDataset(dataset);
+
         switch (query.kind) {
-            case "findMany": return freeze(this.findMany(dataset, query));
-            case "findUnique": return freeze(this.findMany(dataset, { kind: "findMany", relation: query.relation, predicate: query.predicate, select: query.select, includes: query.includes, orderBy: [], skip: 0, take: 1, activeOnly: false })[0]);
-            case "count": return this.filtered(dataset, query.relation, query.predicate, query.parties, query.activeOnly).length;
-            case "aggregate": return freeze(this.aggregate(this.filtered(dataset, query.relation, query.predicate), query));
-            case "groupBy": return freeze(this.groupBy(dataset, query));
+            case "findMany": return freeze(this.findMany(compiled, query));
+            case "findUnique": return freeze(this.findMany(compiled, { kind: "findMany", relation: query.relation, predicate: query.predicate, select: query.select, includes: query.includes, orderBy: [], skip: 0, take: 1, activeOnly: false })[0]);
+            case "count": return this.filtered(compiled, query.relation, query.predicate, query.parties, query.activeOnly).length;
+            case "aggregate": return freeze(this.aggregate(this.filtered(compiled, query.relation, query.predicate), query));
+            case "groupBy": return freeze(this.groupBy(compiled, query));
         }
     }
 
