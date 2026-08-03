@@ -37,4 +37,11 @@ describe("PQS relational SQL compiler", () => {
         expect(query.text).toContain('order by "name" asc, "version" desc, "pk" asc');
         expect(query.values).toEqual(["app%", 10, 5]);
     });
+
+    it("preserves unordered SQL for an unpaginated package read", () => {
+        const query = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {}), new PqsSchemaProfileV1());
+
+        expect(query.text).toBe('select "pk" as "pk", "name" as "name", "version" as "version", "id" as "id" from "public"."__packages"');
+        expect(query.values).toEqual([]);
+    });
 });

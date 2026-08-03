@@ -1,6 +1,4 @@
-import {
-    ContractOrderBy,
-} from "../model-types.js";
+import type { ContractOrderBy } from "../model-types.js";
 import type { NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedOrder, NormalizedSelection, QueryPredicate } from "../canonical/query-ast.js";
 import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 import { PqsRelation, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
@@ -15,16 +13,6 @@ export function compileContractFindMany(
     profile: PqsSchemaProfileV1,
 ): CompiledPqsQuery {
     if (query.relation !== "contracts") throw new Error("compileContractFindMany requires a contracts query");
-    const args = canonicalFindManyArgs(query) as {
-        readonly where?: Record<string, unknown>;
-        readonly parties?: readonly string[];
-        readonly orderBy?: ContractOrderBy;
-        readonly take?: number;
-        readonly skip?: number;
-        readonly include?: Readonly<Record<string, unknown>>;
-        readonly select?: { readonly json?: Readonly<Record<string, { readonly field: string; readonly path: readonly string[]; readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> };
-    };
-
     const values: unknown[] = [];
 
     const addValue = (value: unknown): string => {
@@ -34,28 +22,26 @@ export function compileContractFindMany(
     };
 
     const conditions: string[] = [];
-    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, addValue, profile);
+    const where = query.predicate === undefined ? undefined : compileCanonicalContractPredicate(query.predicate, addValue, profile, "contract_row");
     if (where !== undefined) conditions.push(where);
 
-    if (args.parties !== undefined) {
-        conditions.push(`contract_row.witnesses && ${addValue(args.parties)}::text[]`);
+    if (query.parties !== undefined) {
+        conditions.push(`contract_row.witnesses && ${addValue(query.parties)}::text[]`);
     }
 
-    const orderBy = compileOrderBy(args.orderBy);
+    const orderBy = compileCanonicalContractOrderBy(query.orderBy);
 
     const whereSql = conditions.length === 0 ? "" : `where ${conditions.join(" and ")}`;
 
-    const limitSql = args.take === undefined ? "" : `limit ${addValue(args.take)}`;
+    const limitSql = query.take === undefined ? "" : `limit ${addValue(query.take)}`;
 
-    const offsetSql = args.skip === undefined ? "" : `offset ${addValue(args.skip)}`;
+    const offsetSql = query.skip === 0 ? "" : `offset ${addValue(query.skip)}`;
 
-    const included = compileProfileIncludes("__contracts", "contract_row", args.include as unknown as Readonly<Record<string, unknown>> | undefined, profile, addValue);
-    const jsonProjection = Object.entries(args.select?.json ?? {}).map(([name, projection]) => {
-        if (projection.field !== "payload") throw new Error(`${projection.field} is not a JSON field of contracts`);
-        if (projection.path.length === 0 || projection.path.some((segment) => segment.length === 0)) throw new Error(`${name}.path must be a non-empty JSON path`);
+    const included = compileCanonicalProfileIncludes("__contracts", "contract_row", query.includes, profile, addValue);
+    const jsonProjection = (query.select?.json ?? []).map((projection) => {
         const text = `contract_row.payload #>> ${addValue(projection.path)}::text[]`;
         const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
-        return `${expression} as "${name}"`;
+        return `${expression} as "${projection.name}"`;
     });
 
     return {
@@ -82,6 +68,110 @@ ${limitSql}
 ${offsetSql}`,
         values,
     };
+}
+
+function compileCanonicalProfileIncludes(source: PqsRelation, parentAlias: string, includes: readonly NormalizedInclude[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): readonly string[] {
+    return includes.map((include) => {
+        const edge = pqsRelationEdges[source]?.[include.edge];
+        if (edge === undefined || edge.target !== pqsRelation(include.relation)) throw new Error(`Invalid canonical include ${include.edge}`);
+        const alias = `"${include.edge}"`;
+        const nested = compileCanonicalProfileIncludes(edge.target, alias, include.includes, profile, add);
+        const fields = compileCanonicalIncludedFields(edge.target, include.select, alias, profile);
+        const json = (include.select?.json ?? []).flatMap((projection) => {
+            const column = edge.target === "__contracts" ? projection.field === "payload" ? "payload" : undefined : pqsRelationMetadata[edge.target].fields[projection.field];
+            if (column === undefined) throw new Error(`Invalid canonical JSON projection ${projection.field}`);
+            const text = `${alias}."${column}" #>> ${add(projection.path)}::text[]`;
+            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+            return [`'${projection.name}'`, expression];
+        });
+        const nestedFields = nested.flatMap((selection) => {
+            const match = /^(.*) as "([^"]+)"$/.exec(selection);
+            return match === null ? [] : [`'${match[2]}'`, match[1]];
+        });
+        const object = `jsonb_build_object(${[...fields.flatMap(([field, expression]) => [`'${field}'`, expression]), ...json.flat(), ...nestedFields].join(", ")})`;
+        const filter = include.predicate === undefined ? "true" : compileCanonicalPhysicalPredicate(edge.target, include.predicate, alias, profile, add);
+        const condition = `${alias}."${edge.targetColumn}" = ${parentAlias}."${edge.sourceColumn}" and (${filter})`;
+        const orderBy = compileCanonicalPhysicalOrderBy(edge.target, include.orderBy, alias);
+        const limit = include.cardinality === "many" ? ` limit ${add(include.take)}` : "";
+        const offset = include.cardinality === "many" && include.skip > 0 ? ` offset ${add(include.skip)}` : "";
+        const expression = include.cardinality === "one"
+            ? `(select ${object} from ${profile.relation(edge.target)} ${alias} where ${condition})`
+            : `(select coalesce(jsonb_agg("${include.edge}_limited".value), '[]'::jsonb) from (select ${object} as value from ${profile.relation(edge.target)} ${alias} where ${condition}${orderBy}${limit}${offset}) "${include.edge}_limited")`;
+        return `${expression} as "${include.edge}"`;
+    });
+}
+
+function compileCanonicalIncludedFields(target: PqsRelation, select: NormalizedSelection | undefined, alias: string, profile: PqsSchemaProfileV1): readonly (readonly [string, string])[] {
+    if (target !== "__contracts") {
+        const metadata = pqsRelationMetadata[target];
+        const fields = select === undefined ? Object.keys(metadata.fields) : select.fields;
+        return fields.map((field) => [field, `${alias}."${metadata.fields[field]}"`] as const);
+    }
+    const fields = select === undefined ? ["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"] : select.fields;
+    const expressions: Readonly<Record<string, string>> = {
+        contractId: `${alias}."contract_id"`, templateId: `jsonb_build_object('packageId', ${alias}."creation_package_id", 'moduleName', (select contract_type."module_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"), 'entityName', (select contract_type."entity_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"))`, packageId: `${alias}."creation_package_id"`, payload: `${alias}."payload"`, witnesses: `${alias}."witnesses"`, createdEventOffset: `${alias}."created_at_ix"::text`, createdAt: `(select created_transaction."effective_at" from ${profile.relation("__transactions")} created_transaction where created_transaction."ix" = ${alias}."created_at_ix")`, archivedEventOffset: `${alias}."archived_at_ix"::text`, archivedAt: `(select archived_transaction."effective_at" from ${profile.relation("__transactions")} archived_transaction where archived_transaction."ix" = ${alias}."archived_at_ix")`, active: `${alias}."archived_at_ix" is null`,
+    };
+    return fields.map((field) => [field, expressions[field]] as const);
+}
+
+function compileCanonicalContractPredicate(predicate: QueryPredicate, add: (value: unknown) => string, profile: PqsSchemaProfileV1, alias: string): string {
+    return compileCanonicalPredicate("__contracts", predicate, alias, profile, add, true);
+}
+
+export function compileCanonicalPhysicalPredicate(relation: PqsRelation, predicate: QueryPredicate, alias: string, profile: PqsSchemaProfileV1, add: (value: unknown) => string): string {
+    return compileCanonicalPredicate(relation, predicate, alias, profile, add, relation === "__contracts");
+}
+
+function compileCanonicalPredicate(relation: PqsRelation, predicate: QueryPredicate, alias: string, profile: PqsSchemaProfileV1, add: (value: unknown) => string, logicalContracts: boolean): string {
+    if (predicate.kind === "and" || predicate.kind === "or") return predicate.children.length === 0 ? predicate.kind === "and" ? "true" : "false" : `(${predicate.children.map((child) => compileCanonicalPredicate(relation, child, alias, profile, add, logicalContracts)).join(` ${predicate.kind} `)})`;
+    if (predicate.kind === "not") return `not (${compileCanonicalPredicate(relation, predicate.child, alias, profile, add, logicalContracts)})`;
+    if (predicate.kind === "relation") {
+        const edge = pqsRelationEdges[relation]?.[predicate.edge];
+        if (edge === undefined) throw new Error(`Invalid canonical edge ${predicate.edge}`);
+        const relatedAlias = `"${predicate.edge}"`;
+        const join = `${relatedAlias}."${edge.targetColumn}" = ${qualified(alias, edge.sourceColumn)}`;
+        const condition = compileCanonicalPredicate(edge.target, predicate.predicate, relatedAlias, profile, add, edge.target === "__contracts");
+        const base = `select 1 from ${profile.relation(edge.target)} ${relatedAlias} where ${join} and (${condition})`;
+        return predicate.quantifier === "one" || predicate.quantifier === "some" ? `exists (${base})` : predicate.quantifier === "none" ? `not exists (${base})` : `not exists (select 1 from ${profile.relation(edge.target)} ${relatedAlias} where ${join} and not (${condition}))`;
+    }
+    if (predicate.kind !== "scalar") throw new Error("Unknown canonical predicate");
+    const [field, ...path] = predicate.path;
+    if (logicalContracts && field === "active") return `${alias}.archived_at_ix is ${predicate.value === true ? "null" : "not null"}`;
+    if (logicalContracts && field === "witnesses") return `${add(predicate.value)} = any(${alias}.witnesses)`;
+    const column = logicalContracts ? ({ contractId: "contract_id", packageId: "creation_package_id", createdEventOffset: "created_at_ix", createdAt: "effective_at", archivedEventOffset: "archived_at_ix", archivedAt: "effective_at" } as Record<string, string>)[field] : pqsRelationMetadata[relation].fields[field];
+    const templateColumn = field === "templateId" ? ({ packageId: "creation_package_id", moduleName: "module_name", entityName: "entity_name" } as Record<string, string>)[path[0]] : undefined;
+    const logicalExpression = field === "payload" ? `${alias}.payload #>> ${add(path)}::text[]`
+        : field === "createdAt" ? "created_tx.effective_at" : field === "archivedAt" ? "archived_tx.effective_at"
+            : `${alias}.${column}`;
+    const expression = templateColumn === undefined ? logicalContracts ? logicalExpression : path.length > 0 ? `${qualified(alias, column)} #>> ${add(path)}::text[]` : qualified(alias, column) : path[0] === "packageId" ? qualified(alias, templateColumn) : `contract_tpe_row."${templateColumn}"`;
+    const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as const)[predicate.operator as "equals" | "lt" | "lte" | "gt" | "gte" | "like" | "ilike"];
+    if (predicate.operator === "is") return `${expression} is null`;
+    if (predicate.operator === "isNot") return `${expression} is not null`;
+    if (predicate.operator === "in") return (predicate.value as readonly unknown[]).length === 0 ? "false" : `${expression} = any(${add(predicate.value)})`;
+    if (predicate.operator === "has") return `${add(predicate.value)} = any(${qualified(alias, column)})`;
+    if (sql === undefined) throw new Error(`Unsupported canonical operator ${predicate.operator}`);
+    return `${expression} ${sql} ${add(predicate.value)}`;
+}
+
+function qualified(alias: string, column: string): string {
+    return alias.length === 0 ? `"${column}"` : `${alias}."${column}"`;
+}
+
+function compileCanonicalContractOrderBy(orderBy: readonly NormalizedOrder[]): string {
+    return compileCanonicalOrderBy(orderBy, { contractId: "contract_row.contract_id", createdEventOffset: "contract_row.created_at_ix", createdAt: "created_tx.effective_at", archivedEventOffset: "contract_row.archived_at_ix", archivedAt: "archived_tx.effective_at" });
+}
+
+function compileCanonicalPhysicalOrderBy(relation: PqsRelation, orderBy: readonly NormalizedOrder[], alias: string): string {
+    const fields = relation === "__contracts" ? { contractId: "contract_id", createdEventOffset: "created_at_ix", createdAt: "created_at_ix", archivedEventOffset: "archived_at_ix", archivedAt: "archived_at_ix" } : pqsRelationMetadata[relation].fields;
+    return compileCanonicalOrderBy(orderBy, Object.fromEntries(Object.entries(fields).map(([field, column]) => [field, `${alias}."${column}"`])));
+}
+
+function compileCanonicalOrderBy(orderBy: readonly NormalizedOrder[], fields: Readonly<Record<string, string>>): string {
+    return orderBy.length === 0 ? "" : ` order by ${orderBy.map((order) => `${fields[order.path[0]]} ${order.direction}`).join(", ")}`;
+}
+
+function pqsRelation(relation: string): PqsRelation {
+    return ({ contracts: "__contracts", contractTypes: "__contract_tpe", events: "__events", exercises: "__exercises", exerciseTypes: "__exercise_tpe", packages: "__packages", transactions: "__transactions", watermark: "__watermark" } as Record<string, PqsRelation>)[relation];
 }
 
 function compileProfileIncludes(source: PqsRelation, parentAlias: string, include: Readonly<Record<string, unknown>> | undefined, profile: PqsSchemaProfileV1, addValue: (value: unknown) => string): readonly string[] {
@@ -193,15 +283,10 @@ export function compileContractGroupBy(
     profile: PqsSchemaProfileV1,
 ): CompiledPqsQuery {
     if (query.relation !== "contracts") throw new Error("compileContractGroupBy requires a contracts query");
-    const args = canonicalGroupByArgs(query) as {
-        readonly by: readonly (string | { readonly payload: { readonly name: string; readonly path: readonly string[]; readonly as: "text" | "numeric" | "boolean" | "timestamp" } })[];
-        readonly where?: Record<string, unknown>;
-        readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] };
-    };
-    if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires keys and an aggregate");
+    if (query.by.length === 0 || (!query.aggregates.count && query.aggregates.min.length === 0 && query.aggregates.max.length === 0 && query.aggregates.sum.length === 0)) throw new Error("groupBy requires keys and an aggregate");
     const values: unknown[] = [];
     const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
-    const where = args.where === undefined ? undefined : compileWhere(args.where as Record<string, unknown>, add, profile);
+    const where = query.predicate === undefined ? undefined : compileCanonicalContractPredicate(query.predicate, add, profile, "contract_row");
     const fields: Readonly<Record<string, string>> = {
         contractId: "contract_row.contract_id",
         createdEventOffset: "contract_row.created_at_ix",
@@ -210,28 +295,27 @@ export function compileContractGroupBy(
     const expressions: string[] = [];
     const select: string[] = [];
     let unnestWitnesses = false;
-    for (const key of args.by) {
-        if (key === "witnesses") {
+    for (const key of query.by) {
+        if (key.kind === "field" && key.path[0] === "witnesses") {
             unnestWitnesses = true;
             expressions.push("witness.value");
             select.push("witness.value as \"witnesses\"");
-        } else if (typeof key === "string") {
-            const expression = fields[key];
-            if (expression === undefined) throw new Error(`${key} is not a contract group key`);
+        } else if (key.kind === "field") {
+            const expression = fields[key.path[0]];
+            if (expression === undefined) throw new Error(`${key.path[0]} is not a contract group key`);
             expressions.push(expression);
-            select.push(`${expression} as "${key}"`);
+            select.push(`${expression} as "${key.path[0]}"`);
         } else {
-            const payload = key.payload;
-            if (payload.path.length === 0 || payload.path.some((segment) => segment.length === 0)) throw new Error("payload group path must be non-empty");
-            const base = `contract_row.payload #>> ${add(payload.path)}::text[]`;
-            const cast = payload.as === "text" ? base : `(${base})::${payload.as === "numeric" ? "numeric" : payload.as === "boolean" ? "boolean" : "timestamptz"}`;
+            if (key.kind !== "json" || key.field !== "payload") throw new Error("invalid contract group key");
+            const base = `contract_row.payload #>> ${add(key.path)}::text[]`;
+            const cast = key.as === "text" ? base : `(${base})::${key.as === "numeric" ? "numeric" : key.as === "boolean" ? "boolean" : "timestamptz"}`;
             expressions.push(cast);
-            select.push(`${cast} as "${payload.name}"`);
+            select.push(`${cast} as "${key.name}"`);
         }
     }
-    if (args.aggregate.count) select.push("count(*)::text as count");
-    for (const [operation, requested] of [["min", args.aggregate.min], ["max", args.aggregate.max], ["sum", args.aggregate.sum]] as const) {
-        for (const name of requested ?? []) {
+    if (query.aggregates.count) select.push("count(*)::text as count");
+    for (const [operation, requested] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) {
+        for (const name of requested) {
             const expression = fields[name];
             select.push(`${operation}(${expression})::text as "${operation}_${name}"`);
         }

@@ -1,7 +1,7 @@
 import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { pqsRelationEdges } from "./pqs-schema-profile.js";
 import type { NormalizedFindManyQuery, NormalizedGroupByQuery } from "../canonical/query-ast.js";
-import { canonicalFindManyArgs, canonicalGroupByArgs } from "./pqs-sql-compiler.js";
+import { compileCanonicalPhysicalPredicate } from "./pqs-sql-compiler.js";
 
 export interface CompiledPqsRelationQuery {
     readonly text: string;
@@ -21,19 +21,18 @@ export function compilePqsRelationFindMany(
     query: NormalizedFindManyQuery,
     profile: PqsSchemaProfileV1,
 ): CompiledPqsRelationQuery {
-    const args = canonicalFindManyArgs(query) as RelationFindManyArgs;
-    assertPage(args);
     const metadata = pqsRelationMetadata[relation];
     const values: unknown[] = [];
     const add = (value: unknown) => {
         values.push(value);
         return `$${values.length}`;
     };
-    const fields = selectedFields(relation, metadata, args.select);
-    const where = compileWhere(relation, metadata, args.where, add);
-    const orderBy = compileOrderBy(relation, metadata, args.orderBy);
-    const limit = args.take === undefined ? "" : ` limit ${add(args.take)}`;
-    const offset = args.skip === undefined ? "" : ` offset ${add(args.skip)}`;
+    const fields = selectedCanonicalFields(relation, metadata, query.select?.fields);
+    const predicate = query.predicate === undefined ? "" : compileCanonicalPhysicalPredicate(relation, query.predicate, "", profile, add);
+    const where = predicate.length === 0 ? "" : ` where ${predicate}`;
+    const orderBy = compileCanonicalOrderBy(relation, metadata, query.orderBy);
+    const limit = query.take === undefined ? "" : ` limit ${add(query.take)}`;
+    const offset = query.skip === 0 ? "" : ` offset ${add(query.skip)}`;
 
     return {
         text: `select ${fields.map(([field, column]) => `"${column}" as "${field}"`).join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
@@ -47,8 +46,7 @@ export function compilePqsRelationGroupBy(
     profile: PqsSchemaProfileV1,
     parameterOffset = 0,
 ): CompiledPqsRelationQuery {
-    const args = canonicalGroupByArgs(query) as { readonly by: readonly unknown[]; readonly aggregate: { readonly count?: true; readonly min?: readonly string[]; readonly max?: readonly string[]; readonly sum?: readonly string[] } };
-    if (args.by.length === 0 || (!args.aggregate.count && !args.aggregate.min && !args.aggregate.max && !args.aggregate.sum)) throw new Error("groupBy requires a key and aggregate");
+    if (query.by.length === 0 || (!query.aggregates.count && query.aggregates.min.length === 0 && query.aggregates.max.length === 0 && query.aggregates.sum.length === 0)) throw new Error("groupBy requires a key and aggregate");
     const metadata = pqsRelationMetadata[relation];
     const root = relation === "__events" ? "event" : "root";
     const joins: string[] = [];
@@ -56,51 +54,45 @@ export function compilePqsRelationGroupBy(
     const selected: string[] = [];
     const values: unknown[] = [];
     const add = (value: unknown) => { values.push(value); return `$${parameterOffset + values.length}`; };
-    for (const key of args.by) {
-        if (typeof key === "string") {
-            const column = field(relation, metadata, key);
-            const expression = metadata.arrayFields.includes(key)
-                ? `"${key}".value`
+    for (const key of query.by) {
+        if (key.kind === "field") {
+            const fieldName = key.path[0];
+            const column = field(relation, metadata, fieldName);
+            const expression = metadata.arrayFields.includes(fieldName)
+                ? `"${fieldName}".value`
                 : `"${root}"."${column}"`;
-            if (metadata.arrayFields.includes(key)) joins.push(`cross join lateral unnest("${root}"."${column}") as "${key}"(value)`);
+            if (metadata.arrayFields.includes(fieldName)) joins.push(`cross join lateral unnest("${root}"."${column}") as "${fieldName}"(value)`);
             expressions.push(expression);
-            selected.push(`${expression} as "${key}"`);
+            selected.push(`${expression} as "${fieldName}"`);
             continue;
         }
-        if (key === null || typeof key !== "object") throw new Error("invalid group key");
-        const [edgeName, nested] = Object.entries(key as Record<string, unknown>)[0] ?? [];
-        if (nested !== null && typeof nested === "object" && "name" in nested && "path" in nested && "as" in nested) {
-            const projection = nested as { readonly name: unknown; readonly path: unknown; readonly as: unknown };
-            if (typeof projection.name !== "string" || !Array.isArray(projection.path) || !projection.path.every((segment) => typeof segment === "string" && segment.length > 0) || !["text", "numeric", "boolean", "timestamp"].includes(String(projection.as)) || !PqsSchemaProfileV1.jsonField(relation, edgeName)) throw new Error("invalid profiled JSON group key");
-            const column = field(relation, metadata, edgeName);
-            const text = `"${root}"."${column}" #>> ${add(projection.path)}::text[]`;
-            const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
+        if (key.kind === "json") {
+            const column = field(relation, metadata, key.field);
+            const text = `"${root}"."${column}" #>> ${add(key.path)}::text[]`;
+            const expression = key.as === "text" ? text : key.as === "numeric" ? `(${text})::numeric` : key.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             expressions.push(expression);
-            selected.push(`${expression} as "${projection.name}"`);
+            selected.push(`${expression} as "${key.name}"`);
             continue;
         }
-        if (nested !== null && typeof nested === "object" && "bucket" in nested && PqsSchemaProfileV1.bucketField(relation, edgeName)) {
-            const bucket = (nested as { bucket?: unknown }).bucket;
-            if (typeof bucket !== "string" || !["hour", "day", "week", "month"].includes(bucket)) throw new Error("invalid profiled time bucket");
-            const column = field(relation, metadata, edgeName);
-            const expression = `date_trunc('${bucket}', "${root}"."${column}")`;
+        if (key.kind === "bucket" && key.path.length === 1) {
+            const column = field(relation, metadata, key.path[0]);
+            const expression = `date_trunc('${key.bucket}', "${root}"."${column}")`;
             expressions.push(expression);
-            selected.push(`${expression} as "${edgeName}_${bucket}"`);
+            selected.push(`${expression} as "${key.path[0]}_${key.bucket}"`);
             continue;
         }
+        const edgeName = key.path[0];
+        const fieldName = key.path[1];
         const edge = pqsRelationEdges[relation]?.[edgeName];
-        if (edge === undefined || edge.cardinality !== "one" || nested === null || typeof nested !== "object") throw new Error("group key must follow a profiled to-one edge");
-        const [fieldName, bucketValue] = Object.entries(nested as Record<string, unknown>)[0] ?? [];
-        const bucket = bucketValue !== null && typeof bucketValue === "object" ? (bucketValue as { bucket?: unknown }).bucket : undefined;
-        if (typeof bucket !== "string" || !["hour", "day", "week", "month"].includes(bucket) || !PqsSchemaProfileV1.bucketField(edge.target, fieldName)) throw new Error("invalid profiled time bucket");
+        if (edge === undefined || edge.cardinality !== "one") throw new Error("group key must follow a profiled to-one edge");
         const targetColumn = field(edge.target, pqsRelationMetadata[edge.target], fieldName);
         joins.push(`join ${profile.relation(edge.target)} "${edgeName}" on "${edgeName}"."${edge.targetColumn}" = "${root}"."${edge.sourceColumn}"`);
-        const expression = `date_trunc('${bucket}', "${edgeName}"."${targetColumn}")`;
+        const expression = `date_trunc('${key.bucket}', "${edgeName}"."${targetColumn}")`;
         expressions.push(expression);
-        selected.push(`${expression} as "${edgeName}_${fieldName}_${bucket}"`);
+        selected.push(`${expression} as "${edgeName}_${fieldName}_${key.bucket}"`);
     }
-    if (args.aggregate.count) selected.push("count(*)::text as count");
-    for (const [operation, fields] of [["min", args.aggregate.min], ["max", args.aggregate.max], ["sum", args.aggregate.sum]] as const) for (const name of fields ?? []) {
+    if (query.aggregates.count) selected.push("count(*)::text as count");
+    for (const [operation, fields] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) for (const name of fields) {
         if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
         selected.push(`${operation}("${root}"."${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
     }
@@ -113,6 +105,17 @@ function selectedFields(relation: PqsRelation, metadata: PqsRelationMetadata, se
         : Object.entries(select).filter(([, enabled]) => enabled).map(([name]) => [name, field(relation, metadata, name)] as const);
     if (fields.length === 0) throw new Error("select must include at least one field");
     return fields;
+}
+
+function selectedCanonicalFields(relation: PqsRelation, metadata: PqsRelationMetadata, selected: readonly string[] | undefined): readonly (readonly [string, string])[] {
+    const fields = selected === undefined ? Object.entries(metadata.fields) : selected.map((name) => [name, field(relation, metadata, name)] as const);
+    if (fields.length === 0) throw new Error("select must include at least one field");
+    return fields;
+}
+
+function compileCanonicalOrderBy(relation: PqsRelation, metadata: PqsRelationMetadata, orderBy: NormalizedFindManyQuery["orderBy"]): string {
+    if (orderBy.length === 0) return "";
+    return ` order by ${orderBy.map((order) => `"${field(relation, metadata, order.path[0])}" ${order.direction}`).join(", ")}`;
 }
 
 function compileWhere(relation: PqsRelation, metadata: PqsRelationMetadata, where: RelationFindManyArgs["where"], add: (value: unknown) => string): string {

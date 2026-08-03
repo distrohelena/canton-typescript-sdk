@@ -75,6 +75,27 @@ describe("canonical query normalizer", () => {
         expect(orderBy.at(-1)).toEqual({ path: [finalField], direction: "asc" });
     });
 
+    it("does not add an ORDER BY to an unordered unpaginated root read", () => {
+        expect(normalizeFindMany("packages", {}).orderBy).toEqual([]);
+    });
+
+    it("adds stable ordering when root pagination needs it", () => {
+        expect(normalizeFindMany("packages", { take: 10 }).orderBy).toEqual([
+            { path: ["pk"], direction: "asc" },
+        ]);
+    });
+
+    it("adds stable ordering to bounded to-many includes", () => {
+        expect(normalizeFindMany("packages", {
+            include: { exercises: { take: 2 } },
+        }).includes[0]?.orderBy).toEqual([
+            { path: ["tpePk"], direction: "asc" },
+            { path: ["contractTpePk"], direction: "asc" },
+            { path: ["exerciseEventPk"], direction: "asc" },
+            { path: ["contractId"], direction: "asc" },
+        ]);
+    });
+
     it("copies and freezes a normalized plan", () => {
         const args = {
             parties: ["Bob", "Alice"],

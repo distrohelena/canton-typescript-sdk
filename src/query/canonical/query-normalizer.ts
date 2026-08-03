@@ -62,7 +62,7 @@ export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): 
         predicate,
         select: source.select === undefined ? undefined : normalizeSelection(relation, source.select),
         includes: source.include === undefined ? [] : normalizeIncludes(relation, source.include),
-        orderBy: normalizeOrderBy(relation, source.orderBy),
+        orderBy: normalizeOrderBy(relation, source.orderBy, source.orderBy !== undefined || page.skip > 0 || page.take !== undefined),
         skip: page.skip,
         take: page.take,
         activeOnly: relation === "contracts" && provesActive(predicate),
@@ -460,14 +460,14 @@ function normalizeIncludes(relation: QueryRelation, value: unknown): readonly No
             predicate: settings.where === undefined ? undefined : normalizePredicate(edge.target, settings.where),
             select: settings.select === undefined ? undefined : normalizeSelection(edge.target, settings.select),
             includes: settings.include === undefined ? [] : normalizeIncludes(edge.target, settings.include),
-            orderBy: normalizeOrderBy(edge.target, settings.orderBy),
+            orderBy: normalizeOrderBy(edge.target, settings.orderBy, edge.cardinality === "many" || settings.orderBy !== undefined),
             skip: page.skip,
             take: page.take,
         };
     });
 }
 
-function normalizeOrderBy(relation: QueryRelation, value: unknown): readonly NormalizedOrder[] {
+function normalizeOrderBy(relation: QueryRelation, value: unknown, appendStable = false): readonly NormalizedOrder[] {
     const metadata = relationMetadata(relation);
 
     const requested: NormalizedOrder[] = [];
@@ -491,9 +491,11 @@ function normalizeOrderBy(relation: QueryRelation, value: unknown): readonly Nor
         }
     }
 
-    for (const field of metadata.stableOrder) {
-        if (!requested.some((order) => order.path.length === 1 && order.path[0] === field)) {
-            requested.push({ path: [field], direction: "asc" });
+    if (appendStable) {
+        for (const field of metadata.stableOrder) {
+            if (!requested.some((order) => order.path.length === 1 && order.path[0] === field)) {
+                requested.push({ path: [field], direction: "asc" });
+            }
         }
     }
 

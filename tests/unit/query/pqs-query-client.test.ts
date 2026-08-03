@@ -199,6 +199,7 @@ describe("PQS query client", () => {
             { id: "package-id" },
         ]);
         expect(query.mock.calls[0][0]).toContain('from "public"."__packages"');
+        expect(query.mock.calls[0][0]).not.toContain("order by");
     });
 
     it("includes every profile-declared physical relation through correlated queries", async () => {
