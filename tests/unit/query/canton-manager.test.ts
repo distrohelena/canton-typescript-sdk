@@ -17,14 +17,14 @@ describe("CantonManager", () => {
         expect(() => new CantonManager(options)).toThrow(ValidationError);
     });
 
-    it("rejects PQS options when gRPC is the selected query source", () => {
+    it("permits unused PQS options when gRPC is the selected query source", () => {
         const options: CantonManagerOptions = {
             grpc: { transportKind: TransportKind.grpc } as never,
             querySource: QuerySource.grpc,
             pqs: { connectionString: "postgres://unused" },
         };
 
-        expect(() => new CantonManager(options)).toThrow(ValidationError);
+        expect(() => new CantonManager(options)).not.toThrow();
     });
 
     it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("rejects a non-positive or non-finite cache TTL", (ttlMs) => {

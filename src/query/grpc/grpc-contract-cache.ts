@@ -20,6 +20,12 @@ interface CachedContractSnapshot {
     readonly contracts: readonly ContractRow[];
 }
 
+/** Internal point-in-time active-contract cache lookup used by query planning. */
+export interface GrpcCachedContractSnapshot {
+    readonly activeAtOffset: string;
+    readonly contracts: readonly ContractRow[];
+}
+
 interface MaterializedActiveContractsPage {
     readonly activeAtOffset: string;
     readonly activeContracts: readonly GetActiveContractsResponse[];
@@ -64,6 +70,12 @@ export class GrpcContractCache {
     }
 
     public async readContractsAsync(args?: ContractCacheArgs): Promise<readonly ContractRow[] | undefined> {
+        const snapshot = await this.readSnapshotAsync(args);
+
+        return snapshot?.contracts;
+    }
+
+    public async readSnapshotAsync(args?: ContractCacheArgs): Promise<GrpcCachedContractSnapshot | undefined> {
         const parties = normalizeParties(args);
 
         const cached = await this.store.getAsync<unknown>(cacheKey(this.endpointScope, parties));
@@ -76,7 +88,7 @@ export class GrpcContractCache {
             return undefined;
         }
 
-        return snapshot.contracts;
+        return Object.freeze({ activeAtOffset: snapshot.activeAtOffset, contracts: snapshot.contracts });
     }
 
     public async invalidateContractsCache(args?: ContractCacheArgs): Promise<void> {
