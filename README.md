@@ -137,7 +137,8 @@ each uploads or verifies the fixture DAR, resolves a party, reads the
 participant status, and creates its own run-scoped data. First make a Canton
 participant available and verify the source with `npm run examples:check`; the
 default endpoints and authentication environment variables are documented below.
-Run any example independently:
+The pruning preflight is a separate read-only operator check and does none of
+those setup or mutation steps. Run any example independently:
 
 ```bash
 npm run example:workflow:atomic
@@ -147,11 +148,12 @@ npm run example:workflow:stale-contract
 npm run example:workflow:command-completion
 npm run example:workflow:contract-lifecycle-audit
 npm run example:workflow:update-lookup-reconciliation
+npm run example:workflow:pruning-preflight
 ```
 
-They intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
+Those seven established stateful workflows intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
 causes fallback party allocation, which creates durable topology state; every
-workflow also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
+one also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
 party to rerun the established workflows against that party and avoid fallback
 allocation. The fixture DAR remains installed after a run.
 
@@ -181,10 +183,12 @@ The contract-lifecycle audit workflow (`npm run example:workflow:contract-lifecy
 
 The update-lookup reconciliation workflow (`npm run example:workflow:update-lookup-reconciliation`) is a standalone gRPC-only proof that observes one exact self-party Message transaction from `UpdateService.GetUpdates`, then immediately reconciles it through `getUpdateById` and `getUpdateByOffset`. It uses the normal `SDK_EXAMPLE_*` endpoint, authentication, party, and timeout configuration, including `SDK_EXAMPLE_PARTY` and `SDK_EXAMPLE_TIMEOUT_MS`; first run `npm run examples:check` and make an authenticated participant available. An explicit party is reused, while fallback allocation creates durable topology; the fixture upload leaves a durable DAR and the workflow leaves durable contracts. The same unchanged implementation is tested against authenticated Participant 3.5.7 and the isolated Participant 3.5.8 sidecar, in default-party and explicit-party modes.
 
-Each program prints its actor plus the full participant version returned by the
+The pruning-preflight workflow (`npm run example:workflow:pruning-preflight`) is a standalone gRPC-only, read-only operator check. It requires `SDK_EXAMPLE_OFFSET` to be a canonical positive decimal integer and uses the normal endpoint, authentication, and timeout variables: `SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`, `SDK_EXAMPLE_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`, and `SDK_EXAMPLE_TIMEOUT_MS`. The participant-admin credential is required for the schedule and safe-pruning context reads. It does not mutate the participant or create durable state: no party, DAR, command, update query, schedule change, or pruning request is made. The later participant watermark classifies the supplied offset as `alreadyPruned`, `beyondLedgerEnd`, or `notObservedPruned`; all-divulged watermarks and schedule/safe-pruning context are reported separately and do not alter that result. `notObservedPruned` is not proven queryable, because pruning can race after the later observation and other query preconditions can still fail. The unchanged implementation is supported on Participant 3.5.7 and the isolated Participant 3.5.8 sidecar.
+
+Each of the seven established stateful workflows prints its actor plus the full participant version returned by the
 authenticated status API, its parsed release core, and its selected path:
 `Participant version:`, `Release core:`, and `Compatibility path:`. The current
-implementation uses one common-code path for release cores 3.5.7 and 3.5.8. It
+stateful-workflow implementation uses one common-code path for release cores 3.5.7 and 3.5.8. It
 adds a version-specific behavioral difference only after live evidence proves
 one; it does not infer compatibility from a container tag or endpoint.
 
@@ -208,15 +212,15 @@ request and is not a retry proof. The resume example treats the saved offset as
 exclusive, so its resumed stream must observe only updates after the saved
 ledger end.
 
-The workflow source and unit contracts were developed and live-tested against
-authenticated Participant 3.5.7 and the isolated Participant 3.5.8. Both
-final-tree matrices selected the same unchanged implementation and common
+The seven established stateful workflow sources and unit contracts were developed
+and live-tested against authenticated Participant 3.5.7 and the isolated
+Participant 3.5.8. Both final-tree matrices selected the same unchanged implementation and common
 compatibility path. The normalized outcome comparison is identical: atomic
 reports `invalidChoice` before its replacement proof, retry reports
 `duplicateCommand` with one active contract, resume reports `idle-timeout` and
 a post-offset update, and stale-contract reports `staleContract`.
 
-The best multi-version path reads the authenticated full version, parses its
+For those seven established stateful workflows, the best multi-version path reads the authenticated full version, parses its
 release core, and uses data-only structured compatibility for observed
 outcomes. A behavioral difference is introduced only after live proof; it is
 never inferred from a container tag, endpoint, or prose error message. For the

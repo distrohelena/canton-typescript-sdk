@@ -2549,6 +2549,128 @@ describe("application example source contracts", () => {
         expect(workflowDocumentation).toContain("SDK_EXAMPLE_TIMEOUT_MS");
     });
 
+    it("implements the read-only pruning preflight through ordered generated gRPC reads", () => {
+        const runnerSource = readExampleSource("97-pruning-preflight.ts");
+
+        const workflowSource = readSharedExampleSource(
+            "pruning-preflight-workflow.ts",
+        );
+
+        const assertionsSource = readSharedExampleSource("pruning-preflight.ts");
+
+        const runnerFile = createSourceFile(
+            "97-pruning-preflight.ts",
+            runnerSource,
+            ScriptTarget.Latest,
+            true,
+            ScriptKind.TS,
+        );
+
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "runExampleAsync")))
+            .toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "createExampleClient")))
+            .toHaveLength(1);
+        expect(
+            collectCalls(
+                runnerFile,
+                call => isNamedCall(call, "runClientWorkflowWithDisposalAsync"),
+            ),
+        ).toHaveLength(1);
+        expect(collectCalls(runnerFile, call => isNamedCall(call, "disposeAsync")))
+            .toHaveLength(1);
+
+        expect(workflowSource).toContain("OperationDeadline");
+        expect(assertionsSource).toContain("SDK_EXAMPLE_OFFSET");
+        expect(assertionsSource).toContain("BigInt(");
+        expect(assertionsSource).toContain(
+            "notObservedPruned is not proven queryable.",
+        );
+        expect(assertionsSource).toContain("oneofKind");
+
+        const beforeWatermark = workflowSource.indexOf(
+            "getLatestPrunedOffsetsAsync",
+        );
+
+        const ledgerEnd = workflowSource.indexOf("getLedgerEndAsync");
+
+        const afterWatermark = workflowSource.lastIndexOf(
+            "getLatestPrunedOffsetsAsync",
+        );
+
+        expect(beforeWatermark).toBeGreaterThanOrEqual(0);
+        expect(ledgerEnd).toBeGreaterThan(beforeWatermark);
+        expect(afterWatermark).toBeGreaterThan(ledgerEnd);
+        expect([
+            ...workflowSource.matchAll(/getLatestPrunedOffsetsAsync/g),
+        ]).toHaveLength(2);
+        expect(workflowSource).toContain(
+            "ledgerApiV2.GetLatestPrunedOffsetsRequest.create()",
+        );
+        expect(workflowSource).toContain(
+            "ledgerApiV2.GetLedgerEndRequest.create()",
+        );
+        expect(workflowSource).toContain("getScheduleAsync");
+        expect(workflowSource).toContain("getParticipantScheduleAsync");
+        expect(workflowSource).toContain("getSafePruningOffsetAsync");
+        expect(workflowSource).toContain(
+            "comDigitalasset.canton.admin.pruning.v30.GetScheduleRequest.create()",
+        );
+        expect(workflowSource).toContain(
+            "comDigitalasset.canton.admin.pruning.v30.GetParticipantScheduleRequest.create()",
+        );
+        expect(workflowSource).toMatch(
+            /comDigitalasset\.canton\.admin\.participant\.v30\.GetSafePruningOffsetRequest\.create\(\s*\{\s*ledgerEnd:\s*\w+\.text,?\s*\}\s*\)/s,
+        );
+        expect([
+            ...workflowSource.matchAll(/createRequestOptions\(\)/g),
+        ]).toHaveLength(6);
+
+        const sources = [runnerSource, workflowSource, assertionsSource].join("\n");
+
+        expect(sources).not.toMatch(
+            /\b(?:participantVersion|releaseCore|compatibility|JsonTransport|jsonTransport|Number\s*\(|PruneRequest|set(?:Participant)?ScheduleAsync|clear(?:Participant)?ScheduleAsync|updateService|commandService|contractService|partyManagementService|resolvePartyAsync|loadFixtureAsync|ensureDarUploadedAsync|sleep|setTimeout|poll(?:ing)?|retry)\b/,
+        );
+        expect(sources).not.toMatch(
+            /logger\.log\(\s*(?:before|after|ledgerEnd|schedule|participantSchedule|safePruning)(?:Response)?\s*\)/,
+        );
+        expect(sources).not.toMatch(/logger\.log\(\s*JSON\.stringify\(/);
+    });
+
+    it("documents pruning preflight as an explicit, non-mutating operator read", () => {
+        const packageJson = readRootPackageJson();
+
+        const readme = readReadme();
+
+        const workflowDocumentation = readReadmeParagraph(
+            readme,
+            "The pruning-preflight workflow",
+        ).replace(/\s+/g, " ");
+
+        expect(packageJson.scripts["example:workflow:pruning-preflight"]).toBe(
+            "npm run build && node --loader ts-node/esm examples/97-pruning-preflight.ts",
+        );
+        expect(readme).toContain("npm run example:workflow:pruning-preflight");
+        expect(workflowDocumentation).toContain("standalone");
+        expect(workflowDocumentation).toContain("gRPC-only");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_OFFSET");
+        expect(workflowDocumentation).toContain("positive decimal");
+        expect(workflowDocumentation).toContain("SDK_EXAMPLE_LEDGER_ENDPOINT");
+        expect(workflowDocumentation).toContain(
+            "SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN",
+        );
+        expect(workflowDocumentation).toContain("does not mutate");
+        expect(workflowDocumentation).toContain("durable state");
+        expect(workflowDocumentation).toContain("alreadyPruned");
+        expect(workflowDocumentation).toContain("beyondLedgerEnd");
+        expect(workflowDocumentation).toContain("notObservedPruned");
+        expect(workflowDocumentation).toContain("not proven queryable");
+        expect(workflowDocumentation).toContain("all-divulged");
+        expect(workflowDocumentation).toContain("schedule");
+        expect(workflowDocumentation).toContain("safe-pruning");
+        expect(workflowDocumentation).toContain("3.5.7");
+        expect(workflowDocumentation).toContain("3.5.8");
+    });
+
     it("reads a configured user and its rights without mutating user state", () => {
         const source = readExampleSource("70-user-rights.ts");
 

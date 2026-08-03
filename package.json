@@ -101,6 +101,7 @@
         "example:workflow:command-completion": "npm run build && node --loader ts-node/esm examples/94-command-completion-correlation.ts",
         "example:workflow:contract-lifecycle-audit": "npm run build && node --loader ts-node/esm examples/95-contract-lifecycle-audit.ts",
         "example:workflow:update-lookup-reconciliation": "npm run build && node --loader ts-node/esm examples/96-update-lookup-reconciliation.ts",
+        "example:workflow:pruning-preflight": "npm run build && node --loader ts-node/esm examples/97-pruning-preflight.ts",
         "lint": "eslint . --max-warnings=0",
         "lint:fix": "eslint . --fix --max-warnings=0",
         "start:local-ledger": "bash node/start-local.sh",
