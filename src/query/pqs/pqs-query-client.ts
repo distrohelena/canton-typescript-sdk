@@ -16,10 +16,10 @@ import { QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
-import { compilePqsRelationGroupBy } from "./pqs-relational-sql-compiler.js";
 import { canonicalFindManyArgs, canonicalGroupByArgs, canonicalPredicateArgs } from "./pqs-sql-compiler.js";
+import { compilePqsRelationGroupBy } from "./pqs-relational-sql-compiler.js";
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../canonical/query-normalizer.js";
-import type { NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery } from "../canonical/query-ast.js";
+import type { NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedJsonSelection } from "../canonical/query-ast.js";
 import {
     PqsRelation,
     PqsRelationMetadata,
@@ -631,17 +631,16 @@ export class PqsQueryClient implements QueryClient {
         const compiled = compileContractFindMany(query, this.profile);
 
         try {
-            const args = canonicalFindManyArgs(query) as { readonly include?: RuntimeInclude; readonly select?: RuntimeSelect };
-            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, args.include, args.select?.json));
+            const rows = (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => mapContractRow(row, query.includes, query.select?.json));
 
-            const select = args.select;
+            const select = query.select;
 
             if (select === undefined) {
                 return rows;
             }
 
-            const fields = Object.entries(select).filter(([field, enabled]) => field !== "json" && enabled === true).map(([field]) => field);
-            const json = Object.keys(select.json ?? {});
+            const fields = select.fields;
+            const json = select.json.map((projection) => projection.name);
 
             if (fields.length === 0 && json.length === 0) {
                 throw new Error("select must include at least one field");
@@ -782,15 +781,15 @@ function mapExerciseJson(value: unknown): ExerciseResult {
     } as ExerciseResult;
 }
 
-function mapContractRow(row: Record<string, unknown>, include: ContractFindManyArgs["include"] | undefined, json: Readonly<Record<string, { readonly as: "text" | "numeric" | "boolean" | "timestamp" }>> | undefined): ContractResult {
+function mapContractRow(row: Record<string, unknown>, includes: readonly NormalizedInclude[], json: readonly NormalizedJsonSelection[] | undefined): ContractResult {
     const base: ContractRow = { contractId: String(row.contract_id), templateId: { packageId: String(row.template_package_id), moduleName: String(row.template_module_name), entityName: String(row.template_entity_name) }, packageId: nullableString(row.package_id), payload: row.payload, witnesses: stringArray(row.witnesses), createdEventOffset: String(row.created_event_offset), createdAt: nullableDate(row.created_at), archivedEventOffset: nullableString(row.archived_event_offset), archivedAt: nullableDate(row.archived_at), active: row.active === true };
     const relations = {
-        ...(include?.contractType === undefined ? {} : { contractType: mapContractTypeJson(row.contractType ?? row.contract_type) }),
-        ...(include?.createdTransaction === undefined ? {} : { createdTransaction: mapTransactionJson(row.createdTransaction ?? row.created_transaction) }),
-        ...(include?.archivedTransaction === undefined ? {} : { archivedTransaction: (row.archivedTransaction ?? row.archived_transaction) === null || (row.archivedTransaction ?? row.archived_transaction) === undefined ? null : mapTransactionJson(row.archivedTransaction ?? row.archived_transaction) ?? null }),
-        ...(include?.exercises === undefined ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises.map(mapExerciseJson) : [] }),
+        ...(!includes.some((include) => include.edge === "contractType") ? {} : { contractType: mapContractTypeJson(row.contractType ?? row.contract_type) }),
+        ...(!includes.some((include) => include.edge === "createdTransaction") ? {} : { createdTransaction: mapTransactionJson(row.createdTransaction ?? row.created_transaction) }),
+        ...(!includes.some((include) => include.edge === "archivedTransaction") ? {} : { archivedTransaction: (row.archivedTransaction ?? row.archived_transaction) === null || (row.archivedTransaction ?? row.archived_transaction) === undefined ? null : mapTransactionJson(row.archivedTransaction ?? row.archived_transaction) ?? null }),
+        ...(!includes.some((include) => include.edge === "exercises") ? {} : { exercises: Array.isArray(row.exercises) ? row.exercises.map(mapExerciseJson) : [] }),
     };
-    const projections = Object.fromEntries(Object.entries(json ?? {}).map(([name, projection]) => [name, mapJsonValue(row[name], projection.as)]));
+    const projections = Object.fromEntries((json ?? []).map((projection) => [projection.name, mapJsonValue(row[projection.name], projection.as)]));
     return { ...base, ...relations, ...projections };
 }
 
