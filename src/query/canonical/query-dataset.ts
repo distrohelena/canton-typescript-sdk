@@ -30,6 +30,8 @@ const compiledSnapshots = new WeakMap<QueryDataset, QueryDataset>();
 
 const rawRowSnapshots = new WeakMap<QueryDataset, ReadonlyMap<QueryRelation, WeakMap<object, QueryRow>>>();
 
+const compiledRowMembership = new WeakMap<QueryDataset, ReadonlyMap<QueryRelation, WeakSet<object>>>();
+
 const emptyRows: readonly QueryRow[] = Object.freeze([]);
 
 const datasetPaths = Object.fromEntries((Object.keys(queryRelationMetadata) as QueryRelation[]).map((relation) => [relation, [
@@ -53,6 +55,8 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
     const rowSnapshots = new Map<QueryRelation, WeakMap<object, QueryRow>>();
 
+    const rowMembership = new Map<QueryRelation, WeakSet<object>>();
+
     for (const relation of Object.keys(queryRelationMetadata) as QueryRelation[]) {
         if (!Array.isArray(input.rows[relation])) {
             throw new Error(`Dataset is missing ${relation} rows`);
@@ -65,6 +69,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
         }
 
         rowSnapshots.set(relation, snapshots);
+        rowMembership.set(relation, new WeakSet(dataset.rows[relation].map((row) => row as object)));
     }
 
     const relations = Object.keys(queryRelationMetadata) as QueryRelation[];
@@ -146,6 +151,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
     datasetIndexes.set(dataset, indexes);
     compiledSnapshots.set(input, dataset);
     rawRowSnapshots.set(input, rowSnapshots);
+    compiledRowMembership.set(dataset, rowMembership);
 
     return dataset;
 }
@@ -162,7 +168,9 @@ export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation,
         throw new Error(`Missing deterministic lookup for ${relation}.${edge}`);
     }
 
-    const snapshotRow = dataset === compiled ? row : rawRowSnapshots.get(dataset)?.get(relation)?.get(row as object);
+    const snapshotRow = dataset === compiled
+        ? compiledRowMembership.get(compiled)?.get(relation)?.has(row as object) ? row : undefined
+        : rawRowSnapshots.get(dataset)?.get(relation)?.get(row as object);
 
     if (snapshotRow === undefined) {
         throw new Error(`Query row does not belong to ${relation} dataset`);
