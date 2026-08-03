@@ -300,8 +300,9 @@ Before removing the remaining consumer references, extend `submit-commands-publi
 ```ts
 expect(scan("const x: SubmitCommandRequest = value")).toContain("SubmitCommandRequest");
 expect(scan('from "./submit-command-request.js"')).toContain("submit-command-request");
-expect(scan("request.command")).toContain("request.command");
-expect(scan("request.commands\nrequest.commandId")).toEqual([]);
+expect(scan("function f(request: SubmitCommandsRequest) { return request.command; }")).toContain("request.command");
+expect(scan("const batch = new SubmitCommandsRequest(init); batch.command;")).toContain("batch.command");
+expect(scan("request.commands\nrequest.commandId\npayload.command\naction.command\ninit.command")).toEqual([]);
 ```
 
 Run:
@@ -314,7 +315,7 @@ Expected: failure because `submit-commands-source-guard.ts` does not exist.
 
 - [ ] **Step 2: Implement the exact test-only scanner and capture migration inventory**
 
-Create the helper with exact identifier/module-token checks and TypeScript AST property-access checks. Make the controlled tests pass before applying it to repository files.
+Create the helper with exact identifier/module-token checks and scoped TypeScript AST property-access checks. For singular `.command`, first collect identifiers that are either parameters/variables explicitly annotated `SubmitCommandsRequest` or variables initialized by `new SubmitCommandsRequest(...)`; only flag `.command` whose receiver is in that proven set. Never flag a property solely because its name is `command`. The false-positive fixtures for `payload.command`, `action.command`, and `init.command` are mandatory. Make the controlled tests pass before applying the helper to repository files.
 
 Run:
 
