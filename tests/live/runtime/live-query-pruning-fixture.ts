@@ -198,13 +198,7 @@ function normalizePruningEndpoint(endpoint: string): string {
 
     const hostname = isLocalHostname(rawHostname) ? "loopback" : rawHostname;
 
-    const defaultPort = parsed.protocol === "http:"
-        ? "80"
-        : parsed.protocol === "https:"
-            ? "443"
-            : "";
-
-    return `${hostname}:${parsed.port || defaultPort}`;
+    return `${hostname}:${parsed.port || "443"}`;
 }
 
 function isLocalHostname(hostname: string): boolean {

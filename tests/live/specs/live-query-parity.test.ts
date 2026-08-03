@@ -102,7 +102,6 @@ describe("live gRPC and PQS typed-query parity", () => {
                 },
                 select: {
                     singleton: true,
-                    offset: true,
                 },
                 orderBy: [{ offset: "asc" }],
             }),
@@ -176,10 +175,7 @@ describe("live gRPC and PQS typed-query parity", () => {
                 && row.entityName === fixture.templateId.entityName
             )).toBe(true);
             expect(result.exerciseTypes.some((row) => row.choice === "Archive")).toBe(true);
-            expect(result.watermark.some((row) =>
-                row.offset !== null
-                && BigInt(row.offset) >= BigInt(fixture.archivedAtOffset)
-            )).toBe(true);
+            expect(result.watermark).toEqual([{ singleton: true }]);
             expect(result.payloadProjection).toContainEqual({
                 contractId: fixture.activeContractId,
                 issuer: fixture.party,

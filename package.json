@@ -113,7 +113,7 @@
         "test:stop-local-script": "bash node/test-stop-local.sh",
         "test:participant-358-sidecar-script": "bash node/test-participant-358-sidecar.sh",
         "test:participant-358-sidecar-smoke": "bash node/test-participant-358-sidecar-smoke.sh",
-        "test": "vitest run --maxWorkers=1 --testTimeout=15000",
+        "test": "vitest run --exclude 'tests/live/**' --maxWorkers=1 --testTimeout=15000",
         "test:property": "vitest run tests/property --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run tests/live --maxWorkers=1 --testTimeout=15000",
         "test:live:fuzz": "vitest run tests/live/specs/live-stateful-fuzzing.test.ts --maxWorkers=1 --testTimeout=300000",

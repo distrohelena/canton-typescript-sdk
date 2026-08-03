@@ -34,6 +34,32 @@ describe("live query runtime safety", () => {
         )).toThrow(/dedicated ledger-admin endpoint/i);
     });
 
+    it("treats a scheme-less endpoint without a port as grpc default 443", () => {
+        expect(() => assertDedicatedPruningEndpoints(
+            {
+                ledgerEndpoint: "localhost",
+                ledgerAdminEndpoint: "localhost:6902",
+            },
+            [{
+                ledgerEndpoint: "https://localhost",
+                ledgerAdminEndpoint: "https://localhost:3902",
+            }],
+        )).toThrow(/dedicated ledger endpoint/i);
+    });
+
+    it("preserves an explicit port on a scheme-less endpoint", () => {
+        expect(() => assertDedicatedPruningEndpoints(
+            {
+                ledgerEndpoint: "localhost:8443",
+                ledgerAdminEndpoint: "localhost:6902",
+            },
+            [{
+                ledgerEndpoint: "https://localhost",
+                ledgerAdminEndpoint: "https://localhost:3902",
+            }],
+        )).not.toThrow();
+    });
+
     it("rejects missing endpoints and accepts a fully isolated endpoint pair", () => {
         expect(() => assertDedicatedPruningEndpoints(
             {

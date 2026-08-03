@@ -90,6 +90,14 @@ describe("npm publish metadata", () => {
             "node ./scripts/verify-npm-pack.mjs",
         );
     });
+
+    it("keeps destructive live suites out of the default test command", async () => {
+        const packageJson = await readPackageJsonAsync();
+
+        expect(packageJson.scripts?.test).toContain("--exclude 'tests/live/**'");
+        expect(packageJson.scripts?.["test:live"]).toContain("tests/live");
+        expect(packageJson.scripts?.["test:live"]).not.toContain("--exclude");
+    });
 });
 
 describe("npm pack verifier", () => {
