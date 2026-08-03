@@ -6,7 +6,7 @@ import {
     DamlParty,
     DamlRecord,
     ExerciseCommand,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it, vi } from "vitest";
@@ -219,11 +219,11 @@ describe("example application command helpers", () => {
             deduplicationPeriod: { kind: "offset", offset: "42" },
         });
 
-        expect(create).toBeInstanceOf(SubmitCommandRequest);
+        expect(create).toBeInstanceOf(SubmitCommandsRequest);
         expect(create.actAs).toEqual([party]);
         expect(create.readAs).toEqual([party]);
-        expect(create.command).toBeInstanceOf(CreateCommand);
-        expect((create.command as CreateCommand).createArguments).toEqual(
+        expect(create.commands[0]).toBeInstanceOf(CreateCommand);
+        expect((create.commands[0] as CreateCommand).createArguments).toEqual(
             new DamlRecord({
                 sender: new DamlParty(party),
                 recipient: new DamlParty(party),
@@ -237,8 +237,8 @@ describe("example application command helpers", () => {
             seconds: 20,
         });
 
-        expect(replace.command).toBeInstanceOf(ExerciseCommand);
-        expect(replace.command).toMatchObject({
+        expect(replace.commands[0]).toBeInstanceOf(ExerciseCommand);
+        expect(replace.commands[0]).toMatchObject({
             contractId: "#original",
             choice: "ReplaceText",
             choiceArgument: new DamlRecord({ replacement: "updated" }),
@@ -249,8 +249,8 @@ describe("example application command helpers", () => {
             seconds: 30,
         });
 
-        expect(atomic.command).toBeInstanceOf(CreateAndExerciseCommand);
-        expect(atomic.command).toMatchObject({
+        expect(atomic.commands[0]).toBeInstanceOf(CreateAndExerciseCommand);
+        expect(atomic.commands[0]).toMatchObject({
             createArguments: new DamlRecord({
                 sender: new DamlParty(party),
                 recipient: new DamlParty(party),

@@ -4,7 +4,7 @@ import {
     DamlParty,
     DamlRecord,
     OperationDeadline,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import {
@@ -67,11 +67,11 @@ runExampleAsync("atomic-create-and-exercise", async () => {
 
         const validCommandId = `atomic-valid-${runId}`;
 
-        const invalidRequest = new SubmitCommandRequest({
+        const invalidRequest = new SubmitCommandsRequest({
             applicationId: "canton-typescript-sdk-examples",
             actAs: [actor.party],
             readAs: [actor.party],
-            command: new CreateAndExerciseCommand({
+            commands: [new CreateAndExerciseCommand({
                 templateId: fixture.templateId,
                 createArguments: new DamlRecord({
                     sender: new DamlParty(actor.party),
@@ -80,7 +80,7 @@ runExampleAsync("atomic-create-and-exercise", async () => {
                 }),
                 choice: "UnknownChoice",
                 choiceArgument: new DamlRecord({}),
-            }),
+            })],
             commandId: invalidCommandId,
         });
 

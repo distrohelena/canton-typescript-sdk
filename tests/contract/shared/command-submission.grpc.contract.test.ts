@@ -4,7 +4,7 @@ import {
     DamlRecord,
     ExerciseCommand,
     SignCommandResult,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import { CommandServiceClient } from "../../../src/services/command/command-service-client.js";
 import { GrpcTransport } from "../../../src/transports/grpc/grpc-transport.js";
@@ -50,13 +50,13 @@ describe("grpc command submission contract", () => {
 
         await expect(
             commandService.submitAndWaitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new CreateCommand({
+                    commands: [new CreateCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         createArguments: new DamlRecord({ issuer: "Alice" }),
-                    }),
+                    })],
                 }),
             ),
         ).resolves.toMatchObject({
@@ -106,13 +106,13 @@ describe("grpc command submission contract", () => {
 
         await expect(
             commandService.submitAndWaitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new CreateCommand({
+                    commands: [new CreateCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         createArguments: new DamlRecord({ issuer: "Alice" }),
-                    }),
+                    })],
                 }),
             ),
         ).resolves.toMatchObject({

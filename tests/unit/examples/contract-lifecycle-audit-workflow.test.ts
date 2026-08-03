@@ -4,7 +4,7 @@ import {
     ExerciseCommand,
     OperationDeadline,
     RequestOptions,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { readFileSync } from "node:fs";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -21,7 +21,7 @@ describe("contract lifecycle audit workflow", () => {
 
         const setupOptions: RequestOptions[] = [];
 
-        const commandRequests: SubmitCommandRequest[] = [];
+        const commandRequests: SubmitCommandsRequest[] = [];
 
         const commandOptions: RequestOptions[] = [];
 
@@ -68,12 +68,12 @@ describe("contract lifecycle audit workflow", () => {
             "contract-lifecycle-create-run-123",
             "contract-lifecycle-replace-run-123",
         ]);
-        expect(commandRequests[0]?.command).toBeInstanceOf(CreateCommand);
-        expect(commandRequests[1]?.command).toBeInstanceOf(ExerciseCommand);
-        expect((commandRequests[1]?.command as ExerciseCommand).contractId).toBe("#original");
-        expect((commandRequests[0]?.command as CreateCommand).createArguments.fields.text)
+        expect(commandRequests[0]?.commands[0]).toBeInstanceOf(CreateCommand);
+        expect(commandRequests[1]?.commands[0]).toBeInstanceOf(ExerciseCommand);
+        expect((commandRequests[1]?.commands[0] as ExerciseCommand).contractId).toBe("#original");
+        expect((commandRequests[0]?.commands[0] as CreateCommand).createArguments.fields.text)
             .toBe("contract-lifecycle-original-run-123");
-        expect((commandRequests[1]?.command as ExerciseCommand).choiceArgument.fields.replacement)
+        expect((commandRequests[1]?.commands[0] as ExerciseCommand).choiceArgument.fields.replacement)
             .toBe("contract-lifecycle-replacement-run-123");
         expect(commandOptions.map(option => option.timeoutMs)).toEqual([96, 94]);
         expect(directRequests).toEqual([
@@ -177,7 +177,7 @@ describe("contract lifecycle audit workflow", () => {
 function createDependencies(init: {
     readonly trace?: string[];
     readonly setupOptions?: RequestOptions[];
-    readonly commandRequests?: SubmitCommandRequest[];
+    readonly commandRequests?: SubmitCommandsRequest[];
     readonly commandOptions?: RequestOptions[];
     readonly directRequests?: ledgerApiV2.GetContractRequest[];
     readonly directOptions?: RequestOptions[];

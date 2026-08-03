@@ -3,7 +3,7 @@ import {
     GrpcTransportError,
     OperationDeadline,
     RequestOptions,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it } from "vitest";
@@ -197,7 +197,7 @@ function createDependencies(init: {
     return {
         client: {
             commandService: {
-                submitAndWaitForTransactionAsync: async (request: SubmitCommandRequest, optionsArg?: RequestOptions) => {
+                submitAndWaitForTransactionAsync: async (request: SubmitCommandsRequest, optionsArg?: RequestOptions) => {
                     trace.push("submit"); options.push(requireOptions(optionsArg));
 
                     if (init.submitFailure !== undefined) {

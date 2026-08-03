@@ -3,7 +3,7 @@ import {
     ExerciseCommand,
     GetActiveContractsRequest,
     NotSupportedError,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import { GetActiveContractsPageRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { HealthCheckRequest } from "../../../src/transports/grpc/generated/canton/google/grpc/health/v1/health.js";
@@ -88,16 +88,16 @@ describe("json transport entrypoint", () => {
         );
         await expect(
             client.commandService.submitAndWaitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
                     readAs: ["Bob"],
-                    command: new ExerciseCommand({
+                    commands: [new ExerciseCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         contractId: "00abc",
                         choice: "Archive",
                         choiceArgument: {},
-                    }),
+                    })],
                 }),
             ),
         ).resolves.toBeDefined();

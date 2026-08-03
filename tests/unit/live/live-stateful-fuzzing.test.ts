@@ -375,7 +375,7 @@ describe("live fuzz configuration", () => {
         expect(first.applicationId).toBe("sdk-live-fuzz");
         expect(first.actAs).toEqual(["issuer::abc"]);
         expect(first.readAs).toEqual([]);
-        expect(first.command).toMatchObject({
+        expect(first.commands[0]).toMatchObject({
             templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
             createArguments: {
                 fields: {
@@ -397,7 +397,7 @@ describe("live fuzz configuration", () => {
             ownerParty: "owner::def",
             amountSuffix: 42,
             campaignNonce: 1n,
-        }).command.createArguments.fields.amount).not.toBe(first.command.createArguments.fields.amount);
+        }).commands[0].createArguments.fields.amount).not.toBe(first.commands[0].createArguments.fields.amount);
     });
 
     it("builds issuer-routed Archive requests and bounded amount values", () => {
@@ -407,7 +407,7 @@ describe("live fuzz configuration", () => {
         });
 
         expect(request.actAs).toEqual(["issuer::abc"]);
-        expect(request.command).toMatchObject({
+        expect(request.commands[0]).toMatchObject({
             templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
             contractId: "contract-1",
             choice: "Archive",

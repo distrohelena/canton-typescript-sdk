@@ -15,7 +15,7 @@ import {
     DamlRecord,
     ExerciseCommand,
     RequestOptions,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { createPartyHint } from "./localnet.js";
@@ -103,20 +103,20 @@ export function buildCreateMessageRequest(init: {
     userId?: string;
     commandId?: string;
     deduplicationPeriod?: CommandDeduplicationPeriod;
-}): SubmitCommandRequest {
-    return new SubmitCommandRequest({
+}): SubmitCommandsRequest {
+    return new SubmitCommandsRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
         userId: init.userId,
         actAs: [init.party],
         readAs: [init.party],
-        command: new CreateCommand({
+        commands: [new CreateCommand({
             templateId: init.templateId,
             createArguments: new DamlRecord({
                 sender: new DamlParty(init.party),
                 recipient: new DamlParty(init.party),
                 text: init.text,
             }),
-        }),
+        })],
         commandId: init.commandId,
         deduplicationPeriod: init.deduplicationPeriod,
     });
@@ -129,17 +129,17 @@ export function buildReplaceMessageTextRequest(init: {
     replacement: string;
     commandId?: string;
     deduplicationPeriod?: CommandDeduplicationPeriod;
-}): SubmitCommandRequest {
-    return new SubmitCommandRequest({
+}): SubmitCommandsRequest {
+    return new SubmitCommandsRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
         actAs: [init.party],
         readAs: [init.party],
-        command: new ExerciseCommand({
+        commands: [new ExerciseCommand({
             templateId: init.templateId,
             contractId: init.contractId,
             choice: "ReplaceText",
             choiceArgument: new DamlRecord({ replacement: init.replacement }),
-        }),
+        })],
         commandId: init.commandId,
         deduplicationPeriod: init.deduplicationPeriod,
     });
@@ -152,12 +152,12 @@ export function buildCreateAndReplaceMessageTextRequest(init: {
     replacement: string;
     commandId?: string;
     deduplicationPeriod?: CommandDeduplicationPeriod;
-}): SubmitCommandRequest {
-    return new SubmitCommandRequest({
+}): SubmitCommandsRequest {
+    return new SubmitCommandsRequest({
         applicationId: EXAMPLE_APPLICATION_ID,
         actAs: [init.party],
         readAs: [init.party],
-        command: new CreateAndExerciseCommand({
+        commands: [new CreateAndExerciseCommand({
             templateId: init.templateId,
             createArguments: new DamlRecord({
                 sender: new DamlParty(init.party),
@@ -166,7 +166,7 @@ export function buildCreateAndReplaceMessageTextRequest(init: {
             }),
             choice: "ReplaceText",
             choiceArgument: new DamlRecord({ replacement: init.replacement }),
-        }),
+        })],
         commandId: init.commandId,
         deduplicationPeriod: init.deduplicationPeriod,
     });

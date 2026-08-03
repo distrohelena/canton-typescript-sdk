@@ -6,7 +6,7 @@ import {
     GrpcTransportError,
     OperationDeadline,
     RequestOptions,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "@distrohelena/canton-typescript-sdk";
 import { ledgerApiV2 } from "@distrohelena/canton-typescript-sdk/protobuf";
 import { describe, expect, it } from "vitest";
@@ -23,7 +23,7 @@ describe("archive and stale-contract workflow", () => {
 
         const setupBudgets: number[] = [];
 
-        const commandRequests: SubmitCommandRequest[] = [];
+        const commandRequests: SubmitCommandsRequest[] = [];
 
         const commandOptions: RequestOptions[] = [];
 
@@ -48,11 +48,11 @@ describe("archive and stale-contract workflow", () => {
             "archive-stale-run-123",
         ]);
         expect(new Set(commandRequests.map(request => request.commandId)).size).toBe(3);
-        expect(commandRequests[0]?.command).toBeInstanceOf(CreateCommand);
-        expect(commandRequests[1]?.command).toBeInstanceOf(ExerciseCommand);
-        expect(commandRequests[2]?.command).toBeInstanceOf(ExerciseCommand);
-        expect((commandRequests[1]?.command as ExerciseCommand).contractId).toBe("#original");
-        expect((commandRequests[2]?.command as ExerciseCommand).contractId).toBe("#original");
+        expect(commandRequests[0]?.commands[0]).toBeInstanceOf(CreateCommand);
+        expect(commandRequests[1]?.commands[0]).toBeInstanceOf(ExerciseCommand);
+        expect(commandRequests[2]?.commands[0]).toBeInstanceOf(ExerciseCommand);
+        expect((commandRequests[1]?.commands[0] as ExerciseCommand).contractId).toBe("#original");
+        expect((commandRequests[2]?.commands[0] as ExerciseCommand).contractId).toBe("#original");
         expect(commandOptions.map(option => option.timeoutMs)).toEqual([96, 95, 94]);
         expect(new Set(commandOptions).size).toBe(3);
         expect(activeTraversals).toHaveLength(1);
@@ -189,7 +189,7 @@ describe("archive and stale-contract standalone lifecycle", () => {
 function createDependencies(init: {
     readonly trace?: string[];
     readonly setupBudgets?: number[];
-    readonly commandRequests?: SubmitCommandRequest[];
+    readonly commandRequests?: SubmitCommandsRequest[];
     readonly commandOptions?: RequestOptions[];
     readonly activeTraversals?: Array<{
         request: ledgerApiV2.GetActiveContractsPageRequest;

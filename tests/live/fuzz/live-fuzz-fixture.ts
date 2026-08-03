@@ -9,7 +9,7 @@ import {
     GetPartiesRequest,
     GetPackageRequest,
     ListPackagesRequest,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     TransportKind,
 } from "../../../src/index.js";
 import { mapGrpcQueryContractsRequest } from "../../../src/transports/grpc/mappers/contracts-mapper.js";
@@ -56,8 +56,8 @@ export interface LiveFuzzFixture extends LiveFuzzFixtureDefinition {
     readonly ownerClient: CantonClient;
     readonly templateId: typeof LIVE_IOU_TEMPLATE_ID;
     readonly createPayloadArbitrary: fc.Arbitrary<number>;
-    readonly buildCreateRequest: (amountSuffix: number, campaignNonce?: bigint) => SubmitCommandRequest;
-    readonly buildArchiveRequest: (contractId: string) => SubmitCommandRequest;
+    readonly buildCreateRequest: (amountSuffix: number, campaignNonce?: bigint) => SubmitCommandsRequest;
+    readonly buildArchiveRequest: (contractId: string) => SubmitCommandsRequest;
 }
 
 export interface LiveFuzzRouteDescriptor {
@@ -150,11 +150,11 @@ export function buildCreateRequest(init: {
     ownerParty: string;
     amountSuffix: number;
     campaignNonce?: bigint;
-}): SubmitCommandRequest {
-    return new SubmitCommandRequest({
+}): SubmitCommandsRequest {
+    return new SubmitCommandsRequest({
         applicationId: "sdk-live-fuzz",
         actAs: [init.issuerParty],
-        command: new CreateCommand({
+        commands: [new CreateCommand({
             templateId: LIVE_IOU_COMMAND_TEMPLATE_ID,
             createArguments: new DamlRecord({
                 issuer: init.issuerParty,
@@ -163,23 +163,23 @@ export function buildCreateRequest(init: {
                 createRunAmount(init.runId, init.amountSuffix, init.campaignNonce),
             ),
             }),
-        }),
+        })],
     });
 }
 
 export function buildArchiveRequest(init: {
     contractId: string;
     issuerParty: string;
-}): SubmitCommandRequest {
-    return new SubmitCommandRequest({
+}): SubmitCommandsRequest {
+    return new SubmitCommandsRequest({
         applicationId: "sdk-live-fuzz",
         actAs: [init.issuerParty],
-        command: new ExerciseCommand({
+        commands: [new ExerciseCommand({
             templateId: LIVE_IOU_COMMAND_TEMPLATE_ID,
             contractId: init.contractId,
             choice: "Archive",
             choiceArgument: {},
-        }),
+        })],
     });
 }
 

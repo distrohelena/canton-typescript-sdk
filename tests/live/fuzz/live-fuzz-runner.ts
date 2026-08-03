@@ -658,7 +658,7 @@ function getExpectedPayload(init: {
         issuer: init.fixture.issuerParty,
         owner: init.fixture.ownerParty,
         amount: Number(
-            init.fixture.buildCreateRequest(init.amountSuffix, init.campaignNonce).command.createArguments.fields.amount,
+            init.fixture.buildCreateRequest(init.amountSuffix, init.campaignNonce).commands[0].createArguments.fields.amount,
         ),
     };
 }
