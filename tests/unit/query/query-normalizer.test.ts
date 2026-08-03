@@ -244,7 +244,7 @@ describe("canonical query normalizer", () => {
     it("normalizes unique, count, aggregate, and group operations", () => {
         expect(normalizeFindUnique("packages", { where: { id: "package-id" } })).toMatchObject({ kind: "findUnique", relation: "packages" });
         expect(normalizeCount("contracts", { parties: ["Bob", "Alice"], where: { active: true } })).toMatchObject({ kind: "count", parties: ["Alice", "Bob"], activeOnly: true });
-        expect(normalizeAggregate("transactions", { count: true, sum: ["paidTrafficCost"] })).toMatchObject({ kind: "aggregate", aggregates: { count: true, sum: ["paidTrafficCost"] } });
+        expect(normalizeAggregate("transactions", { where: { domainId: { equals: "domain" } }, count: true, sum: ["paidTrafficCost"] })).toMatchObject({ kind: "aggregate", predicate: { kind: "scalar", path: ["domainId"], operator: "equals", value: "domain" }, aggregates: { count: true, sum: ["paidTrafficCost"] } });
         expect(normalizeGroupBy("events", { by: ["type", { transaction: { effectiveAt: { bucket: "day" } } }], aggregate: { count: true, sum: ["pk"] } })).toMatchObject({ kind: "groupBy", relation: "events" });
     });
 

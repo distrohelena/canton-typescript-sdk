@@ -1,9 +1,42 @@
 import { describe, expect, it } from "vitest";
+import * as relationalCompiler from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
 import { compilePqsRelationFindMany } from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
-import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
+import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
 
 describe("PQS relational SQL compiler", () => {
+    it("compiles physical counts directly from canonical predicates", () => {
+        const compileCount = relationalCompiler["compilePqsRelationCount"] as undefined | ((relation: "__packages", query: ReturnType<typeof normalizeCount>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] });
+
+        expect(compileCount).toBeTypeOf("function");
+        expect(compileCount?.("__packages", normalizeCount("packages", {
+            where: {
+                or: [{ name: { ilike: "app%" } }, { id: { equals: "pkg" } }],
+            },
+        }), new PqsSchemaProfileV1())).toEqual({
+            text: 'select count(*)::text as count from "public"."__packages" where ("name" ilike $1 or "id" = $2)',
+            values: ["app%", "pkg"],
+        });
+    });
+
+    it("owns aggregate and group-by predicate parameter ordering", () => {
+        const aggregate = relationalCompiler["compilePqsRelationAggregate"] as (relation: "__packages", query: ReturnType<typeof normalizeAggregate>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] };
+        const groupBy = relationalCompiler["compilePqsRelationGroupBy"] as (relation: "__packages", query: ReturnType<typeof normalizeGroupBy>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] };
+
+        expect(aggregate("__packages", normalizeAggregate("packages", {
+            where: { name: { equals: "app" } }, count: true, min: ["pk"], sum: ["pk"],
+        }), new PqsSchemaProfileV1())).toEqual({
+            text: 'select count(*)::text as count, min("pk")::text as "min_pk", sum("pk")::text as "sum_pk" from "public"."__packages" where "name" = $1',
+            values: ["app"],
+        });
+        expect(groupBy("__packages", normalizeGroupBy("packages", {
+            by: ["name"], where: { id: { equals: "pkg" } }, aggregate: { count: true },
+        }), new PqsSchemaProfileV1())).toEqual({
+            text: 'select "root"."name" as "name", count(*)::text as count from "public"."__packages" "root" where "root"."id" = $1 group by "root"."name"',
+            values: ["pkg"],
+        });
+    });
+
     it("compiles profile-controlled root reads with multi-field ordering", () => {
         const query = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {
             where: { name: { ilike: "app%" } },
@@ -116,7 +149,7 @@ describe("PQS relational SQL compiler", () => {
             },
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toBe('select "tpe_pk" as "tpePk", "contract_tpe_pk" as "contractTpePk", "exercise_event_pk" as "exerciseEventPk", "exercised_at_ix" as "exercisedAtIx", "contract_id" as "contractId", "argument" as "argument", "result" as "result", "redaction_id" as "redactionId", "package_pk" as "packagePk", "controllers" as "controllers", "last_descendant_node_id" as "lastDescendantNodeId", "witnesses" as "witnesses" from "public"."__exercises" where ("argument" #>> $1::text[] = $2 and exists (select 1 from "public"."__contracts" "contract" where "contract"."contract_id" = "contract_id" and ("contract".payload #>> $3::text[] = $4)))');
+        expect(query.text).toBe('select "tpe_pk" as "tpePk", "contract_tpe_pk" as "contractTpePk", "exercise_event_pk" as "exerciseEventPk", "exercised_at_ix" as "exercisedAtIx", "contract_id" as "contractId", "argument" as "argument", "result" as "result", "redaction_id" as "redactionId", "package_pk" as "packagePk", "controllers" as "controllers", "last_descendant_node_id" as "lastDescendantNodeId", "witnesses" as "witnesses" from "public"."__exercises" where ("argument" #>> $1::text[] = $2 and exists (select 1 from "public"."__contracts" "contract" where "contract"."contract_id" = "public"."__exercises"."contract_id" and ("contract"."payload" #>> $3::text[] = $4)))');
         expect(query.values).toEqual([["choice"], "Archive", ["owner"], "Alice"]);
     });
 

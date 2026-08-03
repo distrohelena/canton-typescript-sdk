@@ -187,6 +187,15 @@ describe("PQS query client", () => {
         );
     });
 
+    it("preserves read-only SQL checks and wraps physical executor failures", async () => {
+        const query = vi.fn().mockRejectedValue({ code: "57014" });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findMany()).rejects.toMatchObject({ operation: "__packages.findMany", code: "57014" });
+        await expect(client.$queryRaw("delete from __packages")).rejects.toThrow("read-only");
+        expect(query).toHaveBeenCalledTimes(1);
+    });
+
     it("queries physical PQS relations through typed delegates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ id: "package-id" }] });
 
@@ -204,7 +213,7 @@ describe("PQS query client", () => {
 
     it("includes every profile-declared physical relation through correlated queries", async () => {
         const query = vi.fn().mockResolvedValue({
-            rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contract_id: "cid", package_pk: "1", controllers: [], witnesses: [] }] }],
+            rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid", packagePk: "1", controllers: [], witnesses: [] }] }],
         });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
@@ -232,8 +241,8 @@ describe("PQS query client", () => {
 
         const sql = query.mock.calls[0][0];
         expect(sql).toContain('from (select jsonb_build_object');
-        expect(sql).toContain('$1 = any("witnesses")');
-        expect(sql).toContain('order by "contract_id" asc, "tpe_pk" asc, "contract_tpe_pk" asc, "exercise_event_pk" asc limit $2) "exercises_limited"');
+        expect(sql).toContain('$1 = any("exercises"."witnesses")');
+        expect(sql).toContain('order by "exercises"."contract_id" asc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc limit $2) "exercises_limited"');
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 3]);
     });
@@ -437,6 +446,16 @@ describe("PQS query client", () => {
         expect(query.mock.calls[1][0]).toContain('"transaction_id" = any($1)');
         expect(query.mock.calls[1][0]).toContain('order by "ix" desc');
         expect(query.mock.calls[1][1]).toEqual([["a", "b"]]);
+    });
+
+    it("normalizes physical unique reads before executing exactly once", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ id: "package-id" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.packages.findUnique({ where: { id: "package-id" } })).resolves.toEqual({ id: "package-id" });
+        expect(query).toHaveBeenCalledTimes(1);
+        await expect(client.packages.findUnique({ where: { unknown: "x" } } as never)).rejects.toThrow("findUnique.where must contain one declared unique key of packages");
+        expect(query).toHaveBeenCalledTimes(1);
     });
 
     it("supports profile-controlled numeric aggregates", async () => {

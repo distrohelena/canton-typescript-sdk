@@ -130,7 +130,12 @@ export function normalizeAggregate(relation: QueryRelation, args: unknown): Norm
         kind: "aggregate",
         relation,
         predicate: source.where === undefined ? undefined : normalizePredicate(relation, source.where),
-        aggregates: normalizeAggregates(relation, source),
+        aggregates: normalizeAggregates(relation, {
+            count: source.count,
+            min: source.min,
+            max: source.max,
+            sum: source.sum,
+        }),
     };
     });
 }

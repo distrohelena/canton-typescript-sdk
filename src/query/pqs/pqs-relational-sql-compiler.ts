@@ -1,6 +1,6 @@
 import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { pqsRelationEdges } from "./pqs-schema-profile.js";
-import type { NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedSelection } from "../canonical/query-ast.js";
+import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedSelection } from "../canonical/query-ast.js";
 import { compileCanonicalPhysicalIncludes, compileCanonicalPhysicalPredicate } from "./pqs-sql-compiler.js";
 
 export interface CompiledPqsRelationQuery {
@@ -67,12 +67,54 @@ export function compilePqsRelationFindMany(
     };
 }
 
+export function compilePqsRelationCount(
+    relation: PqsRelation,
+    query: NormalizedCountQuery,
+    profile: PqsSchemaProfileV1,
+): CompiledPqsRelationQuery {
+    assertCanonicalPhysicalQuery(relation, query, "count");
+    const values: unknown[] = [];
+    const add = (value: unknown) => {
+        values.push(value);
+        return `$${values.length}`;
+    };
+    const predicate = query.predicate === undefined ? "" : ` where ${compileCanonicalPhysicalPredicate(relation, query.predicate, "", profile, add)}`;
+
+    return { text: `select count(*)::text as count from ${profile.relation(relation)}${predicate}`, values };
+}
+
+export function compilePqsRelationAggregate(
+    relation: PqsRelation,
+    query: NormalizedAggregateQuery,
+    profile: PqsSchemaProfileV1,
+): CompiledPqsRelationQuery {
+    assertCanonicalPhysicalQuery(relation, query, "aggregate");
+    const metadata = pqsRelationMetadata[relation];
+    const values: unknown[] = [];
+    const add = (value: unknown) => {
+        values.push(value);
+        return `$${values.length}`;
+    };
+    const selected: string[] = [];
+    if (query.aggregates.count) selected.push("count(*)::text as count");
+    for (const [operation, fields] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) {
+        for (const name of fields) {
+            if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
+            selected.push(`${operation}("${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
+        }
+    }
+    if (selected.length === 0) throw new Error("aggregate must request at least one result");
+    const predicate = query.predicate === undefined ? "" : ` where ${compileCanonicalPhysicalPredicate(relation, query.predicate, "", profile, add)}`;
+
+    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)}${predicate}`, values };
+}
+
 export function compilePqsRelationGroupBy(
     relation: PqsRelation,
     query: NormalizedGroupByQuery,
     profile: PqsSchemaProfileV1,
-    parameterOffset = 0,
 ): CompiledPqsRelationQuery {
+    assertCanonicalPhysicalQuery(relation, query, "groupBy");
     if (query.by.length === 0 || (!query.aggregates.count && query.aggregates.min.length === 0 && query.aggregates.max.length === 0 && query.aggregates.sum.length === 0)) throw new Error("groupBy requires a key and aggregate");
     const metadata = pqsRelationMetadata[relation];
     const root = relation === "__events" ? "event" : "root";
@@ -80,7 +122,8 @@ export function compilePqsRelationGroupBy(
     const expressions: string[] = [];
     const selected: string[] = [];
     const values: unknown[] = [];
-    const add = (value: unknown) => { values.push(value); return `$${parameterOffset + values.length}`; };
+    const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+    const predicate = query.predicate === undefined ? "" : ` where ${compileCanonicalPhysicalPredicate(relation, query.predicate, `"${root}"`, profile, add)}`;
     for (const key of query.by) {
         if (key.kind === "field") {
             const fieldName = key.path[0];
@@ -123,7 +166,7 @@ export function compilePqsRelationGroupBy(
         if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
         selected.push(`${operation}("${root}"."${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
     }
-    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)} "${root}" ${joins.join(" ")} group by ${expressions.join(", ")}`, values };
+    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)} "${root}"${joins.length === 0 ? "" : ` ${joins.join(" ")}`}${predicate} group by ${expressions.join(", ")}`, values };
 }
 
 function selectedCanonicalFields(relation: PqsRelation, metadata: PqsRelationMetadata, selected: readonly string[] | undefined, allowEmpty = false): readonly (readonly [string, string])[] {
@@ -181,6 +224,17 @@ function field(relation: PqsRelation, metadata: PqsRelationMetadata, name: strin
 function assertCanonicalPhysicalFindMany(relation: PqsRelation, query: NormalizedFindManyQuery): void {
     if (query === null || typeof query !== "object" || query.kind !== "findMany" || !Array.isArray(query.includes) || !Array.isArray(query.orderBy)) {
         throw new Error("compilePqsRelationFindMany requires a canonical findMany query");
+    }
+    if (relationForCanonical(query.relation) !== relation) throw new Error(`Canonical relation ${query.relation} does not match ${relation}`);
+}
+
+function assertCanonicalPhysicalQuery(
+    relation: PqsRelation,
+    query: { readonly kind: string; readonly relation: string },
+    kind: "count" | "aggregate" | "groupBy",
+): void {
+    if (query === null || typeof query !== "object" || query.kind !== kind) {
+        throw new Error(`compilePqsRelation${kind[0].toUpperCase()}${kind.slice(1)} requires a canonical ${kind} query`);
     }
     if (relationForCanonical(query.relation) !== relation) throw new Error(`Canonical relation ${query.relation} does not match ${relation}`);
 }
