@@ -292,19 +292,20 @@ function materializeActiveContractsPage(value: unknown): MaterializedActiveContr
             throw new Error("Active-contracts response is missing activeAtOffset.");
         }
 
-        const activeContracts = materializeIndexedArray(candidate.activeContracts);
+        const activeContracts = materializeIndexedValues(
+            candidate.activeContracts,
+            materializeActiveContractResponse,
+        );
 
         if (activeContracts === undefined) {
             throw new Error("Active-contracts response activeContracts is invalid.");
         }
 
-        const materializedActiveContracts = activeContracts.map(materializeActiveContractResponse);
-
         const nextPageToken = materializePageToken(candidate.nextPageToken);
 
         return {
             activeAtOffset,
-            activeContracts: materializedActiveContracts,
+            activeContracts,
             nextPageToken,
         };
     } catch (error) {
@@ -349,13 +350,11 @@ function materializePageToken(value: unknown): Uint8Array | undefined {
 }
 
 function materializeContractRows(value: unknown): readonly ContractRow[] | undefined {
-    const values = materializeIndexedArray(value);
+    const rows = materializeIndexedValues(value, materializeContractRow);
 
-    if (values === undefined) {
+    if (rows === undefined) {
         return undefined;
     }
-
-    const rows = values.map(materializeContractRow);
 
     return rows.every((row) => row !== undefined) ? rows as readonly ContractRow[] : undefined;
 }
@@ -444,6 +443,13 @@ function materializeStringArray(value: unknown): readonly string[] | undefined {
 }
 
 function materializeIndexedArray(value: unknown): readonly unknown[] | undefined {
+    return materializeIndexedValues(value, (entry) => entry);
+}
+
+function materializeIndexedValues<T>(
+    value: unknown,
+    materialize: (entry: unknown) => T,
+): readonly T[] | undefined {
     if (!Array.isArray(value)) {
         return undefined;
     }
@@ -454,10 +460,10 @@ function materializeIndexedArray(value: unknown): readonly unknown[] | undefined
         return undefined;
     }
 
-    const values: unknown[] = [];
+    const values: T[] = [];
 
     for (let index = 0; index < length; index += 1) {
-        values.push(value[index]);
+        values.push(materialize(value[index]));
     }
 
     return values;

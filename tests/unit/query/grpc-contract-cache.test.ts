@@ -891,6 +891,36 @@ describe("gRPC contract cache", () => {
         });
     });
 
+    it("deep-materializes each ACS response before reading the next array slot", async () => {
+        const first = activeContract("C1");
+
+        const activeContracts = new Array<ReturnType<typeof activeContract>>(2);
+
+        Object.defineProperty(activeContracts, "0", {
+            configurable: true,
+            get: () => first,
+        });
+        Object.defineProperty(activeContracts, "1", {
+            configurable: true,
+            get: () => {
+                first.contractEntry = { oneofKind: undefined };
+
+                return activeContract("C2");
+            },
+        });
+
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({
+            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeContracts, activeAtOffset: "42" }),
+        } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ contractCount: 2 });
+        expect(cacheStore.setAsync.mock.calls[0]?.[1]).toMatchObject({
+            contracts: [expect.objectContaining({ contractId: "C1" }), expect.objectContaining({ contractId: "C2" })],
+        });
+    });
+
     it("returns captured metadata when the cache store mutates its input", async () => {
         const cacheStore: QueryCacheStore = {
             getAsync: async () => undefined,
