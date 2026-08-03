@@ -17,6 +17,12 @@ interface CachedContractSnapshot {
     readonly contracts: readonly ContractRow[];
 }
 
+interface MaterializedActiveContractsPage {
+    readonly activeAtOffset: string;
+    readonly contracts: readonly ContractRow[];
+    readonly nextPageToken: Uint8Array | undefined;
+}
+
 export class GrpcContractCache {
     private readonly inflight = new Map<string, Promise<ContractCacheResult>>();
 
@@ -59,17 +65,15 @@ export class GrpcContractCache {
 
         const cached = await this.store.getAsync<unknown>(cacheKey(this.endpointScope, parties));
 
-        const snapshot = asCompatibleSnapshot(cached, this.endpointScope, parties, this.now());
+        const nowEpochMs = currentEpochMs(this.now);
+
+        const snapshot = asCompatibleSnapshot(cached, this.endpointScope, parties, nowEpochMs);
 
         if (snapshot === undefined) {
             return undefined;
         }
 
-        try {
-            return copyRows(snapshot.contracts);
-        } catch {
-            return undefined;
-        }
+        return snapshot.contracts;
     }
 
     public async invalidateContractsCache(args?: ContractCacheArgs): Promise<void> {
@@ -99,24 +103,24 @@ export class GrpcContractCache {
         let pageToken: Uint8Array | undefined;
 
         do {
-            const response = await this.stateService.getActiveContractsPageAsync(
-                mapGrpcQueryContractsRequest(
-                    parties === undefined
-                        ? { allParties: true, activeAtOffset, pageToken }
-                        : { parties, activeAtOffset, pageToken },
+            const page = materializeActiveContractsPage(
+                await this.stateService.getActiveContractsPageAsync(
+                    mapGrpcQueryContractsRequest(
+                        parties === undefined
+                            ? { allParties: true, activeAtOffset, pageToken }
+                            : { parties, activeAtOffset, pageToken },
+                    ),
                 ),
             );
 
-            if (typeof response.activeAtOffset !== "string" || response.activeAtOffset.trim().length === 0) {
-                throw new Error("Active-contracts response is missing activeAtOffset.");
-            } else if (activeAtOffset === undefined) {
-                activeAtOffset = response.activeAtOffset;
-            } else if (activeAtOffset !== response.activeAtOffset) {
+            if (activeAtOffset === undefined) {
+                activeAtOffset = page.activeAtOffset;
+            } else if (activeAtOffset !== page.activeAtOffset) {
                 throw new Error("Active-contracts response activeAtOffset changed during traversal.");
             }
 
-            contracts.push(...response.activeContracts.map(mapGrpcContract));
-            pageToken = response.nextPageToken;
+            contracts.push(...page.contracts);
+            pageToken = page.nextPageToken;
 
             if (pageToken !== undefined && pageToken.length > 0) {
                 const tokenKey = Array.from(pageToken).join(",");
@@ -131,6 +135,14 @@ export class GrpcContractCache {
 
         const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
+        const result: ContractCacheResult = {
+            source: QuerySource.grpc,
+            cached: true,
+            activeAtOffset: activeAtOffset!,
+            contractCount: contracts.length,
+            expiresAt: new Date(expiresAtEpochMs),
+        };
+
         const snapshot: CachedContractSnapshot = {
             version: 1,
             endpointScope: this.endpointScope,
@@ -142,13 +154,7 @@ export class GrpcContractCache {
 
         await this.store.setAsync(key, snapshot, this.ttlMs);
 
-        return {
-            source: QuerySource.grpc,
-            cached: true,
-            activeAtOffset: snapshot.activeAtOffset,
-            contractCount: snapshot.contracts.length,
-            expiresAt: new Date(expiresAtEpochMs),
-        };
+        return result;
     }
 
     private clearInflight(key: string, promise: Promise<ContractCacheResult>): void {
@@ -160,17 +166,25 @@ export class GrpcContractCache {
 
 export function normalizeParties(args?: ContractCacheArgs): readonly string[] | undefined {
     try {
-        if (args === undefined || args.parties === undefined) {
+        if (args === undefined) {
             return undefined;
         }
 
         const candidate = args.parties;
 
-        if (!Array.isArray(candidate) || candidate.length === 0) {
+        if (candidate === undefined) {
+            return undefined;
+        } else if (!Array.isArray(candidate)) {
             throw new ValidationError("Contract cache parties must contain non-empty strings.");
         }
 
-        const parties = candidate.map((party) => {
+        const values = materializeIndexedArray(candidate);
+
+        if (values === undefined || values.length === 0) {
+            throw new ValidationError("Contract cache parties must contain non-empty strings.");
+        }
+
+        const parties = values.map((party) => {
             if (typeof party !== "string" || party.trim().length === 0) {
                 throw new ValidationError("Contract cache parties must contain non-empty strings.");
             }
@@ -180,7 +194,7 @@ export function normalizeParties(args?: ContractCacheArgs): readonly string[] | 
 
         return Object.freeze([...new Set(parties)].sort());
     } catch (error) {
-        if (error instanceof ValidationError) {
+        if (isValidationError(error)) {
             throw error;
         }
 
@@ -196,35 +210,56 @@ function asCompatibleSnapshot(
     value: unknown,
     endpointScope: string,
     parties: readonly string[] | undefined,
-    now: number,
+    nowEpochMs: number,
 ): CachedContractSnapshot | undefined {
     try {
         if (value === null || typeof value !== "object") {
             return undefined;
         }
 
-        const snapshot = value as Partial<CachedContractSnapshot>;
+        const candidate = value as Partial<CachedContractSnapshot>;
+
+        const version = candidate.version;
+
+        const storedEndpointScope = candidate.endpointScope;
+
+        const rawParties = candidate.parties;
+
+        const storedParties = rawParties === undefined ? undefined : materializeStringArray(rawParties);
+
+        const activeAtOffset = candidate.activeAtOffset;
+
+        const expiresAtEpochMs = candidate.expiresAtEpochMs;
+
+        const contracts = materializeContractRows(candidate.contracts);
 
         if (
-            snapshot.version !== 1
-            || snapshot.endpointScope !== endpointScope
-            || !sameParties(snapshot.parties, parties)
-            || typeof now !== "number"
-            || !Number.isFinite(now)
-            || !Number.isFinite(new Date(now).getTime())
-            || typeof snapshot.activeAtOffset !== "string"
-            || snapshot.activeAtOffset.trim().length === 0
-            || typeof snapshot.expiresAtEpochMs !== "number"
-            || !Number.isFinite(snapshot.expiresAtEpochMs)
-            || !Number.isFinite(new Date(snapshot.expiresAtEpochMs).getTime())
-            || snapshot.expiresAtEpochMs <= now
-            || !Array.isArray(snapshot.contracts)
-            || !snapshot.contracts.every(isActiveContractRow)
+            version !== 1
+            || storedEndpointScope !== endpointScope
+            || (rawParties !== undefined && storedParties === undefined)
+            || !sameParties(storedParties, parties)
+            || typeof nowEpochMs !== "number"
+            || !Number.isFinite(nowEpochMs)
+            || !Number.isFinite(new Date(nowEpochMs).getTime())
+            || typeof activeAtOffset !== "string"
+            || activeAtOffset.trim().length === 0
+            || typeof expiresAtEpochMs !== "number"
+            || !Number.isFinite(expiresAtEpochMs)
+            || !Number.isFinite(new Date(expiresAtEpochMs).getTime())
+            || expiresAtEpochMs <= nowEpochMs
+            || contracts === undefined
         ) {
             return undefined;
         }
 
-        return snapshot as CachedContractSnapshot;
+        return {
+            version,
+            endpointScope: storedEndpointScope,
+            parties: storedParties,
+            activeAtOffset,
+            expiresAtEpochMs,
+            contracts,
+        };
     } catch {
         return undefined;
     }
@@ -239,62 +274,44 @@ function sameParties(left: readonly string[] | undefined, right: readonly string
             && left.every((party, index) => typeof party === "string" && party === right[index]);
 }
 
-function isActiveContractRow(value: unknown): value is ContractRow {
+function mapGrpcContract(value: unknown): ContractRow {
     if (value === null || typeof value !== "object") {
-        return false;
+        throw new Error("Active-contracts response contains an invalid contract entry.");
     }
 
-    const row = value as Partial<ContractRow>;
+    const entry = (value as { contractEntry?: unknown }).contractEntry;
 
-    return typeof row.contractId === "string"
-        && row.templateId !== null
-        && typeof row.templateId === "object"
-        && typeof row.templateId.packageId === "string"
-        && typeof row.templateId.moduleName === "string"
-        && typeof row.templateId.entityName === "string"
-        && (typeof row.packageId === "string" || row.packageId === null)
-        && Array.isArray(row.witnesses)
-        && row.witnesses.every((witness) => typeof witness === "string")
-        && typeof row.createdEventOffset === "string"
-        && (row.createdAt === null || isValidDate(row.createdAt))
-        && row.archivedEventOffset === null
-        && row.archivedAt === null
-        && row.active === true;
-}
-
-function isValidDate(value: unknown): value is Date {
-    return value instanceof Date && Number.isFinite(value.getTime());
-}
-
-function mapGrpcContract(value: unknown): ContractRow {
-    const entry = value as { contractEntry?: { oneofKind?: string; activeContract?: unknown } };
-
-    if (entry.contractEntry?.oneofKind !== "activeContract") {
+    if (entry === null || typeof entry !== "object") {
         throw new Error("Active-contracts response contains a non-active contract entry.");
     }
 
-    const contract = entry.contractEntry.activeContract as {
-        contractId?: unknown;
-        templateId?: { packageId?: unknown; moduleName?: unknown; entityName?: unknown };
-        payload?: unknown;
-    } | undefined;
+    const oneofKind = (entry as { oneofKind?: unknown }).oneofKind;
 
-    const template = contract?.templateId;
+    const activeContract = (entry as { activeContract?: unknown }).activeContract;
 
-    if (
-        typeof contract?.contractId !== "string"
-        || typeof template?.packageId !== "string"
-        || typeof template.moduleName !== "string"
-        || typeof template.entityName !== "string"
-    ) {
+    if (oneofKind !== "activeContract") {
+        throw new Error("Active-contracts response contains a non-active contract entry.");
+    } else if (activeContract === null || typeof activeContract !== "object") {
+        throw new Error("Active-contracts response contains an invalid contract.");
+    }
+
+    const contract = activeContract as { contractId?: unknown; templateId?: unknown; payload?: unknown };
+
+    const contractId = contract.contractId;
+
+    const template = materializeTemplateId(contract.templateId);
+
+    const payload = copyValue(contract.payload);
+
+    if (typeof contractId !== "string" || template === undefined) {
         throw new Error("Active-contracts response contains an invalid contract.");
     }
 
     return {
-        contractId: contract.contractId,
-        templateId: { packageId: template.packageId, moduleName: template.moduleName, entityName: template.entityName },
+        contractId,
+        templateId: template,
         packageId: null,
-        payload: copyValue(contract.payload),
+        payload,
         witnesses: [],
         createdEventOffset: "",
         createdAt: null,
@@ -302,6 +319,193 @@ function mapGrpcContract(value: unknown): ContractRow {
         archivedAt: null,
         active: true,
     };
+}
+
+function materializeActiveContractsPage(value: unknown): MaterializedActiveContractsPage {
+    try {
+        if (value === null || typeof value !== "object") {
+            throw new Error("Active-contracts response is invalid.");
+        }
+
+        const candidate = value as { activeAtOffset?: unknown; activeContracts?: unknown; nextPageToken?: unknown };
+
+        const activeAtOffset = candidate.activeAtOffset;
+
+        if (typeof activeAtOffset !== "string" || activeAtOffset.trim().length === 0) {
+            throw new Error("Active-contracts response is missing activeAtOffset.");
+        }
+
+        const activeContracts = materializeIndexedArray(candidate.activeContracts);
+
+        if (activeContracts === undefined) {
+            throw new Error("Active-contracts response activeContracts is invalid.");
+        }
+
+        const contracts = activeContracts.map(mapGrpcContract);
+
+        const nextPageToken = materializePageToken(candidate.nextPageToken);
+
+        return {
+            activeAtOffset,
+            contracts,
+            nextPageToken,
+        };
+    } catch (error) {
+        if (isError(error)) {
+            throw error;
+        }
+
+        throw new Error("Active-contracts response is invalid.");
+    }
+}
+
+function materializePageToken(value: unknown): Uint8Array | undefined {
+    if (value === undefined) {
+        return undefined;
+    } else if (!isUint8Array(value)) {
+        throw new Error("Active-contracts response nextPageToken is invalid.");
+    }
+
+    const length = value.length;
+
+    if (!Number.isSafeInteger(length) || length < 0) {
+        throw new Error("Active-contracts response nextPageToken is invalid.");
+    }
+
+    const token = new Uint8Array(length);
+
+    for (let index = 0; index < length; index += 1) {
+        token[index] = value[index]!;
+    }
+
+    return token;
+}
+
+function materializeContractRows(value: unknown): readonly ContractRow[] | undefined {
+    const values = materializeIndexedArray(value);
+
+    if (values === undefined) {
+        return undefined;
+    }
+
+    const rows = values.map(materializeContractRow);
+
+    return rows.every((row) => row !== undefined) ? rows as readonly ContractRow[] : undefined;
+}
+
+function materializeContractRow(value: unknown): ContractRow | undefined {
+    if (value === null || typeof value !== "object") {
+        return undefined;
+    }
+
+    const candidate = value as Partial<ContractRow>;
+
+    const contractId = candidate.contractId;
+
+    const templateId = materializeTemplateId(candidate.templateId);
+
+    const packageId = candidate.packageId;
+
+    const payload = copyValue(candidate.payload);
+
+    const witnesses = materializeStringArray(candidate.witnesses);
+
+    const createdEventOffset = candidate.createdEventOffset;
+
+    const createdAt = materializeOptionalDate(candidate.createdAt);
+
+    const archivedEventOffset = candidate.archivedEventOffset;
+
+    const archivedAt = candidate.archivedAt;
+
+    const active = candidate.active;
+
+    if (
+        typeof contractId !== "string"
+        || templateId === undefined
+        || (typeof packageId !== "string" && packageId !== null)
+        || witnesses === undefined
+        || typeof createdEventOffset !== "string"
+        || createdAt === undefined
+        || archivedEventOffset !== null
+        || archivedAt !== null
+        || active !== true
+    ) {
+        return undefined;
+    }
+
+    return {
+        contractId,
+        templateId,
+        packageId,
+        payload,
+        witnesses,
+        createdEventOffset,
+        createdAt,
+        archivedEventOffset,
+        archivedAt,
+        active,
+    };
+}
+
+function materializeTemplateId(value: unknown): ContractRow["templateId"] | undefined {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        return undefined;
+    }
+
+    const candidate = value as { packageId?: unknown; moduleName?: unknown; entityName?: unknown };
+
+    const packageId = candidate.packageId;
+
+    const moduleName = candidate.moduleName;
+
+    const entityName = candidate.entityName;
+
+    return typeof packageId === "string" && typeof moduleName === "string" && typeof entityName === "string"
+        ? { packageId, moduleName, entityName }
+        : undefined;
+}
+
+function materializeStringArray(value: unknown): readonly string[] | undefined {
+    const values = materializeIndexedArray(value);
+
+    if (values === undefined) {
+        return undefined;
+    }
+
+    return values.every((entry) => typeof entry === "string") ? values as readonly string[] : undefined;
+}
+
+function materializeIndexedArray(value: unknown): readonly unknown[] | undefined {
+    if (!Array.isArray(value)) {
+        return undefined;
+    }
+
+    const length = value.length;
+
+    if (!Number.isSafeInteger(length) || length < 0) {
+        return undefined;
+    }
+
+    const values: unknown[] = [];
+
+    for (let index = 0; index < length; index += 1) {
+        values.push(value[index]);
+    }
+
+    return values;
+}
+
+function materializeOptionalDate(value: unknown): Date | null | undefined {
+    if (value === null) {
+        return null;
+    } else if (!isDate(value)) {
+        return undefined;
+    }
+
+    const epochMs = value.getTime();
+
+    return Number.isFinite(epochMs) ? new Date(epochMs) : undefined;
 }
 
 function copyRows(rows: readonly ContractRow[]): readonly ContractRow[] {
@@ -320,12 +524,52 @@ function copyValue(value: unknown): unknown {
         return value;
     }
 
-    return structuredClone(value);
+    const copy = structuredClone(value);
+
+    if (containsSharedMemory(copy, new Set())) {
+        throw new Error("Contract payload must not contain shared memory.");
+    }
+
+    return copy;
+}
+
+function containsSharedMemory(value: unknown, seen: Set<object>): boolean {
+    if (value === null || typeof value !== "object") {
+        return false;
+    } else if (isSharedArrayBuffer(value)) {
+        return true;
+    } else if (seen.has(value)) {
+        return false;
+    }
+
+    seen.add(value);
+
+    if (ArrayBuffer.isView(value)) {
+        return isSharedArrayBuffer(value.buffer);
+    } else if (isMap(value)) {
+        for (const [key, entry] of value) {
+            if (containsSharedMemory(key, seen) || containsSharedMemory(entry, seen)) {
+                return true;
+            }
+        }
+
+        return false;
+    } else if (isSet(value)) {
+        for (const entry of value) {
+            if (containsSharedMemory(entry, seen)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    return Reflect.ownKeys(value).some((key) => containsSharedMemory(Reflect.get(value, key), seen));
 }
 
 function effectiveExpiryEpochMs(now: () => number, ttlMs: number): number {
     try {
-        const nowEpochMs = now();
+        const nowEpochMs = currentEpochMs(now);
 
         const expiresAtEpochMs = nowEpochMs + ttlMs;
 
@@ -340,10 +584,88 @@ function effectiveExpiryEpochMs(now: () => number, ttlMs: number): number {
 
         return expiresAtEpochMs;
     } catch (error) {
-        if (error instanceof ValidationError) {
+        if (isValidationError(error)) {
             throw error;
         }
 
         throw new ValidationError("Contract cache expiry must be a finite valid date.");
+    }
+}
+
+function currentEpochMs(now: () => number): number {
+    try {
+        const nowEpochMs = now();
+
+        if (
+            typeof nowEpochMs !== "number"
+            || !Number.isFinite(nowEpochMs)
+            || !Number.isFinite(new Date(nowEpochMs).getTime())
+        ) {
+            throw new ValidationError("Contract cache clock must return a finite valid date.");
+        }
+
+        return nowEpochMs;
+    } catch (error) {
+        if (isValidationError(error)) {
+            throw error;
+        }
+
+        throw new ValidationError("Contract cache clock must return a finite valid date.");
+    }
+}
+
+function isValidationError(value: unknown): value is ValidationError {
+    try {
+        return value instanceof ValidationError;
+    } catch {
+        return false;
+    }
+}
+
+function isError(value: unknown): value is Error {
+    try {
+        return value instanceof Error;
+    } catch {
+        return false;
+    }
+}
+
+function isUint8Array(value: unknown): value is Uint8Array {
+    try {
+        return value instanceof Uint8Array;
+    } catch {
+        return false;
+    }
+}
+
+function isDate(value: unknown): value is Date {
+    try {
+        return value instanceof Date;
+    } catch {
+        return false;
+    }
+}
+
+function isSharedArrayBuffer(value: unknown): value is SharedArrayBuffer {
+    try {
+        return typeof SharedArrayBuffer !== "undefined" && value instanceof SharedArrayBuffer;
+    } catch {
+        return false;
+    }
+}
+
+function isMap(value: unknown): value is Map<unknown, unknown> {
+    try {
+        return value instanceof Map;
+    } catch {
+        return false;
+    }
+}
+
+function isSet(value: unknown): value is Set<unknown> {
+    try {
+        return value instanceof Set;
+    } catch {
+        return false;
     }
 }
