@@ -690,8 +690,11 @@ an all-hosted-party active-contract snapshot.
 ```ts
 import {
     CantonManager,
+    CreateCommand,
+    DamlRecord,
     MemoryQueryCache,
     QuerySource,
+    SubmitCommandsRequest,
     TransportKind,
 } from "@distrohelena/canton-typescript-sdk";
 
@@ -709,9 +712,24 @@ const contracts = await manager.query.contracts.findMany({
 
 // A SubmitCommandsRequest contains a non-empty ordered atomic command batch:
 // all commands commit together, or none of them do.
-await manager.grpc.commandService.submitAndWaitAsync(/* existing command request */);
+await manager.grpc.commandService.submitAndWaitAsync(
+    new SubmitCommandsRequest({
+        applicationId: "example-app",
+        actAs: ["Alice"],
+        commands: [
+            new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Message" },
+                createArguments: new DamlRecord({ author: "Alice", body: "Hello" }),
+            }),
+        ],
+    }),
+);
 await manager.disposeAsync();
 ```
+
+To migrate a prior singleton submission, pass `commands: [previousCommand]`.
+There is no compatibility alias; put multiple independent commands in that
+array in their required atomic order.
 
 With `QuerySource.grpc`, omit `pqs`; contract queries fetch the participant's
 active-contract snapshot using the Ledger API wildcard for all hosted parties.

@@ -48,7 +48,7 @@ import {
     ListKnownPartiesRequest,
     ListVettedPackagesRequest,
     ParticipantListPackagesRequest,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     TemplateId,
     TransportKind,
     UploadDarFileRequest,
@@ -1381,7 +1381,7 @@ Detached-signature assembly notes:
 
 ### `commandService.submitAndWaitAsync(request)`
 
-Submits a command and waits for the result.
+Submits one non-empty ordered atomic command batch and waits for its result.
 
 Transport support:
 
@@ -1390,7 +1390,7 @@ Transport support:
 
 Parameters:
 
-- `request: SubmitCommandRequest`
+- `request: SubmitCommandsRequest`
 
 Request fields:
 
@@ -1398,7 +1398,11 @@ Request fields:
 - `userId?: string`
 - `actAs: readonly string[]`
 - `readAs: readonly string[]`
-- `command: LedgerCommand`
+- `commands: NonEmptyLedgerCommands`
+- `commandId?: string`
+- `deduplicationPeriod?: CommandDeduplicationPeriod`
+- `disclosedContracts?: readonly DisclosedContract[]`
+- `synchronizerId?: string`
 
 Supported command types:
 
@@ -1423,6 +1427,9 @@ Useful response fields:
 Notes:
 
 - `actAs` must contain at least one party
+- `commands` is a non-empty ordered atomic command batch: commands are
+  interpreted in array order, and all commands commit together, or none of
+  them do
 - when unsigned, `grpc` uses `CommandService.SubmitAndWait`
 - when `commandSigner` is configured, `grpc` uses Ledger API interactive submission under the hood
 - current gRPC external signing limitation: exactly one `actAs` party
@@ -1434,34 +1441,59 @@ Example:
 
 ```ts
 const response = await client.commandService.submitAndWaitAsync(
-    new SubmitCommandRequest({
+    new SubmitCommandsRequest({
         applicationId: "app-1",
         userId: "wallet-user",
         actAs: ["Alice"],
         readAs: ["Bob"],
-        command: new CreateCommand({
-            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
-            createArguments: new DamlRecord({
-                issuer: "Alice",
-                owner: "Bob",
+        commands: [
+            new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({
+                    issuer: "Alice",
+                    owner: "Bob",
+                }),
             }),
-        }),
+        ],
     }),
 );
 
 await client.commandService.submitAndWaitAsync(
-    new SubmitCommandRequest({
+    new SubmitCommandsRequest({
         applicationId: "app-1",
         actAs: ["Alice"],
-        command: new ExerciseCommand({
-            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
-            contractId: "00abc",
-            choice: "Archive",
-            choiceArgument: {},
-        }),
+        commands: [
+            new CreateCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                createArguments: new DamlRecord({
+                    issuer: "Alice",
+                    owner: "Bob",
+                }),
+            }),
+            new ExerciseCommand({
+                templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                contractId: "00abc",
+                choice: "Archive",
+                choiceArgument: {},
+            }),
+        ],
     }),
 );
 ```
+
+### Migrating a singleton request
+
+Wrap the previously submitted command in a one-element `commands` array:
+
+```ts
+new SubmitCommandsRequest({
+    ...envelope,
+    commands: [previousCommand],
+});
+```
+
+No compatibility alias exists. For an atomic sequence, put every independent
+command in `commands` in the order Canton must interpret them.
 
 ### `commandSubmissionService.submitAsync(request)`
 

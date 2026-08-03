@@ -204,11 +204,39 @@ describe("SubmitCommandsRequest public surface", () => {
         )).toContain("request.command");
     });
 
+    it("documents singleton and ordered atomic command batches without a compatibility alias", () => {
+        const documentation = readFileSync(
+            new URL("../../../DOCUMENTATION.md", import.meta.url),
+            "utf8",
+        );
+
+        expect(documentation).toContain("    SubmitCommandsRequest,");
+        expect(documentation).toContain("new SubmitCommandsRequest({");
+        expect(documentation).toMatch(
+            /commands: \[\s*new CreateCommand\(/,
+        );
+        expect(documentation).toMatch(
+            /commands: \[\s*new CreateCommand\([\s\S]*?new ExerciseCommand\(/,
+        );
+        expect(documentation).toContain("non-empty ordered atomic command batch");
+        expect(documentation).toMatch(
+            /all commands commit together, or none of\s+them do/,
+        );
+        expect(documentation).toContain("### Migrating a singleton request");
+        expect(documentation).toContain("commands: [previousCommand],");
+        expect(documentation).toContain("No compatibility alias exists.");
+        expect(documentation).toContain("Promise<SubmitCommandResponse>");
+        expect(documentation).not.toContain(removedRequestName);
+        expect(documentation).not.toContain(removedModuleName);
+    });
+
     it("has no removed request surface in handwritten sources", () => {
-        const files = collectHandwrittenSourceFiles([
+        const files = collectHandwrittenSurfaceFiles([
             "src",
             "examples",
             "tests",
+            "README.md",
+            "DOCUMENTATION.md",
         ]);
 
         const usages = files.flatMap(file =>
@@ -221,27 +249,33 @@ describe("SubmitCommandsRequest public surface", () => {
     });
 });
 
-function collectHandwrittenSourceFiles(directories: readonly string[]): string[] {
+function collectHandwrittenSurfaceFiles(paths: readonly string[]): string[] {
     const files: string[] = [];
 
-    const collect = (directory: string): void => {
-        for (const entry of readdirSync(directory, { withFileTypes: true })) {
-            const path = join(directory, entry.name);
+    const collect = (path: string): void => {
+        const entries = readdirSync(path, { withFileTypes: true });
+
+        for (const entry of entries) {
+            const entryPath = join(path, entry.name);
 
             if (entry.isDirectory()) {
-                if (path.includes(`${join("src", "transports", "grpc", "generated")}/`)) {
+                if (entryPath.includes(`${join("src", "transports", "grpc", "generated")}/`)) {
                     continue;
                 }
 
-                collect(path);
+                collect(entryPath);
             } else if (entry.isFile() && /\.tsx?$/.test(entry.name)) {
-                files.push(path);
+                files.push(entryPath);
             }
         }
     };
 
-    for (const directory of directories) {
-        collect(directory);
+    for (const path of paths) {
+        if (/\.md$/.test(path)) {
+            files.push(path);
+        } else {
+            collect(path);
+        }
     }
 
     return files;
