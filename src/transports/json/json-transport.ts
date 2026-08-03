@@ -5,7 +5,7 @@ import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-pa
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
 import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
 import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
-import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../core/types/requests/submit-commands-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
 import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
@@ -195,7 +195,7 @@ import { ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import {
     mapJsonSubmitCommand,
-    mapJsonSubmitCommandRequest,
+    mapJsonSubmitCommandsRequest,
 } from "./mappers/commands-mapper.js";
 import type {
     ListKnownPackagesRequest,
@@ -1373,7 +1373,7 @@ export class JsonTransport implements ITransport {
     }
 
     public async submitCommandAsync(
-        request: SubmitCommandRequest,
+        request: SubmitCommandsRequest,
         signer?: ICommandSigner,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
@@ -1387,7 +1387,7 @@ export class JsonTransport implements ITransport {
 
         const payload = await this.httpClient.postAsync(
             "/v2/commands/submit-and-wait",
-            mapJsonSubmitCommandRequest(request),
+            mapJsonSubmitCommandsRequest(request),
             options,
         );
 
@@ -1414,3 +1414,4 @@ export class JsonTransport implements ITransport {
         }
     }
 }
+

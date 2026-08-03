@@ -22,7 +22,7 @@ import { ListKnownPartiesRequest } from "../core/types/requests/list-known-parti
 import { ListPartyToParticipantRequest } from "../core/types/requests/list-party-to-participant-request.js";
 import { ListUserRightsRequest } from "../core/types/requests/list-user-rights-request.js";
 import { ListUsersRequest } from "../core/types/requests/list-users-request.js";
-import { SubmitCommandRequest } from "../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../core/types/requests/submit-commands-request.js";
 import { ICommandSigner } from "../core/signing/command-signer.interface.js";
 import { AllocatePartyResponse } from "../core/types/responses/allocate-party-response.js";
 import { GetUserResponse } from "../core/types/responses/get-user-response.js";
@@ -1189,7 +1189,7 @@ class PlaceholderTransport implements ITransport {
     }
 
     public async submitCommandAsync(
-        _request: SubmitCommandRequest,
+        _request: SubmitCommandsRequest,
         _signer?: ICommandSigner,
         _options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
@@ -2367,3 +2367,4 @@ export function createServiceRegistry(
         contractService: new ContractServiceClient(contractTransport),
     };
 }
+

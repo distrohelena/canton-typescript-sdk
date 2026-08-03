@@ -1,6 +1,6 @@
 import { ValidationError } from "../../../core/errors/validation-error.js";
 import { SignCommandResult } from "../../../core/signing/sign-command-result.js";
-import { SubmitCommandRequest } from "../../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../../core/types/requests/submit-commands-request.js";
 import { SubmitCommandResponse } from "../../../core/types/responses/submit-command-response.js";
 import {
     Signature,
@@ -18,7 +18,7 @@ import { mapGrpcDeduplicationPeriod } from "./command-deduplication-mapper.js";
 import { mapGrpcLedgerCommand } from "./commands-mapper.js";
 
 export function mapGrpcPrepareSubmissionRequest(
-    request: SubmitCommandRequest,
+    request: SubmitCommandsRequest,
     commandId: string,
 ): PrepareSubmissionRequest {
     mapGrpcDeduplicationPeriod(request.deduplicationPeriod, {
@@ -28,7 +28,7 @@ export function mapGrpcPrepareSubmissionRequest(
     return {
         userId: request.userId ?? "",
         commandId,
-        commands: [mapGrpcLedgerCommand(request.command)],
+        commands: request.commands.map(mapGrpcLedgerCommand),
         actAs: [...request.actAs],
         readAs: [...request.readAs],
         disclosedContracts: request.disclosedContracts.map(value => ({ createdEventBlob: value.createdEventBlob, contractId: value.contractId ?? "", synchronizerId: value.synchronizerId ?? "", templateId: value.templateId === undefined ? undefined : { packageId: value.templateId.packageId, moduleName: value.templateId.moduleName, entityName: value.templateId.entityName } })),
@@ -40,7 +40,7 @@ export function mapGrpcPrepareSubmissionRequest(
 }
 
 export function mapGrpcExecuteSubmissionAndWaitRequest(init: {
-    request: SubmitCommandRequest;
+    request: SubmitCommandsRequest;
     preparedTransaction: PreparedTransaction;
     hashingSchemeVersion: HashingSchemeVersion;
     submissionId: string;

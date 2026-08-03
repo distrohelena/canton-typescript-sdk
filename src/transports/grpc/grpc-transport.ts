@@ -8,7 +8,7 @@ import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-pa
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
 import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
 import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
-import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../core/types/requests/submit-commands-request.js";
 import { CommandSigners, ICommandSigner } from "../../core/signing/command-signer.interface.js";
 import { SignCommandRequest } from "../../core/signing/sign-command-request.js";
 import { SignCommandResult } from "../../core/signing/sign-command-result.js";
@@ -31,9 +31,9 @@ import {
 } from "./grpc-channel-factory.js";
 import {
     mapGrpcSubmitCommand,
-    mapGrpcSubmitCommandForTransactionRequest,
+    mapGrpcSubmitCommandsForTransactionRequest,
     mapGrpcSubmitCommandTransaction,
-    mapGrpcSubmitCommandRequest,
+    mapGrpcSubmitCommandsRequest,
 } from "./mappers/commands-mapper.js";
 import {
     mapGrpcExecuteSubmissionAndWaitRequest,
@@ -1521,7 +1521,7 @@ export class GrpcTransport implements ITransport {
     }
 
     public async submitCommandAsync(
-        request: SubmitCommandRequest,
+        request: SubmitCommandsRequest,
         signer?: ICommandSigner | CommandSigners,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse> {
@@ -1529,7 +1529,7 @@ export class GrpcTransport implements ITransport {
 
         if (!signer) {
             const payload = await this.operations.submitCommandAsync(
-                mapGrpcSubmitCommandRequest(request),
+                mapGrpcSubmitCommandsRequest(request),
                 options,
             );
 
@@ -1601,17 +1601,17 @@ export class GrpcTransport implements ITransport {
         );
     }
 
-    public async submitCommandForTransactionAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<import("../../core/types/responses/submit-command-transaction-response.js").SubmitCommandTransactionResponse> {
+    public async submitCommandForTransactionAsync(request: SubmitCommandsRequest, options?: RequestOptions): Promise<import("../../core/types/responses/submit-command-transaction-response.js").SubmitCommandTransactionResponse> {
         this.throwIfDisposed();
 
         if (!this.operations.submitCommandForTransactionAsync) {
             throw new NotSupportedError("transaction-returning command submission is not available on this transport");
         }
 
-        return mapGrpcSubmitCommandTransaction(await this.operations.submitCommandForTransactionAsync(mapGrpcSubmitCommandForTransactionRequest(request), options) as never);
+        return mapGrpcSubmitCommandTransaction(await this.operations.submitCommandForTransactionAsync(mapGrpcSubmitCommandsForTransactionRequest(request), options) as never);
     }
 
-    public async prepareCommandAsync(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission> {
+    public async prepareCommandAsync(request: SubmitCommandsRequest, options?: RequestOptions): Promise<PreparedCommandSubmission> {
         if (!this.operations.prepareSubmissionAsync) {
             throw new NotSupportedError("interactive gRPC command signing is not available on this transport");
         }

@@ -4,7 +4,7 @@ import {
     DamlRecord,
     ExerciseCommand,
     SignCommandResult,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     PreparedCommandSubmission,
     ValidationError,
 } from "../../../src";
@@ -127,16 +127,16 @@ describe("GrpcTransport live ledger shapes", () => {
         )) { /* exhaust */ }
 
         const result = await transport.submitCommandAsync(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                command: new ExerciseCommand({
+                commands: [new ExerciseCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     contractId: "00abc",
                     choice: "Archive",
                 choiceArgument: {},
-                }),
+                })],
             }),
         );
 
@@ -237,14 +237,14 @@ describe("GrpcTransport live ledger shapes", () => {
         );
 
         const result = await transport.submitCommandAsync(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 userId: "wallet-user",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord({ issuer: "Alice" }),
-                }),
+                })],
             }),
             {
                 signAsync: async request => {
@@ -283,15 +283,15 @@ describe("GrpcTransport live ledger shapes", () => {
 
         let capturedExecute: unknown;
 
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             commandId: "retry-command-1",
             deduplicationPeriod: { kind: "duration", seconds: 30 },
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
         const transport = new GrpcTransport(createFakeGrpcOperations({
@@ -338,9 +338,23 @@ describe("GrpcTransport live ledger shapes", () => {
             },
         }));
 
-        const prepared = await transport.prepareCommandAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", commandId: "retry-command-2", deduplicationPeriod: { kind: "offset", offset: "1" }, command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }));
+        const create = new CreateCommand({
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+            createArguments: new DamlRecord({}),
+        });
+
+        const exercise = new ExerciseCommand({
+            templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+            contractId: "00abc",
+            choice: "Deposit",
+            choiceArgument: {},
+        });
+
+        const prepared = await transport.prepareCommandAsync(new SubmitCommandsRequest({ applicationId: "app", actAs: ["Alice", "Bob"], readAs: ["Observer"], synchronizerId: "sync", commandId: "retry-command-2", deduplicationPeriod: { kind: "offset", offset: "1" }, commands: [create, exercise] }));
 
         expect(prepared.transactionHash).toEqual(new Uint8Array([7, 8]));
+        expect(prepared.request.commands[0]).toBe(create);
+        expect(prepared.request.commands[1]).toBe(exercise);
         expect(prepare).toMatchObject({ commandId: "retry-command-2" });
         await transport.executePreparedCommandAndWaitAsync(prepared, {
             Alice: new SignCommandResult({ algorithm: "ed25519", signature: new Uint8Array([1]), signedBy: "alice-key" }),
@@ -357,14 +371,14 @@ describe("GrpcTransport live ledger shapes", () => {
 
         let executeCalls = 0;
 
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             deduplicationPeriod: { kind: "offset", offset: "0" },
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
         const transport = new GrpcTransport(createFakeGrpcOperations({
@@ -398,6 +412,6 @@ describe("GrpcTransport live ledger shapes", () => {
             submitCommandForTransactionAsync: async () => ({ transaction: { updateId: "tx-events", events: [{ created: { contractId: "cid" } }] } }),
         }));
 
-        await expect(transport.submitCommandForTransactionAsync(new SubmitCommandRequest({ applicationId: "app", actAs: ["Alice"], command: new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) }) }))).resolves.toMatchObject({ transactionId: "tx-events", events: [{ created: { contractId: "cid" } }] });
+        await expect(transport.submitCommandForTransactionAsync(new SubmitCommandsRequest({ applicationId: "app", actAs: ["Alice"], commands: [new CreateCommand({ templateId: { packageId: "", moduleName: "Main", entityName: "Iou" }, createArguments: new DamlRecord({}) })] }))).resolves.toMatchObject({ transactionId: "tx-events", events: [{ created: { contractId: "cid" } }] });
     });
 });

@@ -1,7 +1,7 @@
 import { CreateCommand } from "../../core/types/commands/create-command.js";
 import { ExerciseCommand } from "../../core/types/commands/exercise-command.js";
 import { DamlRecord } from "../../core/types/daml-values.js";
-import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../core/types/requests/submit-commands-request.js";
 import { DeclarativeAction } from "../daml/daml-action-arbitrary.js";
 import { DeclarativeChoiceAction } from "../daml/daml-choice-action-arbitrary.js";
 import { TestingConfigurationError } from "../errors/testing-configuration-error.js";
@@ -34,11 +34,11 @@ export async function executeDeclarativeActionAsync(init: {
 
     return toCampaignMetricOutcome(await init.runtime.submitAndWaitAsync(
         init.action.actor,
-        new SubmitCommandRequest({
+        new SubmitCommandsRequest({
             applicationId: init.applicationId,
             actAs: route.actAs,
             readAs: route.readAs,
-            command,
+            commands: [command],
         }),
     ));
 }

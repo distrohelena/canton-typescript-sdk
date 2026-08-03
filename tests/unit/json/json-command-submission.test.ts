@@ -7,29 +7,34 @@ import {
     DamlParty,
     ExerciseByKeyCommand,
     ExerciseCommand,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import {
     mapJsonSubmitCommand,
-    mapJsonSubmitCommandRequest,
+    mapJsonSubmitCommandsRequest,
 } from "../../../src/transports/json/mappers/commands-mapper.js";
 import { TransportError } from "../../../src/core/errors/transport-error.js";
 import { JsonTransport } from "../../../src/transports/json/json-transport.js";
 
 describe("json command submission mapper", () => {
-    it("maps create commands to the V2 JsCommands payload", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+    it("maps ordered create and exercise commands to the V2 JsCommands payload", () => {
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                command: new CreateCommand({
-                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
-                    createArguments: new DamlRecord({
-                        issuer: "Alice",
-                        owner: "Bob",
+                commands: [
+                    new CreateCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice", owner: "Bob" }),
                     }),
-                }),
+                    new ExerciseCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
+                        contractId: "00abc",
+                        choice: "Deposit",
+                        choiceArgument: {},
+                    }),
+                ],
             }),
         );
 
@@ -47,20 +52,28 @@ describe("json command submission mapper", () => {
                         },
                     },
                 },
+                {
+                    ExerciseCommand: {
+                        templateId: "Main:Vault",
+                        contractId: "00abc",
+                        choice: "Deposit",
+                        choiceArgument: {},
+                    },
+                },
             ],
         });
     });
 
     it("preserves explicit command IDs", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 commandId: "retry-command-1",
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord({}),
-                }),
+                })],
             }),
         );
 
@@ -68,14 +81,14 @@ describe("json command submission mapper", () => {
     });
 
     it("generates a nonempty command ID when none is provided", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord({}),
-                }),
+                })],
             }),
         );
 
@@ -88,18 +101,18 @@ describe("json command submission mapper", () => {
         { kind: "duration" as const, seconds: 30 },
         { kind: "offset" as const, offset: "10" },
     ])("rejects unsupported command deduplication periods: %o", deduplicationPeriod => {
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             deduplicationPeriod,
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
-        expect(() => mapJsonSubmitCommandRequest(request)).toThrow(TransportError);
-        expect(() => mapJsonSubmitCommandRequest(request)).toThrow(
+        expect(() => mapJsonSubmitCommandsRequest(request)).toThrow(TransportError);
+        expect(() => mapJsonSubmitCommandsRequest(request)).toThrow(
             "command deduplication periods are not supported by the JSON transport",
         );
     });
@@ -117,18 +130,18 @@ describe("json command submission mapper", () => {
         });
 
         const submission = transport.submitCommandAsync(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 deduplicationPeriod: { kind: "duration", seconds: 30 },
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: {
                         packageId: "",
                         moduleName: "Main",
                         entityName: "Iou",
                     },
                     createArguments: new DamlRecord({}),
-                }),
+                })],
             }),
         );
 
@@ -140,17 +153,17 @@ describe("json command submission mapper", () => {
     });
 
     it("unwraps explicit DAML party and numeric values for JSON commands", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord({
                         issuer: new DamlParty("Alice"),
                         amount: new DamlNumeric("10.50"),
                     }),
-                }),
+                })],
             }),
         );
 
@@ -163,18 +176,18 @@ describe("json command submission mapper", () => {
     });
 
     it("formats package-qualified template IDs only at the JSON boundary", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: {
                         packageId: "pkg-id",
                         moduleName: "Main",
                         entityName: "Iou",
                     },
                     createArguments: new DamlRecord({}),
-                }),
+                })],
             }),
         );
 
@@ -187,18 +200,18 @@ describe("json command submission mapper", () => {
     });
 
     it("maps exercise commands to the V2 JsCommands payload", () => {
-        const payload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const payload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new ExerciseCommand({
+                commands: [new ExerciseCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractId: "00abc",
                     choice: "Deposit",
                     choiceArgument: {
                         amount: "10.0",
                     },
-                }),
+                })],
             }),
         );
 
@@ -215,11 +228,11 @@ describe("json command submission mapper", () => {
     });
 
     it("maps exercise-by-key and create-and-exercise commands", () => {
-        const byKeyPayload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const byKeyPayload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new ExerciseByKeyCommand({
+                commands: [new ExerciseByKeyCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
                     contractKey: {
                         owner: "Alice",
@@ -229,15 +242,15 @@ describe("json command submission mapper", () => {
                     choiceArgument: {
                         amount: "5.0",
                     },
-                }),
+                })],
             }),
         );
 
-        const createAndExercisePayload = mapJsonSubmitCommandRequest(
-            new SubmitCommandRequest({
+        const createAndExercisePayload = mapJsonSubmitCommandsRequest(
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateAndExerciseCommand({
+                commands: [new CreateAndExerciseCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "VaultFactory" },
                     createArguments: new DamlRecord({
                         owner: "Alice",
@@ -246,7 +259,7 @@ describe("json command submission mapper", () => {
                     choiceArgument: {
                         currency: "USD",
                     },
-                }),
+                })],
             }),
         );
 

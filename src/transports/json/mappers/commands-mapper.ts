@@ -9,11 +9,11 @@ import { DamlRecord } from "../../../core/types/daml-values.js";
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
-import { SubmitCommandRequest } from "../../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../../core/types/requests/submit-commands-request.js";
 import { SubmitCommandResponse } from "../../../core/types/responses/submit-command-response.js";
 
-export function mapJsonSubmitCommandRequest(
-    request: SubmitCommandRequest,
+export function mapJsonSubmitCommandsRequest(
+    request: SubmitCommandsRequest,
 ): {
     commandId: string;
     actAs: readonly string[];
@@ -31,7 +31,7 @@ export function mapJsonSubmitCommandRequest(
         commandId: request.commandId ?? randomUUID(),
         actAs: request.actAs,
         readAs: request.readAs,
-        commands: [mapJsonCommand(request.command)],
+        commands: request.commands.map(mapJsonCommand),
         applicationId: request.applicationId || undefined,
     };
 }

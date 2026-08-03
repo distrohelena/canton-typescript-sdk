@@ -1,6 +1,6 @@
 import { NotSupportedError } from "../../core/errors/not-supported-error.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
-import { SubmitCommandRequest } from "../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../core/types/requests/submit-commands-request.js";
 import { SubmitCommandResponse } from "../../core/types/responses/submit-command-response.js";
 
 export class CommandSubmissionServiceClient {
@@ -10,10 +10,11 @@ export class CommandSubmissionServiceClient {
 
     /** Submits a command without waiting. Placeholder until explicitly implemented. */
     public async submitAsync(
-        _request: SubmitCommandRequest,
+        _request: SubmitCommandsRequest,
     ): Promise<SubmitCommandResponse> {
         throw new NotSupportedError(
             "CommandSubmissionService.Submit is not available yet",
         );
     }
 }
+

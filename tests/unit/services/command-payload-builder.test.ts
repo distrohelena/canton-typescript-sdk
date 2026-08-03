@@ -3,51 +3,60 @@ import {
     CreateCommand,
     DamlRecord,
     ExerciseCommand,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import { buildCanonicalCommandPayload } from "../../../src/services/commands/command-payload-builder.js";
 
 describe("command payload builder", () => {
-    it("encodes command kind and command-specific exercise fields", () => {
+    it("encodes ordered command batches without a singular command key", () => {
         const payload = buildCanonicalCommandPayload(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                command: new ExerciseCommand({
-                    templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
-                    contractId: "00abc",
-                    choice: "Deposit",
-                    choiceArgument: { amount: "10.0" },
-                }),
+                commands: [
+                    new CreateCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
+                    }),
+                    new ExerciseCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
+                        contractId: "00abc",
+                        choice: "Deposit",
+                        choiceArgument: { amount: "10.0" },
+                    }),
+                ],
             }),
         );
 
-        const decoded = new TextDecoder().decode(payload);
+        const decoded = JSON.parse(new TextDecoder().decode(payload));
 
-        expect(decoded).toContain("\"kind\":\"exercise\"");
-        expect(decoded).toContain("\"contractId\":\"00abc\"");
-        expect(decoded).toContain("\"choice\":\"Deposit\"");
-        expect(decoded).toContain("\"choiceArgument\":{\"amount\":\"10.0\"}");
+        expect(decoded).toMatchObject({
+            commands: [
+                { kind: "create" },
+                { kind: "exercise", contractId: "00abc", choice: "Deposit" },
+            ],
+        });
+        expect(decoded).not.toHaveProperty("command");
     });
 
     it("encodes create argument fields and record IDs", () => {
         const payload = buildCanonicalCommandPayload(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord(
                         { issuer: "Alice" },
                         { packageId: "pkg-id", moduleName: "Main", entityName: "IouArguments" },
                     ),
-                }),
+                })],
             }),
         );
 
         expect(JSON.parse(new TextDecoder().decode(payload))).toMatchObject({
-            command: {
+            commands: [{
                 createArguments: {
                     fields: { issuer: "Alice" },
                     recordId: {
@@ -56,7 +65,7 @@ describe("command payload builder", () => {
                         entityName: "IouArguments",
                     },
                 },
-            },
+            }],
         });
     });
 });

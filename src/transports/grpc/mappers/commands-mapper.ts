@@ -9,7 +9,7 @@ import { DamlDate, DamlEnum, DamlGenMap, DamlRecord, DamlTextMap, DamlTimestamp,
 import { ExerciseByKeyCommand } from "../../../core/types/commands/exercise-by-key-command.js";
 import { ExerciseCommand } from "../../../core/types/commands/exercise-command.js";
 import { LedgerCommand } from "../../../core/types/commands/ledger-command.js";
-import { SubmitCommandRequest } from "../../../core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../../core/types/requests/submit-commands-request.js";
 import { SubmitCommandResponse } from "../../../core/types/responses/submit-command-response.js";
 import { SubmitCommandTransactionResponse } from "../../../core/types/responses/submit-command-transaction-response.js";
 import { Command, Commands } from "../generated/canton/com/daml/ledger/api/v2/commands.js";
@@ -25,15 +25,15 @@ import {
 } from "../generated/canton/com/daml/ledger/api/v2/value.js";
 import { mapGrpcDeduplicationPeriod } from "./command-deduplication-mapper.js";
 
-export function mapGrpcSubmitCommandRequest(
-    request: SubmitCommandRequest,
+export function mapGrpcSubmitCommandsRequest(
+    request: SubmitCommandsRequest,
 ): SubmitAndWaitRequest {
     return {
         commands: {
             workflowId: "",
             userId: request.userId ?? "",
             commandId: request.commandId ?? randomUUID(),
-            commands: [mapGrpcLedgerCommand(request.command)],
+            commands: request.commands.map(mapGrpcLedgerCommand),
             deduplicationPeriod: mapGrpcDeduplicationPeriod(
                 request.deduplicationPeriod,
                 { allowParticipantBegin: true },
@@ -49,8 +49,8 @@ export function mapGrpcSubmitCommandRequest(
     };
 }
 
-export function mapGrpcSubmitCommandForTransactionRequest(request: SubmitCommandRequest): SubmitAndWaitForTransactionRequest {
-    return { commands: mapGrpcSubmitCommandRequest(request).commands };
+export function mapGrpcSubmitCommandsForTransactionRequest(request: SubmitCommandsRequest): SubmitAndWaitForTransactionRequest {
+    return { commands: mapGrpcSubmitCommandsRequest(request).commands };
 }
 export function mapGrpcSubmitCommandTransaction(payload: SubmitAndWaitForTransactionResponse): SubmitCommandTransactionResponse {
     const transaction = payload.transaction;

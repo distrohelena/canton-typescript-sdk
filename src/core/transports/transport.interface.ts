@@ -191,7 +191,7 @@ import { SignCommandResult } from "../signing/sign-command-result.js";
 import { PreparedCommandSubmission } from "../types/prepared-command-submission.js";
 import { SubmitCommandTransactionResponse } from "../types/responses/submit-command-transaction-response.js";
 import { RequestOptions } from "../types/request-options.js";
-import { SubmitCommandRequest } from "../types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../types/requests/submit-commands-request.js";
 import type { HealthCheckRequest, HealthCheckResponse } from "../../transports/grpc/generated/canton/google/grpc/health/v1/health.js";
 import type { GetLedgerApiVersionRequest, GetLedgerApiVersionResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/version_service.js";
 import type { ParticipantStatusRequest, ParticipantStatusResponse } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/participant_status_service.js";
@@ -798,11 +798,12 @@ export interface ITransport {
      * Supported on JSON and gRPC. External signing is gRPC-only.
      */
     submitCommandAsync(
-        request: SubmitCommandRequest,
+        request: SubmitCommandsRequest,
         signer?: ICommandSigner | CommandSigners,
         options?: RequestOptions,
     ): Promise<SubmitCommandResponse>;
-    submitCommandForTransactionAsync?(request: SubmitCommandRequest, options?: RequestOptions): Promise<SubmitCommandTransactionResponse>;
-    prepareCommandAsync?(request: SubmitCommandRequest, options?: RequestOptions): Promise<PreparedCommandSubmission>;
+    submitCommandForTransactionAsync?(request: SubmitCommandsRequest, options?: RequestOptions): Promise<SubmitCommandTransactionResponse>;
+    prepareCommandAsync?(request: SubmitCommandsRequest, options?: RequestOptions): Promise<PreparedCommandSubmission>;
     executePreparedCommandAndWaitAsync?(prepared: PreparedCommandSubmission, signatures: Readonly<Record<string, SignCommandResult>>, options?: RequestOptions): Promise<SubmitCommandResponse>;
 }
+

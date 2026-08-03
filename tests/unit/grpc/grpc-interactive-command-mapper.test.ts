@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
     CreateCommand,
     DamlRecord,
+    ExerciseCommand,
     SignCommandResult,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     ValidationError,
 } from "../../../src";
 import { SigningAlgorithmSpec, SignatureFormat } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/crypto.js";
@@ -14,19 +15,25 @@ import {
 } from "../../../src/transports/grpc/mappers/interactive-command-mapper.js";
 
 describe("grpc interactive command mapper", () => {
-    it("maps prepare submission requests with user and command context", () => {
+    it("maps ordered commands in prepare submission requests", () => {
         const payload = mapGrpcPrepareSubmissionRequest(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 userId: "wallet-user",
                 actAs: ["Alice"],
                 readAs: ["Bob"],
-                command: new CreateCommand({
-                    templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
-                    createArguments: new DamlRecord({
-                        issuer: "Alice",
+                commands: [
+                    new CreateCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
+                        createArguments: new DamlRecord({ issuer: "Alice" }),
                     }),
-                }),
+                    new ExerciseCommand({
+                        templateId: { packageId: "", moduleName: "Main", entityName: "Vault" },
+                        contractId: "00abc",
+                        choice: "Deposit",
+                        choiceArgument: {},
+                    }),
+                ],
             }),
             "command-1",
         );
@@ -42,19 +49,24 @@ describe("grpc interactive command mapper", () => {
                         oneofKind: "create",
                     },
                 },
+                {
+                    command: {
+                        oneofKind: "exercise",
+                    },
+                },
             ],
         });
     });
 
     it("maps caller-controlled command identity for interactive prepare", () => {
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             commandId: "retry-command-1",
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
         expect(mapGrpcPrepareSubmissionRequest(request, request.commandId!)).toMatchObject({
@@ -63,16 +75,16 @@ describe("grpc interactive command mapper", () => {
     });
 
     it("maps execute-and-wait requests with party signatures", () => {
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             userId: "wallet-user",
             actAs: ["Alice"],
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({
                     issuer: "Alice",
                 }),
-            }),
+            })],
         });
 
         const payload = mapGrpcExecuteSubmissionAndWaitRequest({
@@ -113,17 +125,17 @@ describe("grpc interactive command mapper", () => {
     });
 
     it("maps duration and positive offset deduplication for interactive execute", () => {
-        const request = (deduplicationPeriod: { readonly kind: "duration"; readonly seconds: number } | { readonly kind: "offset"; readonly offset: string }) => new SubmitCommandRequest({
+        const request = (deduplicationPeriod: { readonly kind: "duration"; readonly seconds: number } | { readonly kind: "offset"; readonly offset: string }) => new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             deduplicationPeriod,
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
-        const init = (request: SubmitCommandRequest) => ({
+        const init = (request: SubmitCommandsRequest) => ({
             request,
             preparedTransaction: {},
             hashingSchemeVersion: HashingSchemeVersion.V3,
