@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
-import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
+import { normalizeAggregate, normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
 import { evaluatorCases, normalizeConformanceCase, queryConformanceDataset } from "./query-conformance-fixture.js";
 
 describe("InMemoryQueryEvaluator", () => {
     it.each(evaluatorCases)("normalizes raw $operation args and evaluates $name", (entry) => {
         expect(new InMemoryQueryEvaluator().execute(queryConformanceDataset, normalizeConformanceCase(entry))).toEqual(entry.expected);
+    });
+
+    it("mirrors PostgreSQL null equality, LIKE, and aggregate diagnostics", () => {
+        const evaluator = new InMemoryQueryEvaluator();
+
+        expect(evaluator.execute(queryConformanceDataset, normalizeFindMany("transactions", { where: { workflowId: { equals: null } }, select: { ix: true } }))).toEqual([]);
+        expect(evaluator.execute(queryConformanceDataset, normalizeFindMany("transactions", { where: { workflowId: { in: [null, "wf"] } }, select: { ix: true } }))).toEqual([{ ix: "200" }]);
+        expect(evaluator.execute(queryConformanceDataset, normalizeFindMany("packages", { where: { name: { like: "app%" } }, select: { id: true } }))).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }]);
+        expect(evaluator.execute(queryConformanceDataset, normalizeFindMany("packages", { where: { name: { like: "\n_" } }, select: { id: true } }))).toEqual([{ id: "pkg-unicode" }]);
+        expect(() => evaluator.execute(queryConformanceDataset, normalizeAggregate("packages", { min: ["id"] }))).toThrow("id is not a numeric aggregate field of packages");
     });
 
     it("keeps fixture and returned nested query values immutable", () => {

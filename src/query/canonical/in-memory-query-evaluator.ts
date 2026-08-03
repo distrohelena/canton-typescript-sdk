@@ -1,6 +1,6 @@
 import type { NormalizedAggregateQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedGroupKey, NormalizedInclude, NormalizedSelection, QueryPredicate } from "./query-ast.js";
-import { immutableQueryValue, type QueryDataset, type QueryRow } from "./query-dataset.js";
-import { queryRelationEdges, type QueryRelation } from "./query-schema.js";
+import { immutableQueryValue, relatedQueryRows, type QueryDataset, type QueryRow } from "./query-dataset.js";
+import { queryRelationEdges, queryRelationMetadata, type QueryRelation } from "./query-schema.js";
 
 type Result = Record<string, unknown>;
 
@@ -54,8 +54,8 @@ export class InMemoryQueryEvaluator {
                 const expected = predicate.value;
 
                 switch (predicate.operator) {
-                    case "equals": return equal(actual, expected);
-                    case "in": return Array.isArray(expected) && expected.some((candidate) => equal(actual, candidate));
+                    case "equals": return actual !== null && actual !== undefined && expected !== null && expected !== undefined && equal(actual, expected);
+                    case "in": return actual !== null && actual !== undefined && Array.isArray(expected) && expected.some((candidate) => candidate !== null && candidate !== undefined && equal(actual, candidate));
                     case "is": return actual === null || actual === undefined;
                     case "isNot": return actual !== null && actual !== undefined;
                     case "lt": return compare(actual, expected) < 0;
@@ -73,21 +73,7 @@ export class InMemoryQueryEvaluator {
     }
 
     private related(dataset: QueryDataset, relation: QueryRelation, row: QueryRow, edge: string): QueryRow[] {
-        const definition = queryRelationEdges[relation]?.[edge];
-
-        const lookup = dataset.edges[relation]?.[edge];
-
-        if (definition === undefined || lookup === undefined || lookup.from.length !== lookup.to.length) {
-            throw new Error(`Missing deterministic lookup for ${relation}.${edge}`);
-        }
-
-        const source = lookup.from.map((path) => at(row, path.split(".")));
-
-        if (source.some((value) => value === null || value === undefined)) {
-            return [];
-        }
-
-        return dataset.rows[definition.target].filter((candidate) => lookup.to.every((path, index) => equal(at(candidate, path.split(".")), source[index])));
+        return [...relatedQueryRows(dataset, relation, row, edge)];
     }
 
     private shape(dataset: QueryDataset, relation: QueryRelation, row: QueryRow, selection: NormalizedSelection | undefined, includes: readonly NormalizedInclude[]): Result {
@@ -126,6 +112,8 @@ export class InMemoryQueryEvaluator {
     }
 
     private aggregate(rows: readonly QueryRow[], query: NormalizedAggregateQuery | NormalizedGroupByQuery): Result {
+        const metadata = queryRelationMetadata[query.relation];
+
         const result: Result = {};
 
         if (query.aggregates.count) {
@@ -134,6 +122,12 @@ export class InMemoryQueryEvaluator {
 
         for (const operation of ["min", "max", "sum"] as const) {
             if (query.aggregates[operation].length > 0) {
+            for (const field of query.aggregates[operation]) {
+                if (!metadata.numericFields.includes(field)) {
+                    throw new Error(`${field} is not a numeric aggregate field of ${query.relation}`);
+                }
+            }
+
             result[operation] = Object.fromEntries(query.aggregates[operation].map((field) => [field, aggregate(rows.map((row) => at(row, [field])), operation)]));
         }
         }
@@ -284,7 +278,7 @@ function sqlLike(value: string, pattern: string, insensitive: boolean): boolean 
         }
     }
 
-    return new RegExp(`${expression}$`, insensitive ? "i" : "").test(value);
+    return new RegExp(`${expression}$`, insensitive ? "isu" : "su").test(value);
 }
 function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

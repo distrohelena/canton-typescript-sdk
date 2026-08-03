@@ -7,10 +7,10 @@ import type { QueryClient } from "../../../src/query/query-client.js";
 /** A deliberately small, immutable relational corpus shared by canonical evaluators. */
 export const queryConformanceDataset: QueryDataset = immutableQueryValue({
     rows: Object.freeze({
-        packages: Object.freeze([{ pk: "1", name: "app", version: "1", id: "pkg-app" }, { pk: "2", name: "app_%", version: "2", id: "pkg-other" }]),
+        packages: Object.freeze([{ pk: "1", name: "app", version: "1", id: "pkg-app" }, { pk: "2", name: "app_%", version: "2", id: "pkg-other" }, { pk: "3", name: "\n😀", version: "3", id: "pkg-unicode" }]),
         contractTypes: Object.freeze([
-            { pk: "10", payloadType: "record", aliases: ["App:Asset"], packageName: "app", moduleName: "App", entityName: "Asset", templateFqn: "pkg-app:App:Asset" },
-            { pk: "20", payloadType: "record", aliases: ["Other:Note"], packageName: "other", moduleName: "Other", entityName: "Note", templateFqn: "pkg-other:Other:Note" },
+            { pk: "10", payloadType: "record", aliases: ["App:Asset"], packageName: "pkg-app", moduleName: "App", entityName: "Asset", templateFqn: "pkg-app:App:Asset" },
+            { pk: "20", payloadType: "record", aliases: ["Other:Note"], packageName: "pkg-other", moduleName: "Other", entityName: "Note", templateFqn: "pkg-other:Other:Note" },
         ]),
         transactions: Object.freeze([
             { ix: "100", offset: "100", transactionId: "tx-1", effectiveAt: new Date("2026-01-05T10:15:00.000Z"), workflowId: null, domainId: "domain", traceContext: { traceId: "a" }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "7" },
@@ -28,8 +28,8 @@ export const queryConformanceDataset: QueryDataset = immutableQueryValue({
         watermark: Object.freeze([{ singleton: true, ix: "300", offset: "300", instanceId: "instance" }]),
     }),
     edges: Object.freeze({
-        contracts: Object.freeze({ contractType: { from: ["templateId.packageId", "templateId.moduleName", "templateId.entityName"], to: ["packageId", "moduleName", "entityName"] }, createdTransaction: { from: ["createdEventOffset"], to: ["ix"] }, archivedTransaction: { from: ["archivedEventOffset"], to: ["ix"] }, exercises: { from: ["contractId"], to: ["contractId"] } }),
-        contractTypes: Object.freeze({ contracts: { from: ["packageId", "moduleName", "entityName"], to: ["templateId.packageId", "templateId.moduleName", "templateId.entityName"] }, exercises: { from: ["pk"], to: ["contractTpePk"] } }),
+        contracts: Object.freeze({ contractType: { from: ["templateId.packageId", "templateId.moduleName", "templateId.entityName"], to: ["packageName", "moduleName", "entityName"] }, createdTransaction: { from: ["createdEventOffset"], to: ["ix"] }, archivedTransaction: { from: ["archivedEventOffset"], to: ["ix"] }, exercises: { from: ["contractId"], to: ["contractId"] } }),
+        contractTypes: Object.freeze({ contracts: { from: ["packageName", "moduleName", "entityName"], to: ["templateId.packageId", "templateId.moduleName", "templateId.entityName"] }, exercises: { from: ["pk"], to: ["contractTpePk"] } }),
         events: Object.freeze({ transaction: { from: ["txIx"], to: ["ix"] }, exercises: { from: ["pk"], to: ["exerciseEventPk"] } }),
         exercises: Object.freeze({ exerciseType: { from: ["tpePk"], to: ["pk"] }, contractType: { from: ["contractTpePk"], to: ["pk"] }, event: { from: ["exerciseEventPk"], to: ["pk"] }, transaction: { from: ["exercisedAtIx"], to: ["ix"] }, package: { from: ["packagePk"], to: ["pk"] }, contract: { from: ["contractId"], to: ["contractId"] } }),
         exerciseTypes: Object.freeze({ exercises: { from: ["pk"], to: ["tpePk"] } }), packages: Object.freeze({ exercises: { from: ["pk"], to: ["packagePk"] } }),

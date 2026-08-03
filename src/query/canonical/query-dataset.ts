@@ -1,4 +1,4 @@
-import type { QueryRelation } from "./query-schema.js";
+import { queryRelationEdges, queryRelationMetadata, type QueryRelation } from "./query-schema.js";
 
 /** Canonical rows are deliberately source-neutral: all source-local ids are ordinary values. */
 export type QueryRow = Readonly<Record<string, unknown>>;
@@ -20,6 +20,154 @@ export interface QueryDataset {
     readonly rows: QueryRowSets;
     readonly edges: QueryEdgeLookups;
     readonly sourceLocalKeys: Readonly<Record<QueryRelation, readonly (readonly string[])[]>>;
+}
+
+type EdgeIndexes = ReadonlyMap<QueryRelation, ReadonlyMap<string, ReadonlyMap<string, readonly QueryRow[]>>>;
+
+const datasetIndexes = new WeakMap<QueryDataset, EdgeIndexes>();
+
+/** Validates and freezes source-neutral rows, then builds deterministic edge indexes once. */
+export function createQueryDataset(input: QueryDataset): QueryDataset {
+    const dataset = input;
+
+    const relations = Object.keys(queryRelationMetadata) as QueryRelation[];
+
+    const indexes = new Map<QueryRelation, ReadonlyMap<string, ReadonlyMap<string, readonly QueryRow[]>>>();
+
+    for (const relation of relations) {
+        const rows = dataset.rows[relation];
+
+        if (!Array.isArray(rows)) {
+            throw new Error(`Dataset is missing ${relation} rows`);
+        }
+
+        const localKeys = dataset.sourceLocalKeys[relation];
+
+        if (!Array.isArray(localKeys)) {
+            throw new Error(`Dataset is missing ${relation} source-local keys`);
+        }
+
+        for (const key of localKeys) {
+            validateUniquePaths(rows, key, `${relation} source-local key`);
+        }
+
+        const edgeDefinitions = queryRelationEdges[relation] ?? {};
+
+        const lookups = dataset.edges[relation];
+
+        if (lookups === undefined) {
+            throw new Error(`Dataset is missing ${relation} edges`);
+        }
+
+        const relationIndexes = new Map<string, ReadonlyMap<string, readonly QueryRow[]>>();
+
+        for (const [edge, definition] of Object.entries(edgeDefinitions)) {
+            const lookup = lookups[edge];
+
+            if (lookup === undefined) {
+                throw new Error(`Dataset is missing ${relation}.${edge} edge`);
+            } else if (lookup.from.length !== lookup.to.length) {
+                throw new Error(`Dataset ${relation}.${edge} lookup arity differs`);
+            }
+
+            validatePaths(rows, lookup.from, `${relation}.${edge} source`);
+
+            const targetRows = dataset.rows[definition.target];
+
+            validatePaths(targetRows, lookup.to, `${relation}.${edge} target`);
+
+            const buckets = new Map<string, QueryRow[]>();
+
+            for (const target of targetRows) {
+                const key = compositeKey(lookup.to.map((path) => atPath(target, path)));
+
+                buckets.set(key, [...(buckets.get(key) ?? []), target]);
+            }
+
+            if (definition.cardinality === "one" && [...buckets.values()].some((targets) => targets.length > 1)) {
+                throw new Error(`Dataset ${relation}.${edge} has multiple to-one targets`);
+            }
+
+            relationIndexes.set(edge, buckets);
+        }
+
+        if (Object.keys(lookups).some((edge) => edgeDefinitions[edge] === undefined)) {
+            throw new Error(`Dataset ${relation} declares an unknown edge`);
+        }
+
+        indexes.set(relation, relationIndexes);
+    }
+
+    datasetIndexes.set(dataset, indexes);
+
+    return dataset;
+}
+
+/** Uses the factory index, compiling a legacy dataset on first use for compatibility. */
+export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation, row: QueryRow, edge: string): readonly QueryRow[] {
+    if (!datasetIndexes.has(dataset)) {
+        createQueryDataset(dataset);
+    }
+
+    const lookup = dataset.edges[relation]?.[edge];
+
+    const index = datasetIndexes.get(dataset)?.get(relation)?.get(edge);
+
+    if (lookup === undefined || index === undefined) {
+        throw new Error(`Missing deterministic lookup for ${relation}.${edge}`);
+    }
+
+    const values = lookup.from.map((path) => atPath(row, path));
+
+    return values.some((value) => value === null || value === undefined) ? [] : index.get(compositeKey(values)) ?? [];
+}
+
+function validateUniquePaths(rows: readonly QueryRow[], paths: readonly string[], label: string): void {
+    if (paths.length === 0) {
+        throw new Error(`Dataset ${label} is empty`);
+    }
+
+    validatePaths(rows, paths, label);
+
+    const seen = new Set<string>();
+
+    for (const row of rows) {
+        const key = compositeKey(paths.map((path) => atPath(row, path)));
+
+        if (seen.has(key)) {
+            throw new Error(`Dataset ${label} is not unique`);
+        }
+
+        seen.add(key);
+    }
+}
+function validatePaths(rows: readonly QueryRow[], paths: readonly string[], label: string): void {
+    for (const row of rows) {
+        for (const path of paths) {
+            if (!hasPath(row, path)) {
+                throw new Error(`Dataset ${label} path ${path} is invalid`);
+            }
+        }
+    }
+}
+function hasPath(value: unknown, path: string): boolean {
+    let current = value;
+
+    for (const segment of path.split(".")) {
+        if (current === null || typeof current !== "object" || !Object.hasOwn(current, segment)) {
+            return false;
+        }
+
+        current = (current as Record<string, unknown>)[segment];
+    }
+
+    return true;
+}
+function atPath(value: unknown, path: string): unknown {
+    return path.split(".").reduce<unknown>((current, segment) => current !== null && typeof current === "object" ? (current as Record<string, unknown>)[segment] : undefined, value);
+}
+function compositeKey(values: readonly unknown[]): string {
+    return JSON.stringify(values.map((value) => value instanceof Date ? value.toISOString() : value instanceof Uint8Array ? Array.from(value) : value));
 }
 
 /** A Date which preserves Date's public read API but rejects mutation. */
