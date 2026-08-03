@@ -2,6 +2,7 @@ import { CantonClient } from "../client/canton-client.js";
 import { TransportKind } from "../core/types/transport-kind.js";
 import { ValidationError } from "../core/errors/validation-error.js";
 import { GrpcContractQueryClient } from "./grpc/grpc-contract-query-client.js";
+import { GrpcContractCache } from "./grpc/grpc-contract-cache.js";
 import { PqsPool } from "./pqs/pqs-pool.js";
 import { PqsQueryClient } from "./pqs/pqs-query-client.js";
 import { PqsSchemaProfileV1, validatePqsSchemaAsync } from "./pqs/pqs-schema-profile.js";
@@ -18,10 +19,10 @@ export class CantonManager {
     public constructor(options: CantonManagerOptions) {
         if (options.grpc.transportKind !== TransportKind.grpc) {
             throw new ValidationError("CantonManager requires grpc transport for writes.");
-        } else if (options.querySource === QuerySource.grpc && options.pqs !== undefined) {
-            throw new ValidationError("PQS options require QuerySource.pqs.");
         } else if (options.querySource === QuerySource.pqs && options.pqs === undefined) {
             throw new ValidationError("QuerySource.pqs requires PQS options.");
+        } else if (options.cache !== undefined && (!Number.isFinite(options.cache.ttlMs) || options.cache.ttlMs <= 0)) {
+            throw new ValidationError("CantonManager cache ttlMs must be a positive finite number.");
         }
 
         this.grpc = new CantonClient(options.grpc);
@@ -39,9 +40,14 @@ export class CantonManager {
         } else {
             this.query = new GrpcContractQueryClient(
                 this.grpc.stateService,
-                options.cache?.store,
-                options.cache?.ttlMs,
-                options.grpc.ledgerEndpoint ?? "ledger",
+                options.cache === undefined
+                    ? undefined
+                    : new GrpcContractCache(
+                        this.grpc.stateService,
+                        options.cache.store,
+                        options.cache.ttlMs,
+                        options.grpc.ledgerEndpoint ?? "ledger",
+                    ),
             );
         }
     }

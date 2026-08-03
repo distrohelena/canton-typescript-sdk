@@ -79,6 +79,23 @@ export interface FindManyArgs<TWhere, TSelect, TOrderBy, TInclude = never> {
     readonly include?: TInclude;
 }
 
+export interface ContractCacheArgs {
+    readonly parties?: readonly string[];
+}
+
+export type ContractCacheResult =
+    | {
+        readonly source: QuerySource.grpc;
+        readonly cached: true;
+        readonly activeAtOffset: string;
+        readonly contractCount: number;
+        readonly expiresAt: Date;
+    }
+    | {
+        readonly source: QuerySource.pqs;
+        readonly cached: false;
+    };
+
 export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TInclude = never, TGroupBy = never, TGroupRow = never> {
     findMany<TArgs extends FindManyArgs<TWhere, TSelect, TOrderBy, TInclude>>(args?: TArgs): Promise<readonly (TRow & JsonProjectionResult<TArgs>)[]>;
     findUnique<TArgs extends { readonly where: TUnique; readonly select?: TSelect; readonly include?: TInclude }>(args: TArgs): Promise<(TRow & JsonProjectionResult<TArgs>) | undefined>;
@@ -106,6 +123,8 @@ export type QueryCollectionDelegate<TRow, TWhere, TSelect, TOrderBy, TInclude = 
 export interface QueryClient {
     readonly source: QuerySource;
     $queryRaw<TRow>(sql: string, values?: readonly unknown[]): Promise<readonly TRow[]>;
+    cacheContracts(args?: ContractCacheArgs): Promise<ContractCacheResult>;
+    invalidateContractsCache(args?: ContractCacheArgs): Promise<void>;
     readonly contracts: {
         findMany<TArgs extends ContractFindManyArgs>(args?: TArgs): Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>;
         findUnique<TArgs extends ContractFindUniqueArgs>(args: TArgs): Promise<(ContractResult & JsonProjectionResult<TArgs>) | undefined>;

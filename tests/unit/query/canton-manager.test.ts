@@ -16,4 +16,14 @@ describe("CantonManager", () => {
 
         expect(() => new CantonManager(options)).toThrow(ValidationError);
     });
+
+    it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])("rejects a non-positive or non-finite cache TTL", (ttlMs) => {
+        const options: CantonManagerOptions = {
+            grpc: { transportKind: TransportKind.grpc } as never,
+            querySource: QuerySource.grpc,
+            cache: { store: {} as never, ttlMs },
+        };
+
+        expect(() => new CantonManager(options)).toThrow(ValidationError);
+    });
 });

@@ -1,6 +1,6 @@
 import { StateServiceClient } from "../../services/state/state-service-client.js";
+import { ValidationError } from "../../core/errors/validation-error.js";
 import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
-import { QueryCacheStore } from "../cache/query-cache-store.js";
 import {
     ContractCountArgs,
     ContractFindManyArgs,
@@ -10,8 +10,9 @@ import {
     JsonProjectionResult,
 } from "../model-types.js";
 import { QueryCapabilityError } from "../errors/query-capability-error.js";
-import { QueryClient } from "../query-client.js";
+import { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
+import { GrpcContractCache, normalizeParties } from "./grpc-contract-cache.js";
 
 type ActiveContractsReader = Pick<
     StateServiceClient,
@@ -50,9 +51,7 @@ export class GrpcContractQueryClient implements QueryClient {
 
     public constructor(
         private readonly stateService: ActiveContractsReader,
-        private readonly cache: QueryCacheStore | undefined,
-        private readonly cacheTtlMs: number | undefined,
-        private readonly cacheScope: string,
+        private readonly contractCache: GrpcContractCache | undefined,
     ) {}
 
     public async $queryRaw<TRow>(
@@ -60,6 +59,18 @@ export class GrpcContractQueryClient implements QueryClient {
         _values: readonly unknown[] = [],
     ): Promise<readonly TRow[]> {
         throw new QueryCapabilityError(QuerySource.grpc, "query.$queryRaw");
+    }
+
+    public async cacheContracts(args?: ContractCacheArgs): Promise<ContractCacheResult> {
+        if (this.contractCache === undefined) {
+            throw new ValidationError("gRPC contract caching requires configured cache storage and ttlMs.");
+        }
+
+        return this.contractCache.cacheContracts(args);
+    }
+
+    public async invalidateContractsCache(args?: ContractCacheArgs): Promise<void> {
+        await this.contractCache?.invalidateContractsCache(args);
     }
 
     private async findManyAsync(
@@ -122,9 +133,9 @@ export class GrpcContractQueryClient implements QueryClient {
     private async readSnapshotAsync(
         parties: readonly string[] | undefined,
     ): Promise<readonly ContractRow[]> {
-        const key = `${this.cacheScope}:${parties?.join(",") ?? "*"}`;
+        const canonicalParties = normalizeParties({ parties });
 
-        const cached = this.cache === undefined ? undefined : await this.cache.getAsync<readonly ContractRow[]>(key);
+        const cached = this.contractCache === undefined ? undefined : await this.contractCache.readContractsAsync({ parties: canonicalParties });
 
         if (cached !== undefined) {
             return cached;
@@ -139,9 +150,9 @@ export class GrpcContractQueryClient implements QueryClient {
         do {
             const response = await this.stateService.getActiveContractsPageAsync(
                 mapGrpcQueryContractsRequest(
-                    parties === undefined
+                    canonicalParties === undefined
                         ? { allParties: true, activeAtOffset, pageToken }
-                        : { parties, activeAtOffset, pageToken },
+                        : { parties: canonicalParties, activeAtOffset, pageToken },
                 ),
             );
 
@@ -157,10 +168,6 @@ export class GrpcContractQueryClient implements QueryClient {
                 ),
             );
         } while (pageToken !== undefined && pageToken.length > 0);
-
-        if (this.cache !== undefined && this.cacheTtlMs !== undefined) {
-            await this.cache.setAsync(key, rows, this.cacheTtlMs);
-        }
 
         return rows;
     }

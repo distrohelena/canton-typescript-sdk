@@ -4,12 +4,28 @@ import { MemoryQueryCache } from "../../../src/query/cache/memory-query-cache.js
 import { PqsQueryError } from "../../../src/query/errors/pqs-query-error.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
 import { QuerySnapshotIncompleteError, type QuerySnapshotIncompleteReason } from "../../../src/index.js";
+import { type ContractCacheResult } from "../../../src/query/query-client.js";
 import { QuerySource } from "../../../src/query/query-source.js";
 
 describe("query public contracts", () => {
     it("names the available query sources", () => {
         expect(QuerySource.pqs).toBe("pqs");
         expect(QuerySource.grpc).toBe("grpc");
+    });
+
+    it("exposes source-switchable contract cache result branches", () => {
+        const grpc: ContractCacheResult = {
+            source: QuerySource.grpc,
+            cached: true,
+            activeAtOffset: "42",
+            contractCount: 1,
+            expiresAt: new Date(0),
+        };
+
+        const pqs: ContractCacheResult = { source: QuerySource.pqs, cached: false };
+
+        expect(grpc.cached).toBe(true);
+        expect(pqs.cached).toBe(false);
     });
 
     it("reports the selected source for unsupported operations", () => {
