@@ -173,12 +173,13 @@ export class GrpcQuerySnapshotReader {
 
     public async readActiveContractsAsync(
         activeAtOffset: string,
+        parties?: readonly string[],
     ): Promise<GrpcActiveContractSnapshot> {
         if (parseOffset(activeAtOffset) === undefined) {
             throw this.activeError(activeAtOffset, "invalid-offset");
         }
 
-        const eventFormat = freezeDeep(createAllPartiesEventFormat());
+        const eventFormat = freezeDeep(parties === undefined ? createAllPartiesEventFormat() : mapGrpcQueryContractsRequest({ parties }).eventFormat!);
 
         const activeContracts: GetActiveContractsResponseType[] = [];
 

@@ -18,7 +18,7 @@ import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
 type NormalizedQuery = NormalizedFindManyQuery | NormalizedFindUniqueQuery | NormalizedCountQuery | NormalizedAggregateQuery | NormalizedGroupByQuery;
 
 /** The sole transport boundary used by every typed gRPC query delegate. */
-export interface GrpcQueryDataProvider {
+interface GrpcQueryDataProvider {
     readDatasetAsync(query: NormalizedQuery): Promise<QueryDataset>;
 }
 
@@ -28,8 +28,6 @@ export interface GrpcQueryClientOptions {
     readonly packageService: Pick<PackageServiceClient, "listPackagesAsync" | "getPackageAsync">;
     readonly contractCache?: GrpcContractCache;
     readonly endpointScope?: string;
-    /** Narrow production seam: callers still execute normalization, planning, and evaluation. */
-    readonly dataProvider?: GrpcQueryDataProvider;
 }
 
 export class GrpcQueryClient implements QueryClient {
@@ -46,8 +44,8 @@ export class GrpcQueryClient implements QueryClient {
     public readonly transactions = this.delegate("transactions") as QueryClient["transactions"];
     public readonly watermark = this.delegate("watermark") as QueryClient["watermark"];
 
-    public constructor(private readonly options: GrpcQueryClientOptions) {
-        this.dataProvider = options.dataProvider ?? new DefaultGrpcQueryDataProvider(options);
+    public constructor(private readonly options: GrpcQueryClientOptions, dataProvider?: GrpcQueryDataProvider) {
+        this.dataProvider = dataProvider ?? new DefaultGrpcQueryDataProvider(options);
     }
 
     public async $queryRaw<TRow>(_sql: string, _values: readonly unknown[] = []): Promise<readonly TRow[]> {
@@ -68,11 +66,11 @@ export class GrpcQueryClient implements QueryClient {
 
     private delegate(relation: QueryRelation): object {
         return {
-            findMany: (args: unknown = {}) => this.execute(normalizeFindMany(relation, args)),
-            findUnique: (args: unknown) => this.execute(normalizeFindUnique(relation, args)),
-            count: (args: unknown = {}) => this.execute(normalizeCount(relation, args)),
-            aggregate: (args: unknown) => this.execute(normalizeAggregate(relation, args)),
-            groupBy: (args: unknown) => this.execute(normalizeGroupBy(relation, args)),
+            findMany: async (args: unknown = {}) => this.execute(normalizeFindMany(relation, args)),
+            findUnique: async (args: unknown) => this.execute(normalizeFindUnique(relation, args)),
+            count: async (args: unknown = {}) => this.execute(normalizeCount(relation, args)),
+            aggregate: async (args: unknown) => this.execute(normalizeAggregate(relation, args)),
+            groupBy: async (args: unknown) => this.execute(normalizeGroupBy(relation, args)),
         };
     }
 
@@ -131,7 +129,7 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
                     : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
 
             return packageMetadata.length === 0
-                ? fragmentDataset(fragmentForDataset, endInclusive, this.options.endpointScope ?? "ledger", true, cached !== undefined)
+                ? fragmentDataset(fragmentForDataset, endInclusive, this.options.endpointScope ?? "ledger")
                 : createGrpcQueryDataset(fragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
         }
 
@@ -143,7 +141,7 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
             return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [], endInclusive, this.options.endpointScope ?? "ledger");
         }
 
-        const active = await this.snapshots.readActiveContractsAsync(endInclusive);
+        const active = await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query));
 
         const fragment = mapGrpcQueryRelationFragment([], active.activeContracts);
 
@@ -154,15 +152,13 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 }
 
 function requiresHistory(query: NormalizedQuery): boolean {
-    const closure = relationClosure(query);
-
     if (query.relation === "transactions" || query.relation === "events" || query.relation === "exercises") {
         return true;
     } else if (query.relation === "contracts" && !isActiveOnly(query)) {
         return true;
     }
 
-    return [...closure].some((relation) => relation === "transactions" || relation === "events" || relation === "exercises" || relation === "contracts" && query.relation !== "contracts");
+    return predicateRequiresHistory(query.relation, query.predicate) || includesRequireHistory(query.relation, includesFor(query));
 }
 
 function partiesFor(query: NormalizedQuery): readonly string[] | undefined {
@@ -197,6 +193,26 @@ function predicateProvesActive(predicate: QueryPredicate | undefined): boolean {
 
 function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
     return closure.has("packages") || closure.has("contractTypes") || closure.has("exerciseTypes");
+}
+
+function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {
+    if (predicate === undefined || predicate.kind === "scalar") {
+        return false;
+    } else if (predicate.kind === "not") {
+        return predicateRequiresHistory(relation, predicate.child);
+    } else if (predicate.kind === "and" || predicate.kind === "or") {
+        return predicate.children.some((child) => predicateRequiresHistory(relation, child));
+    } else if (predicate.kind !== "relation") {
+        return false;
+    }
+
+    const target = queryRelationEdges[relation]?.[predicate.edge]?.target;
+
+    return target === "contracts" || target === "transactions" || target === "events" || target === "exercises" || target !== undefined && predicateRequiresHistory(target, predicate.predicate);
+}
+
+function includesRequireHistory(relation: QueryRelation, includes: readonly NormalizedInclude[]): boolean {
+    return includes.some((include) => include.relation === "contracts" || include.relation === "transactions" || include.relation === "events" || include.relation === "exercises" || predicateRequiresHistory(include.relation, include.predicate) || includesRequireHistory(include.relation, include.includes));
 }
 
 function relationClosure(query: NormalizedQuery): ReadonlySet<QueryRelation> {
@@ -259,21 +275,21 @@ function cachedContractsDataset(contracts: readonly QueryRow[], offset: string, 
     return basicDataset({ contracts: contracts as never, transactions: empty, events: empty, exercises: empty }, offset, instanceId, false);
 }
 
-function fragmentDataset(fragment: Pick<GrpcQueryRelationFragment, "contracts" | "transactions" | "events" | "exercises">, offset: string, instanceId: string, completeHistoryEdges = true, cachedContractBase = false): QueryDataset {
-    return basicDataset(fragment, offset, instanceId, completeHistoryEdges, cachedContractBase);
+function fragmentDataset(fragment: Pick<GrpcQueryRelationFragment, "contracts" | "transactions" | "events" | "exercises">, offset: string, instanceId: string, completeHistoryEdges = true): QueryDataset {
+    return basicDataset(fragment, offset, instanceId, completeHistoryEdges);
 }
 
-function basicDataset(rows: Pick<GrpcQueryRelationFragment, "contracts" | "transactions" | "events" | "exercises">, offset: string, instanceId: string, completeHistoryEdges = true, cachedContractBase = false): QueryDataset {
+function basicDataset(rows: Pick<GrpcQueryRelationFragment, "contracts" | "transactions" | "events" | "exercises">, offset: string, instanceId: string, completeHistoryEdges = true): QueryDataset {
     const empty = [] as const;
 
     return createQueryDataset({
         rows: { contracts: rows.contracts as unknown as readonly QueryRow[], contractTypes: empty, events: rows.events as unknown as readonly QueryRow[], exercises: rows.exercises as unknown as readonly QueryRow[], exerciseTypes: empty, packages: empty, transactions: rows.transactions as unknown as readonly QueryRow[], watermark: [{ singleton: true, ix: offset, offset, instanceId }] },
         sourceLocalKeys: { contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"], ["id"]], transactions: [["ix"], ["offset"]], watermark: [["singleton"]] },
-        edges: Object.fromEntries(queryRelations.map((relation) => [relation, Object.fromEntries(Object.keys(queryRelationEdges[relation] ?? {}).map((edge: string) => [edge, { ...cachedEdgePaths(relation, edge), ...(completeHistoryEdges ? completeFragmentEdge(relation, edge, cachedContractBase) : { complete: false }) }]))])) as QueryDataset["edges"],
+        edges: Object.fromEntries(queryRelations.map((relation) => [relation, Object.fromEntries(Object.keys(queryRelationEdges[relation] ?? {}).map((edge: string) => [edge, { ...cachedEdgePaths(relation, edge), ...(completeHistoryEdges ? completeFragmentEdge(relation, edge) : { complete: false }) }]))])) as QueryDataset["edges"],
     });
 }
 
-function completeFragmentEdge(relation: QueryRelation, edge: string, cachedContractBase: boolean): { readonly complete?: boolean } {
+function completeFragmentEdge(relation: QueryRelation, edge: string): { readonly complete?: boolean } {
     const complete = new Set([
         "contracts.createdTransaction", "contracts.archivedTransaction", "contracts.exercises",
         "events.transaction", "events.exercises",
@@ -281,7 +297,7 @@ function completeFragmentEdge(relation: QueryRelation, edge: string, cachedContr
         "transactions.events", "transactions.createdContracts", "transactions.archivedContracts", "transactions.exercises",
     ]);
 
-    return complete.has(`${relation}.${edge}`) && !(cachedContractBase && (edge === "createdTransaction" || edge === "archivedTransaction") && relation === "contracts") ? {} : { complete: false };
+    return complete.has(`${relation}.${edge}`) ? {} : { complete: false };
 }
 
 function cachedEdgePaths(relation: QueryRelation, edge: string): { readonly from: readonly string[]; readonly to: readonly string[] } {

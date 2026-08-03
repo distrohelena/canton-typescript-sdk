@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { GrpcQueryClient, type GrpcQueryDataProvider } from "../../../src/query/grpc/grpc-query-client.js";
+import { GrpcQueryClient } from "../../../src/query/grpc/grpc-query-client.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
 import { Event, CreatedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
@@ -7,17 +7,21 @@ import { Transaction } from "../../../src/transports/grpc/generated/canton/com/d
 import { GetUpdateResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GetActiveContractsResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
 import { Value } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/value.js";
+import { Archive } from "../../../src/transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
+import { HashFunction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
+import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
+import { createHash } from "node:crypto";
 import { queryConformanceDataset, evaluatorCases } from "./query-conformance-fixture.js";
 
-function fixtureProvider(): GrpcQueryDataProvider {
+function fixtureProvider() {
     return {
         readDatasetAsync: vi.fn().mockResolvedValue(queryConformanceDataset),
     };
 }
 
-function historyUpdate(): GetUpdateResponse {
+function historyUpdate(offset = "1"): GetUpdateResponse {
     const created = CreatedEvent.create({
-        offset: "1",
+        offset,
         nodeId: 1,
         contractId: "C1",
         templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
@@ -30,8 +34,8 @@ function historyUpdate(): GetUpdateResponse {
     });
 
     const transaction = Transaction.create({
-        offset: "1",
-        updateId: "update-1",
+        offset,
+        updateId: `update-${offset}`,
         effectiveAt: { seconds: "1700000000", nanos: 0 },
         recordTime: { seconds: "1700000000", nanos: 0 },
         synchronizerId: "sync",
@@ -65,6 +69,14 @@ function activeContract(): GetActiveContractsResponse {
     });
 }
 
+function packageFixture() {
+    const archive = Archive.fromBinary(SampleLfPackageFixture.createLf2ArchiveBytes());
+
+    const id = createHash("sha256").update(archive.payload).digest("hex");
+
+    return { id, response: { hashFunction: HashFunction.SHA256, archivePayload: archive.payload, hash: id } };
+}
+
 describe("GrpcQueryClient", () => {
     it.each(evaluatorCases)("executes $name through the canonical evaluator", async (entry) => {
         const provider = fixtureProvider();
@@ -73,8 +85,7 @@ describe("GrpcQueryClient", () => {
             stateService: {} as never,
             updateService: {} as never,
             packageService: {} as never,
-            dataProvider: provider,
-        });
+        }, provider);
 
         await expect(entry.invoke(client, entry.args as never)).resolves.toEqual(entry.expected);
         expect(provider.readDatasetAsync).toHaveBeenCalledTimes(1);
@@ -85,8 +96,7 @@ describe("GrpcQueryClient", () => {
             stateService: {} as never,
             updateService: {} as never,
             packageService: {} as never,
-            dataProvider: fixtureProvider(),
-        });
+        }, fixtureProvider());
 
         await expect(client.$queryRaw("select 1")).rejects.toBeInstanceOf(QueryCapabilityError);
     });
@@ -94,9 +104,9 @@ describe("GrpcQueryClient", () => {
     it("validates malformed typed input before provider I/O and keeps exercises collection-only", async () => {
         const provider = fixtureProvider();
 
-        const client = new GrpcQueryClient({ stateService: {} as never, updateService: {} as never, packageService: {} as never, dataProvider: provider });
+        const client = new GrpcQueryClient({ stateService: {} as never, updateService: {} as never, packageService: {} as never }, provider);
 
-        expect(() => client.packages.findMany({ where: { unknown: { equals: "x" } } } as never)).toThrow("unknown is not a field of packages");
+        await expect(client.packages.findMany({ where: { unknown: { equals: "x" } } } as never)).rejects.toThrow("unknown is not a field of packages");
         expect(provider.readDatasetAsync).not.toHaveBeenCalled();
         expect("findUnique" in client.exercises).toBe(false);
         await expect(client.cacheContracts()).rejects.toBeInstanceOf(ValidationError);
@@ -145,6 +155,19 @@ describe("GrpcQueryClient", () => {
         expect(stateService.getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
     });
 
+    it("uses canonical explicit parties for an active ACS probe without narrowing history", async () => {
+        const stateService = {
+            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
+            getLatestPrunedOffsetsAsync: vi.fn(),
+            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [] }),
+        };
+
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
+
+        await client.contracts.findMany({ parties: ["Bob", "Alice", "Alice"], where: { active: true } });
+        expect(stateService.getActiveContractsPageAsync.mock.calls[0]![0].eventFormat).toMatchObject({ filtersByParty: { Alice: expect.anything(), Bob: expect.anything() } });
+    });
+
     it("keeps history-only edges incomplete for a nonempty ACS snapshot", async () => {
         const stateService = {
             getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
@@ -175,7 +198,7 @@ describe("GrpcQueryClient", () => {
     });
 
     it("pins historical contract includes to the active cache offset", async () => {
-        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "300", updates: [] });
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "300", updates: [historyUpdate("100")] });
 
         const stateService = {
             getLedgerEndAsync: vi.fn(),
@@ -215,5 +238,25 @@ describe("GrpcQueryClient", () => {
         await expect(client.transactions.findMany({ select: { ix: true } })).resolves.toEqual([{ ix: "1" }]);
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
         expect(packageService.getPackageAsync).not.toHaveBeenCalled();
+    });
+
+    it("uses Package Service directly for packages and type collections", async () => {
+        const fixture = packageFixture();
+
+        const packageService = {
+            listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }),
+            getPackageAsync: vi.fn().mockResolvedValue(fixture.response),
+        };
+
+        const stateService = { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() };
+
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: {} as never, packageService: packageService as never });
+
+        await expect(client.packages.findMany({ select: { id: true } })).resolves.toEqual([{ id: fixture.id }]);
+        await expect(client.contractTypes.findMany({ select: { entityName: true } })).resolves.toEqual([{ entityName: "Iou" }]);
+        await expect(client.exerciseTypes.findMany({ select: { choice: true } })).resolves.toEqual([{ choice: "Transfer" }]);
+        expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(3);
+        expect(packageService.listPackagesAsync).toHaveBeenCalledTimes(3);
+        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(3);
     });
 });

@@ -4,7 +4,6 @@ export { QuerySource } from "./query/query-source.js";
 export { MemoryQueryCache } from "./query/cache/memory-query-cache.js";
 export { QueryCapabilityError } from "./query/errors/query-capability-error.js";
 export { QuerySnapshotIncompleteError } from "./query/errors/query-snapshot-incomplete-error.js";
-export { GrpcQueryClient } from "./query/grpc/grpc-query-client.js";
 export type { QuerySnapshotIncompleteReason } from "./query/errors/query-snapshot-incomplete-error.js";
 export { PqsQueryError } from "./query/errors/pqs-query-error.js";
 export { PqsSchemaProfileError } from "./query/errors/pqs-schema-profile-error.js";
