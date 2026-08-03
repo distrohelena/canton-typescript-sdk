@@ -4,8 +4,10 @@
 
 Make every typed `QueryClient` delegate behave the same when `CantonManager`
 uses `QuerySource.grpc` or `QuerySource.pqs`. Callers must be able to switch the
-query source setting without changing filters, selections, includes, ordering,
-pagination, aggregates, grouping, or result handling.
+query source setting without changing query structure, selections, includes,
+ordering, pagination, aggregates, grouping, or result handling. Literal values
+of explicitly storage-local `pk`/`ix` fields are the sole typed-query data
+exception; ledger-domain identifiers remain portable.
 
 The only deliberate capability difference is `$queryRaw`, which remains a
 PostgreSQL/PQS operation. Typed gRPC queries must no longer fail with
@@ -44,8 +46,10 @@ does not store update history or any non-contract relation.
 ## Public compatibility contract
 
 `QueryClient` remains the public read API. Existing typed query argument and
-result types remain source-independent. The selected `querySource` is the only
-setting that chooses the executor.
+result types remain source-independent. A single options object may contain
+both gRPC and PQS configuration, and the selected `querySource` is the only
+setting that chooses the executor. `pqs` remains required when PQS is selected
+but is permitted and unused when gRPC is selected.
 
 The following must therefore have identical meaning under both sources:
 
@@ -63,6 +67,17 @@ The following must therefore have identical meaning under both sources:
 The two sources execute over their own participant-visible data. Exact query
 parity does not imply that independently configured PQS and gRPC participants
 observe contracts for the same parties.
+
+The operators and result positions of storage-local fields remain identical,
+but their literal values are scoped to their source. PQS exposes database
+sequence values; gRPC exposes deterministic snapshot-local values. A query such
+as `events.findUnique({ where: { pk: valueFromThisSource } })` works unchanged
+when `valueFromThisSource` came from the selected source, but a hard-coded PQS
+sequence value is not a portable ledger identifier. Cross-source caller logic
+must use `contractId`, package `id`, transaction `offset`/`transactionId`,
+`eventId`, template identity, or another ledger-domain key when it needs durable
+identity. This is the accepted mapping exception to literal result equality;
+query grammar and behavior do not otherwise narrow under gRPC.
 
 ## Architecture
 
@@ -219,6 +234,11 @@ All synthetic storage keys must:
 Adding data in a later snapshot may change snapshot-local ordinals. Callers that
 need durable identity must use ledger-domain keys such as contract ID, package
 ID, transaction update ID, offset, and canonical template identity.
+
+PQS storage keys are not rewritten. Conformance comparisons assert the type,
+operator behavior, ordering behavior, and referential consistency of `pk`/`ix`
+fields independently for each source, while comparing ledger-domain fields
+directly across sources.
 
 ## In-memory query execution
 
@@ -402,6 +422,8 @@ The work is complete when:
 5. Pruned/incomplete history fails explicitly without partial results.
 6. Active-contract caching is explicit, scoped, point-in-time, and limited to
    active contract rows.
-7. Switching only `querySource` preserves application query code and semantics.
+7. An options object containing both configurations can switch only
+   `querySource`; application query structure and semantics remain unchanged,
+   subject only to the documented non-portability of storage-local key values.
 8. Focused tests, the full test suite, build, lint, package verification, and
    live PQS/gRPC parity tests pass.
