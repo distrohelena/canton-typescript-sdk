@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
-import { mkdir, mkdtemp, readFile, rm, symlink, unlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -145,6 +145,8 @@ async function getPackedTarballPathAsync() {
         packageJson.version,
     );
 
+    await runCommandAsync("npm", ["run", "build"]);
+
     await runBashCommandAsync(
         "npm pack --json --cache \"$0\" --pack-destination \"$1\" >/dev/null",
         [cacheDirectoryPath, packDestinationPath],
@@ -257,6 +259,18 @@ async function validateSubmitCommandsExportAsync(tarballPath, destinationPath) {
                 `if (${JSON.stringify(submitCommandsExportNames.removedRequest)} in sdk) throw new Error("removed request runtime export present");`,
             ].join("\n"),
         ],
+        { cwd: consumerPath },
+    );
+
+    const typeConsumerPath = join(consumerPath, "submit-commands-consumer.ts");
+
+    await writeFile(
+        typeConsumerPath,
+        'import { SubmitCommandsRequest } from "@distrohelena/canton-typescript-sdk";\nimport type { NonEmptyLedgerCommands } from "@distrohelena/canton-typescript-sdk";\ndeclare const commands: NonEmptyLedgerCommands;\nnew SubmitCommandsRequest({ applicationId: "app", actAs: ["Alice"], commands });\n',
+    );
+    await executeFileAsync(
+        resolve(process.cwd(), "node_modules/.bin/tsc"),
+        ["--noEmit", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", typeConsumerPath],
         { cwd: consumerPath },
     );
 }

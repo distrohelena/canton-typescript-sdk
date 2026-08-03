@@ -44,15 +44,47 @@ function isSubmitCommandsRequestConstruction(
 
 function bindNames(
     scope: ReceiverScope,
-    name: ts.BindingName,
+    name: ts.BindingName | undefined,
     isRequest: boolean,
 ): void {
-    if (ts.isIdentifier(name)) {
+    if (name === undefined) {
+        return;
+    } else if (ts.isIdentifier(name)) {
         scope.requestReceivers.set(name.text, isRequest);
     } else {
         for (const element of name.elements) {
             bindNames(scope, element.name, false);
         }
+    }
+}
+
+function bindNamesFromType(
+    scope: ReceiverScope,
+    name: ts.BindingName | undefined,
+    type: ts.TypeNode | undefined,
+): void {
+    if (name === undefined) {
+        return;
+    } else if (ts.isIdentifier(name)) {
+        bindNames(scope, name, isDirectSubmitCommandsRequestType(type));
+    } else if (type !== undefined && ts.isTypeLiteralNode(type)) {
+        for (const element of name.elements) {
+            const key = element.propertyName ?? element.name;
+
+            const member = type.members.find(member =>
+                ts.isPropertySignature(member) &&
+                member.name !== undefined &&
+                member.name.getText() === key.getText(),
+            );
+
+            bindNamesFromType(
+                scope,
+                element.name,
+                ts.isPropertySignature(member) ? member.type : undefined,
+            );
+        }
+    } else {
+        bindNames(scope, name, false);
     }
 }
 
@@ -143,6 +175,8 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
                         parameter.name.text,
                         isDirectSubmitCommandsRequestType(parameter.type),
                     );
+                } else {
+                    bindNamesFromType(functionScope, parameter.name, parameter.type);
                 }
 
                 if (parameter.type !== undefined) {
@@ -172,9 +206,9 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
                         bindNames(
                             blockScope,
                             declaration.name,
-                            isDirectSubmitCommandsRequestType(declaration.type) ||
-                                isSubmitCommandsRequestConstruction(declaration.initializer),
+                            false,
                         );
+                        bindNamesFromType(blockScope, declaration.name, declaration.type);
                     }
                 }
             }
@@ -195,8 +229,12 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
 
             if (initializer !== undefined && ts.isVariableDeclarationList(initializer)) {
                 for (const declaration of initializer.declarations) {
+                    const targetScope = initializer.flags & ts.NodeFlags.Let
+                        ? loopScope
+                        : scope;
+
                     bindNames(
-                        loopScope,
+                        targetScope,
                         declaration.name,
                         isDirectSubmitCommandsRequestType(declaration.type) ||
                             isSubmitCommandsRequestConstruction(declaration.initializer),
@@ -224,12 +262,15 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
                 }
             }
 
-            bindNames(
-                scope,
-                node.name,
-                isDirectSubmitCommandsRequestType(node.type) ||
+            bindNamesFromType(scope, node.name, node.type);
+
+            if (node.type === undefined) {
+                bindNames(
+                    scope,
+                    node.name,
                     isSubmitCommandsRequestConstruction(node.initializer),
-            );
+                );
+            }
 
             if (node.type !== undefined) {
                 visit(node.type, scope);

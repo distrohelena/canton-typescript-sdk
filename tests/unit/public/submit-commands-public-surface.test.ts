@@ -183,6 +183,18 @@ describe("SubmitCommandsRequest public surface", () => {
         )).toContain("request.command");
     });
 
+    it("models destructured parameter/type bindings and function-scoped var loop bindings", () => {
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest, { request: nested }) { nested.command; }",
+        )).toEqual([]);
+        expect(findRemovedSubmitCommandUsages(
+            "const { request }: { request: SubmitCommandsRequest } = value; request.command;",
+        )).toContain("request.command");
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest) { for (var request of values) {} request.command; }",
+        )).toEqual([]);
+    });
+
     it("has no removed request surface in handwritten sources", () => {
         const files = collectHandwrittenSourceFiles([
             "src",
