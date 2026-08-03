@@ -30,6 +30,8 @@ const orderedOperators = new Set<ScalarOperator>(["equals", "in", "is", "isNot",
 
 const stringOperators = new Set<ScalarOperator>([...orderedOperators, "like", "ilike"]);
 
+const payloadOperators = new Set<ScalarOperator>(["equals", "lt", "lte", "gt", "gte", "like", "ilike"]);
+
 const jsonScalarTypes = new Set(["text", "numeric", "boolean", "timestamp"]);
 
 const buckets = new Set(["hour", "day", "week", "month"]);
@@ -130,7 +132,7 @@ export function normalizeGroupBy(relation: QueryRelation, args: unknown): Normal
         relation,
         predicate: source.where === undefined ? undefined : normalizePredicate(relation, source.where),
         by: source.by.map((key) => normalizeGroupKey(relation, key)),
-        aggregates: normalizeAggregates(relation, object(source.aggregate, "groupBy.aggregate")),
+        aggregates: normalizeAggregates(relation, object(source.aggregate, "groupBy.aggregate"), true),
     };
 }
 
@@ -249,7 +251,9 @@ function normalizeRelationPredicate(edge: string, target: QueryRelation, cardina
 }
 
 function normalizeScalarFilter(relation: QueryRelation, field: string, value: unknown): readonly QueryPredicate[] {
-    if (!isFilter(value)) {
+    if (relation === "contracts" && field === "witnesses") {
+        return normalizeContractWitnesses(value);
+    } else if (!isFilter(value)) {
         return [scalar(field, value)];
     }
 
@@ -316,7 +320,7 @@ function normalizePayloadScalarFilter(path: readonly string[], value: UnknownRec
     }
 
     return entries.map(([operator, operand]) => {
-        if (!stringOperators.has(operator as ScalarOperator)) {
+        if (!payloadOperators.has(operator as ScalarOperator)) {
             throw new Error(`${operator} is not supported for payload`);
         }
 
@@ -497,8 +501,8 @@ function normalizeParties(relation: QueryRelation, value: unknown): readonly str
     return [...new Set(value)].sort();
 }
 
-function normalizeAggregates(relation: QueryRelation, value: UnknownRecord): NormalizedAggregateSelection {
-    const fields = queryRelationMetadata[relation].fields;
+function normalizeAggregates(relation: QueryRelation, value: UnknownRecord, numericOnly = false): NormalizedAggregateSelection {
+    const fields = numericOnly ? queryRelationMetadata[relation].numericFields : queryRelationMetadata[relation].fields;
 
     assertKnown(value, ["count", "min", "max", "sum"], "aggregate");
 
@@ -627,6 +631,16 @@ function assertUniqueEqualityValue(field: string, value: unknown): void {
     if (value !== null && typeof value === "object" && !(value instanceof Date) && !(value instanceof Uint8Array)) {
         throw new Error(`findUnique.where.${field} must be a scalar equality value`);
     }
+}
+
+function normalizeContractWitnesses(value: unknown): readonly QueryPredicate[] {
+    const filter = object(value, "witnesses filter");
+
+    if (Object.keys(filter).length !== 1 || typeof filter.has !== "string") {
+        throw new Error("witnesses must use { has: string }");
+    }
+
+    return [{ kind: "scalar", path: ["witnesses"], operator: "has", value: filter.has }];
 }
 
 function jsonPath(value: unknown, label: string): readonly string[] {

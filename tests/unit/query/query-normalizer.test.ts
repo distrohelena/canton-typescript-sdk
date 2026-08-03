@@ -68,6 +68,19 @@ describe("canonical query normalizer", () => {
     });
 
     it.each([
+        ["non-numeric group aggregate fields", () => normalizeGroupBy("packages", { by: ["id"], aggregate: { sum: ["name"] } })],
+        ["payload in", () => normalizeFindMany("contracts", { where: { payload: { match: { owner: { in: ["Alice"] } } } } })],
+        ["payload is", () => normalizeFindMany("contracts", { where: { payload: { match: { owner: { is: null } } } } })],
+        ["payload isNot", () => normalizeFindMany("contracts", { where: { payload: { match: { owner: { isNot: null } } } } })],
+        ["witnesses equality", () => normalizeFindMany("contracts", { where: { witnesses: { equals: ["Alice"] } } })],
+        ["witnesses in", () => normalizeFindMany("contracts", { where: { witnesses: { in: [["Alice"]] } } })],
+        ["witnesses is", () => normalizeFindMany("contracts", { where: { witnesses: { is: null } } })],
+        ["witnesses isNot", () => normalizeFindMany("contracts", { where: { witnesses: { isNot: null } } })],
+    ])("rejects restricted %s", (_name, normalize) => {
+        expect(normalize).toThrow();
+    });
+
+    it.each([
         ["unknown fields", () => normalizeFindMany("packages", { where: { nope: { equals: "x" } } })],
         ["invalid operators", () => normalizeFindMany("packages", { where: { id: { contains: "x" } } })],
         ["empty order", () => normalizeFindMany("packages", { orderBy: [] })],
