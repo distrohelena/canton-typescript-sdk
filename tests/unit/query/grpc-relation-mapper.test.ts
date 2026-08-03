@@ -366,6 +366,105 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [metadata], "0", "grpc://participant")).toThrow(ValidationError);
     });
 
+    it("translates a throwing package metadata getter to ValidationError", () => {
+        const metadata = Object.defineProperty(packageMetadata("pkg-id", "app", true), "id", { get: () => {
+            throw new TypeError("id trap");
+        } });
+
+        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [metadata], "0", "grpc://participant")).toThrow(ValidationError);
+    });
+
+    it.each([
+        ["package array", () => {
+            const value = Proxy.revocable<GrpcPackageMetadata[]>([], {});
+
+            value.revoke();
+
+            return value.proxy;
+        }],
+        ["package", () => {
+            const value = Proxy.revocable(packageMetadata("pkg-id", "app", true), {});
+
+            value.revoke();
+
+            return [value.proxy];
+        }],
+        ["template array", () => {
+            const value = Proxy.revocable<GrpcPackageMetadata["templates"][number][]>([], {});
+
+            value.revoke();
+
+            return [{ ...packageMetadata("pkg-id", "app", true), templates: value.proxy }];
+        }],
+        ["template", () => {
+            const value = Proxy.revocable(packageMetadata("pkg-id", "app", true).templates[0]!, {});
+
+            value.revoke();
+
+            return [{ ...packageMetadata("pkg-id", "app", true), templates: [value.proxy] }];
+        }],
+        ["choice array", () => {
+            const value = Proxy.revocable<GrpcPackageMetadata["templates"][number]["choices"][number][]>([], {});
+
+            value.revoke();
+
+            const template = { ...packageMetadata("pkg-id", "app", true).templates[0]!, choices: value.proxy };
+
+            return [{ ...packageMetadata("pkg-id", "app", true), templates: [template] }];
+        }],
+        ["choice", () => {
+            const value = Proxy.revocable(packageMetadata("pkg-id", "app", true).templates[0]!.choices[0]!, {});
+
+            value.revoke();
+
+            const template = { ...packageMetadata("pkg-id", "app", true).templates[0]!, choices: [value.proxy] };
+
+            return [{ ...packageMetadata("pkg-id", "app", true), templates: [template] }];
+        }],
+    ])("translates revoked %s metadata proxies to ValidationError", (_name, makePackages) => {
+        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), makePackages() as readonly GrpcPackageMetadata[], "0", "grpc://participant")).toThrow(ValidationError);
+    });
+
+    it("reads stateful package, template, and choice metadata exactly once into an immutable snapshot", () => {
+        const source = packageMetadata("pkg-id", "app", true);
+
+        const reads = { name: 0, templates: 0, aliases: 0, templateFqn: 0, choices: 0, choice: 0, choiceAliases: 0, choiceFqn: 0 };
+
+        const choice = Object.defineProperties({ ...source.templates[0]!.choices[0]! }, {
+            choice: { enumerable: true, get: () => ++reads.choice === 1 ? "Archive" : "Different" },
+            aliases: { enumerable: true, get: () => ++reads.choiceAliases === 1 ? ["Main:Asset:Archive"] : ["wrong"] },
+            choiceFqn: { enumerable: true, get: () => ++reads.choiceFqn === 1 ? "app:Main:Asset:Archive" : "wrong" },
+        });
+
+        const template = Object.defineProperties({ ...source.templates[0]! }, {
+            aliases: { enumerable: true, get: () => ++reads.aliases === 1 ? ["Main:Asset"] : ["wrong"] },
+            templateFqn: { enumerable: true, get: () => ++reads.templateFqn === 1 ? "app:Main:Asset" : "wrong" },
+            choices: { enumerable: true, get: () => {
+                ++reads.choices;
+
+                return reads.choices === 1 ? [choice] : [];
+            } },
+        });
+
+        const metadata = Object.defineProperties({ ...source }, {
+            name: { enumerable: true, get: () => ++reads.name === 1 ? "app" : "different" },
+            templates: { enumerable: true, get: () => {
+                ++reads.templates;
+
+                return reads.templates === 1 ? [template] : [];
+            } },
+        });
+
+        const dataset = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [metadata], "0", "grpc://participant");
+
+        expect(reads).toEqual({ name: 1, templates: 1, aliases: 1, templateFqn: 1, choices: 1, choice: 1, choiceAliases: 1, choiceFqn: 1 });
+        expect(dataset.rows.packages).toEqual([expect.objectContaining({ id: "pkg-id", name: "app" })]);
+        expect(dataset.rows.contractTypes).toEqual([expect.objectContaining({ packageName: "app", aliases: ["Main:Asset"], templateFqn: "app:Main:Asset" })]);
+        expect(dataset.rows.exerciseTypes).toEqual([expect.objectContaining({ choice: "Archive", aliases: ["Main:Asset:Archive"], choiceFqn: "app:Main:Asset:Archive" })]);
+        expect(Object.isFrozen(dataset.rows.contractTypes[0]!.aliases)).toBe(true);
+        expect(Object.isFrozen(dataset.rows.exerciseTypes[0]!.aliases)).toBe(true);
+    });
+
     it("accepts same-name packages at different versions and marks ACS-only creation transactions incomplete", () => {
         const older = packageMetadata("pkg-old", "app", true, "1.0.0");
 

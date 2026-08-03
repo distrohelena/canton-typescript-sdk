@@ -116,6 +116,103 @@ describe("GrpcPackageRelationReader", () => {
         await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
     });
 
+    it.each([
+        ["throwing accessor", () => Object.defineProperty({}, "packageIds", { get: () => {
+            throw new Error("accessor trap");
+        } })],
+        ["inherited property", () => Object.create({ packageIds: [fixturePackage().id] })],
+        ["revoked response proxy", () => {
+            const proxy = Proxy.revocable({}, {});
+
+            proxy.revoke();
+
+            return proxy.proxy;
+        }],
+        ["revoked package ID array", () => {
+            const proxy = Proxy.revocable([fixturePackage().id], {});
+
+            proxy.revoke();
+
+            return { packageIds: proxy.proxy };
+        }],
+        ["throwing array element", () => ({ packageIds: Object.defineProperty(new Array<string>(1), "0", { get: () => {
+            throw new Error("element trap");
+        } }) })],
+        ["revoked array element", () => {
+            const value = Proxy.revocable({}, {});
+
+            value.revoke();
+
+            return { packageIds: [value.proxy] };
+        }],
+    ])("rejects hostile package lists as typed list failures without fetching: %s", async (_name, response) => {
+        const getPackageAsync = vi.fn(async () => fixturePackage().response);
+
+        const reader = new GrpcPackageRelationReader({
+            listPackagesAsync: async () => response() as never,
+            getPackageAsync,
+        });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
+        expect(getPackageAsync).not.toHaveBeenCalled();
+    });
+
+    it("translates a throwing package-list descriptor trap without fetching", async () => {
+        const getOwnPropertyDescriptor = vi.fn(() => {
+            throw new Error("descriptor trap");
+        });
+
+        const target = {};
+
+        const response = new Proxy(target, { getOwnPropertyDescriptor });
+
+        const getPackageAsync = vi.fn(async () => fixturePackage().response);
+
+        const reader = new GrpcPackageRelationReader({ listPackagesAsync: async () => response as never, getPackageAsync });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
+        expect(getOwnPropertyDescriptor).toHaveBeenCalledExactlyOnceWith(target, "packageIds");
+        expect(getPackageAsync).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ["revoked proxy", () => {
+            const value = Proxy.revocable({}, {});
+
+            value.revoke();
+
+            return value.proxy;
+        }],
+        ["throwing error message", () => Object.defineProperty(new Error("hidden"), "message", { get: () => {
+            throw new Error("message trap");
+        } })],
+    ])("translates an unformattable thrown list value: %s", async (_name, thrownValue) => {
+        const response = new Proxy({}, { getOwnPropertyDescriptor: () => {
+            throw thrownValue();
+        } });
+
+        const getPackageAsync = vi.fn(async () => fixturePackage().response);
+
+        const reader = new GrpcPackageRelationReader({ listPackagesAsync: async () => response as never, getPackageAsync });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
+        expect(getPackageAsync).not.toHaveBeenCalled();
+    });
+
+    it("rejects an accessor package list without invoking it", async () => {
+        const accessor = vi.fn(() => [fixturePackage().id]);
+
+        const response = Object.defineProperty({}, "packageIds", { get: accessor });
+
+        const getPackageAsync = vi.fn(async () => fixturePackage().response);
+
+        const reader = new GrpcPackageRelationReader({ listPackagesAsync: async () => response as never, getPackageAsync });
+
+        await expect(reader.readAllAsync()).rejects.toMatchObject({ name: "GrpcPackageRelationError", packageId: "<list>" });
+        expect(accessor).not.toHaveBeenCalled();
+        expect(getPackageAsync).not.toHaveBeenCalled();
+    });
+
     it("validates and deduplicates the complete package ID list before starting fetches", async () => {
         const fixture = fixturePackage();
 

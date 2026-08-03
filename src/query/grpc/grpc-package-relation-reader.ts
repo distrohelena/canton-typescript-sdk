@@ -50,19 +50,15 @@ export class GrpcPackageRelationReader {
     ) {}
 
     public async readAllAsync(): Promise<readonly GrpcPackageMetadata[]> {
-        let response: unknown;
+        let packageIds: readonly string[];
 
         try {
-            response = await this.packageService.listPackagesAsync({});
+            packageIds = packageIdsSnapshot(await this.packageService.listPackagesAsync({}));
         } catch (error) {
             throw new GrpcPackageRelationError("<list>", errorMessage(error));
         }
 
-        if (response === null || typeof response !== "object" || !Array.isArray((response as Partial<ListPackagesResponse>).packageIds) || (response as ListPackagesResponse).packageIds.length === 0) {
-            throw new GrpcPackageRelationError("<list>", "Package Service returned no package IDs");
-        }
-
-        return this.readPackagesAsync((response as ListPackagesResponse).packageIds);
+        return this.readPackagesAsync(packageIds);
     }
 
     public async readPackagesAsync(packageIds: readonly string[]): Promise<readonly GrpcPackageMetadata[]> {
@@ -70,13 +66,9 @@ export class GrpcPackageRelationReader {
 
         for (const packageId of packageIds) {
             try {
-                validPackageIdString(packageId, "package id");
-
-                if (!/^[0-9a-f]{64}$/.test(packageId)) {
-                    throw new Error("Package Service package ID is not a lowercase SHA-256 digest");
-                }
+                validPackageDigest(packageId);
             } catch (error) {
-                throw new GrpcPackageRelationError(packageId, errorMessage(error));
+                throw new GrpcPackageRelationError(typeof packageId === "string" ? packageId : "<invalid>", errorMessage(error));
             }
 
             uniquePackageIds.add(packageId);
@@ -133,6 +125,40 @@ export class GrpcPackageRelationReader {
     }
 }
 
+function packageIdsSnapshot(response: unknown): readonly string[] {
+    if (response === null || typeof response !== "object") {
+        throw new Error("Package Service returned no package IDs");
+    }
+
+    const descriptor = Object.getOwnPropertyDescriptor(response, "packageIds");
+
+    if (descriptor === undefined || !("value" in descriptor) || !Array.isArray(descriptor.value)) {
+        throw new Error("Package Service returned no package IDs");
+    }
+
+    const packageIds = Array.from(descriptor.value, validPackageDigest);
+
+    if (packageIds.length === 0) {
+        throw new Error("Package Service returned no package IDs");
+    }
+
+    return Object.freeze(packageIds);
+}
+
+function validPackageDigest(value: unknown): string {
+    if (typeof value !== "string") {
+        throw new Error("Package Service package ID is invalid");
+    }
+
+    validPackageIdString(value, "package id");
+
+    if (!/^[0-9a-f]{64}$/.test(value)) {
+        throw new Error("Package Service package ID is not a lowercase SHA-256 digest");
+    }
+
+    return value;
+}
+
 function templateMetadata(packageId: string, packageName: string, moduleName: string, template: DamlLfTemplate): GrpcPackageTemplateMetadata {
     validDottedNameString(moduleName, "DAML-LF module name");
     validDottedNameString(template.templateId.templateName, "DAML-LF template name");
@@ -164,5 +190,11 @@ function requiredPackageText(value: string, name: string): string {
 }
 
 function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    try {
+        const message = error instanceof Error ? error.message : String(error);
+
+        return typeof message === "string" ? message : "Unknown package service error";
+    } catch {
+        return "Unknown package service error";
+    }
 }
