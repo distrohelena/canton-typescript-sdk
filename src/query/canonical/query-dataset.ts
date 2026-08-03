@@ -78,7 +78,7 @@ export class ImmutableQueryDate extends Date {
 /** Recursively clones and freezes query values without retaining mutable input references. */
 export function immutableQueryValue<T>(value: T): T {
     if (value instanceof Date) {
-        return Object.freeze(new ImmutableQueryDate(value.getTime())) as T;
+        return immutableQueryDate(value) as T;
     } else if (value instanceof Uint8Array) {
         return immutableQueryBytes(value) as T;
     } else if (Array.isArray(value)) {
@@ -90,6 +90,38 @@ export function immutableQueryValue<T>(value: T): T {
     return value;
 }
 
+/** A proxy has no [[DateValue]], so Date.prototype mutators cannot bypass this wrapper. */
+function immutableQueryDate(value: Date): Date {
+    const target = new Date(value.getTime());
+
+    const mutation = () => {
+        throw new TypeError("Query dates are immutable");
+    };
+
+    const setters = new Set([
+        "setDate", "setFullYear", "setHours", "setMilliseconds", "setMinutes", "setMonth", "setSeconds", "setTime", "setUTCDate",
+        "setUTCFullYear", "setUTCHours", "setUTCMilliseconds", "setUTCMinutes", "setUTCMonth", "setUTCSeconds", "setYear",
+    ]);
+
+    return Object.freeze(new Proxy(target, {
+        set: mutation,
+        defineProperty: mutation,
+        deleteProperty: mutation,
+        setPrototypeOf: mutation,
+        get(inner, property) {
+            if (setters.has(String(property))) {
+                return mutation;
+            } else if (property === Symbol.toStringTag) {
+                return "Date";
+            }
+
+            const member = Reflect.get(inner, property, inner);
+
+            return typeof member === "function" ? member.bind(inner) : member;
+        },
+    }));
+}
+
 /** Typed arrays cannot be frozen by JavaScript engines, so guard every write path. */
 function immutableQueryBytes(value: Uint8Array): Uint8Array {
     const bytes = new Uint8Array(value);
@@ -98,10 +130,13 @@ function immutableQueryBytes(value: Uint8Array): Uint8Array {
         throw new TypeError("Query bytes are immutable");
     };
 
-    return new Proxy(bytes, {
+    let proxy: Uint8Array;
+
+    proxy = new Proxy(bytes, {
         set: mutation,
         defineProperty: mutation,
         deleteProperty: mutation,
+        setPrototypeOf: mutation,
         get(target, property) {
             if (["copyWithin", "fill", "reverse", "set", "sort"].includes(String(property))) {
                 return mutation;
@@ -109,6 +144,10 @@ function immutableQueryBytes(value: Uint8Array): Uint8Array {
                 return target.buffer.slice(0);
             } else if (property === "subarray") {
                 return (...args: Parameters<Uint8Array["subarray"]>) => immutableQueryBytes(target.subarray(...args));
+            } else if (property === "slice") {
+                return (...args: Parameters<Uint8Array["slice"]>) => immutableQueryBytes(target.slice(...args));
+            } else if (property === "valueOf") {
+                return () => proxy;
             }
 
             const member = Reflect.get(target, property, target);
@@ -116,4 +155,6 @@ function immutableQueryBytes(value: Uint8Array): Uint8Array {
             return typeof member === "function" ? member.bind(target) : member;
         },
     });
+
+    return proxy;
 }
