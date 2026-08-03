@@ -209,13 +209,15 @@ export function extractTwoCreatedContractIds(response: {
 
         const event = responseEvent.event;
 
-        if (
-            event.oneofKind !== "created"
-            || !isRecord(event.created)
-            || typeof event.created.contractId !== "string"
+        if (event.oneofKind !== "created" || !isRecord(event.created)) {
+            continue;
+        } else if (
+            typeof event.created.contractId !== "string"
             || !event.created.contractId.trim()
         ) {
-            continue;
+            throw new Error(
+                "Each created event in the atomic batch response must have a non-empty created contract ID.",
+            );
         }
 
         contractIds.push(event.created.contractId);

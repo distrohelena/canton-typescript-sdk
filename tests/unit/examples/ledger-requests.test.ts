@@ -9,6 +9,7 @@ import {
     buildActiveContractsRequest,
     buildMessageUpdateFormat,
     buildUpdatesRequest,
+    extractTwoCreatedContractIds,
     findActiveMessage,
     matchCreatedMessageUpdate,
 } from "../../../examples/shared/ledger-requests.js";
@@ -138,6 +139,44 @@ describe("application example ledger requests", () => {
             party: "Alice::1",
             templateId,
         })).toThrow(/response created contract IDs/i);
+    });
+
+    it("extracts exactly two created response IDs in order while ignoring other generated event kinds", () => {
+        expect(extractTwoCreatedContractIds({
+            events: [
+                archivedResponseEvent("#archived"),
+                {},
+                createdResponseEvent("#first"),
+                exercisedResponseEvent("#exercised"),
+                createdResponseEvent("#second"),
+            ],
+        })).toEqual(["#first", "#second"]);
+    });
+
+    it.each([
+        ["no created events", [], /exactly two created events.*found 0/i],
+        ["one created event", [createdResponseEvent("#first")], /exactly two created events.*found 1/i],
+        [
+            "three created events",
+            [
+                createdResponseEvent("#first"),
+                createdResponseEvent("#second"),
+                createdResponseEvent("#third"),
+            ],
+            /exactly two created events.*found 3/i,
+        ],
+        [
+            "duplicate created IDs",
+            [createdResponseEvent("#first"), createdResponseEvent("#first")],
+            /must be distinct/i,
+        ],
+        [
+            "empty created ID",
+            [createdResponseEvent("#first"), createdResponseEvent(" ")],
+            /non-empty created contract ID/i,
+        ],
+    ])("rejects %s in an atomic batch response", (_description, events, message) => {
+        expect(() => extractTwoCreatedContractIds({ events })).toThrow(message);
     });
 
     it("builds and matches the generated ACS-delta update request", () => {
@@ -271,5 +310,32 @@ function exactMessage(
                 { label: "text", value: { sum: { oneofKind: "text", text } } },
             ],
         }),
+    });
+}
+
+function createdResponseEvent(contractId: string): ledgerApiV2.Event {
+    return ledgerApiV2.Event.create({
+        event: {
+            oneofKind: "created",
+            created: ledgerApiV2.CreatedEvent.create({ contractId }),
+        },
+    });
+}
+
+function archivedResponseEvent(contractId: string): ledgerApiV2.Event {
+    return ledgerApiV2.Event.create({
+        event: {
+            oneofKind: "archived",
+            archived: ledgerApiV2.ArchivedEvent.create({ contractId }),
+        },
+    });
+}
+
+function exercisedResponseEvent(contractId: string): ledgerApiV2.Event {
+    return ledgerApiV2.Event.create({
+        event: {
+            oneofKind: "exercised",
+            exercised: ledgerApiV2.ExercisedEvent.create({ contractId }),
+        },
     });
 }
