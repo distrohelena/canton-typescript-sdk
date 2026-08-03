@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { GrpcQueryClient } from "../../../src/query/grpc/grpc-query-client.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
-import { Event, CreatedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { Transaction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import { GetUpdateResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { GetActiveContractsResponse } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
@@ -258,5 +258,79 @@ describe("GrpcQueryClient", () => {
         expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(3);
         expect(packageService.listPackagesAsync).toHaveBeenCalledTimes(3);
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(3);
+    });
+
+    it("reads complete history for contracts -> contractType -> contracts and includes archived matching-template rows", async () => {
+        const fixture = packageFixture();
+
+        const templateId = { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" };
+
+        const created = (contractId: string, offset: string, nodeId: number) => CreatedEvent.create({
+            offset,
+            nodeId,
+            contractId,
+            templateId,
+            packageName: "sample-package",
+            representativePackageId: fixture.id,
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const transaction = (offset: string, event: Event) => Transaction.create({
+            offset,
+            updateId: `update-${offset}`,
+            effectiveAt: { seconds: "1700000000", nanos: 0 },
+            recordTime: { seconds: "1700000000", nanos: 0 },
+            synchronizerId: "sync",
+            events: [event],
+        });
+
+        const c1 = created("C1", "100", 1);
+
+        const c2 = created("C2", "200", 1);
+
+        const archive = ExercisedEvent.create({
+            offset: "300",
+            nodeId: 2,
+            contractId: "C2",
+            templateId,
+            packageName: "sample-package",
+            choice: "Transfer",
+            choiceArgument: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            exerciseResult: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            actingParties: ["Alice"],
+            witnessParties: ["Alice"],
+            consuming: true,
+            lastDescendantNodeId: 2,
+        });
+
+        const updates = [
+            GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: transaction("100", Event.create({ event: { oneofKind: "created", created: c1 } })) } }),
+            GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: transaction("200", Event.create({ event: { oneofKind: "created", created: c2 } })) } }),
+            GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: transaction("300", Event.create({ event: { oneofKind: "exercised", exercised: archive } })) } }),
+        ];
+
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "300", updates });
+
+        const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "300" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: { getUpdatesPageAsync } as never,
+            packageService: packageService as never,
+        });
+
+        const rows = await client.contracts.findMany({
+            where: { active: true },
+            select: { contractId: true },
+            include: { contractType: { select: { entityName: true }, include: { contracts: { take: 10, select: { contractId: true, active: true } } } } },
+        });
+
+        expect(rows).toEqual([expect.objectContaining({ contractId: "C1", contractType: expect.objectContaining({ entityName: "Iou", contracts: expect.arrayContaining([expect.objectContaining({ contractId: "C2", active: false })]) }) })]);
+        expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
+        expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
+        expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 });
