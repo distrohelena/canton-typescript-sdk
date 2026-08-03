@@ -364,6 +364,17 @@ describe("gRPC query snapshot reader", () => {
         });
     });
 
+    it("uses explicit party filters for a scoped ACS snapshot", async () => {
+        const { reader, getActiveContractsPageAsync } = readerFor();
+
+        await reader.readActiveContractsAsync("42", ["Alice", "Bob"]);
+
+        expect(getActiveContractsPageAsync.mock.calls[0]![0].eventFormat).toMatchObject({
+            filtersByParty: { Alice: expect.anything(), Bob: expect.anything() },
+            verbose: true,
+        });
+    });
+
     it("keeps ACS event format semantics after a consumer attempts to mutate the first request", async () => {
         const getActiveContractsPageAsync = vi.fn()
             .mockImplementationOnce(async request => {
