@@ -12,6 +12,18 @@ import {
 import { TransactionShape } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 
 describe("gRPC query snapshot reader", () => {
+    const expectImmutableBytes = (bytes: Uint8Array, expected: readonly number[]) => {
+        expect(() => bytes[0] = 9).toThrow();
+        expect(() => bytes.set([9])).toThrow();
+        expect(() => bytes.fill(9)).toThrow();
+        expect(() => bytes.subarray(0)[0] = 9).toThrow();
+
+        new Uint8Array(bytes.buffer)[0] = 9;
+
+        expect([...bytes]).toEqual(expected);
+        expect([...bytes]).toEqual(expected);
+    };
+
     const historyPage = (init: Partial<GetUpdatesPageResponse> = {}) =>
         GetUpdatesPageResponse.create({
             updates: [],
@@ -153,6 +165,42 @@ describe("gRPC query snapshot reader", () => {
         });
     });
 
+    it("rejects a tokenized history page that does not advance its boundary", async () => {
+        const { reader, getUpdatesPageAsync } = readerFor({
+            historyPages: [
+                historyPage({
+                    lowestPageOffsetExclusive: "0",
+                    highestPageOffsetInclusive: "0",
+                    nextPageToken: new Uint8Array([1]),
+                }),
+                historyPage({
+                    lowestPageOffsetExclusive: "0",
+                    highestPageOffsetInclusive: "42",
+                }),
+            ],
+        });
+
+        await expect(reader.readHistoryAsync("42")).rejects.toMatchObject({
+            name: "QuerySnapshotIncompleteError",
+            reason: "page-boundary-mismatch",
+        });
+        expect(getUpdatesPageAsync).toHaveBeenCalledOnce();
+    });
+
+    it("accepts an empty terminal history range at the ledger begin", async () => {
+        const { reader } = readerFor({
+            historyPages: [historyPage({
+                lowestPageOffsetExclusive: "0",
+                highestPageOffsetInclusive: "0",
+            })],
+        });
+
+        await expect(reader.readHistoryAsync("0")).resolves.toMatchObject({
+            endInclusive: "0",
+            updates: [],
+        });
+    });
+
     it.each([
         ["pages", { maxHistoryPages: 1 }, [historyPage({ highestPageOffsetInclusive: "21", nextPageToken: new Uint8Array([1]) })]],
         ["updates", { maxHistoryUpdates: 1 }, [historyPage({ updates: [GetUpdateResponse.create(), GetUpdateResponse.create()] })]],
@@ -182,11 +230,15 @@ describe("gRPC query snapshot reader", () => {
         sourceHash[0] = 9;
 
         expect(snapshot.updates).toHaveLength(1);
-        expect(
+
+        const snapshotHash =
             snapshot.updates[0]!.update.oneofKind === "transaction"
                 ? snapshot.updates[0]!.update.transaction.externalTransactionHash
-                : undefined,
-        ).toEqual(new Uint8Array([1, 2]));
+                : undefined;
+
+        expect(snapshotHash).toBeInstanceOf(Uint8Array);
+        expectImmutableBytes(snapshotHash!, [1, 2]);
+        expect(GetUpdateResponse.toBinary(snapshot.updates[0]!)).toBeInstanceOf(Uint8Array);
         expect(Object.isFrozen(snapshot)).toBe(true);
         expect(Object.isFrozen(snapshot.updates)).toBe(true);
     });
@@ -239,7 +291,17 @@ describe("gRPC query snapshot reader", () => {
     });
 
     it("returns a detached frozen active-contract snapshot", async () => {
-        const activeContract = GetActiveContractsResponse.create({ workflowId: "original" });
+        const sourceBlob = new Uint8Array([3, 4]);
+
+        const activeContract = GetActiveContractsResponse.create({
+            workflowId: "original",
+            contractEntry: {
+                oneofKind: "activeContract",
+                activeContract: {
+                    createdEvent: { createdEventBlob: sourceBlob },
+                },
+            },
+        });
 
         const { reader } = readerFor({
             activePages: [activePage({ activeContracts: [activeContract] })],
@@ -248,9 +310,18 @@ describe("gRPC query snapshot reader", () => {
         const snapshot = await reader.readActiveContractsAsync("42");
 
         activeContract.workflowId = "changed";
+        sourceBlob[0] = 9;
 
         expect(snapshot.activeContracts).toHaveLength(1);
         expect(snapshot.activeContracts[0]!.workflowId).toBe("original");
+
+        const snapshotBlob = snapshot.activeContracts[0]!.contractEntry.oneofKind === "activeContract"
+            ? snapshot.activeContracts[0]!.contractEntry.activeContract.createdEvent?.createdEventBlob
+            : undefined;
+
+        expect(snapshotBlob).toBeInstanceOf(Uint8Array);
+        expectImmutableBytes(snapshotBlob!, [3, 4]);
+        expect(GetActiveContractsResponse.toBinary(snapshot.activeContracts[0]!)).toBeInstanceOf(Uint8Array);
         expect(Object.isFrozen(snapshot)).toBe(true);
         expect(Object.isFrozen(snapshot.activeContracts)).toBe(true);
     });

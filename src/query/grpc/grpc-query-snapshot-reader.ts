@@ -13,6 +13,7 @@ import {
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { TransactionShape, type EventFormat, type UpdateFormat } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
+import { immutableQueryValue } from "../canonical/query-dataset.js";
 import { QuerySnapshotIncompleteError, type QuerySnapshotIncompleteReason } from "../errors/query-snapshot-incomplete-error.js";
 
 type StateSnapshotReader = Pick<
@@ -142,6 +143,8 @@ export class GrpcQuerySnapshotReader {
                 });
             } else if (highest >= end) {
                 throw this.historyError(endInclusive, "nonterminal-page-reaches-end");
+            } else if (highest <= lowest) {
+                throw this.historyError(endInclusive, "page-boundary-mismatch");
             }
 
             const tokenKey = tokenKeyFor(nextPageToken);
@@ -306,12 +309,16 @@ function freezeSnapshot<T extends object>(snapshot: T): T {
 }
 
 function freezeDeep<T>(value: T): T {
-    if (value === null || typeof value !== "object" || value instanceof Uint8Array) {
+    if (value instanceof Uint8Array) {
+        return immutableQueryValue(value) as T;
+    } else if (value === null || typeof value !== "object") {
+        return value;
+    } else if (Object.isFrozen(value)) {
         return value;
     }
 
-    for (const child of Object.values(value)) {
-        freezeDeep(child);
+    for (const [property, child] of Object.entries(value)) {
+        (value as Record<string, unknown>)[property] = freezeDeep(child);
     }
 
     return Object.freeze(value);
