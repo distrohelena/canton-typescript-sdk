@@ -1796,7 +1796,7 @@ function expectUpdateLookupReconciliationWorkflowSource(init: {
 }
 
 describe("application example source contracts", () => {
-    it("uses the shared raw SDK ACS traversal in exactly the four ACS consumers", () => {
+    it("uses the shared raw SDK ACS traversal in exactly the five ACS consumers", () => {
         const consumerPaths = exampleSourcePaths()
             .filter(importsActiveContractsTraversal)
             .map(path => relative(examplesDirectory, path))
@@ -1805,6 +1805,7 @@ describe("application example source contracts", () => {
         expect(consumerPaths).toEqual([
             "60-query-active-contracts.ts",
             "90-atomic-create-and-exercise.ts",
+            "98-participant-local-command-submission.ts",
             "shared/archive-and-stale-contract-workflow.ts",
             "shared/idempotent-command-retry-workflow.ts",
         ]);
