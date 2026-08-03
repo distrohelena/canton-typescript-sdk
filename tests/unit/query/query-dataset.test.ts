@@ -32,6 +32,13 @@ describe("createQueryDataset", () => {
 
         expect(createQueryDataset(input)).toBe(first);
         expect(relatedQueryRows(input, "contracts", input.rows.contracts[0]!, "exercises").map((row) => row.contractId)).toEqual(["C1"]);
+        (input.rows.contracts as Record<string, unknown>[])[0]!.contractId = "changed";
+
+        const bucket = relatedQueryRows(input, "contracts", input.rows.contracts[0]!, "exercises");
+
+        expect(bucket.map((row) => row.contractId)).toEqual(["C1"]);
+        expect(() => (bucket as Record<string, unknown>[]).push({})).toThrow();
+        expect(() => relatedQueryRows(input, "contracts", { contractId: "alien" }, "exercises")).toThrow("does not belong");
         (input.rows.packages as Record<string, unknown>[])[0]!.id = "changed";
         expect(evaluator.execute(input, query)).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }, { id: "pkg-unicode" }]);
     });

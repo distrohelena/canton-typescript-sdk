@@ -28,6 +28,10 @@ const datasetIndexes = new WeakMap<QueryDataset, EdgeIndexes>();
 
 const compiledSnapshots = new WeakMap<QueryDataset, QueryDataset>();
 
+const rawRowSnapshots = new WeakMap<QueryDataset, ReadonlyMap<QueryRelation, WeakMap<object, QueryRow>>>();
+
+const emptyRows: readonly QueryRow[] = Object.freeze([]);
+
 const datasetPaths = Object.fromEntries((Object.keys(queryRelationMetadata) as QueryRelation[]).map((relation) => [relation, [
     ...queryRelationMetadata[relation].fields,
     ...(relation === "contracts" ? ["templateId.packageId", "templateId.moduleName", "templateId.entityName"] : []),
@@ -46,6 +50,22 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
     }
 
     const dataset = immutableQueryValue(input);
+
+    const rowSnapshots = new Map<QueryRelation, WeakMap<object, QueryRow>>();
+
+    for (const relation of Object.keys(queryRelationMetadata) as QueryRelation[]) {
+        if (!Array.isArray(input.rows[relation])) {
+            throw new Error(`Dataset is missing ${relation} rows`);
+        }
+
+        const snapshots = new WeakMap<object, QueryRow>();
+
+        for (const [index, row] of input.rows[relation].entries()) {
+            snapshots.set(row as object, dataset.rows[relation][index]!);
+        }
+
+        rowSnapshots.set(relation, snapshots);
+    }
 
     const relations = Object.keys(queryRelationMetadata) as QueryRelation[];
 
@@ -113,7 +133,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
                 throw new Error(`Dataset ${relation}.${edge} has multiple to-one targets`);
             }
 
-            relationIndexes.set(edge, buckets);
+            relationIndexes.set(edge, new Map([...buckets.entries()].map(([key, targets]) => [key, Object.freeze(targets)])));
         }
 
         if (Object.keys(lookups).some((edge) => edgeDefinitions[edge] === undefined)) {
@@ -125,6 +145,7 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
 
     datasetIndexes.set(dataset, indexes);
     compiledSnapshots.set(input, dataset);
+    rawRowSnapshots.set(input, rowSnapshots);
 
     return dataset;
 }
@@ -141,9 +162,15 @@ export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation,
         throw new Error(`Missing deterministic lookup for ${relation}.${edge}`);
     }
 
-    const values = lookup.from.map((path) => atPath(row, path));
+    const snapshotRow = dataset === compiled ? row : rawRowSnapshots.get(dataset)?.get(relation)?.get(row as object);
 
-    return values.some((value) => value === null || value === undefined) ? [] : index.get(compositeKey(values)) ?? [];
+    if (snapshotRow === undefined) {
+        throw new Error(`Query row does not belong to ${relation} dataset`);
+    }
+
+    const values = lookup.from.map((path) => atPath(snapshotRow, path));
+
+    return values.some((value) => value === null || value === undefined) ? emptyRows : index.get(compositeKey(values)) ?? emptyRows;
 }
 
 function validateUniquePaths(relation: QueryRelation, rows: readonly QueryRow[], paths: readonly string[], label: string): void {
