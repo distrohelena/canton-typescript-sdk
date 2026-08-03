@@ -1,3 +1,4 @@
+import { isProxy } from "node:util/types";
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
@@ -330,23 +331,15 @@ function materializeActiveContractResponse(value: unknown): GetActiveContractsRe
 function materializePageToken(value: unknown): Uint8Array | undefined {
     if (value === undefined) {
         return undefined;
-    } else if (!isUint8Array(value)) {
+    } else if (isProxy(value) || !isUint8Array(value)) {
         throw new Error("Active-contracts response nextPageToken is invalid.");
     }
 
-    const length = value.length;
-
-    if (!Number.isSafeInteger(length) || length < 0) {
+    try {
+        return new Uint8Array(value);
+    } catch {
         throw new Error("Active-contracts response nextPageToken is invalid.");
     }
-
-    const token = new Uint8Array(length);
-
-    for (let index = 0; index < length; index += 1) {
-        token[index] = value[index]!;
-    }
-
-    return token;
 }
 
 function materializeContractRows(value: unknown): readonly ContractRow[] | undefined {
@@ -450,7 +443,7 @@ function materializeIndexedValues<T>(
     value: unknown,
     materialize: (entry: unknown) => T,
 ): readonly T[] | undefined {
-    if (!Array.isArray(value)) {
+    if (isProxy(value) || !Array.isArray(value)) {
         return undefined;
     }
 

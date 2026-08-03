@@ -198,6 +198,91 @@ describe("gRPC contract cache", () => {
         expect(cacheStore.setAsync).not.toHaveBeenCalled();
     });
 
+    it("does not truncate traversal when a non-empty page token is detached", async () => {
+        const nextPageToken = new Uint8Array([1]);
+
+        structuredClone(nextPageToken.buffer, { transfer: [nextPageToken.buffer] });
+
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({
+            activeAtOffset: "42",
+            activeContracts: [activeContract("C1")],
+            nextPageToken,
+        });
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).rejects.toThrow();
+        expect(getActiveContractsPageAsync).toHaveBeenCalledOnce();
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
+    it("rejects a typed-array proxy page token without writing", async () => {
+        const nextPageToken = new Proxy(new Uint8Array([1]), {
+            get: (target, property) => Reflect.get(target, property, target),
+        });
+
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({
+            activeAtOffset: "42",
+            activeContracts: [activeContract("C1")],
+            nextPageToken,
+        });
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).rejects.toThrow();
+        expect(getActiveContractsPageAsync).toHaveBeenCalledOnce();
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
+    it("copies a typed-array subclass page token into plain bytes before continuing", async () => {
+        class MisleadingToken extends Uint8Array {
+            public override get length(): number {
+                return 0;
+            }
+        }
+
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn()
+            .mockResolvedValueOnce({
+                activeAtOffset: "42",
+                activeContracts: [activeContract("C1")],
+                nextPageToken: new MisleadingToken([1]),
+            })
+            .mockRejectedValueOnce(new Error("second page failed"));
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).rejects.toThrow("second page failed");
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
+
+        const continuedToken = getActiveContractsPageAsync.mock.calls[1]?.[0].pageToken;
+
+        expect(continuedToken).toEqual(new Uint8Array([1]));
+        expect(Object.getPrototypeOf(continuedToken)).toBe(Uint8Array.prototype);
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
+    it("rejects an ACS contracts proxy that hides its entries without writing", async () => {
+        const activeContracts = new Proxy([activeContract("C1")], {
+            get: (target, property, receiver) => property === "length" ? 0 : Reflect.get(target, property, receiver),
+        });
+
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "42", activeContracts });
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
+
+        await expect(cache.cacheContracts()).rejects.toThrow();
+        expect(getActiveContractsPageAsync).toHaveBeenCalledOnce();
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
     it("deduplicates concurrent prewarms for the same normalized party scope", async () => {
         const getActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage({ activeContracts: [activeContract("C1")] }));
 
@@ -325,6 +410,38 @@ describe("gRPC contract cache", () => {
         cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
             version: 1, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100, contracts: proxy,
         });
+
+        await expect(cache.readContractsAsync()).resolves.toBeUndefined();
+    });
+
+    it("treats a custom-store contracts proxy that hides its entries as a cache miss", async () => {
+        const cacheStore = store();
+
+        const contracts = new Proxy([{
+            contractId: "C1",
+            templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+            packageId: null,
+            payload: {},
+            witnesses: ["Alice"],
+            createdEventOffset: "1",
+            createdAt: null,
+            archivedEventOffset: null,
+            archivedAt: null,
+            active: true,
+        }], {
+            get: (target, property, receiver) => property === "length" ? 0 : Reflect.get(target, property, receiver),
+        });
+
+        cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
+            version: 1,
+            endpointScope: "participant",
+            parties: undefined,
+            activeAtOffset: "42",
+            expiresAtEpochMs: 1_100,
+            contracts,
+        });
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.readContractsAsync()).resolves.toBeUndefined();
     });
