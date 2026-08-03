@@ -195,6 +195,15 @@ describe("SubmitCommandsRequest public surface", () => {
         )).toEqual([]);
     });
 
+    it("recognizes hoisted var request bindings before nested declarations", () => {
+        expect(findRemovedSubmitCommandUsages(
+            "function f(){ request.command; { for (var request: SubmitCommandsRequest; ok;) {} } }",
+        )).toContain("request.command");
+        expect(findRemovedSubmitCommandUsages(
+            "function f(){ request.command; { var request: SubmitCommandsRequest; } }",
+        )).toContain("request.command");
+    });
+
     it("has no removed request surface in handwritten sources", () => {
         const files = collectHandwrittenSourceFiles([
             "src",

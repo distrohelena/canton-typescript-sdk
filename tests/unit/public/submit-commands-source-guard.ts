@@ -140,6 +140,28 @@ function recordModuleName(
     }
 }
 
+function collectHoistedVarBindings(node: ts.Node, scope: ReceiverScope): void {
+    if (ts.isFunctionLike(node)) {
+        return;
+    } else if (
+        ts.isVariableDeclaration(node) &&
+        ts.isVariableDeclarationList(node.parent) &&
+        !(node.parent.flags & ts.NodeFlags.BlockScoped)
+    ) {
+        bindNamesFromType(scope, node.name, node.type);
+
+        if (node.type === undefined) {
+            bindNames(
+                scope,
+                node.name,
+                isSubmitCommandsRequestConstruction(node.initializer),
+            );
+        }
+    }
+
+    ts.forEachChild(node, child => collectHoistedVarBindings(child, scope));
+}
+
 export function findRemovedSubmitCommandUsages(source: string): string[] {
     const sourceFile = ts.createSourceFile(
         "source.ts",
@@ -201,6 +223,7 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
             }
 
             if (node.body !== undefined) {
+                collectHoistedVarBindings(node.body, functionScope);
                 visit(node.body, functionScope);
             }
 
@@ -329,7 +352,10 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
         }
     };
 
-    visit(sourceFile, createScope());
+    const sourceScope = createScope(undefined, true);
+
+    collectHoistedVarBindings(sourceFile, sourceScope);
+    visit(sourceFile, sourceScope);
 
     return [...usages];
 }
