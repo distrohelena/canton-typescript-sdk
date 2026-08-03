@@ -12,7 +12,7 @@ const create = (contractId = "C1") => CreatedEvent.create({ offset: "10", nodeId
 
 const exercise = (consuming = true) => ExercisedEvent.create({ offset: "20", nodeId: 2, contractId: "C1", templateId: template, packageName: "app", choice: "Archive", choiceArgument: Value.create({ sum: { oneofKind: "record", record: { fields: [{ label: "by", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] } } }), exerciseResult: Value.create({ sum: { oneofKind: "unit", unit: {} } }), actingParties: ["Alice"], witnessParties: ["Alice"], consuming, lastDescendantNodeId: 2 });
 
-const transaction = (offset: string, events: Event[]) => Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000100", nanos: 456_000_000 }, recordTime: { seconds: "1700000101", nanos: 0 }, workflowId: "workflow", synchronizerId: "sync", traceContext: { traceId: "trace", spanId: "span", traceFlags: 1 }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "9007199254740993", events });
+const transaction = (offset: string, events: Event[]) => Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000100", nanos: 456_000_000 }, recordTime: { seconds: "1700000101", nanos: 0 }, workflowId: "workflow", synchronizerId: "sync", traceContext: { traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00", tracestate: "vendor=value" }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "9007199254740993", events });
 
 const active = (created: CreatedEvent) => GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } });
 
@@ -28,6 +28,7 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(fragment.contracts).toEqual([expect.objectContaining({ contractId: "C1", payload: { owner: "Alice" }, createdEventOffset: "10", archivedEventOffset: "20", active: false, archivedAt: new Date("2023-11-14T22:15:00.456Z") })]);
         expect(fragment.exercises).toEqual([expect.objectContaining({ contractId: "C1", argument: { by: "Alice" }, result: {}, controllers: ["Alice"], witnesses: ["Alice"], redactionId: null, exercisedAtIx: "20" })]);
         expect(fragment.typeIdentities).toContainEqual(expect.objectContaining({ templateId: template, packageId: "pkg-id", choice: "Archive", consuming: true }));
+        expect(fragment.transactions[0]?.traceContext).toEqual({ traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00", tracestate: "vendor=value" });
         expect(Object.keys(fragment.contracts[0]!)).not.toContain("tpePk");
         expect(Object.isFrozen(fragment.contracts)).toBe(true);
     });
@@ -59,24 +60,61 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [contradictoryAcs])).toThrow(/ACS.*conflicts/i);
     });
 
-    it("has deterministic registry keys and rejects duplicate ledger node identities", () => {
-        const first = mapGrpcQueryRelationFragment([
-            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise(false) } })]),
-            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
-        ]);
+    it("has deterministic full fragments for permuted transaction and event input without mutating sources", () => {
+        const history = (reverseTransactions: boolean, reverseEvents: boolean) => {
+            const firstCreate = Event.create({ event: { oneofKind: "created", created: create() } });
 
-        const second = mapGrpcQueryRelationFragment([
-            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
-            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise(false) } })]),
-        ]);
+            const secondCreate = Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create("C2"), nodeId: 2 }) } });
+
+            const archive = Event.create({ event: { oneofKind: "exercised", exercised: ExercisedEvent.create({ ...exercise(), nodeId: 3, lastDescendantNodeId: 3 }) } });
+
+            const creates = reverseEvents ? [secondCreate, firstCreate] : [firstCreate, secondCreate];
+
+            const transactions = [transaction("10", creates), transaction("20", [archive])];
+
+            for (const entry of transactions) {
+                entry.externalTransactionHash = undefined;
+            }
+
+            return reverseTransactions ? transactions.reverse() : transactions;
+        };
+
+        const firstSource = history(true, true);
+
+        const secondSource = history(false, false);
+
+        const first = mapGrpcQueryRelationFragment(firstSource);
+
+        const second = mapGrpcQueryRelationFragment(secondSource);
 
         const duplicateNode = CreatedEvent.create({ ...create("C2") });
 
-        expect(second.events).toEqual(first.events);
-        expect(second.exercises).toEqual(first.exercises);
-        expect(second.typeIdentities).toEqual(first.typeIdentities);
-        expect(second.packageIdentities).toEqual(first.packageIdentities);
+        expect(firstSource.map((entry) => entry.offset)).toEqual(["20", "10"]);
+        expect(firstSource[1]?.events.map((entry) => entry.event.oneofKind === "created" ? entry.event.created.nodeId : -1)).toEqual([2, 1]);
+        expect(second).toEqual(first);
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } }), Event.create({ event: { oneofKind: "created", created: duplicateNode } })])])).toThrow(/duplicate event/i);
+    });
+
+    it("keeps a contract active after a non-consuming exercise", () => {
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise(false) } })]),
+        ]);
+
+        expect(fragment.contracts[0]).toMatchObject({ contractId: "C1", active: true, archivedEventOffset: null, archivedAt: null });
+    });
+
+    it("detaches and freezes trace context from the generated transaction", () => {
+        const source = transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]);
+
+        const fragment = mapGrpcQueryRelationFragment([source]);
+
+        const traceContext = fragment.transactions[0]?.traceContext as { traceparent: string };
+
+        source.traceContext!.traceparent = "changed";
+
+        expect(traceContext).toEqual({ traceparent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00", tracestate: "vendor=value" });
+        expect(() => traceContext.traceparent = "changed").toThrow();
     });
 
     it("uses the creation package publicly and preserves representative packages only for Task 6", () => {
