@@ -1404,6 +1404,12 @@ Request fields:
 - `disclosedContracts?: readonly DisclosedContract[]`
 - `synchronizerId?: string`
 
+#### JSON request-field limitations
+
+- JSON rejects `deduplicationPeriod`.
+- JSON does not transmit `userId`, `disclosedContracts`, or `synchronizerId`.
+  Use `grpc` when a submission requires those fields.
+
 Supported command types:
 
 - `CreateCommand`

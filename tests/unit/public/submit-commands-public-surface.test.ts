@@ -210,7 +210,9 @@ describe("SubmitCommandsRequest public surface", () => {
             "utf8",
         );
 
-        expect(documentation).toContain("    SubmitCommandsRequest,");
+        expect(documentation).toMatch(
+            /import\s*\{[\s\S]*?\bSubmitCommandsRequest\b[\s\S]*?\}\s*from "canton-typescript-sdk";/,
+        );
         expect(documentation).toContain("new SubmitCommandsRequest({");
         expect(documentation).toMatch(
             /commands: \[\s*new CreateCommand\(/,
@@ -226,6 +228,11 @@ describe("SubmitCommandsRequest public surface", () => {
         expect(documentation).toContain("commands: [previousCommand],");
         expect(documentation).toContain("No compatibility alias exists.");
         expect(documentation).toContain("Promise<SubmitCommandResponse>");
+        expect(documentation).toContain("#### JSON request-field limitations");
+        expect(documentation).toContain("JSON rejects `deduplicationPeriod`.");
+        expect(documentation).toContain(
+            "JSON does not transmit `userId`, `disclosedContracts`, or `synchronizerId`.",
+        );
         expect(documentation).not.toContain(removedRequestName);
         expect(documentation).not.toContain(removedModuleName);
     });
