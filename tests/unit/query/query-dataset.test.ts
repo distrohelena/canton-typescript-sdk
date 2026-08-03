@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createQueryDataset, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
+import { createQueryDataset, relatedQueryRows, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
 import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
 import { queryConformanceDataset } from "./query-conformance-fixture.js";
@@ -19,6 +19,21 @@ describe("createQueryDataset", () => {
         expect(Object.isFrozen(dataset.rows.packages)).toBe(true);
         expect(dataset.rows.packages[0]?.id).toBe("pkg-app");
         expect(new InMemoryQueryEvaluator().execute(dataset, normalizeFindMany("packages", { select: { id: true } }))).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }, { id: "pkg-unicode" }]);
+    });
+
+    it("caches one compiled snapshot for raw inputs and resolves raw helper lookups", () => {
+        const input = mutableDataset();
+
+        const evaluator = new InMemoryQueryEvaluator();
+
+        const query = normalizeFindMany("packages", { select: { id: true } });
+
+        const first = createQueryDataset(input);
+
+        expect(createQueryDataset(input)).toBe(first);
+        expect(relatedQueryRows(input, "contracts", input.rows.contracts[0]!, "exercises").map((row) => row.contractId)).toEqual(["C1"]);
+        (input.rows.packages as Record<string, unknown>[])[0]!.id = "changed";
+        expect(evaluator.execute(input, query)).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }, { id: "pkg-unicode" }]);
     });
 
     it("rejects malformed relation, edge, lookup, and source-local declarations", () => {

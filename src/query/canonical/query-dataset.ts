@@ -26,6 +26,8 @@ type EdgeIndexes = ReadonlyMap<QueryRelation, ReadonlyMap<string, ReadonlyMap<st
 
 const datasetIndexes = new WeakMap<QueryDataset, EdgeIndexes>();
 
+const compiledSnapshots = new WeakMap<QueryDataset, QueryDataset>();
+
 const datasetPaths = Object.fromEntries((Object.keys(queryRelationMetadata) as QueryRelation[]).map((relation) => [relation, [
     ...queryRelationMetadata[relation].fields,
     ...(relation === "contracts" ? ["templateId.packageId", "templateId.moduleName", "templateId.entityName"] : []),
@@ -35,6 +37,12 @@ const datasetPaths = Object.fromEntries((Object.keys(queryRelationMetadata) as Q
 export function createQueryDataset(input: QueryDataset): QueryDataset {
     if (datasetIndexes.has(input)) {
         return input;
+    }
+
+    const cached = compiledSnapshots.get(input);
+
+    if (cached !== undefined) {
+        return cached;
     }
 
     const dataset = immutableQueryValue(input);
@@ -116,19 +124,18 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
     }
 
     datasetIndexes.set(dataset, indexes);
+    compiledSnapshots.set(input, dataset);
 
     return dataset;
 }
 
 /** Uses the factory index, compiling a legacy dataset on first use for compatibility. */
 export function relatedQueryRows(dataset: QueryDataset, relation: QueryRelation, row: QueryRow, edge: string): readonly QueryRow[] {
-    if (!datasetIndexes.has(dataset)) {
-        createQueryDataset(dataset);
-    }
+    const compiled = createQueryDataset(dataset);
 
-    const lookup = dataset.edges[relation]?.[edge];
+    const lookup = compiled.edges[relation]?.[edge];
 
-    const index = datasetIndexes.get(dataset)?.get(relation)?.get(edge);
+    const index = datasetIndexes.get(compiled)?.get(relation)?.get(edge);
 
     if (lookup === undefined || index === undefined) {
         throw new Error(`Missing deterministic lookup for ${relation}.${edge}`);
