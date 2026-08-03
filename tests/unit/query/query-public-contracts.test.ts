@@ -3,6 +3,7 @@ import { CantonError } from "../../../src/core/errors/canton-error.js";
 import { MemoryQueryCache } from "../../../src/query/cache/memory-query-cache.js";
 import { PqsQueryError } from "../../../src/query/errors/pqs-query-error.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
+import { QuerySnapshotIncompleteError } from "../../../src/index.js";
 import { QuerySource } from "../../../src/query/query-source.js";
 
 describe("query public contracts", () => {
@@ -21,6 +22,21 @@ describe("query public contracts", () => {
         expect(error).toMatchObject({
             source: QuerySource.grpc,
             operation: "query.$queryRaw",
+        });
+    });
+
+    it("exposes incomplete gRPC snapshot diagnostics", () => {
+        const error = new QuerySnapshotIncompleteError({
+            beginExclusive: "0",
+            endInclusive: "42",
+            reason: "participant-pruned",
+        });
+
+        expect(error).toBeInstanceOf(CantonError);
+        expect(error).toMatchObject({
+            beginExclusive: "0",
+            endInclusive: "42",
+            reason: "participant-pruned",
         });
     });
 
