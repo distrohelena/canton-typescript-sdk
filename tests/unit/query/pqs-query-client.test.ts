@@ -20,7 +20,6 @@ describe("PQS query client", () => {
                 { contract_id: "C1", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "1", created_at: null, archived_event_offset: null, archived_at: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template" },
             ],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.findMany()).resolves.toMatchObject([
@@ -31,19 +30,12 @@ describe("PQS query client", () => {
 
     it("waits for PQS readiness before executing logical contract reads", async () => {
         let release!: () => void;
-
-        const ready = new Promise<void>((resolve) => {
-            release = resolve;
-        });
-
+        const ready = new Promise<void>((resolve) => { release = resolve; });
         const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), ready);
 
         const many = client.contracts.findMany({ select: { contractId: true } });
-
         const unique = client.contracts.findUnique({ where: { contractId: "cid" }, select: { contractId: true } });
-
         await Promise.resolve();
         expect(query).not.toHaveBeenCalled();
 
@@ -55,7 +47,6 @@ describe("PQS query client", () => {
 
     it("wraps rejected logical contract readiness", async () => {
         const query = vi.fn();
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), Promise.reject({ code: "schema" }));
 
         await expect(client.contracts.findMany({ select: { contractId: true } })).rejects.toMatchObject({ operation: "contracts.findMany", code: "schema" });
@@ -109,7 +100,6 @@ describe("PQS query client", () => {
                 contractType: { pk: "1", exercises: [{ contractId: "cid" }] }, archivedTransaction: null,
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.findMany({
@@ -126,7 +116,6 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ contract_id: "cid", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "42", archived_event_offset: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template", owner: "Alice" }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.findMany({
@@ -154,7 +143,6 @@ describe("PQS query client", () => {
                 }],
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         const rows = await client.contracts.findMany({
@@ -188,7 +176,6 @@ describe("PQS query client", () => {
 
     it("bounds filtered and ordered nested contract relations before aggregating them", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.contracts.findMany({
@@ -204,7 +191,6 @@ describe("PQS query client", () => {
         });
 
         const sql = query.mock.calls[0][0];
-
         expect(sql).toContain('from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'exercisedAtIx\', "exercises"."exercised_at_ix"');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
         expect(sql).toContain('order by "exercises"."exercised_at_ix" desc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited"');
@@ -220,7 +206,6 @@ describe("PQS query client", () => {
                 exercises: [{ contractId: "cid", exercisedAtIx: "42" }],
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         const rows = await client.contracts.findMany({
@@ -238,7 +223,6 @@ describe("PQS query client", () => {
                 exercises: [{ owner: "Alice" }],
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.findMany({
@@ -275,7 +259,6 @@ describe("PQS query client", () => {
 
     it("preserves read-only SQL checks and wraps physical executor failures", async () => {
         const query = vi.fn().mockRejectedValue({ code: "57014" });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findMany()).rejects.toMatchObject({ operation: "__packages.findMany", code: "57014" });
@@ -285,16 +268,13 @@ describe("PQS query client", () => {
 
     it("rejects malformed logical contract reads asynchronously before executing", async () => {
         const query = vi.fn();
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         const malformedMany = client.contracts.findMany({ where: { unexpected: { equals: "x" } } } as never);
-
         expect(malformedMany).toHaveProperty("then");
         await expect(malformedMany).rejects.toThrow("unexpected is not a field of contracts");
 
         const malformedUnique = client.contracts.findUnique({ where: { unexpected: "x" } } as never);
-
         expect(malformedUnique).toHaveProperty("then");
         await expect(malformedUnique).rejects.toThrow("findUnique.where must contain one declared unique key of contracts");
         expect(query).not.toHaveBeenCalled();
@@ -319,7 +299,6 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid", packagePk: "1", controllers: [], witnesses: [] }] }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findMany({ include: { exercises: { take: 5 } } })).resolves.toEqual([
@@ -332,7 +311,6 @@ describe("PQS query client", () => {
 
     it("bounds filtered and ordered physical relation includes before aggregating them", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.packages.findMany({
@@ -346,7 +324,6 @@ describe("PQS query client", () => {
         });
 
         const sql = query.mock.calls[0][0];
-
         expect(sql).toContain('from (select jsonb_build_object');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
         expect(sql).toContain('order by "exercises"."contract_id" asc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc limit $2) "exercises_limited"');
@@ -358,7 +335,6 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid" }] }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findMany({
@@ -370,7 +346,6 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ owner: "Alice" }] }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findMany({
@@ -401,7 +376,6 @@ describe("PQS query client", () => {
                 }],
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.transactions.findMany({
@@ -420,7 +394,6 @@ describe("PQS query client", () => {
                 contract: { contractId: "cid", owner: "Alice" },
             }],
         });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.exercises.findMany({
@@ -432,7 +405,6 @@ describe("PQS query client", () => {
 
     it("filters physical relation traversals by logical contract predicates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.exercises.findMany({
@@ -469,7 +441,6 @@ describe("PQS query client", () => {
 
     it("compiles profile-declared to-many relation predicates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.transactions.findMany({
@@ -483,7 +454,6 @@ describe("PQS query client", () => {
 
     it("compiles typed JSON path predicates for profiled JSON columns", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await client.exercises.findMany({ where: { argument: { path: ["owner"], equals: "Alice" } } });
@@ -494,7 +464,6 @@ describe("PQS query client", () => {
 
     it("projects named typed JSON scalars", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ owner: "Alice" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.exercises.findMany({
@@ -506,9 +475,7 @@ describe("PQS query client", () => {
 
     it("compiles physical logical, range, and pattern predicates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
-
         await client.packages.findMany({ where: { or: [{ name: { ilike: "app%" } }, { pk: { gte: "10" } }], not: { id: { equals: "legacy" } } } });
         expect(query.mock.calls[0][0]).toContain('(\"name\" ilike $1 or \"pk\" >= $2) and not (\"id\" = $3)');
         expect(query.mock.calls[0][1]).toEqual(["app%", "10", "legacy"]);
@@ -527,7 +494,6 @@ describe("PQS query client", () => {
 
     it("rejects malformed public input before calling the executor", async () => {
         const query = vi.fn();
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findMany({
@@ -568,7 +534,6 @@ describe("PQS query client", () => {
 
     it("normalizes physical unique reads before executing exactly once", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ id: "package-id" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.packages.findUnique({ where: { id: "package-id" } })).resolves.toEqual({ id: "package-id" });
@@ -607,7 +572,6 @@ describe("PQS query client", () => {
 
     it("executes direct logical contract count and aggregate SQL", async () => {
         const query = vi.fn().mockResolvedValueOnce({ rows: [{ count: "2" }] }).mockResolvedValueOnce({ rows: [{ count: "2", min_createdEventOffset: "10", sum_createdEventOffset: "30" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.count({ parties: ["Alice"], where: { active: true } })).resolves.toBe(2);
@@ -621,7 +585,6 @@ describe("PQS query client", () => {
 
     it("groups contracts by JSON payload and witnesses", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ owner: "Alice", witnesses: "Alice", count: "2", sum_createdEventOffset: "42" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.contracts.groupBy({
@@ -660,7 +623,6 @@ describe("PQS query client", () => {
 
     it("groups events by type and a transaction time bucket", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ type: "created", transaction_effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: "2" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.events.groupBy({
@@ -676,7 +638,6 @@ describe("PQS query client", () => {
 
     it("groups traffic by transaction domain and time bucket", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ domainId: "domain", effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: "2", sum_paidTrafficCost: "12" }] });
-
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
 
         await expect(client.transactions.groupBy({

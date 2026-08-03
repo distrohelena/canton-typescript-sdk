@@ -19,6 +19,8 @@ export class CantonManager {
     public constructor(options: CantonManagerOptions) {
         if (options.grpc.transportKind !== TransportKind.grpc) {
             throw new ValidationError("CantonManager requires grpc transport for writes.");
+        } else if (options.querySource === QuerySource.grpc && options.pqs !== undefined) {
+            throw new ValidationError("PQS options require QuerySource.pqs.");
         } else if (options.querySource === QuerySource.pqs && options.pqs === undefined) {
             throw new ValidationError("QuerySource.pqs requires PQS options.");
         } else if (options.cache !== undefined && (!Number.isFinite(options.cache.ttlMs) || options.cache.ttlMs <= 0)) {

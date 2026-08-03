@@ -54,6 +54,21 @@ describe("gRPC contract cache", () => {
         expect((payload as { contracts: readonly unknown[] }).contracts).toHaveLength(2);
     });
 
+    it.each([
+        [Number.MAX_VALUE, () => 1_000],
+        [10, () => 8_640_000_000_000_000 - 5],
+        [10, () => Number.POSITIVE_INFINITY],
+    ])("rejects an invalid effective expiry before writing", async (ttlMs, now) => {
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeContracts: [], activeAtOffset: "42" });
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, ttlMs, "participant", now);
+
+        await expect(cache.cacheContracts()).rejects.toBeInstanceOf(ValidationError);
+        expect(cacheStore.setAsync).not.toHaveBeenCalled();
+    });
+
     it("does not write when an ACS traversal fails or is incomplete", async () => {
         const cacheStore = store();
 
@@ -153,6 +168,18 @@ describe("gRPC contract cache", () => {
         expect(cacheStore.setAsync).toHaveBeenCalledOnce();
     });
 
+    it("rejects custom-store entries with an expiry outside the Date range", async () => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
+
+        cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
+            version: 1, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: Number.MAX_VALUE, contracts: [],
+        });
+
+        await expect(cache.readContractsAsync()).resolves.toBeUndefined();
+    });
+
     it("treats hostile custom-store payloads as cache misses", async () => {
         const cacheStore = store();
 
@@ -163,6 +190,34 @@ describe("gRPC contract cache", () => {
         });
 
         await expect(cache.readContractsAsync({ parties: ["A"] })).resolves.toBeUndefined();
+    });
+
+    it("treats cached rows with invalid dates as cache misses", async () => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
+
+        cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
+            version: 1,
+            endpointScope: "participant",
+            parties: undefined,
+            activeAtOffset: "42",
+            expiresAtEpochMs: 1_100,
+            contracts: [{
+                contractId: "C1",
+                templateId: { packageId: "pkg", moduleName: "Module", entityName: "Template" },
+                packageId: null,
+                payload: {},
+                witnesses: [],
+                createdEventOffset: "",
+                createdAt: new Date(Number.NaN),
+                archivedEventOffset: null,
+                archivedAt: null,
+                active: true,
+            }],
+        });
+
+        await expect(cache.readContractsAsync()).resolves.toBeUndefined();
     });
 
     it("rejects an empty or malformed party scope before ACS I/O", async () => {

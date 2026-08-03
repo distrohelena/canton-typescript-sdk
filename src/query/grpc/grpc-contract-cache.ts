@@ -129,7 +129,7 @@ export class GrpcContractCache {
             }
         } while (pageToken !== undefined && pageToken.length > 0);
 
-        const expiresAtEpochMs = this.now() + this.ttlMs;
+        const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
         const snapshot: CachedContractSnapshot = {
             version: 1,
@@ -209,10 +209,14 @@ function asCompatibleSnapshot(
             snapshot.version !== 1
             || snapshot.endpointScope !== endpointScope
             || !sameParties(snapshot.parties, parties)
+            || typeof now !== "number"
+            || !Number.isFinite(now)
+            || !Number.isFinite(new Date(now).getTime())
             || typeof snapshot.activeAtOffset !== "string"
             || snapshot.activeAtOffset.trim().length === 0
             || typeof snapshot.expiresAtEpochMs !== "number"
             || !Number.isFinite(snapshot.expiresAtEpochMs)
+            || !Number.isFinite(new Date(snapshot.expiresAtEpochMs).getTime())
             || snapshot.expiresAtEpochMs <= now
             || !Array.isArray(snapshot.contracts)
             || !snapshot.contracts.every(isActiveContractRow)
@@ -252,10 +256,14 @@ function isActiveContractRow(value: unknown): value is ContractRow {
         && Array.isArray(row.witnesses)
         && row.witnesses.every((witness) => typeof witness === "string")
         && typeof row.createdEventOffset === "string"
-        && (row.createdAt === null || row.createdAt instanceof Date)
+        && (row.createdAt === null || isValidDate(row.createdAt))
         && row.archivedEventOffset === null
         && row.archivedAt === null
         && row.active === true;
+}
+
+function isValidDate(value: unknown): value is Date {
+    return value instanceof Date && Number.isFinite(value.getTime());
 }
 
 function mapGrpcContract(value: unknown): ContractRow {
@@ -313,4 +321,29 @@ function copyValue(value: unknown): unknown {
     }
 
     return structuredClone(value);
+}
+
+function effectiveExpiryEpochMs(now: () => number, ttlMs: number): number {
+    try {
+        const nowEpochMs = now();
+
+        const expiresAtEpochMs = nowEpochMs + ttlMs;
+
+        if (
+            typeof nowEpochMs !== "number"
+            || !Number.isFinite(nowEpochMs)
+            || !Number.isFinite(expiresAtEpochMs)
+            || !Number.isFinite(new Date(expiresAtEpochMs).getTime())
+        ) {
+            throw new ValidationError("Contract cache expiry must be a finite valid date.");
+        }
+
+        return expiresAtEpochMs;
+    } catch (error) {
+        if (error instanceof ValidationError) {
+            throw error;
+        }
+
+        throw new ValidationError("Contract cache expiry must be a finite valid date.");
+    }
 }
