@@ -79,6 +79,13 @@ describe("canonical query normalizer", () => {
         expect(normalizeFindMany("packages", {}).orderBy).toEqual([]);
     });
 
+    it("retains the logical contract default order without ordering physical roots", () => {
+        expect(normalizeFindMany("contracts", {}).orderBy).toEqual([
+            { path: ["contractId"], direction: "asc" },
+        ]);
+        expect(normalizeFindMany("packages", {}).orderBy).toEqual([]);
+    });
+
     it("adds stable ordering when root pagination needs it", () => {
         expect(normalizeFindMany("packages", { take: 10 }).orderBy).toEqual([
             { path: ["pk"], direction: "asc" },

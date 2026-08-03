@@ -59,9 +59,10 @@ function normalizedCountAsFindMany(query: ReturnType<typeof normalizeCount>): No
 export class PqsQueryClient implements QueryClient {
     public readonly source = QuerySource.pqs;
     public readonly contracts = {
-        findMany: <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) => this.findContractsAsync(normalizeFindMany("contracts", args)) as Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>,
-        findUnique: <TArgs extends ContractFindUniqueArgs>(args: TArgs) =>
-            this.findContractsAsync(normalizedUniqueAsFindMany(normalizeFindUnique("contracts", args))).then((rows) => rows[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined),
+        findMany: async <TArgs extends ContractFindManyArgs>(args: TArgs = {} as TArgs) =>
+            await this.findContractsAsync(normalizeFindMany("contracts", args)) as readonly (ContractResult & JsonProjectionResult<TArgs>)[],
+        findUnique: async <TArgs extends ContractFindUniqueArgs>(args: TArgs) =>
+            (await this.findContractsAsync(normalizedUniqueAsFindMany(normalizeFindUnique("contracts", args))))[0] as (ContractResult & JsonProjectionResult<TArgs>) | undefined,
         count: async (args: ContractCountArgs = {}) =>
             (await this.findContractsAsync(normalizedCountAsFindMany(normalizeCount("contracts", args)))).length,
         aggregate: async (args: Parameters<QueryClient["contracts"]["aggregate"]>[0]) => this.aggregateContractsAsync(args),

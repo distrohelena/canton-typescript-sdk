@@ -4,6 +4,13 @@ import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js
 import { normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
 
 describe("PQS SQL compiler", () => {
+    it("preserves the canonical default order for logical contract reads", () => {
+        const query = compileContractFindMany(normalizeFindMany("contracts", {}), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain("order by contract_row.contract_id asc");
+        expect(query.values).toEqual([]);
+    });
+
     it("binds contract filters as positional values", () => {
         const query = compileContractFindMany(
             normalizeFindMany("contracts", {

@@ -62,7 +62,7 @@ export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): 
         predicate,
         select: source.select === undefined ? undefined : normalizeSelection(relation, source.select),
         includes: source.include === undefined ? [] : normalizeIncludes(relation, source.include),
-        orderBy: normalizeOrderBy(relation, source.orderBy, source.orderBy !== undefined || page.skip > 0 || page.take !== undefined),
+        orderBy: normalizeOrderBy(relation, source.orderBy, relation === "contracts" || source.orderBy !== undefined || page.skip > 0 || page.take !== undefined),
         skip: page.skip,
         take: page.take,
         activeOnly: relation === "contracts" && provesActive(predicate),

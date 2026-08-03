@@ -3,6 +3,21 @@ import { PqsQueryClient } from "../../../src/query/pqs/pqs-query-client.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
 
 describe("PQS query client", () => {
+    it("preserves the logical contract default SQL and result ordering", async () => {
+        const query = vi.fn().mockResolvedValue({
+            rows: [
+                { contract_id: "C2", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "2", created_at: null, archived_event_offset: null, archived_at: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template" },
+                { contract_id: "C1", package_id: "pkg", payload: {}, witnesses: [], created_event_offset: "1", created_at: null, archived_event_offset: null, archived_at: null, active: true, template_package_id: "pkg", template_module_name: "Module", template_entity_name: "Template" },
+            ],
+        });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contracts.findMany()).resolves.toMatchObject([
+            { contractId: "C2" }, { contractId: "C1" },
+        ]);
+        expect(query.mock.calls[0][0]).toContain("order by contract_row.contract_id asc");
+    });
+
     it("maps logical contract rows from parameterized queries", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [
@@ -194,6 +209,20 @@ describe("PQS query client", () => {
         await expect(client.packages.findMany()).rejects.toMatchObject({ operation: "__packages.findMany", code: "57014" });
         await expect(client.$queryRaw("delete from __packages")).rejects.toThrow("read-only");
         expect(query).toHaveBeenCalledTimes(1);
+    });
+
+    it("rejects malformed logical contract reads asynchronously before executing", async () => {
+        const query = vi.fn();
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        const malformedMany = client.contracts.findMany({ where: { unexpected: { equals: "x" } } } as never);
+        expect(malformedMany).toHaveProperty("then");
+        await expect(malformedMany).rejects.toThrow("unexpected is not a field of contracts");
+
+        const malformedUnique = client.contracts.findUnique({ where: { unexpected: "x" } } as never);
+        expect(malformedUnique).toHaveProperty("then");
+        await expect(malformedUnique).rejects.toThrow("findUnique.where must contain one declared unique key of contracts");
+        expect(query).not.toHaveBeenCalled();
     });
 
     it("queries physical PQS relations through typed delegates", async () => {
