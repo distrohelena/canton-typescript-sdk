@@ -4,7 +4,7 @@ import {
     DamlRecord,
     ExerciseCommand,
     NotSupportedError,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     ValidationError,
 } from "../../../src";
 import { CommandServiceClient } from "../../../src/services/command/command-service-client.js";
@@ -70,13 +70,13 @@ describe("CommandServiceClient grpc signing", () => {
         );
 
         const result = await client.submitAndWaitAsync(
-            new SubmitCommandRequest({
+            new SubmitCommandsRequest({
                 applicationId: "app-1",
                 actAs: ["Alice"],
-                command: new CreateCommand({
+                commands: [new CreateCommand({
                     templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                     createArguments: new DamlRecord({ issuer: "Alice" }),
-                }),
+                })],
             }),
         );
 
@@ -120,13 +120,13 @@ describe("CommandServiceClient grpc signing", () => {
 
         await expect(
             client.submitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new CreateCommand({
+                    commands: [new CreateCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         createArguments: new DamlRecord({ issuer: "Alice" }),
-                    }),
+                    })],
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);
@@ -180,15 +180,15 @@ describe("CommandServiceClient grpc signing", () => {
 
         await expect(
             client.submitAndWaitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice", "Bob"],
-                    command: new ExerciseCommand({
+                    commands: [new ExerciseCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         contractId: "00abc",
                         choice: "Archive",
                         choiceArgument: {},
-                    }),
+                    })],
                 }),
             ),
         ).rejects.toThrow("not used");

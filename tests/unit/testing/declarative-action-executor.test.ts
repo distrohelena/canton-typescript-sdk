@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 
 import { CreateCommand } from "../../../src/core/types/commands/create-command.js";
 import { ExerciseCommand } from "../../../src/core/types/commands/exercise-command.js";
-import { SubmitCommandRequest } from "../../../src/core/types/requests/submit-command-request.js";
+import { SubmitCommandsRequest } from "../../../src/core/types/requests/submit-commands-request.js";
 import {
     executeDeclarativeActionAsync,
 } from "../../../src/testing/runtime/declarative-action-executor.js";
@@ -30,18 +30,18 @@ describe("declarative action executor", () => {
 
         expect(submitAndWaitAsync).toHaveBeenCalledWith(
             "issuer",
-            expect.any(SubmitCommandRequest),
+            expect.any(SubmitCommandsRequest),
         );
 
-        const request = submitAndWaitAsync.mock.calls[0][1] as SubmitCommandRequest;
+        const request = submitAndWaitAsync.mock.calls[0][1] as SubmitCommandsRequest;
 
         expect(request).toMatchObject({
             applicationId: "sdk-testing",
             actAs: ["Issuer"],
             readAs: ["Observer"],
         });
-        expect(request.command).toBeInstanceOf(CreateCommand);
-        expect(request.command).toMatchObject({
+        expect(request.commands[0]).toBeInstanceOf(CreateCommand);
+        expect(request.commands[0]).toMatchObject({
             templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
             createArguments: { fields: { amount: 42n } },
         });
@@ -74,10 +74,10 @@ describe("declarative action executor", () => {
             choice: "ChangeAmount",
         }));
 
-        const request = submitAndWaitAsync.mock.calls[0][1] as SubmitCommandRequest;
+        const request = submitAndWaitAsync.mock.calls[0][1] as SubmitCommandsRequest;
 
-        expect(request.command).toBeInstanceOf(ExerciseCommand);
-        expect(request.command).toMatchObject({
+        expect(request.commands[0]).toBeInstanceOf(ExerciseCommand);
+        expect(request.commands[0]).toMatchObject({
             templateId: { packageId: "pkg", moduleName: "Main", entityName: "Iou" },
             contractId: "#contract-1",
             choice: "ChangeAmount",

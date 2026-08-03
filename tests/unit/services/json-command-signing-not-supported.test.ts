@@ -3,7 +3,7 @@ import {
     CreateCommand,
     DamlRecord,
     NotSupportedError,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
 
@@ -49,13 +49,13 @@ describe("JSON command signing", () => {
 
         await expect(
             pipeline.submitAsync(
-                new SubmitCommandRequest({
+                new SubmitCommandsRequest({
                     applicationId: "app-1",
                     actAs: ["Alice"],
-                    command: new CreateCommand({
+                    commands: [new CreateCommand({
                         templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                         createArguments: new DamlRecord({ issuer: "Alice" }),
-                    }),
+                    })],
                 }),
             ),
         ).rejects.toThrow(NotSupportedError);

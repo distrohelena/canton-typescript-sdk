@@ -3,7 +3,7 @@ import {
     CreateCommand,
     DamlRecord,
     RequestOptions,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
 } from "../../../src";
 import { CommandSubmissionPipeline } from "../../../src/services/commands/command-submission-pipeline.js";
 
@@ -50,19 +50,19 @@ describe("CommandSubmissionPipeline", () => {
             signer: { signAsync },
         });
 
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({
                     issuer: "Alice",
                     owner: "Bob",
                 }),
-            }),
+            })],
         });
 
-        expect(request.command.templateId).toEqual({ packageId: "", moduleName: "Main", entityName: "Iou" });
+        expect(request.commands[0].templateId).toEqual({ packageId: "", moduleName: "Main", entityName: "Iou" });
         await pipeline.submitAsync(request);
 
         expect(signAsync).not.toHaveBeenCalled();
@@ -132,17 +132,17 @@ describe("CommandSubmissionPipeline", () => {
             signer: { signAsync },
         });
 
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             actAs: ["Alice"],
             readAs: ["Bob"],
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({
                     issuer: "Alice",
                     owner: "Bob",
                 }),
-            }),
+            })],
         });
 
         await pipeline.submitAsync(request);

@@ -4,20 +4,20 @@ import {
     DamlRecord,
     SignCommandRequest,
     SignCommandResult,
-    SubmitCommandRequest,
+    SubmitCommandsRequest,
     ValidationError,
 } from "../../../src";
 
 describe("interactive command signing contracts", () => {
     it("stores submit request userId", () => {
-        const request = new SubmitCommandRequest({
+        const request = new SubmitCommandsRequest({
             applicationId: "app-1",
             userId: "wallet-user",
             actAs: ["Alice"],
-            command: new CreateCommand({
+            commands: [new CreateCommand({
                 templateId: { packageId: "", moduleName: "Main", entityName: "Iou" },
                 createArguments: new DamlRecord({}),
-            }),
+            })],
         });
 
         expect(request.userId).toBe("wallet-user");
