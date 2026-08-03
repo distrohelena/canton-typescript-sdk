@@ -1,20 +1,11 @@
-import { normalizeAggregate, normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
-import type { QueryDataset } from "../../../src/query/canonical/query-dataset.js";
-
-function deepFreeze<T>(value: T): T {
-    if (value === null || typeof value !== "object" || Object.isFrozen(value)) {
-        return value;
-    }
-
-    for (const child of Object.values(value as Record<string, unknown>)) {
-        deepFreeze(child);
-    }
-
-    return Object.freeze(value);
-}
+import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
+import { immutableQueryValue, type QueryDataset } from "../../../src/query/canonical/query-dataset.js";
+import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery } from "../../../src/query/canonical/query-ast.js";
+import type { QueryRelation } from "../../../src/query/canonical/query-schema.js";
+import type { QueryClient } from "../../../src/query/query-client.js";
 
 /** A deliberately small, immutable relational corpus shared by canonical evaluators. */
-export const queryConformanceDataset: QueryDataset = deepFreeze({
+export const queryConformanceDataset: QueryDataset = immutableQueryValue({
     rows: Object.freeze({
         packages: Object.freeze([{ pk: "1", name: "app", version: "1", id: "pkg-app" }, { pk: "2", name: "app_%", version: "2", id: "pkg-other" }]),
         contractTypes: Object.freeze([
@@ -22,9 +13,9 @@ export const queryConformanceDataset: QueryDataset = deepFreeze({
             { pk: "20", payloadType: "record", aliases: ["Other:Note"], packageName: "other", moduleName: "Other", entityName: "Note", templateFqn: "pkg-other:Other:Note" },
         ]),
         transactions: Object.freeze([
-            { ix: "100", offset: "100", transactionId: "tx-1", effectiveAt: new Date("2026-01-05T10:15:00.000Z"), workflowId: null, domainId: "domain", traceContext: { traceId: "a" }, externalTransactionHash: null, paidTrafficCost: "7" },
+            { ix: "100", offset: "100", transactionId: "tx-1", effectiveAt: new Date("2026-01-05T10:15:00.000Z"), workflowId: null, domainId: "domain", traceContext: { traceId: "a" }, externalTransactionHash: new Uint8Array([1, 2]), paidTrafficCost: "7" },
             { ix: "200", offset: "200", transactionId: "tx-2", effectiveAt: new Date("2026-01-06T10:15:00.000Z"), workflowId: "wf", domainId: "domain", traceContext: { traceId: "b" }, externalTransactionHash: null, paidTrafficCost: "9007199254740993" },
-            { ix: "300", offset: "300", transactionId: "tx-3", effectiveAt: null, workflowId: null, domainId: null, traceContext: null, externalTransactionHash: null, paidTrafficCost: null },
+            { ix: "300", offset: "300", transactionId: "tx-3", effectiveAt: null, workflowId: null, domainId: "domain", traceContext: null, externalTransactionHash: null, paidTrafficCost: null },
         ]),
         contracts: Object.freeze([
             { contractId: "C1", templateId: { packageId: "pkg-app", moduleName: "App", entityName: "Asset" }, packageId: "pkg-app", payload: { owner: "Alice", amount: "10", enabled: true, when: "2026-01-05T10:15:00.000Z" }, witnesses: ["Alice", "Bob"], createdEventOffset: "100", createdAt: new Date("2026-01-05T10:15:00.000Z"), archivedEventOffset: null, archivedAt: null, active: true },
@@ -47,7 +38,7 @@ export const queryConformanceDataset: QueryDataset = deepFreeze({
     sourceLocalKeys: Object.freeze({ contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"]], transactions: [["ix"]], watermark: [["singleton"]] }),
 });
 
-export const evaluatorCases = Object.freeze([
+const normalizedCasesToMigrate = Object.freeze([
     { name: "scalar, JSON, array, and relation predicates", query: normalizeFindMany("contracts", { where: { and: [{ contractId: { like: "C_" } }, { payload: { match: { owner: { ilike: "ali%" } } } }, { witnesses: { has: "Alice" } }, { exercises: { some: { controllers: { has: "Alice" } } } }] }, select: { contractId: true }, orderBy: [{ contractId: "asc" }] }), expected: [{ contractId: "C1" }] },
     { name: "range predicates compare UTC timestamps", query: normalizeFindMany("transactions", { where: { effectiveAt: { gte: new Date("2026-01-06T00:00:00.000Z") } }, select: { ix: true }, orderBy: [{ ix: "asc" }] }), expected: [{ ix: "200" }] },
     { name: "packages use scalar equality and in", query: normalizeFindMany("packages", { where: { and: [{ id: { in: ["pkg-app"] } }, { pk: { equals: "1" } }] }, select: { id: true } }), expected: [{ id: "pkg-app" }] },
@@ -71,4 +62,69 @@ export const evaluatorCases = Object.freeze([
     { name: "PostgreSQL Monday week groups", query: normalizeGroupBy("transactions", { by: [{ effectiveAt: { bucket: "week" } }], aggregate: { count: true } }), expected: [{ effectiveAt_week: new Date("2026-01-05T00:00:00.000Z"), count: 2 }, { effectiveAt_week: null, count: 1 }] },
     { name: "UTC month groups", query: normalizeGroupBy("transactions", { by: [{ effectiveAt: { bucket: "month" } }], aggregate: { count: true } }), expected: [{ effectiveAt_month: new Date("2026-01-01T00:00:00.000Z"), count: 2 }, { effectiveAt_month: null, count: 1 }] },
     { name: "groups scalar array and JSON values", query: normalizeGroupBy("contracts", { by: ["witnesses", { payload: { name: "owner", path: ["owner"], as: "text" } }], aggregate: { count: true } }), expected: [{ witnesses: "Alice", owner: "Alice", count: 1 }, { witnesses: "Bob", owner: "Alice", count: 1 }, { witnesses: "Bob", owner: "Bob", count: 1 }] },
+]);
+
+export type PublicQueryOperation = "findMany" | "findUnique" | "count" | "aggregate" | "groupBy";
+export type NormalizedPublicQuery = NormalizedFindManyQuery | NormalizedFindUniqueQuery | NormalizedCountQuery | NormalizedAggregateQuery | NormalizedGroupByQuery;
+
+/**
+ * A public request and the physical rows returned by each executor call.  The rows
+ * intentionally model PostgreSQL values; they are never synthesized from expected.
+ */
+export interface QueryConformanceCase<TArgs = unknown> {
+    readonly name: string;
+    readonly operation: PublicQueryOperation;
+    readonly relation: QueryRelation;
+    readonly args: TArgs;
+    readonly expected: unknown;
+    readonly executorRows: readonly (readonly Record<string, unknown>[])[];
+    readonly invoke: (client: QueryClient, args: TArgs) => Promise<unknown>;
+}
+
+function queryCase<TArgs>(entry: QueryConformanceCase<TArgs>): QueryConformanceCase<TArgs> {
+    return Object.freeze(entry);
+}
+
+/** Normalization is exclusively an evaluator concern; PQS receives the raw public args above. */
+export function normalizeConformanceCase(entry: QueryConformanceCase): NormalizedPublicQuery {
+    switch (entry.operation) {
+        case "findMany": return normalizeFindMany(entry.relation, entry.args);
+        case "findUnique": return normalizeFindUnique(entry.relation, entry.args);
+        case "count": return normalizeCount(entry.relation, entry.args);
+        case "aggregate": return normalizeAggregate(entry.relation, entry.args);
+        case "groupBy": return normalizeGroupBy(entry.relation, entry.args);
+    }
+}
+
+export const evaluatorCases = Object.freeze([
+    queryCase({ name: "scalar, JSON, array, and relation predicates", operation: "findMany", relation: "contracts", args: { where: { and: [{ contractId: { like: "C_" } }, { payload: { match: { owner: { ilike: "ali%" } } } }, { witnesses: { has: "Alice" } }, { exercises: { some: { controllers: { has: "Alice" } } } }] }, select: { contractId: true }, orderBy: [{ contractId: "asc" }] }, expected: [{ contractId: "C1" }], executorRows: [[{ contract_id: "C1" }]], invoke: (client, args) => client.contracts.findMany(args) }),
+    queryCase({ name: "range predicates compare UTC timestamps", operation: "findMany", relation: "transactions", args: { where: { effectiveAt: { gte: new Date("2026-01-06T00:00:00.000Z") } }, select: { ix: true }, orderBy: [{ ix: "asc" }] }, expected: [{ ix: "200" }], executorRows: [[{ ix: 200 }]], invoke: (client, args) => client.transactions.findMany(args) }),
+    queryCase({ name: "packages use scalar equality and in", operation: "findMany", relation: "packages", args: { where: { and: [{ id: { in: ["pkg-app"] } }, { pk: { equals: "1" } }] }, select: { id: true } }, expected: [{ id: "pkg-app" }], executorRows: [[{ id: "pkg-app" }]], invoke: (client, args) => client.packages.findMany(args) }),
+    queryCase({ name: "nested and or not and ilike predicates", operation: "findMany", relation: "packages", args: { where: { and: [{ or: [{ name: { ilike: "APP%" } }, { id: { equals: "nope" } }] }, { not: { version: { equals: "2" } } }] }, select: { id: true } }, expected: [{ id: "pkg-app" }], executorRows: [[{ id: "pkg-app" }]], invoke: (client, args) => client.packages.findMany(args) }),
+    queryCase({ name: "like honors SQL percent underscore escapes", operation: "findMany", relation: "packages", args: { where: { name: { like: "app\\_\\%" } }, select: { id: true } }, expected: [{ id: "pkg-other" }], executorRows: [[{ id: "pkg-other" }]], invoke: (client, args) => client.packages.findMany(args) }),
+    queryCase({ name: "contract types use array membership", operation: "findMany", relation: "contractTypes", args: { where: { aliases: { has: "App:Asset" } }, select: { pk: true } }, expected: [{ pk: "10" }], executorRows: [[{ pk: 10 }]], invoke: (client, args) => client.contractTypes.findMany(args) }),
+    queryCase({ name: "events traverse a to-one relation", operation: "findMany", relation: "events", args: { where: { transaction: { domainId: { equals: "domain" } } }, select: { eventId: true }, orderBy: [{ pk: "asc" }] }, expected: [{ eventId: "ev-created-1" }, { eventId: "ev-exercised-1" }, { eventId: "ev-created-2" }], executorRows: [[{ eventId: "ev-created-1" }, { eventId: "ev-exercised-1" }, { eventId: "ev-created-2" }]], invoke: (client, args) => client.events.findMany(args) }),
+    queryCase({ name: "exercises filter JSON paths", operation: "findMany", relation: "exercises", args: { where: { argument: { path: ["by"], equals: "Alice" } }, select: { tpePk: true, json: { owner: { field: "argument", path: ["by"], as: "text" } } } }, expected: [{ tpePk: "2", owner: "Alice" }], executorRows: [[{ tpePk: 2, owner: "Alice" }]], invoke: (client, args) => client.exercises.findMany(args) }),
+    queryCase({ name: "exercise types filter booleans", operation: "findMany", relation: "exerciseTypes", args: { where: { consuming: { equals: true } }, select: { choice: true } }, expected: [{ choice: "Archive" }], executorRows: [[{ choice: "Archive" }]], invoke: (client, args) => client.exerciseTypes.findMany(args) }),
+    queryCase({ name: "watermark supports null predicates", operation: "findMany", relation: "watermark", args: { where: { instanceId: { isNot: null } }, select: { offset: true } }, expected: [{ offset: "300" }], executorRows: [[{ offset: 300 }]], invoke: (client, args) => client.watermark.findMany(args) }),
+    queryCase({ name: "null is predicates exclude present values", operation: "findMany", relation: "transactions", args: { where: { workflowId: { is: null } }, select: { ix: true }, orderBy: [{ ix: "asc" }] }, expected: [{ ix: "100" }, { ix: "300" }], executorRows: [[{ ix: 100 }, { ix: 300 }]], invoke: (client, args) => client.transactions.findMany(args) }),
+    queryCase({ name: "relation none filters all related rows", operation: "findMany", relation: "transactions", args: { where: { events: { none: { type: { equals: "created" } } } }, select: { ix: true } }, expected: [{ ix: "300" }], executorRows: [[{ ix: 300 }]], invoke: (client, args) => client.transactions.findMany(args) }),
+    queryCase({ name: "none and every use vacuous truth", operation: "findMany", relation: "contracts", args: { where: { exercises: { every: { controllers: { has: "Alice" } } } }, select: { contractId: true }, orderBy: [{ contractId: "asc" }] }, expected: [{ contractId: "C1" }, { contractId: "C3" }], executorRows: [[{ contract_id: "C1" }, { contract_id: "C3" }]], invoke: (client, args) => client.contracts.findMany(args) }),
+    queryCase({ name: "null ordering and bounded include", operation: "findMany", relation: "contracts", args: { orderBy: [{ createdAt: "asc" }], take: 2, select: { contractId: true }, include: { exercises: { take: 1, select: { tpePk: true } } } }, expected: [{ contractId: "C1", exercises: [{ tpePk: "2" }] }, { contractId: "C2", exercises: [{ tpePk: "1" }] }], executorRows: [[{ contract_id: "C1", exercises: [{ tpePk: 2 }] }, { contract_id: "C2", exercises: [{ tpePk: 1 }] }]], invoke: (client, args) => client.contracts.findMany(args) }),
+    queryCase({ name: "typed JSON projections and nested bounded includes", operation: "findMany", relation: "contracts", args: { where: { contractId: { equals: "C1" } }, select: { json: { owner: { field: "payload", path: ["owner"], as: "text" }, amount: { field: "payload", path: ["amount"], as: "numeric" }, enabled: { field: "payload", path: ["enabled"], as: "boolean" }, when: { field: "payload", path: ["when"], as: "timestamp" } } }, include: { exercises: { take: 1, include: { package: { select: { id: true } } } } } }, expected: [{ owner: "Alice", amount: "10", enabled: true, when: new Date("2026-01-05T10:15:00.000Z"), exercises: [{ tpePk: "2", contractTpePk: "10", exerciseEventPk: null, exercisedAtIx: "100", contractId: "C1", argument: { by: "Alice" }, result: { ok: true }, redactionId: null, packagePk: "1", controllers: ["Alice"], lastDescendantNodeId: "0", witnesses: ["Alice"], package: { id: "pkg-app" } }] }], executorRows: [[{ owner: "Alice", amount: 10, enabled: true, when: "2026-01-05T10:15:00.000Z", exercises: [{ tpePk: 2, contractTpePk: 10, exerciseEventPk: null, exercisedAtIx: 100, contractId: "C1", argument: { by: "Alice" }, result: { ok: true }, redactionId: null, packagePk: 1, controllers: ["Alice"], lastDescendantNodeId: 0, witnesses: ["Alice"], package: { id: "pkg-app" } }] }]], invoke: (client, args) => client.contracts.findMany(args) }),
+    queryCase({ name: "stable descending order and pagination", operation: "findMany", relation: "packages", args: { orderBy: [{ name: "desc" }], skip: 1, take: 1, select: { id: true } }, expected: [{ id: "pkg-app" }], executorRows: [[{ id: "pkg-app" }]], invoke: (client, args) => client.packages.findMany(args) }),
+    queryCase({ name: "aggregates use lossless decimal strings", operation: "aggregate", relation: "transactions", args: { count: true, min: ["paidTrafficCost"], max: ["paidTrafficCost"], sum: ["paidTrafficCost"] }, expected: { count: 3, min: { paidTrafficCost: "7" }, max: { paidTrafficCost: "9007199254740993" }, sum: { paidTrafficCost: "9007199254741000" } }, executorRows: [[{ count: "3", min_paidTrafficCost: 7, max_paidTrafficCost: 9007199254740993n, sum_paidTrafficCost: "9007199254741000" }]], invoke: (client, args) => client.transactions.aggregate(args) }),
+    queryCase({ name: "empty aggregates retain count and null min max sum", operation: "aggregate", relation: "transactions", args: { where: { ix: { gt: "999" } }, count: true, min: ["paidTrafficCost"], max: ["paidTrafficCost"], sum: ["paidTrafficCost"] }, expected: { count: 0, min: { paidTrafficCost: null }, max: { paidTrafficCost: null }, sum: { paidTrafficCost: null } }, executorRows: [[{ count: "0", min_paidTrafficCost: null, max_paidTrafficCost: null, sum_paidTrafficCost: null }]], invoke: (client, args) => client.transactions.aggregate(args) }),
+    queryCase({ name: "UTC day groups", operation: "groupBy", relation: "transactions", args: { by: [{ effectiveAt: { bucket: "day" } }], aggregate: { count: true, sum: ["paidTrafficCost"] } }, expected: [{ effectiveAt_day: new Date("2026-01-05T00:00:00.000Z"), count: 1, sum_paidTrafficCost: "7" }, { effectiveAt_day: new Date("2026-01-06T00:00:00.000Z"), count: 1, sum_paidTrafficCost: "9007199254740993" }, { effectiveAt_day: null, count: 1, sum_paidTrafficCost: null }], executorRows: [[{ effectiveAt_day: new Date("2026-01-05T00:00:00.000Z"), count: "1", sum_paidTrafficCost: 7 }, { effectiveAt_day: new Date("2026-01-06T00:00:00.000Z"), count: "1", sum_paidTrafficCost: 9007199254740993n }, { effectiveAt_day: null, count: "1", sum_paidTrafficCost: null }]], invoke: (client, args) => client.transactions.groupBy(args) }),
+    queryCase({ name: "UTC hour groups", operation: "groupBy", relation: "transactions", args: { by: [{ effectiveAt: { bucket: "hour" } }], aggregate: { count: true } }, expected: [{ effectiveAt_hour: new Date("2026-01-05T10:00:00.000Z"), count: 1 }, { effectiveAt_hour: new Date("2026-01-06T10:00:00.000Z"), count: 1 }, { effectiveAt_hour: null, count: 1 }], executorRows: [[{ effectiveAt_hour: new Date("2026-01-05T10:00:00.000Z"), count: "1" }, { effectiveAt_hour: new Date("2026-01-06T10:00:00.000Z"), count: "1" }, { effectiveAt_hour: null, count: "1" }]], invoke: (client, args) => client.transactions.groupBy(args) }),
+    queryCase({ name: "PostgreSQL Monday week groups", operation: "groupBy", relation: "transactions", args: { by: [{ effectiveAt: { bucket: "week" } }], aggregate: { count: true } }, expected: [{ effectiveAt_week: new Date("2026-01-05T00:00:00.000Z"), count: 2 }, { effectiveAt_week: null, count: 1 }], executorRows: [[{ effectiveAt_week: new Date("2026-01-05T00:00:00.000Z"), count: "2" }, { effectiveAt_week: null, count: "1" }]], invoke: (client, args) => client.transactions.groupBy(args) }),
+    queryCase({ name: "UTC month groups", operation: "groupBy", relation: "transactions", args: { by: [{ effectiveAt: { bucket: "month" } }], aggregate: { count: true } }, expected: [{ effectiveAt_month: new Date("2026-01-01T00:00:00.000Z"), count: 2 }, { effectiveAt_month: null, count: 1 }], executorRows: [[{ effectiveAt_month: new Date("2026-01-01T00:00:00.000Z"), count: "2" }, { effectiveAt_month: null, count: "1" }]], invoke: (client, args) => client.transactions.groupBy(args) }),
+    queryCase({ name: "groups scalar array and JSON values", operation: "groupBy", relation: "contracts", args: { by: ["witnesses", { payload: { name: "owner", path: ["owner"], as: "text" } }], aggregate: { count: true } }, expected: [{ witnesses: "Alice", owner: "Alice", count: 1 }, { witnesses: "Bob", owner: "Alice", count: 1 }, { witnesses: "Bob", owner: "Bob", count: 1 }], executorRows: [[{ witnesses: "Alice", owner: "Alice", count: "1" }, { witnesses: "Bob", owner: "Alice", count: "1" }, { witnesses: "Bob", owner: "Bob", count: "1" }]], invoke: (client, args) => client.contracts.groupBy(args) }),
+    queryCase({ name: "findUnique maps physical numeric and timestamp values", operation: "findUnique", relation: "transactions", args: { where: { ix: "100" }, select: { ix: true, paidTrafficCost: true, effectiveAt: true } }, expected: { ix: "100", paidTrafficCost: "7", effectiveAt: new Date("2026-01-05T10:15:00.000Z") }, executorRows: [[{ ix: 100, paidTrafficCost: 7, effectiveAt: "2026-01-05T10:15:00.000Z" }]], invoke: (client, args) => client.transactions.findUnique(args) }),
+    queryCase({ name: "findUnique returns undefined when no physical row exists", operation: "findUnique", relation: "packages", args: { where: { id: "missing" }, select: { id: true } }, expected: undefined, executorRows: [[]], invoke: (client, args) => client.packages.findUnique(args) }),
+    queryCase({ name: "count applies a standalone predicate", operation: "count", relation: "packages", args: { where: { name: { equals: "app" } } }, expected: 1, executorRows: [[{ count: "1" }]], invoke: (client, args) => client.packages.count(args) }),
+    queryCase({ name: "contract count applies parties and active predicate", operation: "count", relation: "contracts", args: { parties: ["Bob"], where: { active: true } }, expected: 1, executorRows: [[{ count: "1" }]], invoke: (client, args) => client.contracts.count(args) }),
+    queryCase({ name: "multi-field nullable order appends the canonical stable key", operation: "findMany", relation: "transactions", args: { orderBy: [{ workflowId: "asc" }, { domainId: "asc" }], select: { ix: true } }, expected: [{ ix: "200" }, { ix: "100" }, { ix: "300" }], executorRows: [[{ ix: 200 }, { ix: 100 }, { ix: 300 }]], invoke: (client, args) => client.transactions.findMany(args) }),
+    queryCase({ name: "nullable descending ordering follows PostgreSQL", operation: "findMany", relation: "transactions", args: { orderBy: [{ workflowId: "desc" }], select: { ix: true } }, expected: [{ ix: "100" }, { ix: "300" }, { ix: "200" }], executorRows: [[{ ix: 100 }, { ix: 300 }, { ix: 200 }]], invoke: (client, args) => client.transactions.findMany(args) }),
+    queryCase({ name: "skip and take follow multi-field stable nullable ordering", operation: "findMany", relation: "transactions", args: { orderBy: [{ workflowId: "asc" }, { domainId: "asc" }], skip: 1, take: 1, select: { ix: true } }, expected: [{ ix: "100" }], executorRows: [[{ ix: 100 }]], invoke: (client, args) => client.transactions.findMany(args) }),
 ]);

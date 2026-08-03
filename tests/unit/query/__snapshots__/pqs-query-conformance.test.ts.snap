@@ -45,12 +45,36 @@ exports[`PQS conformance harness > executes the 'aggregates use lossless decimal
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'contract count applies parties and ac…' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select count(*)::text as count from "public"."__contracts" contract_row join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix where contract_row.archived_at_ix is null and contract_row.witnesses && $1::text[]",
+    "values": [
+      [
+        "Bob",
+      ],
+    ],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'contract types use array membership' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
     "text": "select "pk" as "pk" from "public"."__contract_tpe" where $1 = any("aliases")",
     "values": [
       "App:Asset",
+    ],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'count applies a standalone predicate' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select count(*)::text as count from "public"."__packages" where "name" = $1",
+    "values": [
+      "app",
     ],
   },
 ]
@@ -106,6 +130,30 @@ exports[`PQS conformance harness > executes the 'exercises filter JSON paths' ca
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'findUnique maps physical numeric and …' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix", "paid_traffic_cost" as "paidTrafficCost", "effective_at" as "effectiveAt" from "public"."__transactions" where "ix" = $1 limit $2",
+    "values": [
+      "100",
+      1,
+    ],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'findUnique returns undefined when no …' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "id" as "id" from "public"."__packages" where "id" = $1 limit $2",
+    "values": [
+      "missing",
+      1,
+    ],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'groups scalar array and JSON values' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
@@ -126,6 +174,15 @@ exports[`PQS conformance harness > executes the 'like honors SQL percent undersc
     "values": [
       "app\\_\\%",
     ],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'multi-field nullable order appends th…' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" asc, "domain_id" asc, "ix" asc",
+    "values": [],
   },
 ]
 `;
@@ -216,6 +273,15 @@ limit $1
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'nullable descending ordering follows …' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" desc, "ix" asc",
+    "values": [],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'packages use scalar equality and in' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
@@ -284,6 +350,18 @@ where (contract_row.contract_id like $1 and contract_row.payload #>> $2::text[] 
       "ali%",
       "Alice",
       "Alice",
+    ],
+  },
+]
+`;
+
+exports[`PQS conformance harness > executes the 'skip and take follow multi-field stab…' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" asc, "domain_id" asc, "ix" asc limit $1 offset $2",
+    "values": [
+      1,
+      1,
     ],
   },
 ]

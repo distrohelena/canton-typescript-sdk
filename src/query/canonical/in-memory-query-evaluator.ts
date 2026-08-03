@@ -1,5 +1,5 @@
 import type { NormalizedAggregateQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedGroupKey, NormalizedInclude, NormalizedSelection, QueryPredicate } from "./query-ast.js";
-import type { QueryDataset, QueryRow } from "./query-dataset.js";
+import { immutableQueryValue, type QueryDataset, type QueryRow } from "./query-dataset.js";
 import { queryRelationEdges, type QueryRelation } from "./query-schema.js";
 
 type Result = Record<string, unknown>;
@@ -204,20 +204,10 @@ function at(value: unknown, path: readonly string[]): unknown {
     return current;
 }
 function clone(value: unknown): unknown {
-    if (value instanceof Date) {
-        return new Date(value.getTime());
-    } else if (value instanceof Uint8Array) {
-        return new Uint8Array(value);
-    } else if (Array.isArray(value)) {
-        return value.map(clone);
-    } else if (value !== null && typeof value === "object") {
-        return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, clone(child)]));
-    }
-
-    return value;
+    return immutableQueryValue(value);
 }
 function freeze<T>(value: T): T {
-    if (value === null || typeof value !== "object" || value instanceof Date) {
+    if (value === null || typeof value !== "object" || value instanceof Date || value instanceof Uint8Array) {
         return value;
     } else if (Object.isFrozen(value)) {
         return value;
@@ -305,7 +295,7 @@ function project(value: unknown, as: "text" | "numeric" | "boolean" | "timestamp
     } else if (as === "boolean") {
         return value === true || value === "true";
     } else if (as === "timestamp") {
-        return value instanceof Date ? new Date(value.getTime()) : new Date(String(value));
+        return immutableQueryValue(value instanceof Date ? value : new Date(String(value)));
     }
 
     return String(value);
