@@ -316,9 +316,11 @@ function normalizeScalarFilter(relation: QueryRelation, field: string, value: un
 }
 
 function normalizeJsonFilter(field: string, value: UnknownRecord): readonly QueryPredicate[] {
-    const path = jsonPath(value.path, `${field}.path`);
+    const filter = object(value, `${field} JSON filter`);
 
-    const entries = Object.entries(value).filter(([operator]) => operator !== "path");
+    const path = jsonPath(filter.path, `${field}.path`);
+
+    const entries = Object.entries(filter).filter(([operator]) => operator !== "path");
 
     if (entries.length === 0) {
         throw new Error(`${field} JSON filter must contain an operator`);
@@ -743,6 +745,12 @@ function jsonPath(value: unknown, label: string): readonly string[] {
 function object(value: unknown, label: string): UnknownRecord {
     if (value === null || typeof value !== "object" || Array.isArray(value) || value instanceof Date || value instanceof Uint8Array) {
         throw new Error(`${label} must be an object`);
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+
+    if (prototype !== Object.prototype && prototype !== null) {
+        throw new Error(`${label} must be a plain object`);
     }
 
     return value as UnknownRecord;

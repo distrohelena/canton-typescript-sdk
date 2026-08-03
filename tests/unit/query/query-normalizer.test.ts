@@ -131,6 +131,44 @@ describe("canonical query normalizer", () => {
         expect(() => normalizeGroupBy("transactions", { by: [{ effectiveAt: timeBucket }], aggregate: { count: true } })).toThrow();
     });
 
+    it.each([
+        ["top-level args", () => normalizeFindMany("packages", Object.create({ where: { id: { equals: "pkg" } } }))],
+        ["JSON filter path", () => {
+            const filter = Object.create({ path: ["trace"] }) as Record<string, unknown>;
+
+            filter.equals = "trace-id";
+
+            return normalizeFindMany("transactions", { where: { traceContext: filter } });
+        }],
+        ["JSON projection path", () => {
+            const projection = Object.create({ path: ["trace"] }) as Record<string, unknown>;
+
+            projection.field = "traceContext";
+            projection.as = "text";
+
+            return normalizeFindMany("transactions", { select: { json: { trace: projection } } });
+        }],
+        ["aggregate fields", () => normalizeAggregate("packages", Object.create({ sum: ["pk"] }))],
+        ["include clauses", () => normalizeFindMany("contracts", { include: Object.create({ exercises: { take: 1 } }) })],
+        ["witnesses has", () => {
+            const filter = Object.create({ has: "Alice" }) as Record<string, unknown>;
+
+            filter.unrelated = true;
+
+            return normalizeFindMany("contracts", { where: { witnesses: filter } });
+        }],
+    ])("rejects inherited %s grammar with QueryValidationError", (_name, normalize) => {
+        try {
+            normalize();
+        } catch (error) {
+            expect(error).toMatchObject({ name: "QueryValidationError" });
+
+            return;
+        }
+
+        throw new Error("expected validation failure");
+    });
+
     it("canonicalizes mutable timestamp and binary literals into immutable values", () => {
         const timestamp = new Date("2026-08-03T00:00:00.000Z");
 
