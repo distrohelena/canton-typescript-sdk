@@ -57,8 +57,12 @@ All command-submission entry points accept `SubmitCommandsRequest`:
 - command-submission pipeline and transport interfaces
 - gRPC and JSON transports
 - prepared-command state used by interactive execution
+- the placeholder `CommandSubmissionServiceClient.submitAsync` surface
+- missing-endpoint and service-registry transport stubs
 
 The gRPC mapper converts `request.commands` in order with `request.commands.map(mapGrpcLedgerCommand)` and writes the complete result to generated `Commands.commands`. The JSON mapper performs the equivalent ordered mapping. Interactive preparation writes the complete batch to `PrepareSubmissionRequest.commands`; detached signing and execution continue to operate on the single prepared transaction produced for that atomic batch.
+
+The canonical command payload builder also changes from a singular `command` member to an ordered `commands` array. Each member is mapped with the existing canonical command encoder in request order. This prevents signing and inspection payloads from silently omitting every command after the first and keeps the canonical representation aligned with the public request.
 
 The batch order is preserved exactly. No mapper filters, sorts, deduplicates, or splits commands. A mapper failure for any member rejects the whole request before transport dispatch.
 
@@ -86,7 +90,7 @@ to:
 new SubmitCommandsRequest({ commands: [command] })
 ```
 
-Callers that already model an atomic sequence use the full ordered tuple. The old request filename, imports, root export, references, and singular mapper access must be absent after migration.
+Callers that already model an atomic sequence use the full ordered tuple. The old request filename, imports, root export, service-registry stubs, placeholder submission-client type, references, and singular mapper or canonical-payload access must be absent after migration.
 
 Example 90 is extended or supplemented to prove a genuine two-command atomic submission. Its two independent commands must succeed together, and an invalid second command must demonstrate atomic rejection without leaving the first command active. The live proof runs on the existing localnet without a participant-version branch.
 
@@ -109,13 +113,13 @@ TDD coverage includes:
 3. JSON mapping of the same ordered batch.
 4. Interactive preparation of the complete batch and unchanged prepared execution behavior.
 5. Client, pipeline, transport, contract, integration, testing-runtime, live-fuzz, and example compilation after removal of the singular type.
-6. A repository source assertion proving `SubmitCommandRequest`, `submit-command-request`, and `request.command` no longer exist in handwritten source, examples, or tests.
+6. A repository source assertion proving the exact identifier `SubmitCommandRequest`, the module path segment `submit-command-request`, and exact singular property access no longer exist in handwritten source, examples, tests, README, or `DOCUMENTATION.md`. The check must not confuse required `request.commands` or `request.commandId` access with the removed singular property, and it excludes generated protobuf code plus historical design and plan documents.
 7. A localnet atomicity proof with two independent commands, including an invalid-batch case that proves no partial commit.
 8. Full build, tests, live tests, changed-file lint, package verification, and packed public-export checks.
 
 ## Documentation
 
-README and command examples use plural terminology and explain that one request contains a non-empty atomic ordered batch. Migration guidance shows the mechanical singleton conversion and the multi-command form, without documenting a compatibility path.
+README, `DOCUMENTATION.md`, and command examples use plural terminology and explain that one request contains a non-empty atomic ordered batch. Migration guidance shows the mechanical singleton conversion and the multi-command form, without documenting a compatibility path.
 
 ## Non-goals
 
