@@ -61,6 +61,14 @@ import {
 import type { ContractCacheResult, QueryClient } from "../../../src";
 import { comDaml, comDigitalasset, google } from "../../../src/protobuf";
 
+type Assert<T extends true> = T;
+type CacheContractsReturnsExportedResult = Assert<
+    Awaited<ReturnType<QueryClient["cacheContracts"]>> extends ContractCacheResult ? true : false
+>;
+type InvalidateContractsCacheReturnsVoid = Assert<
+    ReturnType<QueryClient["invalidateContractsCache"]> extends Promise<void> ? true : false
+>;
+
 const ledgerApi = comDaml.ledger.api.v2;
 
 const participantAdmin = comDigitalasset.canton.admin.participant.v30;
@@ -279,16 +287,6 @@ describe("package surface", () => {
         ).toBeInstanceOf(ParticipantDarDescription);
         expect(HashFunction.sha256).toBe("sha256");
         expect(PackageStatus.registered).toBe("registered");
-    });
-
-    it("exports the query cache lifecycle and incomplete snapshot contracts", () => {
-        declare const query: QueryClient;
-
-        declare const cacheResult: ContractCacheResult;
-
-        void query.cacheContracts;
-        void query.invalidateContractsCache;
-        void cacheResult;
     });
 
     it("does not export legacy root surface names", async () => {

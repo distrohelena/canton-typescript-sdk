@@ -17,8 +17,14 @@ describe("live gRPC typed query pruning", () => {
 
         await expect(
             fixture.manager.query.contracts.findMany({
-                where: { templateId: fixture.templateId },
+                where: {
+                    templateId: {
+                        packageId: { equals: fixture.templateId.packageId },
+                        moduleName: { equals: fixture.templateId.moduleName },
+                        entityName: { equals: fixture.templateId.entityName },
+                    },
+                },
             }),
         ).rejects.toBeInstanceOf(QuerySnapshotIncompleteError);
-    });
+    }, 90_000);
 });

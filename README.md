@@ -795,7 +795,8 @@ The typed relation delegates use a Prisma-like surface: `findMany({ where,
 select, orderBy, skip, take })`, `findUnique({ where, select })`, `count`, and
 `aggregate({ count, min, max, sum })`. Filters support `equals`, `in`,
 `{ is: null }`, `{ isNot: null }`, and `{ has: party }` on array fields.
-Ordering accepts one field. `exercises` intentionally has no `findUnique`
+Ordering accepts an ordered list of one-field entries, so multi-field ordering
+uses `[{ createdAt: "desc" }, { contractId: "asc" }]`. `exercises` intentionally has no `findUnique`
 because the v1 PQS profile does not declare a stable key. The manager validates
 the selected PQS schema profile before its first PQS query.
 
