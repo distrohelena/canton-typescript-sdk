@@ -149,6 +149,7 @@ npm run example:workflow:command-completion
 npm run example:workflow:contract-lifecycle-audit
 npm run example:workflow:update-lookup-reconciliation
 npm run example:workflow:pruning-preflight
+npm run example:workflow:participant-local
 ```
 
 Those seven established stateful workflows intentionally leave durable state behind. A missing `SDK_EXAMPLE_PARTY`
@@ -156,6 +157,24 @@ causes fallback party allocation, which creates durable topology state; every
 one also creates durable contracts. Set `SDK_EXAMPLE_PARTY` to an existing
 party to rerun the established workflows against that party and avoid fallback
 allocation. The fixture DAR remains installed after a run.
+
+The participant-local command-submission workflow
+(`npm run example:workflow:participant-local`) is a standalone gRPC-only proof
+of the ordinary participant submission authorization route. It uses the normal
+`SDK_EXAMPLE_*` endpoint, authentication, party, and timeout configuration:
+`SDK_EXAMPLE_LEDGER_ENDPOINT`, `SDK_EXAMPLE_LEDGER_ADMIN_ENDPOINT`,
+`SDK_EXAMPLE_PARTICIPANT_ADMIN_ENDPOINT`, `SDK_EXAMPLE_BEARER_TOKEN`,
+`SDK_EXAMPLE_LEDGER_BEARER_TOKEN`, `SDK_EXAMPLE_LEDGER_ADMIN_BEARER_TOKEN`,
+`SDK_EXAMPLE_PARTICIPANT_ADMIN_BEARER_TOKEN`, `SDK_EXAMPLE_PARTY`,
+`SDK_EXAMPLE_PARTY_PREFIX`, `SDK_EXAMPLE_TIMEOUT_MS`, and
+`SDK_EXAMPLE_TLS_ROOT_CERTIFICATE`. It configures a command signer that throws
+if touched, then successfully creates and finds one exact active Message through
+`commandService.submitParticipantLocalAndWaitAsync`; that success proves the
+configured external signer was bypassed. An explicit party is reused, while
+fallback allocation creates durable topology; the fixture upload leaves a
+durable DAR and the proof leaves a durable contract. The unchanged
+implementation uses the common compatibility path on Participant 3.5.7 and
+the isolated Participant 3.5.8 sidecar.
 
 The completion-correlation workflow (`npm run example:workflow:command-completion`)
 is a standalone successful proof that creates durable Message state. It uses the

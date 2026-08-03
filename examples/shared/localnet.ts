@@ -5,6 +5,7 @@ import {
     CantonClient,
     CantonClientOptions,
     GrpcChannelSecurity,
+    type ICommandSigner,
     TransportKind,
 } from "@distrohelena/canton-typescript-sdk";
 import { comDigitalasset } from "@distrohelena/canton-typescript-sdk/protobuf";
@@ -18,6 +19,7 @@ type ExampleClientInit = {
     tls?: boolean;
     requireBearerToken?: boolean;
     defaultTlsRootCertificatePath?: string;
+    commandSigner?: ICommandSigner;
 };
 
 export function createExampleClientOptions(
@@ -82,6 +84,7 @@ export function createExampleClientOptions(
             createBearerTokenAuthProvider(ledgerAdminToken),
         participantAdminAuthProvider:
             createBearerTokenAuthProvider(participantAdminToken),
+        commandSigner: init.commandSigner,
     });
 }
 

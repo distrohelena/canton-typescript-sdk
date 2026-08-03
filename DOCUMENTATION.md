@@ -1443,6 +1443,17 @@ Notes:
 - `json` does not support external command signing
 - `transactionId` carries the ledger update id returned by the transport
 
+### `commandService.submitParticipantLocalAndWaitAsync(request)`
+
+Submits one non-empty ordered atomic command batch through ordinary participant
+submission and waits for its result. It is supported on both `json` and `grpc`.
+Unlike signer-configured `submitAndWaitAsync`, which uses interactive external
+signing on gRPC, this method deliberately bypasses any configured
+`commandSigner`. The signer itself remains gRPC-only.
+
+Parameters and response fields are the same as
+`commandService.submitAndWaitAsync(request)`.
+
 Example:
 
 ```ts
@@ -1758,6 +1769,7 @@ Transport behavior:
 | `topologyManagerWriteService.dropTemporaryTopologyStoreAsync` | Participant Admin | No | Yes |
 | `topologyManagerWriteService.assembleSignedTransactions` | SDK Local | Yes | Yes |
 | `commandService.submitAndWaitAsync` | Ledger | Yes | Yes |
+| `commandService.submitParticipantLocalAndWaitAsync` | Ledger | Yes | Yes |
 | `commandSubmissionService.submitAsync` | Ledger | No | No |
 | `stateService.getActiveContractsPageAsync` | Ledger | No | Yes |
 | `stateService.getActiveContractsAsync` | Ledger | Yes | No |

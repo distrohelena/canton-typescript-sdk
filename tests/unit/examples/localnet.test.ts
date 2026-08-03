@@ -102,6 +102,21 @@ describe("localnet example helpers", () => {
         });
     });
 
+    it("preserves an injected command signer for authorization-route examples", () => {
+        const commandSigner = {
+            signAsync: vi.fn(async () => {
+                throw new Error("not called while creating options");
+            }),
+        };
+
+        const options = createExampleClientOptions({
+            environment: environment(),
+            commandSigner,
+        });
+
+        expect(options.commandSigner).toBe(commandSigner);
+    });
+
     it("honors each localnet endpoint override independently", () => {
         const options = createExampleClientOptions({
             environment: environment({
