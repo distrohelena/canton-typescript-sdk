@@ -4,6 +4,84 @@ const removedRequestName = "Submit" + "CommandRequest";
 
 const removedModuleName = ["submit", "command", "request"].join("-");
 
+interface ReceiverScope {
+    readonly parent?: ReceiverScope;
+    readonly requestReceivers: Map<string, boolean>;
+}
+
+function isSubmitCommandsRequestName(name: ts.EntityName): boolean {
+    return ts.isIdentifier(name)
+        ? name.text === "SubmitCommandsRequest"
+        : name.right.text === "SubmitCommandsRequest";
+}
+
+function isDirectSubmitCommandsRequestType(
+    type: ts.TypeNode | undefined,
+): boolean {
+    if (type === undefined) {
+        return false;
+    } else if (ts.isParenthesizedTypeNode(type)) {
+        return isDirectSubmitCommandsRequestType(type.type);
+    } else {
+        return ts.isTypeReferenceNode(type) &&
+            type.typeArguments === undefined &&
+            isSubmitCommandsRequestName(type.typeName);
+    }
+}
+
+function isSubmitCommandsRequestConstruction(
+    initializer: ts.Expression | undefined,
+): boolean {
+    return initializer !== undefined &&
+        ts.isNewExpression(initializer) &&
+        ts.isIdentifier(initializer.expression) &&
+        initializer.expression.text === "SubmitCommandsRequest";
+}
+
+function createScope(parent?: ReceiverScope): ReceiverScope {
+    return { parent, requestReceivers: new Map() };
+}
+
+function findReceiver(scope: ReceiverScope, name: string): boolean {
+    let current: ReceiverScope | undefined = scope;
+
+    while (current !== undefined) {
+        const receiver = current.requestReceivers.get(name);
+
+        if (receiver !== undefined) {
+            return receiver;
+        }
+
+        current = current.parent;
+    }
+
+    return false;
+}
+
+function recordModuleName(
+    usages: Set<string>,
+    moduleSpecifier: ts.Node | undefined,
+): void {
+    if (moduleSpecifier === undefined) {
+        return;
+    }
+
+    const literal = ts.isStringLiteral(moduleSpecifier)
+        ? moduleSpecifier
+        : ts.isLiteralTypeNode(moduleSpecifier) && ts.isStringLiteral(moduleSpecifier.literal)
+            ? moduleSpecifier.literal
+            : undefined;
+
+    if (
+        literal !== undefined &&
+        literal.text
+            .split("/")
+            .some((part) => part.split(".")[0] === removedModuleName)
+    ) {
+        usages.add(removedModuleName);
+    }
+}
+
 export function findRemovedSubmitCommandUsages(source: string): string[] {
     const sourceFile = ts.createSourceFile(
         "source.ts",
@@ -13,85 +91,120 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
         ts.ScriptKind.TS,
     );
 
-    const requestVariables = new Set<string>();
-
-    const collectsSubmitCommandsRequest = (node: ts.Node | undefined): boolean => {
-        if (node === undefined) {
-            return false;
-        }
-
-        let found = false;
-
-        const visit = (child: ts.Node): void => {
-            if (ts.isIdentifier(child) && child.text === "SubmitCommandsRequest") {
-                found = true;
-
-                return;
-            }
-
-            ts.forEachChild(child, visit);
-        };
-
-        visit(node);
-
-        return found;
-    };
-
-    const collectRequestVariables = (node: ts.Node): void => {
-        if (
-            (ts.isVariableDeclaration(node) || ts.isParameter(node)) &&
-            ts.isIdentifier(node.name) &&
-            (collectsSubmitCommandsRequest(node.type) ||
-                (ts.isVariableDeclaration(node) &&
-                    node.initializer !== undefined &&
-                    ts.isNewExpression(node.initializer) &&
-                    ts.isIdentifier(node.initializer.expression) &&
-                    node.initializer.expression.text === "SubmitCommandsRequest"))
-        ) {
-            requestVariables.add(node.name.text);
-        }
-
-        ts.forEachChild(node, collectRequestVariables);
-    };
-
-    collectRequestVariables(sourceFile);
-
     const usages = new Set<string>();
 
-    const recordModuleName = (moduleSpecifier: ts.Expression | undefined): void => {
-        if (
-            moduleSpecifier !== undefined &&
-            ts.isStringLiteral(moduleSpecifier) &&
-            moduleSpecifier.text
-                .split("/")
-                .some((part) => part.split(".")[0] === removedModuleName)
-        ) {
-            usages.add(removedModuleName);
+    const visit = (node: ts.Node, scope: ReceiverScope): void => {
+        if (ts.isFunctionLike(node)) {
+            const functionScope = createScope(scope);
+
+            const signature = node as ts.SignatureDeclarationBase;
+
+            if (
+                "name" in node &&
+                node.name !== undefined &&
+                ts.isIdentifier(node.name)
+            ) {
+                if (node.name.text === removedRequestName) {
+                    usages.add(removedRequestName);
+                }
+            }
+
+            if (signature.typeParameters !== undefined) {
+                for (const typeParameter of signature.typeParameters) {
+                    visit(typeParameter, functionScope);
+                }
+            }
+
+            for (const parameter of node.parameters) {
+                if (ts.isIdentifier(parameter.name)) {
+                    if (parameter.name.text === removedRequestName) {
+                        usages.add(removedRequestName);
+                    }
+
+                    functionScope.requestReceivers.set(
+                        parameter.name.text,
+                        isDirectSubmitCommandsRequestType(parameter.type),
+                    );
+                }
+
+                if (parameter.type !== undefined) {
+                    visit(parameter.type, functionScope);
+                }
+
+                if (parameter.initializer !== undefined) {
+                    visit(parameter.initializer, functionScope);
+                }
+            }
+
+            if (signature.type !== undefined) {
+                visit(signature.type, functionScope);
+            }
+
+            if (node.body !== undefined) {
+                visit(node.body, functionScope);
+            }
+
+            return;
+        } else if (ts.isBlock(node)) {
+            const blockScope = createScope(scope);
+
+            for (const statement of node.statements) {
+                visit(statement, blockScope);
+            }
+
+            return;
+        } else if (ts.isVariableDeclaration(node)) {
+            if (ts.isIdentifier(node.name)) {
+                if (node.name.text === removedRequestName) {
+                    usages.add(removedRequestName);
+                }
+
+                scope.requestReceivers.set(
+                    node.name.text,
+                    isDirectSubmitCommandsRequestType(node.type) ||
+                        isSubmitCommandsRequestConstruction(node.initializer),
+                );
+            }
+
+            if (node.type !== undefined) {
+                visit(node.type, scope);
+            }
+
+            if (node.initializer !== undefined) {
+                visit(node.initializer, scope);
+            }
+
+            return;
+        } else {
+            if (ts.isIdentifier(node) && node.text === removedRequestName) {
+                usages.add(removedRequestName);
+            }
+
+            if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+                recordModuleName(usages, node.moduleSpecifier);
+            } else if (ts.isImportTypeNode(node)) {
+                recordModuleName(usages, node.argument);
+            } else if (
+                ts.isCallExpression(node) &&
+                node.expression.kind === ts.SyntaxKind.ImportKeyword
+            ) {
+                recordModuleName(usages, node.arguments[0]);
+            }
+
+            if (
+                ts.isPropertyAccessExpression(node) &&
+                node.name.text === "command" &&
+                ts.isIdentifier(node.expression) &&
+                findReceiver(scope, node.expression.text)
+            ) {
+                usages.add(node.getText(sourceFile));
+            }
+
+            ts.forEachChild(node, child => visit(child, scope));
         }
     };
 
-    const findUsages = (node: ts.Node): void => {
-        if (ts.isIdentifier(node) && node.text === removedRequestName) {
-            usages.add(removedRequestName);
-        }
-
-        if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
-            recordModuleName(node.moduleSpecifier);
-        }
-
-        if (
-            ts.isPropertyAccessExpression(node) &&
-            node.name.text === "command" &&
-            ts.isIdentifier(node.expression) &&
-            requestVariables.has(node.expression.text)
-        ) {
-            usages.add(node.getText(sourceFile));
-        }
-
-        ts.forEachChild(node, findUsages);
-    };
-
-    findUsages(sourceFile);
+    visit(sourceFile, createScope());
 
     return [...usages];
 }

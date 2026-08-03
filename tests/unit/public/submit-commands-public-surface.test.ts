@@ -14,6 +14,19 @@ const removedRequestName = ["Submit", "CommandRequest"].join("");
 
 const removedModuleName = ["submit", "command", "request"].join("-");
 
+interface RootPackageExport {
+    readonly import: string;
+    readonly require: string;
+    readonly types: string;
+}
+
+interface PackageManifest {
+    readonly exports: {
+        readonly ".": RootPackageExport;
+    };
+    readonly files: readonly string[];
+}
+
 describe("SubmitCommandsRequest public surface", () => {
     it("exports the plural request and non-empty command batch type", () => {
         const commands: NonEmptyLedgerCommands = [
@@ -44,10 +57,32 @@ describe("SubmitCommandsRequest public surface", () => {
         ).toContain(removedRequestName);
     });
 
+    it("finds the exact removed request identifier in a function return type", () => {
+        expect(
+            findRemovedSubmitCommandUsages(
+                `function create(): ${removedRequestName} { throw new Error(); }`,
+            ),
+        ).toContain(removedRequestName);
+    });
+
     it("finds the removed request module path", () => {
         expect(
             findRemovedSubmitCommandUsages(
                 `import value from "./${removedModuleName}.js"`,
+            ),
+        ).toContain(removedModuleName);
+    });
+
+    it("ignores static exports without module specifiers", () => {
+        expect(
+            findRemovedSubmitCommandUsages("export { value };"),
+        ).toEqual([]);
+    });
+
+    it("finds the removed request dynamic import path", () => {
+        expect(
+            findRemovedSubmitCommandUsages(
+                `void import("./${removedModuleName}.js")`,
             ),
         ).toContain(removedModuleName);
     });
@@ -80,6 +115,48 @@ describe("SubmitCommandsRequest public surface", () => {
         expect(
             findRemovedSubmitCommandUsages("let pendingRequest: unknown;"),
         ).toEqual([]);
+    });
+
+    it("does not inherit a request receiver through a shadowing function parameter", () => {
+        expect(
+            findRemovedSubmitCommandUsages(
+                "function outer(request: SubmitCommandsRequest) { function inner(request: unknown) { return request.command; } }",
+            ),
+        ).toEqual([]);
+    });
+
+    it("does not treat a containing generic type as a request receiver", () => {
+        expect(
+            findRemovedSubmitCommandUsages(
+                "function f(request: Promise<SubmitCommandsRequest>) { return request.command; }",
+            ),
+        ).toEqual([]);
+    });
+
+    it("keeps package root exports and source declarations on the plural request surface", () => {
+        const packageManifest = JSON.parse(
+            readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
+        ) as PackageManifest;
+
+        const rootExport = packageManifest.exports["."];
+
+        const rootSource = readFileSync(
+            new URL("../../../src/index.ts", import.meta.url),
+            "utf8",
+        );
+
+        expect(packageManifest.files).toContain("dist");
+        expect(rootExport).toEqual({
+            types: "./dist/index.d.ts",
+            import: "./dist/index.js",
+            require: "./dist/cjs/index.js",
+        });
+        expect(rootSource).toContain("SubmitCommandsRequest");
+        expect(rootSource).toContain("NonEmptyLedgerCommands");
+        expect(rootSource).not.toContain(removedRequestName);
+        expect(rootSource).not.toContain(removedModuleName);
+        expect(sdk.SubmitCommandsRequest).toBe(SubmitCommandsRequest);
+        expect(removedRequestName in sdk).toBe(false);
     });
 
     it("has no removed request surface in handwritten sources", () => {
