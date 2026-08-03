@@ -21,7 +21,7 @@ export function mapGrpcQueryValue(value: Value): unknown {
 
 function mapValue(value: Value): unknown {
     switch (value.sum.oneofKind) {
-        case "unit": return null;
+        case "unit": return {};
         case "bool": return value.sum.bool;
         case "int64": return int64(value.sum.int64, "int64");
         case "date": return date(value.sum.date);
@@ -33,20 +33,14 @@ function mapValue(value: Value): unknown {
         case "optional": return value.sum.optional.value === undefined ? null : mapValue(value.sum.optional.value);
         case "list": return value.sum.list.elements.map(mapValue);
         case "textMap": return mapTextMap(value.sum.textMap.entries);
-        case "genMap": return value.sum.genMap.entries.map((entry, index) => {
-            if (entry.key === undefined || entry.value === undefined) {
-                throw new ValidationError(`gRPC query gen-map entry ${index} is incomplete`);
-            }
-
-            return { key: mapValue(entry.key), value: mapValue(entry.value) };
-        });
+        case "genMap": return mapGenMap(value.sum.genMap.entries);
         case "record": return mapRecord(value.sum.record.fields);
         case "variant": {
             if (value.sum.variant.constructor.length === 0 || value.sum.variant.value === undefined) {
                 throw new ValidationError("gRPC query variant is incomplete");
             }
 
-            return { constructor: value.sum.variant.constructor, value: mapValue(value.sum.variant.value) };
+            return { tag: value.sum.variant.constructor, value: mapValue(value.sum.variant.value) };
         }
         case "enum": {
             if (value.sum.enum.constructor.length === 0) {
@@ -60,7 +54,7 @@ function mapValue(value: Value): unknown {
 }
 
 function mapRecord(fields: readonly { readonly label: string; readonly value?: Value }[]): Record<string, unknown> {
-    const output: Record<string, unknown> = {};
+    const output: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 
     for (const [index, field] of fields.entries()) {
         if (field.label.length === 0) {
@@ -71,14 +65,14 @@ function mapRecord(fields: readonly { readonly label: string; readonly value?: V
             throw new ValidationError(`gRPC query record field ${field.label} has no value`);
         }
 
-        output[field.label] = mapValue(field.value);
+        defineData(output, field.label, mapValue(field.value));
     }
 
     return output;
 }
 
 function mapTextMap(entries: readonly { readonly key: string; readonly value?: Value }[]): Record<string, unknown> {
-    const output: Record<string, unknown> = {};
+    const output: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 
     for (const [index, entry] of entries.entries()) {
         if (Object.hasOwn(output, entry.key)) {
@@ -87,10 +81,66 @@ function mapTextMap(entries: readonly { readonly key: string; readonly value?: V
             throw new ValidationError(`gRPC query text-map entry ${index} has no value`);
         }
 
-        output[entry.key] = mapValue(entry.value);
+        defineData(output, entry.key, mapValue(entry.value));
     }
 
     return output;
+}
+
+function mapGenMap(entries: readonly { readonly key?: Value; readonly value?: Value }[]): readonly (readonly [unknown, unknown])[] {
+    const seenKeys = new Set<string>();
+
+    return entries.map((entry, index) => {
+        if (entry.key === undefined || entry.value === undefined) {
+            throw new ValidationError(`gRPC query gen-map entry ${index} is incomplete`);
+        }
+
+        const key = mapValue(entry.key);
+
+        const canonicalKey = canonicalJsonKey(key);
+
+        if (seenKeys.has(canonicalKey)) {
+            throw new ValidationError(`gRPC query gen-map has duplicate key at entry ${index}`);
+        }
+
+        seenKeys.add(canonicalKey);
+
+        return [key, mapValue(entry.value)] as const;
+    });
+}
+
+function canonicalJsonKey(value: unknown): string {
+    if (value === null) {
+        return "null";
+    } else if (typeof value === "boolean") {
+        return `boolean:${value}`;
+    } else if (typeof value === "string") {
+        return `string:${JSON.stringify(value)}`;
+    } else if (typeof value === "number") {
+        return Number.isFinite(value) ? `number:${value}` : invalidGenMapKey();
+    } else if (Array.isArray(value)) {
+        return `array:[${value.map(canonicalJsonKey).join(",")}]`;
+    } else if (typeof value !== "object") {
+        return invalidGenMapKey();
+    }
+
+    const record = value as Record<string, unknown>;
+
+    const keys = Object.keys(record).sort();
+
+    if (keys.length !== Object.keys(record).length) {
+        return invalidGenMapKey();
+    }
+
+    return `object:{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJsonKey(record[key])}`).join(",")}}`;
+}
+
+function invalidGenMapKey(): never {
+    throw new ValidationError("gRPC query gen-map key cannot be represented as ledger JSON");
+}
+
+function defineData(target: Record<string, unknown>, key: string, value: unknown): void {
+    Object.defineProperty(target, key, { value, enumerable: true, configurable: false, writable: false });
 }
 
 function int64(value: string, name: string): string {
@@ -122,8 +172,18 @@ function date(value: number): number {
 }
 
 function numeric(value: string): string {
-    if (!/^[+-]?\d{1,38}(?:\.\d{0,37})?$/.test(value)) {
+    if (!/^[+-]?\d+(?:\.\d*)?$/.test(value)) {
         throw new ValidationError("gRPC query numeric is invalid");
+    }
+
+    const unsigned = value.replace(/^[+-]/, "");
+
+    const [whole, fractional = ""] = unsigned.split(".");
+
+    const significant = `${whole}${fractional}`.replace(/^0+/, "").length;
+
+    if (fractional.length > 37 || significant > 38) {
+        throw new ValidationError("gRPC query numeric exceeds DAML Numeric precision");
     }
 
     return value;

@@ -21,6 +21,17 @@ export interface GrpcQueryPackageIdentity {
     readonly id: string;
 }
 
+export interface GrpcQueryCreationIdentity {
+    readonly contractId: string;
+    readonly offset: string;
+    readonly templateId: Readonly<{ packageId: string; moduleName: string; entityName: string }>;
+    readonly creationPackageId: string;
+    readonly representativePackageId: string | null;
+    readonly payload: unknown;
+    readonly witnesses: readonly string[];
+    readonly createdAt: Date;
+}
+
 /**
  * The Task 5 transport-neutral core. Task 6 enriches its identity descriptors with
  * package metadata and creates the complete QueryDataset/edges; public rows never
@@ -33,6 +44,7 @@ export interface GrpcQueryRelationFragment {
     readonly exercises: readonly ExerciseRow[];
     readonly typeIdentities: readonly GrpcQueryTypeIdentity[];
     readonly packageIdentities: readonly GrpcQueryPackageIdentity[];
+    readonly creationIdentities: readonly GrpcQueryCreationIdentity[];
 }
 
 interface PendingCreatedEvent {
@@ -62,6 +74,8 @@ export function mapGrpcQueryRelationFragment(
 
     for (const transaction of transactions) {
         validOffset(transaction.offset, "transaction offset");
+
+        validateTransaction(transaction);
 
         if (seenOffsets.has(transaction.offset)) {
             throw new ValidationError(`gRPC query has duplicate transaction offset ${transaction.offset}`);
@@ -101,11 +115,13 @@ export function mapGrpcQueryRelationFragment(
 
     const contracts = new Map<string, ContractRow>();
 
+    const creations = new Map<string, GrpcQueryCreationIdentity>();
+
     const exerciseRows: ExerciseRow[] = [];
 
     for (const item of pending.sort((left, right) => compareOffset(left.transaction.offset, right.transaction.offset) || nodeId(left.event) - nodeId(right.event))) {
         if (item.kind === "created") {
-            addCreatedContract(contracts, item.event, item.transaction.offset);
+            addCreatedContract(contracts, creations, item.event, item.transaction.offset);
         } else {
             const target = contracts.get(item.event.contractId);
 
@@ -127,25 +143,37 @@ export function mapGrpcQueryRelationFragment(
                 result: item.event.exerciseResult === undefined ? null : mapGrpcQueryValue(item.event.exerciseResult),
                 redactionId: null,
                 packagePk: registry.get(packageIdentity(template.packageId))!,
-                controllers: immutableStrings(item.event.actingParties),
+                controllers: immutableStrings(item.event.actingParties, "exercise acting parties", true),
                 lastDescendantNodeId: String(validNodeId(item.event.lastDescendantNodeId, "last descendant node id")),
-                witnesses: immutableStrings(item.event.witnessParties),
+                witnesses: immutableStrings(item.event.witnessParties, "exercise witnesses", true),
             });
 
             if (item.event.consuming) {
-                contracts.set(target.contractId, { ...target, archivedEventOffset: item.transaction.offset, archivedAt: timestamp(item.transaction.effectiveAt, "transaction effective time"), active: false });
+                contracts.set(target.contractId, { ...target, archivedEventOffset: item.transaction.offset, archivedAt: timestamp(item.transaction.effectiveAt, "transaction effective time", true), active: false });
             }
         }
     }
 
-    for (const created of activeCreatedEvents(activeContracts)) {
+    const activeCreations = activeCreatedEvents(activeContracts);
+
+    const activeContractIds = new Set<string>();
+
+    for (const created of activeCreations) {
+        if (activeContractIds.has(created.contractId)) {
+            throw new ValidationError(`gRPC query has duplicate ACS contract ${created.contractId}`);
+        }
+
+        activeContractIds.add(created.contractId);
+
         const existing = contracts.get(created.contractId);
 
+        const candidate = creationDescriptor(created, created.offset);
+
         if (existing === undefined) {
-            addCreatedContract(contracts, created, created.offset);
+            addCreatedContract(contracts, creations, created, created.offset);
         } else if (existing.active === false) {
             throw new ValidationError(`gRPC query ACS contains archived contract ${created.contractId}`);
-        } else if (!sameCreatedContract(existing, created)) {
+        } else if (canonicalCreation(creations.get(created.contractId)!) !== canonicalCreation(candidate)) {
             throw new ValidationError(`gRPC query ACS conflicts with history for contract ${created.contractId}`);
         }
     }
@@ -154,7 +182,7 @@ export function mapGrpcQueryRelationFragment(
         [...pending.map((item) => item.event), ...activeCreatedEvents(activeContracts)].flatMap((event) => typeIdentityRows(event, registry).map((item) => [item.pk, item])),
     ).values()].sort((left, right) => Number(left.pk) - Number(right.pk));
 
-    const packageIdentities = [...new Set([...pending.map((item) => requiredTemplate(item.event.templateId, "event template").packageId), ...activeCreatedEvents(activeContracts).map((item) => requiredTemplate(item.templateId, "ACS template").packageId)])]
+    const packageIdentities = [...new Set([...pending.flatMap((item) => packageIdsFor(item.event)), ...activeCreations.flatMap(packageIdsFor)])]
         .sort()
         .map((id) => ({ pk: registry.get(packageIdentity(id))!, id }));
 
@@ -165,6 +193,7 @@ export function mapGrpcQueryRelationFragment(
         exercises: exerciseRows.sort((left, right) => `${left.exercisedAtIx}:${left.exerciseEventPk}`.localeCompare(`${right.exercisedAtIx}:${right.exerciseEventPk}`)),
         typeIdentities,
         packageIdentities,
+        creationIdentities: [...creations.values()].sort((left, right) => left.contractId.localeCompare(right.contractId)),
     });
 }
 
@@ -192,43 +221,55 @@ function validatePending(transaction: Transaction, event: CreatedEvent | Exercis
         throw new ValidationError(`gRPC query ${kind} event contract id is missing`);
     }
 
+    requiredTemplate(event.templateId, `${kind} event template`);
+
+    if (isExercised(event)) {
+        if (event.choice.length === 0) {
+            throw new ValidationError("gRPC query exercise choice is missing");
+        } else if (event.packageName.length === 0) {
+            throw new ValidationError("gRPC query exercise package name is missing");
+        } else if (event.choiceArgument === undefined) {
+            throw new ValidationError("gRPC query exercise argument is missing");
+        }
+
+        immutableStrings(event.actingParties, "exercise acting parties", true);
+        immutableStrings(event.witnessParties, "exercise witnesses", true);
+        validNodeId(event.lastDescendantNodeId, "last descendant node id");
+    } else {
+        creationDescriptor(event, event.offset);
+    }
 }
 
-function addCreatedContract(contracts: Map<string, ContractRow>, event: CreatedEvent, offset: string): void {
-    const templateId = requiredTemplate(event.templateId, "created event template");
+function addCreatedContract(contracts: Map<string, ContractRow>, creations: Map<string, GrpcQueryCreationIdentity>, event: CreatedEvent, offset: string): void {
+    const creation = creationDescriptor(event, offset);
 
-    if (event.createArguments === undefined) {
-        throw new ValidationError("gRPC query created event has no create arguments");
-    } else if (contracts.has(event.contractId)) {
+    if (contracts.has(event.contractId)) {
         throw new ValidationError(`gRPC query has duplicate contract creation ${event.contractId}`);
     }
 
     contracts.set(event.contractId, {
-        contractId: event.contractId,
-        templateId: copyTemplate(templateId),
-        packageId: event.representativePackageId || templateId.packageId,
-        payload: mapGrpcQueryValue({ sum: { oneofKind: "record", record: event.createArguments } }),
-        witnesses: immutableStrings(event.witnessParties),
-        createdEventOffset: offset,
-        createdAt: timestamp(event.createdAt, "created event time"),
+        contractId: creation.contractId,
+        templateId: creation.templateId,
+        packageId: creation.creationPackageId,
+        payload: creation.payload,
+        witnesses: creation.witnesses,
+        createdEventOffset: creation.offset,
+        createdAt: creation.createdAt,
         archivedEventOffset: null,
         archivedAt: null,
         active: true,
     });
+    creations.set(event.contractId, creation);
 }
 
 function mapTransaction(transaction: Transaction): TransactionRow {
-    if (transaction.updateId.length === 0) {
-        throw new ValidationError("gRPC query transaction update id is missing");
-    }
-
     return {
         ix: transaction.offset,
         offset: transaction.offset,
         transactionId: transaction.updateId,
-        effectiveAt: timestamp(transaction.effectiveAt, "transaction effective time"),
+        effectiveAt: timestamp(transaction.effectiveAt, "transaction effective time", true),
         workflowId: nullableString(transaction.workflowId),
-        domainId: nullableString(transaction.synchronizerId),
+        domainId: transaction.synchronizerId,
         traceContext: transaction.traceContext === undefined ? null : transaction.traceContext,
         externalTransactionHash: transaction.externalTransactionHash === undefined ? null : Uint8Array.from(transaction.externalTransactionHash),
         paidTrafficCost: transaction.paidTrafficCost === undefined ? null : signedInt64(transaction.paidTrafficCost, "paid traffic cost"),
@@ -239,8 +280,8 @@ function identitiesFor(event: CreatedEvent | ExercisedEvent): readonly string[] 
     const template = requiredTemplate(event.templateId, "event template");
 
     return isExercised(event)
-        ? [eventIdentity(event), contractIdentity(template), packageIdentity(template.packageId), exerciseIdentity(template, event.choice, event.consuming)]
-        : [eventIdentity(event), contractIdentity(template), packageIdentity(template.packageId)];
+        ? [eventIdentity(event), contractIdentity(template), ...packageIdsFor(event).map(packageIdentity), exerciseIdentity(template, event.choice, event.consuming)]
+        : [eventIdentity(event), contractIdentity(template), ...packageIdsFor(event).map(packageIdentity)];
 }
 
 function typeIdentityRows(event: CreatedEvent | ExercisedEvent, registry: ReadonlyMap<string, string>): readonly GrpcQueryTypeIdentity[] {
@@ -259,6 +300,54 @@ function activeCreatedEvents(responses: readonly GetActiveContractsResponse[]): 
 
         return response.contractEntry.activeContract.createdEvent;
     });
+}
+
+function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreationIdentity {
+    validOffset(offset, "created event offset");
+    validNodeId(event.nodeId, "created node id");
+
+    if (event.contractId.length === 0) {
+        throw new ValidationError("gRPC query created event contract id is missing");
+    } else if (event.packageName.length === 0) {
+        throw new ValidationError("gRPC query created event package name is missing");
+    }
+
+    const template = requiredTemplate(event.templateId, "created event template");
+
+    if (event.createArguments === undefined) {
+        throw new ValidationError("gRPC query created event has no create arguments");
+    }
+
+    const createdAt = requiredTimestamp(event.createdAt, "created event time");
+
+    return {
+        contractId: event.contractId,
+        offset,
+        templateId: copyTemplate(template),
+        creationPackageId: template.packageId,
+        representativePackageId: nullableString(event.representativePackageId),
+        payload: mapGrpcQueryValue({ sum: { oneofKind: "record", record: event.createArguments } }),
+        witnesses: immutableStrings(event.witnessParties, "created event witnesses", true),
+        createdAt,
+    };
+}
+
+function validateTransaction(transaction: Transaction): void {
+    if (transaction.events.length === 0) {
+        throw new ValidationError("gRPC query transaction has no events");
+    } else if (transaction.updateId.length === 0) {
+        throw new ValidationError("gRPC query transaction update id is missing");
+    } else if (transaction.synchronizerId.length === 0) {
+        throw new ValidationError("gRPC query transaction synchronizer id is missing");
+    }
+
+    timestamp(transaction.effectiveAt, "transaction effective time", true);
+}
+
+function packageIdsFor(event: CreatedEvent | ExercisedEvent): readonly string[] {
+    const template = requiredTemplate(event.templateId, "event template");
+
+    return isExercised(event) ? [template.packageId] : [template.packageId, ...event.representativePackageId.length === 0 ? [] : [event.representativePackageId]];
 }
 
 function keyRegistry(identities: readonly string[]): ReadonlyMap<string, string> {
@@ -303,23 +392,15 @@ function mapRequiredValue(value: Parameters<typeof mapGrpcQueryValue>[0] | undef
 
     return mapGrpcQueryValue(value);
 }
-function immutableStrings(value: readonly string[]): readonly string[] {
-    if (value.some((item) => item.length === 0)) {
-        throw new ValidationError("gRPC query party is missing");
+function immutableStrings(value: readonly string[], name: string, required = false): readonly string[] {
+    if ((required && value.length === 0) || value.some((item) => item.length === 0)) {
+        throw new ValidationError(`gRPC query ${name} is missing`);
     }
 
     return Object.freeze([...value]);
 }
 function nullableString(value: string): string | null {
     return value.length === 0 ? null : value;
-}
-function sameCreatedContract(contract: ContractRow, created: CreatedEvent): boolean {
-    const template = requiredTemplate(created.templateId, "ACS template");
-
-    return contract.createdEventOffset === created.offset
-        && contract.templateId.packageId === template.packageId
-        && contract.templateId.moduleName === template.moduleName
-        && contract.templateId.entityName === template.entityName;
 }
 function validNodeId(value: number, name: string): number {
     if (!Number.isSafeInteger(value) || value < 0) {
@@ -329,7 +410,7 @@ function validNodeId(value: number, name: string): number {
     return value;
 }
 function validOffset(value: string, name: string): string {
-    if (!/^(?:0|[1-9]\d*)$/.test(value)) {
+    if (!/^[1-9]\d*$/.test(value)) {
         throw new ValidationError(`gRPC query ${name} is invalid`);
     } else if (BigInt(value) > 9_223_372_036_854_775_807n) {
         throw new ValidationError(`gRPC query ${name} is outside the int64 range`);
@@ -355,8 +436,12 @@ function compareOffset(left: string, right: string): number {
 
     return first < second ? -1 : first > second ? 1 : 0;
 }
-function timestamp(value: { seconds: string; nanos: number } | undefined, name: string): Date | null {
+function timestamp(value: { seconds: string; nanos: number } | undefined, name: string, required = false): Date | null {
     if (value === undefined) {
+        if (required) {
+            throw new ValidationError(`gRPC query ${name} is missing`);
+        }
+
         return null;
     } else if (!/^-?(?:0|[1-9]\d*)$/.test(value.seconds) || !Number.isInteger(value.nanos) || value.nanos < 0 || value.nanos > 999_999_999) {
         throw new ValidationError(`gRPC query ${name} is invalid`);
@@ -369,4 +454,28 @@ function timestamp(value: { seconds: string; nanos: number } | undefined, name: 
     }
 
     return new Date(Number(milliseconds));
+}
+
+function requiredTimestamp(value: { seconds: string; nanos: number } | undefined, name: string): Date {
+    const mapped = timestamp(value, name, true);
+
+    if (mapped === null) {
+        throw new ValidationError(`gRPC query ${name} is missing`);
+    }
+
+    return mapped;
+}
+
+function canonicalCreation(value: GrpcQueryCreationIdentity): string {
+    return JSON.stringify({ ...value, createdAt: value.createdAt.toISOString(), payload: canonicalJson(value.payload), witnesses: [...value.witnesses] });
+}
+
+function canonicalJson(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map(canonicalJson);
+    } else if (value !== null && typeof value === "object") {
+        return Object.fromEntries(Object.keys(value as Record<string, unknown>).sort().map((key) => [key, canonicalJson((value as Record<string, unknown>)[key])]));
+    }
+
+    return value;
 }
