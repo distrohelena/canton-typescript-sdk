@@ -72,6 +72,61 @@ describe("mapGrpcQueryValue", () => {
         expect(mapGrpcQueryValue(value({ oneofKind: "genMap", genMap: { entries: [{ key: value({ oneofKind: "text", text: "1" }), value: text }, { key: value({ oneofKind: "bool", bool: true }), value: text }] } }))).toHaveLength(2);
     });
 
+    it("preserves tagged generic-map key distinctions while normalizing numeric duplicates", () => {
+        const text = value({ oneofKind: "text", text: "value" });
+
+        const unit = value({ oneofKind: "unit", unit: {} });
+
+        const emptyRecord = value({ oneofKind: "record", record: { fields: [] } });
+
+        const nestedUnit = value({ oneofKind: "record", record: { fields: [{ label: "key", value: unit }] } });
+
+        const nestedRecord = value({ oneofKind: "record", record: { fields: [{ label: "key", value: emptyRecord }] } });
+
+        expect(mapGrpcQueryValue(value({ oneofKind: "genMap", genMap: { entries: [{ key: unit, value: text }, { key: emptyRecord, value: text }] } }))).toHaveLength(2);
+        expect(mapGrpcQueryValue(value({ oneofKind: "genMap", genMap: { entries: [{ key: nestedUnit, value: text }, { key: nestedRecord, value: text }] } }))).toHaveLength(2);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "genMap", genMap: { entries: [
+            { key: value({ oneofKind: "numeric", numeric: "1.0" }), value: text },
+            { key: value({ oneofKind: "numeric", numeric: "+1.000" }), value: text },
+        ] } }))).toThrow(/duplicate/i);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "genMap", genMap: { entries: [
+            { key: value({ oneofKind: "numeric", numeric: "-0.0" }), value: text },
+            { key: value({ oneofKind: "numeric", numeric: "0.00" }), value: text },
+        ] } }))).toThrow(/duplicate/i);
+    });
+
+    it("validates PartyIdString and LedgerString scalar forms", () => {
+        expect(mapGrpcQueryValue(value({ oneofKind: "party", party: "Alice-1: Team" }))).toBe("Alice-1: Team");
+        expect(mapGrpcQueryValue(value({ oneofKind: "contractId", contractId: "#1:abc/_- " }))).toBe("#1:abc/_- ");
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "party", party: "" }))).toThrow(ValidationError);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "party", party: "bad!" }))).toThrow(ValidationError);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "contractId", contractId: "bad!" }))).toThrow(ValidationError);
+        expect(() => mapGrpcQueryValue(value({ oneofKind: "party", party: "a".repeat(256) }))).toThrow(ValidationError);
+    });
+
+    it("rejects nesting beyond the documented value depth before overflowing", () => {
+        const optional = (depth: number): Value => depth === 0
+            ? value({ oneofKind: "unit", unit: {} })
+            : value({ oneofKind: "optional", optional: { value: optional(depth - 1) } });
+
+        const list = (depth: number): Value => depth === 0
+            ? value({ oneofKind: "unit", unit: {} })
+            : value({ oneofKind: "list", list: { elements: [list(depth - 1)] } });
+
+        const record = (depth: number): Value => depth === 0
+            ? value({ oneofKind: "unit", unit: {} })
+            : value({ oneofKind: "record", record: { fields: [{ label: "next", value: record(depth - 1) }] } });
+
+        const genMap = (depth: number): Value => depth === 0
+            ? value({ oneofKind: "unit", unit: {} })
+            : value({ oneofKind: "genMap", genMap: { entries: [{ key: value({ oneofKind: "text", text: "next" }), value: genMap(depth - 1) }] } });
+
+        for (const nested of [optional, list, record, genMap]) {
+            expect(() => mapGrpcQueryValue(nested(257))).toThrow(ValidationError);
+            expect(mapGrpcQueryValue(nested(256))).toBeDefined();
+        }
+    });
+
     it("preserves special record and text-map keys as own data properties", () => {
         const mapped = mapGrpcQueryValue(value({ oneofKind: "record", record: { fields: [
             { label: "__proto__", value: value({ oneofKind: "text", text: "proto" }) },

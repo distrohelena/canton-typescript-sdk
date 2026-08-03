@@ -8,18 +8,25 @@ const MAX_DATE_EPOCH_DAY = 2_932_896;
 
 const INT64 = /^-?(?:0|[1-9]\d*)$/;
 
+/** Maximum generated Value nesting accepted before recursive mapping becomes unsafe. */
+export const MAX_GRPC_QUERY_VALUE_DEPTH = 256;
+
 /** Maps a verbose Ledger API value to the JSON convention used by PQS predicates and rows. */
 export function mapGrpcQueryValue(value: Value): unknown {
     if (value === undefined || value.sum === undefined) {
         throw new ValidationError("gRPC query value is missing its sum");
     }
 
-    const mapped = mapValue(value);
+    const mapped = mapValue(value, 0);
 
     return immutableQueryValue(mapped);
 }
 
-function mapValue(value: Value): unknown {
+function mapValue(value: Value, depth: number): unknown {
+    if (depth > MAX_GRPC_QUERY_VALUE_DEPTH) {
+        throw new ValidationError(`gRPC query value exceeds maximum nesting depth ${MAX_GRPC_QUERY_VALUE_DEPTH}`);
+    }
+
     switch (value.sum.oneofKind) {
         case "unit": return {};
         case "bool": return value.sum.bool;
@@ -27,20 +34,20 @@ function mapValue(value: Value): unknown {
         case "date": return date(value.sum.date);
         case "timestamp": return timestamp(value.sum.timestamp);
         case "numeric": return numeric(value.sum.numeric);
-        case "party": return value.sum.party;
+        case "party": return validPartyId(value.sum.party);
         case "text": return value.sum.text;
-        case "contractId": return value.sum.contractId;
-        case "optional": return value.sum.optional.value === undefined ? null : mapValue(value.sum.optional.value);
-        case "list": return value.sum.list.elements.map(mapValue);
-        case "textMap": return mapTextMap(value.sum.textMap.entries);
-        case "genMap": return mapGenMap(value.sum.genMap.entries);
-        case "record": return mapRecord(value.sum.record.fields);
+        case "contractId": return validLedgerString(value.sum.contractId, "contract id");
+        case "optional": return value.sum.optional.value === undefined ? null : mapValue(value.sum.optional.value, depth + 1);
+        case "list": return value.sum.list.elements.map((entry) => mapValue(entry, depth + 1));
+        case "textMap": return mapTextMap(value.sum.textMap.entries, depth + 1);
+        case "genMap": return mapGenMap(value.sum.genMap.entries, depth + 1);
+        case "record": return mapRecord(value.sum.record.fields, depth + 1);
         case "variant": {
             if (value.sum.variant.constructor.length === 0 || value.sum.variant.value === undefined) {
                 throw new ValidationError("gRPC query variant is incomplete");
             }
 
-            return { tag: value.sum.variant.constructor, value: mapValue(value.sum.variant.value) };
+            return { tag: value.sum.variant.constructor, value: mapValue(value.sum.variant.value, depth + 1) };
         }
         case "enum": {
             if (value.sum.enum.constructor.length === 0) {
@@ -53,7 +60,7 @@ function mapValue(value: Value): unknown {
     }
 }
 
-function mapRecord(fields: readonly { readonly label: string; readonly value?: Value }[]): Record<string, unknown> {
+function mapRecord(fields: readonly { readonly label: string; readonly value?: Value }[], depth: number): Record<string, unknown> {
     const output: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 
     for (const [index, field] of fields.entries()) {
@@ -65,13 +72,13 @@ function mapRecord(fields: readonly { readonly label: string; readonly value?: V
             throw new ValidationError(`gRPC query record field ${field.label} has no value`);
         }
 
-        defineData(output, field.label, mapValue(field.value));
+        defineData(output, field.label, mapValue(field.value, depth));
     }
 
     return output;
 }
 
-function mapTextMap(entries: readonly { readonly key: string; readonly value?: Value }[]): Record<string, unknown> {
+function mapTextMap(entries: readonly { readonly key: string; readonly value?: Value }[], depth: number): Record<string, unknown> {
     const output: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 
     for (const [index, entry] of entries.entries()) {
@@ -81,13 +88,13 @@ function mapTextMap(entries: readonly { readonly key: string; readonly value?: V
             throw new ValidationError(`gRPC query text-map entry ${index} has no value`);
         }
 
-        defineData(output, entry.key, mapValue(entry.value));
+        defineData(output, entry.key, mapValue(entry.value, depth));
     }
 
     return output;
 }
 
-function mapGenMap(entries: readonly { readonly key?: Value; readonly value?: Value }[]): readonly (readonly [unknown, unknown])[] {
+function mapGenMap(entries: readonly { readonly key?: Value; readonly value?: Value }[], depth: number): readonly (readonly [unknown, unknown])[] {
     const seenKeys = new Set<string>();
 
     return entries.map((entry, index) => {
@@ -95,9 +102,9 @@ function mapGenMap(entries: readonly { readonly key?: Value; readonly value?: Va
             throw new ValidationError(`gRPC query gen-map entry ${index} is incomplete`);
         }
 
-        const key = mapValue(entry.key);
+        const key = mapValue(entry.key, depth);
 
-        const canonicalKey = canonicalJsonKey(key);
+        const canonicalKey = canonicalLedgerKey(entry.key);
 
         if (seenKeys.has(canonicalKey)) {
             throw new ValidationError(`gRPC query gen-map has duplicate key at entry ${index}`);
@@ -105,34 +112,46 @@ function mapGenMap(entries: readonly { readonly key?: Value; readonly value?: Va
 
         seenKeys.add(canonicalKey);
 
-        return [key, mapValue(entry.value)] as const;
+        return [key, mapValue(entry.value, depth)] as const;
     });
 }
 
-function canonicalJsonKey(value: unknown): string {
-    if (value === null) {
-        return "null";
-    } else if (typeof value === "boolean") {
-        return `boolean:${value}`;
-    } else if (typeof value === "string") {
-        return `string:${JSON.stringify(value)}`;
-    } else if (typeof value === "number") {
-        return Number.isFinite(value) ? `number:${value}` : invalidGenMapKey();
-    } else if (Array.isArray(value)) {
-        return `array:[${value.map(canonicalJsonKey).join(",")}]`;
-    } else if (typeof value !== "object") {
-        return invalidGenMapKey();
+function canonicalLedgerKey(value: Value): string {
+    switch (value.sum.oneofKind) {
+        case "unit": return "unit";
+        case "bool": return `bool:${value.sum.bool}`;
+        case "int64": return `int64:${JSON.stringify(value.sum.int64)}`;
+        case "date": return `date:${value.sum.date}`;
+        case "timestamp": return `timestamp:${JSON.stringify(value.sum.timestamp)}`;
+        case "numeric": return `numeric:${canonicalNumeric(value.sum.numeric)}`;
+        case "party": return `party:${JSON.stringify(value.sum.party)}`;
+        case "text": return `text:${JSON.stringify(value.sum.text)}`;
+        case "contractId": return `contractId:${JSON.stringify(value.sum.contractId)}`;
+        case "optional": return value.sum.optional.value === undefined ? "optional:none" : `optional:some(${canonicalLedgerKey(value.sum.optional.value)})`;
+        case "list": return `list:[${value.sum.list.elements.map(canonicalLedgerKey).join(",")}]`;
+        case "textMap": return `textMap:{${[...value.sum.textMap.entries].sort((left, right) => left.key.localeCompare(right.key)).map((entry) => `${JSON.stringify(entry.key)}:${canonicalLedgerKey(entry.value!)}`).join(",")}}`;
+        case "genMap": return `genMap:{${value.sum.genMap.entries.map((entry) => `${canonicalLedgerKey(entry.key!)}:${canonicalLedgerKey(entry.value!)}`).sort().join(",")}}`;
+        case "record": return `record:{${[...value.sum.record.fields].sort((left, right) => left.label.localeCompare(right.label)).map((field) => `${JSON.stringify(field.label)}:${canonicalLedgerKey(field.value!)}`).join(",")}}`;
+        case "variant": return `variant:${JSON.stringify(value.sum.variant.constructor)}:${canonicalLedgerKey(value.sum.variant.value!)}`;
+        case "enum": return `enum:${JSON.stringify(value.sum.enum.constructor)}`;
+        case undefined: return invalidGenMapKey();
     }
+}
 
-    const record = value as Record<string, unknown>;
+function canonicalNumeric(value: string): string {
+    const sign = value.startsWith("-") ? "-" : "";
 
-    const keys = Object.keys(record).sort();
+    const unsigned = value.replace(/^[+-]/, "");
 
-    if (keys.length !== Object.keys(record).length) {
-        return invalidGenMapKey();
-    }
+    const [whole, fraction = ""] = unsigned.split(".");
 
-    return `object:{${keys.map((key) => `${JSON.stringify(key)}:${canonicalJsonKey(record[key])}`).join(",")}}`;
+    const normalizedWhole = whole.replace(/^0+(?=\d)/, "");
+
+    const normalizedFraction = fraction.replace(/0+$/, "");
+
+    const normalized = `${normalizedWhole}${normalizedFraction.length === 0 ? "" : `.${normalizedFraction}`}`;
+
+    return /^0(?:\.0*)?$/.test(normalized) ? "0" : `${sign}${normalized}`;
 }
 
 function invalidGenMapKey(): never {
@@ -184,6 +203,24 @@ function numeric(value: string): string {
 
     if (fractional.length > 37 || significant > 38) {
         throw new ValidationError("gRPC query numeric exceeds DAML Numeric precision");
+    }
+
+    return value;
+}
+
+/** Validates a generated PartyIdString without applying those rules to ordinary Text values. */
+export function validPartyId(value: string): string {
+    if (!/^[A-Za-z0-9:\-_ ]{1,255}$/.test(value)) {
+        throw new ValidationError("gRPC query party is invalid");
+    }
+
+    return value;
+}
+
+/** Validates a generated LedgerString used specifically as a contract identifier. */
+export function validLedgerString(value: string, name = "ledger string"): string {
+    if (!/^[A-Za-z0-9#:\-_/ ]{1,255}$/.test(value)) {
+        throw new ValidationError(`gRPC query ${name} is invalid`);
     }
 
     return value;

@@ -4,7 +4,7 @@ import type { ContractRow, EventRow, ExerciseRow, TransactionRow } from "../mode
 import type { CreatedEvent, Event, ExercisedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import type { Transaction } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
-import { mapGrpcQueryValue } from "./grpc-query-value-mapper.js";
+import { mapGrpcQueryValue, validLedgerString, validPartyId } from "./grpc-query-value-mapper.js";
 
 type TemplateId = NonNullable<CreatedEvent["templateId"]>;
 
@@ -32,6 +32,15 @@ export interface GrpcQueryCreationIdentity {
     readonly createdAt: Date;
 }
 
+/** Private Task 5 activation metadata retained for later relation construction. */
+export interface GrpcActiveContractIdentity {
+    readonly contractId: string;
+    readonly synchronizerId: string;
+    readonly reassignmentCounter: string;
+    readonly activationOffset: string;
+    readonly activationNodeId: number;
+}
+
 /**
  * The Task 5 transport-neutral core. Task 6 enriches its identity descriptors with
  * package metadata and creates the complete QueryDataset/edges; public rows never
@@ -45,6 +54,7 @@ export interface GrpcQueryRelationFragment {
     readonly typeIdentities: readonly GrpcQueryTypeIdentity[];
     readonly packageIdentities: readonly GrpcQueryPackageIdentity[];
     readonly creationIdentities: readonly GrpcQueryCreationIdentity[];
+    readonly activeContractIdentities: readonly GrpcActiveContractIdentity[];
 }
 
 interface PendingCreatedEvent {
@@ -61,12 +71,20 @@ interface PendingExercisedEvent {
 }
 type PendingEvent = PendingCreatedEvent | PendingExercisedEvent;
 
+interface ActiveContractEntry {
+    readonly event: CreatedEvent;
+    readonly synchronizerId: string;
+    readonly reassignmentCounter: string;
+}
+
 /** Materializes ledger-effects transactions and optionally seeds still-active ACS contracts. */
 export function mapGrpcQueryRelationFragment(
     source: readonly Transaction[],
     activeContracts: readonly GetActiveContractsResponse[] = [],
 ): GrpcQueryRelationFragment {
     const transactions = [...source].sort((left, right) => compareOffset(left.offset, right.offset));
+
+    const activeEntries = activeContractEntries(activeContracts);
 
     const seenOffsets = new Set<string>();
 
@@ -101,7 +119,7 @@ export function mapGrpcQueryRelationFragment(
     const registry = keyRegistry([
         ...pending.map((item) => item.identity),
         ...pending.flatMap((item) => identitiesFor(item.event)),
-        ...activeCreatedEvents(activeContracts).flatMap(identitiesFor),
+        ...activeEntries.map((entry) => entry.event).flatMap(identitiesFor),
     ]);
 
     const transactionRows = transactions.map(mapTransaction);
@@ -154,35 +172,13 @@ export function mapGrpcQueryRelationFragment(
         }
     }
 
-    const activeCreations = activeCreatedEvents(activeContracts);
-
-    const activeContractIds = new Set<string>();
-
-    for (const created of activeCreations) {
-        if (activeContractIds.has(created.contractId)) {
-            throw new ValidationError(`gRPC query has duplicate ACS contract ${created.contractId}`);
-        }
-
-        activeContractIds.add(created.contractId);
-
-        const existing = contracts.get(created.contractId);
-
-        const candidate = creationDescriptor(created, created.offset);
-
-        if (existing === undefined) {
-            addCreatedContract(contracts, creations, created, created.offset);
-        } else if (existing.active === false) {
-            throw new ValidationError(`gRPC query ACS contains archived contract ${created.contractId}`);
-        } else if (canonicalCreation(creations.get(created.contractId)!) !== canonicalCreation(candidate)) {
-            throw new ValidationError(`gRPC query ACS conflicts with history for contract ${created.contractId}`);
-        }
-    }
+    reconcileActiveContracts(contracts, creations, activeEntries);
 
     const typeIdentities = [...new Map(
-        [...pending.map((item) => item.event), ...activeCreatedEvents(activeContracts)].flatMap((event) => typeIdentityRows(event, registry).map((item) => [item.pk, item])),
-    ).values()].sort((left, right) => Number(left.pk) - Number(right.pk));
+        [...pending.map((item) => item.event), ...activeEntries.map((entry) => entry.event)].flatMap((event) => typeIdentityRows(event, registry).map((item) => [item.pk, item])),
+    ).values()].sort((left, right) => compareOffset(left.pk, right.pk));
 
-    const packageIdentities = [...new Set([...pending.flatMap((item) => packageIdsFor(item.event)), ...activeCreations.flatMap(packageIdsFor)])]
+    const packageIdentities = [...new Set([...pending.flatMap((item) => packageIdsFor(item.event)), ...activeEntries.map((entry) => entry.event).flatMap(packageIdsFor)])]
         .sort()
         .map((id) => ({ pk: registry.get(packageIdentity(id))!, id }));
 
@@ -190,10 +186,12 @@ export function mapGrpcQueryRelationFragment(
         contracts: [...contracts.values()].sort((left, right) => left.contractId.localeCompare(right.contractId)),
         transactions: transactionRows,
         events: eventRows,
-        exercises: exerciseRows.sort((left, right) => `${left.exercisedAtIx}:${left.exerciseEventPk}`.localeCompare(`${right.exercisedAtIx}:${right.exerciseEventPk}`)),
+        exercises: exerciseRows.sort((left, right) => compareOffset(left.exercisedAtIx ?? "1", right.exercisedAtIx ?? "1") || compareOffset(left.exerciseEventPk ?? "1", right.exerciseEventPk ?? "1") || left.contractId.localeCompare(right.contractId)),
         typeIdentities,
         packageIdentities,
         creationIdentities: [...creations.values()].sort((left, right) => left.contractId.localeCompare(right.contractId)),
+        activeContractIdentities: activeEntries.map((entry) => ({ contractId: entry.event.contractId, synchronizerId: entry.synchronizerId, reassignmentCounter: entry.reassignmentCounter, activationOffset: entry.event.offset, activationNodeId: entry.event.nodeId }))
+            .sort((left, right) => left.contractId.localeCompare(right.contractId) || left.synchronizerId.localeCompare(right.synchronizerId)),
     });
 }
 
@@ -217,9 +215,9 @@ function validatePending(transaction: Transaction, event: CreatedEvent | Exercis
 
     if (event.offset !== transaction.offset) {
         throw new ValidationError(`gRPC query ${kind} event offset differs from its transaction`);
-    } else if (event.contractId.length === 0) {
-        throw new ValidationError(`gRPC query ${kind} event contract id is missing`);
     }
+
+    validLedgerString(event.contractId, `${kind} event contract id`);
 
     requiredTemplate(event.templateId, `${kind} event template`);
 
@@ -275,7 +273,9 @@ function mapTransaction(transaction: Transaction): TransactionRow {
         workflowId: nullableString(transaction.workflowId),
         domainId: transaction.synchronizerId,
         traceContext: transaction.traceContext === undefined ? null : transaction.traceContext,
-        externalTransactionHash: transaction.externalTransactionHash === undefined ? null : Uint8Array.from(transaction.externalTransactionHash),
+        externalTransactionHash: transaction.transactionHash === undefined
+            ? transaction.externalTransactionHash === undefined ? null : Uint8Array.from(transaction.externalTransactionHash)
+            : Uint8Array.from(transaction.transactionHash),
         paidTrafficCost: transaction.paidTrafficCost === undefined ? null : signedInt64(transaction.paidTrafficCost, "paid traffic cost"),
     };
 }
@@ -296,27 +296,100 @@ function typeIdentityRows(event: CreatedEvent | ExercisedEvent, registry: Readon
     return isExercised(event) ? [contract, { pk: registry.get(exerciseIdentity(template, event.choice, event.consuming))!, templateId: copyTemplate(template), packageId: template.packageId, choice: event.choice, consuming: event.consuming }] : [contract];
 }
 
-function activeCreatedEvents(responses: readonly GetActiveContractsResponse[]): readonly CreatedEvent[] {
-    return responses.map((response) => {
-        if (response.contractEntry.oneofKind !== "activeContract" || response.contractEntry.activeContract.createdEvent === undefined) {
+function activeContractEntries(responses: readonly GetActiveContractsResponse[]): readonly ActiveContractEntry[] {
+    const entries = responses.map((response) => {
+        const contractEntry = response.contractEntry;
+
+        if (contractEntry.oneofKind !== "activeContract") {
             throw new ValidationError("gRPC query ACS contains incomplete assigned or unassigned contract data");
-        } else if (response.contractEntry.activeContract.synchronizerId.length === 0) {
+        }
+
+        const active = contractEntry.activeContract;
+
+        const event = active.createdEvent;
+
+        if (event === undefined) {
+            throw new ValidationError("gRPC query ACS contains incomplete assigned or unassigned contract data");
+        } else if (active.synchronizerId.length === 0) {
             throw new ValidationError("gRPC query ACS active contract synchronizer id is missing");
         }
 
-        uint64(response.contractEntry.activeContract.reassignmentCounter, "ACS active contract reassignment counter");
+        creationDescriptor(event, event.offset);
 
-        return response.contractEntry.activeContract.createdEvent;
+        return { event, synchronizerId: active.synchronizerId, reassignmentCounter: uint64(active.reassignmentCounter, "ACS active contract reassignment counter") };
     });
+
+    const seen = new Set<string>();
+
+    for (const entry of entries) {
+        const key = `${entry.event.contractId}\u0000${entry.synchronizerId}`;
+
+        if (seen.has(key)) {
+            throw new ValidationError(`gRPC query has duplicate ACS activation for ${entry.event.contractId} on ${entry.synchronizerId}`);
+        }
+
+        seen.add(key);
+    }
+
+    return entries;
+}
+
+function reconcileActiveContracts(contracts: Map<string, ContractRow>, creations: Map<string, GrpcQueryCreationIdentity>, entries: readonly ActiveContractEntry[]): void {
+    const grouped = new Map<string, ActiveContractEntry[]>();
+
+    for (const entry of entries) {
+        grouped.set(entry.event.contractId, [...(grouped.get(entry.event.contractId) ?? []), entry]);
+    }
+
+    for (const [contractId, group] of grouped) {
+        const descriptors = group.map((entry) => creationDescriptor(entry.event, entry.event.offset));
+
+        const facts = canonicalCreationFacts(descriptors[0]!);
+
+        if (descriptors.some((descriptor) => canonicalCreationFacts(descriptor) !== facts)) {
+            throw new ValidationError(`gRPC query ACS conflicts within activations for contract ${contractId}`);
+        }
+
+        const existing = contracts.get(contractId);
+
+        const historical = creations.get(contractId);
+
+        if (existing !== undefined && existing.active === false) {
+            throw new ValidationError(`gRPC query ACS contains archived contract ${contractId}`);
+        } else if (historical !== undefined && canonicalCreationFacts(historical) !== facts) {
+            throw new ValidationError(`gRPC query ACS conflicts with history for contract ${contractId}`);
+        }
+
+        const witnesses = partyUnion([...(historical?.witnesses ?? []), ...descriptors.flatMap((descriptor) => descriptor.witnesses)], "created event witnesses", true);
+
+        if (existing === undefined) {
+            const representative = [...group].sort(compareActivation)[0]!;
+
+            addCreatedContract(contracts, creations, representative.event, representative.event.offset);
+        }
+
+        const creation = creations.get(contractId)!;
+
+        const updatedCreation = { ...creation, witnesses };
+
+        creations.set(contractId, updatedCreation);
+        contracts.set(contractId, { ...contracts.get(contractId)!, witnesses });
+    }
+}
+
+function compareActivation(left: ActiveContractEntry, right: ActiveContractEntry): number {
+    const counter = BigInt(left.reassignmentCounter) - BigInt(right.reassignmentCounter);
+
+    return counter < 0n ? -1 : counter > 0n ? 1 : compareOffset(left.event.offset, right.event.offset) || left.synchronizerId.localeCompare(right.synchronizerId);
 }
 
 function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreationIdentity {
     validOffset(offset, "created event offset");
     validNodeId(event.nodeId, "created node id");
 
-    if (event.contractId.length === 0) {
-        throw new ValidationError("gRPC query created event contract id is missing");
-    } else if (event.packageName.length === 0) {
+    validLedgerString(event.contractId, "created event contract id");
+
+    if (event.packageName.length === 0) {
         throw new ValidationError("gRPC query created event package name is missing");
     } else if (event.representativePackageId.length === 0) {
         throw new ValidationError("gRPC query created event representative package id is missing");
@@ -407,11 +480,14 @@ function mapRequiredValue(value: Parameters<typeof mapGrpcQueryValue>[0] | undef
     return mapGrpcQueryValue(value);
 }
 function immutableStrings(value: readonly string[], name: string, required = false): readonly string[] {
-    if ((required && value.length === 0) || value.some((item) => item.length === 0)) {
+    if (required && value.length === 0) {
         throw new ValidationError(`gRPC query ${name} is missing`);
     }
 
-    return Object.freeze([...value]);
+    return Object.freeze([...new Set(value.map(validPartyId))].sort());
+}
+function partyUnion(value: readonly string[], name: string, required = false): readonly string[] {
+    return immutableStrings(value, name, required);
 }
 function nullableString(value: string): string | null {
     return value.length === 0 ? null : value;
@@ -489,8 +565,8 @@ function requiredTimestamp(value: { seconds: string; nanos: number } | undefined
     return mapped;
 }
 
-function canonicalCreation(value: GrpcQueryCreationIdentity): string {
-    return JSON.stringify({ ...value, createdAt: value.createdAt.toISOString(), payload: canonicalJson(value.payload), witnesses: [...value.witnesses] });
+function canonicalCreationFacts(value: GrpcQueryCreationIdentity): string {
+    return JSON.stringify({ contractId: value.contractId, templateId: value.templateId, creationPackageId: value.creationPackageId, representativePackageId: value.representativePackageId, createdAt: value.createdAt.toISOString(), payload: canonicalJson(value.payload) });
 }
 
 function canonicalJson(value: unknown): unknown {

@@ -16,6 +16,8 @@ const transaction = (offset: string, events: Event[]) => Transaction.create({ of
 
 const active = (created: CreatedEvent) => GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } });
 
+const activeOn = (created: CreatedEvent, synchronizerId: string, reassignmentCounter: string) => GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId, reassignmentCounter } } });
+
 describe("mapGrpcQueryRelationFragment", () => {
     it("materializes transaction, event, contract, and exercise rows without package/type fabrication", () => {
         const fragment = mapGrpcQueryRelationFragment([
@@ -39,6 +41,30 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(() => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), paidTrafficCost: "9223372036854775808" })])).toThrow(/traffic cost/i);
     });
 
+    it("prefers the current transaction hash and preserves detached immutable bytes", () => {
+        const current = new Uint8Array([3, 4]);
+
+        const legacy = new Uint8Array([1, 2]);
+
+        const newOnly = Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), externalTransactionHash: undefined, transactionHash: current });
+
+        const both = Transaction.create({ ...transaction("11", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create("C2"), offset: "11" }) } })]), externalTransactionHash: legacy, transactionHash: current });
+
+        const oldOnly = Transaction.create({ ...transaction("12", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create("C3"), offset: "12" }) } })]), transactionHash: undefined });
+
+        const empty = Transaction.create({ ...transaction("13", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create("C4"), offset: "13" }) } })]), externalTransactionHash: legacy, transactionHash: new Uint8Array() });
+
+        const neither = Transaction.create({ ...transaction("14", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create("C5"), offset: "14" }) } })]), externalTransactionHash: undefined, transactionHash: undefined });
+
+        const rows = mapGrpcQueryRelationFragment([newOnly, both, oldOnly, empty, neither]).transactions;
+
+        current[0] = 9;
+        legacy[0] = 9;
+
+        expect(rows.map((row) => row.externalTransactionHash === null ? null : [...row.externalTransactionHash])).toEqual([[3, 4], [3, 4], [1, 2], [], null]);
+        expect(() => (rows[0]!.externalTransactionHash as Uint8Array)[0] = 7).toThrow();
+    });
+
     it("links an exercise to its target contract type even when the exercised template was upgraded", () => {
         const upgraded = ExercisedEvent.create({ ...exercise(false), templateId: { packageId: "pkg-upgrade", moduleName: "Main", entityName: "Asset" } });
 
@@ -54,10 +80,69 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(fragment.exercises[0]).toMatchObject({ contractTpePk: contractType.pk, tpePk: exerciseType.pk });
     });
 
-    it("rejects ACS data that conflicts with the complete history", () => {
-        const contradictoryAcs = active(CreatedEvent.create({ ...create(), offset: "99" }));
+    it("rejects ACS data that conflicts with creation facts", () => {
+        const contradictoryAcs = active(CreatedEvent.create({ ...create(), createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Bob" } }) }] } }));
 
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [contradictoryAcs])).toThrow(/ACS.*conflicts/i);
+    });
+
+    it("reconciles multi-synchronizer ACS activations deterministically", () => {
+        const first = activeOn(CreatedEvent.create({ ...create(), offset: "20", nodeId: 4, witnessParties: ["Bob", "Alice"] }), "sync-b", "2");
+
+        const second = activeOn(CreatedEvent.create({ ...create(), offset: "15", nodeId: 3, witnessParties: ["Carol", "Alice"] }), "sync-a", "1");
+
+        const forward = mapGrpcQueryRelationFragment([], [first, second]);
+
+        const reverse = mapGrpcQueryRelationFragment([], [second, first]);
+
+        expect(reverse).toEqual(forward);
+        expect(forward.contracts).toEqual([expect.objectContaining({ contractId: "C1", createdEventOffset: "15", witnesses: ["Alice", "Bob", "Carol"] })]);
+        expect(forward.activeContractIdentities).toEqual([
+            { contractId: "C1", synchronizerId: "sync-a", reassignmentCounter: "1", activationOffset: "15", activationNodeId: 3 },
+            { contractId: "C1", synchronizerId: "sync-b", reassignmentCounter: "2", activationOffset: "20", activationNodeId: 4 },
+        ]);
+    });
+
+    it("reconciles ACS activation offsets with history while retaining history creation", () => {
+        const history = [transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])];
+
+        const snapshot = activeOn(CreatedEvent.create({ ...create(), offset: "20", nodeId: 2, witnessParties: ["Bob", "Alice"] }), "sync-a", "1");
+
+        expect(mapGrpcQueryRelationFragment(history, [snapshot]).contracts[0]).toMatchObject({ createdEventOffset: "10", witnesses: ["Alice", "Bob"] });
+    });
+
+    it("rejects duplicate ACS activations on the same synchronizer", () => {
+        expect(() => mapGrpcQueryRelationFragment([], [activeOn(create(), "sync", "0"), activeOn(CreatedEvent.create({ ...create(), offset: "20", nodeId: 2 }), "sync", "1")])).toThrow(/duplicate ACS/i);
+    });
+
+    it("canonicalizes party sets and rejects malformed party and contract identifiers", () => {
+        const created = CreatedEvent.create({ ...create(), witnessParties: ["Bob", "Alice", "Bob"], signatories: ["Bob", "Alice", "Bob"], observers: ["Carol", "Carol"] });
+
+        const exercised = ExercisedEvent.create({ ...exercise(false), actingParties: ["Bob", "Alice", "Bob"], witnessParties: ["Bob", "Alice", "Bob"] });
+
+        const fragment = mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created } })]), transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised } })])]);
+
+        expect(fragment.contracts[0]?.witnesses).toEqual(["Alice", "Bob"]);
+        expect(fragment.exercises[0]).toMatchObject({ controllers: ["Alice", "Bob"], witnesses: ["Alice", "Bob"] });
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), contractId: "bad!" }) } })])])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), witnessParties: ["bad!"] }) } })])])).toThrow(ValidationError);
+        expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), contractId: "c".repeat(256) }) } })])])).toThrow(ValidationError);
+    });
+
+    it("orders exercise offsets numerically rather than lexicographically", () => {
+        const first = ExercisedEvent.create({ ...exercise(false), offset: "2", nodeId: 2 });
+
+        const second = ExercisedEvent.create({ ...exercise(false), offset: "10", nodeId: 3, lastDescendantNodeId: 3 });
+
+        const created = CreatedEvent.create({ ...create(), offset: "1" });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "exercised", exercised: second } })]),
+            transaction("2", [Event.create({ event: { oneofKind: "exercised", exercised: first } })]),
+            transaction("1", [Event.create({ event: { oneofKind: "created", created } })]),
+        ]);
+
+        expect(fragment.exercises.map((item) => item.exercisedAtIx)).toEqual(["2", "10"]);
     });
 
     it("has deterministic full fragments for permuted transaction and event input without mutating sources", () => {
@@ -129,7 +214,6 @@ describe("mapGrpcQueryRelationFragment", () => {
 
     it.each([
         ["payload", CreatedEvent.create({ ...create(), createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Bob" } }) }] } })],
-        ["witnesses", CreatedEvent.create({ ...create(), witnessParties: ["Bob"] })],
         ["timestamp", CreatedEvent.create({ ...create(), createdAt: { seconds: "1700000001", nanos: 123_000_000 } })],
         ["representative package", CreatedEvent.create({ ...create(), representativePackageId: "different" })],
     ])("rejects ACS conflicts in creation %s facts", (_name, conflict) => {
