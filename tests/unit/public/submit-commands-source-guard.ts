@@ -22,6 +22,8 @@ function isDirectSubmitCommandsRequestType(
         return false;
     } else if (ts.isParenthesizedTypeNode(type)) {
         return isDirectSubmitCommandsRequestType(type.type);
+    } else if (ts.isUnionTypeNode(type) || ts.isIntersectionTypeNode(type)) {
+        return type.types.some(isDirectSubmitCommandsRequestType);
     } else {
         return ts.isTypeReferenceNode(type) &&
             type.typeArguments === undefined &&
@@ -34,8 +36,24 @@ function isSubmitCommandsRequestConstruction(
 ): boolean {
     return initializer !== undefined &&
         ts.isNewExpression(initializer) &&
-        ts.isIdentifier(initializer.expression) &&
-        initializer.expression.text === "SubmitCommandsRequest";
+        (ts.isIdentifier(initializer.expression) &&
+            initializer.expression.text === "SubmitCommandsRequest" ||
+            ts.isPropertyAccessExpression(initializer.expression) &&
+            initializer.expression.name.text === "SubmitCommandsRequest");
+}
+
+function bindNames(
+    scope: ReceiverScope,
+    name: ts.BindingName,
+    isRequest: boolean,
+): void {
+    if (ts.isIdentifier(name)) {
+        scope.requestReceivers.set(name.text, isRequest);
+    } else {
+        for (const element of name.elements) {
+            bindNames(scope, element.name, false);
+        }
+    }
 }
 
 function createScope(parent?: ReceiverScope): ReceiverScope {
@@ -149,8 +167,54 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
             const blockScope = createScope(scope);
 
             for (const statement of node.statements) {
+                if (ts.isVariableStatement(statement)) {
+                    for (const declaration of statement.declarationList.declarations) {
+                        bindNames(
+                            blockScope,
+                            declaration.name,
+                            isDirectSubmitCommandsRequestType(declaration.type) ||
+                                isSubmitCommandsRequestConstruction(declaration.initializer),
+                        );
+                    }
+                }
+            }
+
+            for (const statement of node.statements) {
                 visit(statement, blockScope);
             }
+
+            return;
+        } else if (
+            ts.isForStatement(node) ||
+            ts.isForInStatement(node) ||
+            ts.isForOfStatement(node)
+        ) {
+            const loopScope = createScope(scope);
+
+            const initializer = node.initializer;
+
+            if (initializer !== undefined && ts.isVariableDeclarationList(initializer)) {
+                for (const declaration of initializer.declarations) {
+                    bindNames(
+                        loopScope,
+                        declaration.name,
+                        isDirectSubmitCommandsRequestType(declaration.type) ||
+                            isSubmitCommandsRequestConstruction(declaration.initializer),
+                    );
+                }
+            }
+
+            ts.forEachChild(node, child => visit(child, loopScope));
+
+            return;
+        } else if (ts.isCatchClause(node)) {
+            const catchScope = createScope(scope);
+
+            if (node.variableDeclaration !== undefined) {
+                bindNames(catchScope, node.variableDeclaration.name, false);
+            }
+
+            visit(node.block, catchScope);
 
             return;
         } else if (ts.isVariableDeclaration(node)) {
@@ -158,13 +222,14 @@ export function findRemovedSubmitCommandUsages(source: string): string[] {
                 if (node.name.text === removedRequestName) {
                     usages.add(removedRequestName);
                 }
-
-                scope.requestReceivers.set(
-                    node.name.text,
-                    isDirectSubmitCommandsRequestType(node.type) ||
-                        isSubmitCommandsRequestConstruction(node.initializer),
-                );
             }
+
+            bindNames(
+                scope,
+                node.name,
+                isDirectSubmitCommandsRequestType(node.type) ||
+                    isSubmitCommandsRequestConstruction(node.initializer),
+            );
 
             if (node.type !== undefined) {
                 visit(node.type, scope);

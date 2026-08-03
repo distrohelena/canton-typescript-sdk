@@ -35,6 +35,12 @@ const requiredLocalnetPackedPaths = Object.freeze([
 ]);
 const helpText =
     "Runs npm package verification against the packed tarball surface.";
+const submitCommandsExportNames = Object.freeze({
+    request: "SubmitCommandsRequest",
+    commands: "NonEmptyLedgerCommands",
+    removedRequest: "Submit" + "CommandRequest",
+    removedModule: ["submit", "command", "request"].join("-"),
+});
 
 export function getHelpText() {
     return helpText;
@@ -46,6 +52,10 @@ export function getExpectedExportKeys() {
 
 export function getExpectedLocalnetBinEntries() {
     return { ...expectedLocalnetBinEntries };
+}
+
+export function getExpectedSubmitCommandsExportNames() {
+    return { ...submitCommandsExportNames };
 }
 
 export function createNpmPackArguments(
@@ -197,6 +207,60 @@ async function validateProtobufExportAsync(tarballPath, destinationPath) {
     );
 }
 
+async function validateSubmitCommandsExportAsync(tarballPath, destinationPath) {
+    const declaration = await runCommandAsync("tar", [
+        "-xOf",
+        tarballPath,
+        "package/dist/index.d.ts",
+    ]);
+
+    for (const requiredName of [
+        submitCommandsExportNames.request,
+        submitCommandsExportNames.commands,
+    ]) {
+        if (!declaration.includes(requiredName)) {
+            throw new Error(`Packed declarations are missing ${requiredName}.`);
+        }
+    }
+
+    if (
+        declaration.includes(submitCommandsExportNames.removedRequest) ||
+        declaration.includes(submitCommandsExportNames.removedModule)
+    ) {
+        throw new Error("Packed declarations retain the removed command request surface.");
+    }
+
+    const unpackedPath = join(destinationPath, "submit-commands-unpacked");
+    const packagePath = join(unpackedPath, "package");
+    const consumerPath = join(unpackedPath, "consumer");
+    const packageLinkPath = join(
+        consumerPath,
+        "node_modules/@distrohelena/canton-typescript-sdk",
+    );
+
+    await mkdir(unpackedPath, { recursive: true });
+    await runCommandAsync("tar", ["-xf", tarballPath, "-C", unpackedPath]);
+    await mkdir(join(consumerPath, "node_modules/@distrohelena"), {
+        recursive: true,
+    });
+    await symlink(packagePath, packageLinkPath, "dir");
+    await symlink(resolve(process.cwd(), "node_modules"), join(packagePath, "node_modules"), "dir");
+
+    await executeFileAsync(
+        "node",
+        [
+            "--input-type=module",
+            "--eval",
+            [
+                'import * as sdk from "@distrohelena/canton-typescript-sdk";',
+                `if (typeof sdk.${submitCommandsExportNames.request} !== "function") throw new Error("missing plural request runtime export");`,
+                `if (${JSON.stringify(submitCommandsExportNames.removedRequest)} in sdk) throw new Error("removed request runtime export present");`,
+            ].join("\n"),
+        ],
+        { cwd: consumerPath },
+    );
+}
+
 async function writeStdoutLineAsync(value) {
     await new Promise((resolve, reject) => {
         process.stdout.write(`${value}\n`, (error) => {
@@ -288,6 +352,10 @@ async function verifyPackAsync() {
         validateExports(packedPackageJson);
         validateLocalnetBinEntries(packedPackageJson);
         await validateProtobufExportAsync(
+            packedTarball.tarballPath,
+            packedTarball.packDestinationPath,
+        );
+        await validateSubmitCommandsExportAsync(
             packedTarball.tarballPath,
             packedTarball.packDestinationPath,
         );

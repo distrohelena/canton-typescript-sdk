@@ -133,7 +133,7 @@ describe("SubmitCommandsRequest public surface", () => {
         ).toEqual([]);
     });
 
-    it("keeps package root exports and source declarations on the plural request surface", () => {
+    it("declares plural package root export mappings and source exports", () => {
         const packageManifest = JSON.parse(
             readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
         ) as PackageManifest;
@@ -157,6 +157,30 @@ describe("SubmitCommandsRequest public surface", () => {
         expect(rootSource).not.toContain(removedModuleName);
         expect(sdk.SubmitCommandsRequest).toBe(SubmitCommandsRequest);
         expect(removedRequestName in sdk).toBe(false);
+    });
+
+    it("does not leak typed request bindings through loop, catch, destructuring, or TDZ shadows", () => {
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest) { for (const request of values) { request.command; } }",
+        )).toEqual([]);
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest) { try {} catch (request) { request.command; } }",
+        )).toEqual([]);
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest) { const { request } = value; request.command; }",
+        )).toEqual([]);
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: SubmitCommandsRequest) { request.command; const request = value; }",
+        )).toEqual([]);
+    });
+
+    it("recognizes qualified constructors and direct union/intersection request annotations", () => {
+        expect(findRemovedSubmitCommandUsages(
+            "const request = new sdk.SubmitCommandsRequest(init); request.command;",
+        )).toContain("request.command");
+        expect(findRemovedSubmitCommandUsages(
+            "function f(request: (SubmitCommandsRequest | undefined) & {}) { return request.command; }",
+        )).toContain("request.command");
     });
 
     it("has no removed request surface in handwritten sources", () => {

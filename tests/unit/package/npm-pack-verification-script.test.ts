@@ -29,6 +29,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
     getHelpText: () => string;
     getExpectedExportKeys: () => readonly string[];
     getExpectedLocalnetBinEntries: () => Readonly<Record<string, string>>;
+    getExpectedSubmitCommandsExportNames: () => Readonly<Record<string, string>>;
     getPackedTarballFileName: (packageName: string, packageVersion: string) => string;
     isAllowedPackedPath: (value: string) => boolean;
 }> {
@@ -45,6 +46,7 @@ async function loadVerifyPackModuleAsync(): Promise<{
         getHelpText: () => string;
         getExpectedExportKeys: () => readonly string[];
         getExpectedLocalnetBinEntries: () => Readonly<Record<string, string>>;
+        getExpectedSubmitCommandsExportNames: () => Readonly<Record<string, string>>;
         getPackedTarballFileName: (
             packageName: string,
             packageVersion: string,
@@ -117,6 +119,17 @@ describe("npm pack verifier", () => {
             "canton-localnet-stop": "node/stop-local.sh",
             "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
             "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
+        });
+    });
+
+    it("requires the packed plural command request surface", async () => {
+        const verifyPackModule = await loadVerifyPackModuleAsync();
+
+        expect(verifyPackModule.getExpectedSubmitCommandsExportNames()).toEqual({
+            request: "SubmitCommandsRequest",
+            commands: "NonEmptyLedgerCommands",
+            removedRequest: ["Submit", "CommandRequest"].join(""),
+            removedModule: ["submit", "command", "request"].join("-"),
         });
     });
 
