@@ -55,7 +55,7 @@ export const queryRelationEdges: Readonly<Partial<Record<QueryRelation, Readonly
         event: { target: "events", cardinality: "one", nullable: true },
         transaction: { target: "transactions", cardinality: "one", nullable: true },
         package: { target: "packages", cardinality: "one", nullable: false },
-        contract: { target: "contracts", cardinality: "one", nullable: false },
+        contract: { target: "contracts", cardinality: "one", nullable: true },
     },
     exerciseTypes: { exercises: { target: "exercises", cardinality: "many", nullable: false } },
     packages: { exercises: { target: "exercises", cardinality: "many", nullable: false } },

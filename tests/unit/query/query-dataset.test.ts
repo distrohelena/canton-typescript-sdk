@@ -193,6 +193,28 @@ describe("createQueryDataset", () => {
         expect(() => createQueryDataset(missingPrivate)).toThrow("contracts.contractType has no target");
     });
 
+    it("permits a complete orphan exercise and includes its absent contract as null", () => {
+        const input = mutableDataset();
+
+        input.rows = {
+            ...input.rows,
+            contracts: input.rows.contracts.filter((row) => row.contractId !== "C2"),
+        };
+
+        expect(input.edges.exercises?.contract?.complete).toBeUndefined();
+
+        const dataset = createQueryDataset(input);
+
+        const result = new InMemoryQueryEvaluator().execute(dataset, normalizeFindMany("exercises", {
+            where: { contractId: { equals: "C2" } },
+            include: { contract: true },
+        }));
+
+        expect(result).toEqual([
+            expect.objectContaining({ contractId: "C2", contract: null }),
+        ]);
+    });
+
     it("permits explicitly incomplete required edges but fails deterministically when traversed", () => {
         const input = mutableDataset();
 
