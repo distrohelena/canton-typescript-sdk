@@ -53,6 +53,9 @@ export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): 
 
     const page = normalizePage(source);
 
+    // A top-level take of 0 means "no limit", matching skip: 0's existing "no offset" meaning.
+    const take = page.take === 0 ? undefined : page.take;
+
     const predicate = source.where === undefined ? undefined : normalizePredicate(relation, source.where);
 
     return {
@@ -62,9 +65,9 @@ export function normalizeFindMany(relation: QueryRelation, args: unknown = {}): 
         predicate,
         select: source.select === undefined ? undefined : normalizeSelection(relation, source.select),
         includes: source.include === undefined ? [] : normalizeIncludes(relation, source.include),
-        orderBy: normalizeOrderBy(relation, source.orderBy, relation === "contracts" || source.orderBy !== undefined || page.skip > 0 || page.take !== undefined),
+        orderBy: normalizeOrderBy(relation, source.orderBy, relation === "contracts" || source.orderBy !== undefined || page.skip > 0 || take !== undefined),
         skip: page.skip,
-        take: page.take,
+        take,
         activeOnly: relation === "contracts" && provesActive(predicate),
     };
     });

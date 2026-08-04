@@ -70,6 +70,7 @@ import {
     JsonProjectionResult,
 } from "./model-types.js";
 
+/** `take: 0` returns all matching rows (no limit), matching `skip: 0`'s "no offset" meaning. */
 export interface FindManyArgs<TWhere, TSelect, TOrderBy, TInclude = never> {
     readonly where?: TWhere;
     readonly select?: TSelect;

@@ -92,6 +92,21 @@ describe("canonical query normalizer", () => {
         ]);
     });
 
+    it("treats a root take of 0 as unlimited, matching skip: 0", () => {
+        expect(normalizeFindMany("packages", { take: 0 }).take).toBeUndefined();
+        expect(normalizeFindMany("packages", { skip: 0, take: 0 }).take).toBeUndefined();
+    });
+
+    it("does not add stable ordering for an unpaginated root read with take: 0", () => {
+        expect(normalizeFindMany("packages", { take: 0 }).orderBy).toEqual([]);
+    });
+
+    it("keeps a to-many include take of 0 bounded rather than unlimited", () => {
+        expect(normalizeFindMany("packages", {
+            include: { exercises: { take: 0 } },
+        }).includes[0]?.take).toBe(0);
+    });
+
     it("adds stable ordering to bounded to-many includes", () => {
         expect(normalizeFindMany("packages", {
             include: { exercises: { take: 2 } },

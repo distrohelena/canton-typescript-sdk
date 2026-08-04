@@ -115,6 +115,7 @@ export type ToOneRelationArgs<TWhere, TSelect, TOrderBy, TInclude> = true | {
 };
 
 export interface ToManyRelationArgs<TWhere, TSelect, TOrderBy, TInclude> extends QueryPageArgs {
+    /** Required to bound to-many includes; unlike top-level `findMany`, `take: 0` here still means zero rows. */
     readonly take: number;
     readonly where?: TWhere;
     readonly select?: TSelect;
@@ -213,6 +214,7 @@ export type ContractOrderBy = readonly [
 
 export type ContractSelect = RowSelect<ContractRow>;
 
+/** `take: 0` returns all matching rows (no limit), matching `skip: 0`'s "no offset" meaning. */
 export interface ContractFindManyArgs extends QueryPageArgs {
     readonly parties?: readonly string[];
     readonly where?: ContractWhere;
