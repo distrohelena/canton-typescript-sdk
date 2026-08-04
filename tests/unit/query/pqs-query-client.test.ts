@@ -169,7 +169,7 @@ describe("PQS query client", () => {
                 transaction: { transactionId: "exercise-tx" },
             }],
         });
-        expect(query.mock.calls[0][0]).toContain('jsonb_build_object(\'pk\', trunc(power(256::numeric');
+        expect(query.mock.calls[0][0]).toContain("jsonb_build_object('pk', (select case when octet_length");
         expect(query.mock.calls[0][0]).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual([2]);
     });
@@ -292,7 +292,7 @@ describe("PQS query client", () => {
             { id: "package-id" },
         ]);
         expect(query.mock.calls[0][0]).toContain('from "public"."__packages"');
-        expect(query.mock.calls[0][0]).not.toContain("order by");
+        expect(query.mock.calls[0][0]).not.toMatch(/from "public"\."__packages" order by/);
     });
 
     it("maps raw PQS event and transaction values to ledger canonical shapes", async () => {
@@ -344,7 +344,7 @@ describe("PQS query client", () => {
         const sql = query.mock.calls[0][0];
         expect(sql).toContain('from (select jsonb_build_object');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
-        expect(sql).toContain('order by "exercises"."contract_id" asc, (select trunc(power(256::numeric');
+        expect(sql).toContain(`order by "exercises"."contract_id" asc, (select (select case when octet_length`);
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 3]);
     });
@@ -495,7 +495,7 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
         await client.packages.findMany({ where: { or: [{ name: { ilike: "app%" } }, { pk: { gte: "10" } }], not: { id: { equals: "legacy" } } } });
-        expect(query.mock.calls[0][0]).toContain('(\"name\" ilike $1 or trunc(power(256::numeric');
+        expect(query.mock.calls[0][0]).toContain(`("name" ilike $1 or (select case when octet_length`);
         expect(query.mock.calls[0][1]).toEqual(["app%", "10", "legacy"]);
     });
 
@@ -582,7 +582,7 @@ describe("PQS query client", () => {
             min: { pk: "1" },
             sum: { pk: "3" },
         });
-        expect(query.mock.calls[0][0]).toContain('min(trunc(power(256::numeric');
+        expect(query.mock.calls[0][0]).toContain(`min((select case when octet_length`);
         await expect(client.packages.aggregate({ max: ["id"] })).rejects.toThrow("id is not a numeric aggregate field");
     });
 

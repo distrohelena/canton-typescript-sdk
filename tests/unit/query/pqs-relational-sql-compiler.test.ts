@@ -95,8 +95,8 @@ describe("PQS relational SQL compiler", () => {
         const aggregateResult = aggregate("__packages", normalizeAggregate("packages", {
             where: { name: { equals: "app" } }, count: true, min: ["pk"], sum: ["pk"],
         }), new PqsSchemaProfileV1());
-        expect(aggregateResult.text).toContain('min(trunc(power(256::numeric');
-        expect(aggregateResult.text).toContain('sum(trunc(power(256::numeric');
+        expect(aggregateResult.text).toContain(`min((select case when octet_length`);
+        expect(aggregateResult.text).toContain(`sum((select case when octet_length`);
         expect(aggregateResult.values).toEqual(["app"]);
         expect(groupBy("__packages", normalizeGroupBy("packages", {
             by: ["name"], where: { id: { equals: "pkg" } }, aggregate: { count: true },
@@ -117,7 +117,7 @@ describe("PQS relational SQL compiler", () => {
 
         expect(query.text).toContain('select "id" as "id", "name" as "name" from "public"."__packages"');
         expect(query.text).toContain('where "name" ilike $1');
-        expect(query.text).toContain('order by "name" asc, "version" desc, trunc(power(256::numeric');
+        expect(query.text).toContain(`order by "name" asc, "version" desc, (select case when octet_length`);
         expect(query.values).toEqual(["app%", 10, 5]);
     });
 
@@ -136,14 +136,14 @@ describe("PQS relational SQL compiler", () => {
             skip: 5,
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toContain('order by "name" asc, "version" desc, trunc(power(256::numeric');
+        expect(query.text).toContain(`order by "name" asc, "version" desc, (select case when octet_length`);
         expect(query.values).toEqual(["app%", 10, 5]);
     });
 
     it("preserves unordered SQL for an unpaginated package read", () => {
         const query = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {}), new PqsSchemaProfileV1());
 
-        expect(query.text).toContain('trunc(power(256::numeric');
+        expect(query.text).toContain(`('1' || coalesce((select string_agg`);
         expect(query.text).toContain('as "pk", "name" as "name", "version" as "version", "id" as "id" from "public"."__packages"');
         expect(query.values).toEqual([]);
     });
@@ -180,9 +180,10 @@ describe("PQS relational SQL compiler", () => {
             where: { and: [
                 { type: { in: ["created", "exercised"] } },
                 { eventId: { equals: "547:0" } },
+                { pk: { gte: "1" } },
             ] },
-            select: { eventId: true, type: true },
-            orderBy: [{ type: "asc" }],
+            select: { pk: true, eventId: true, type: true },
+            orderBy: [{ pk: "asc" }, { type: "asc" }],
         }), profile);
         const count = relationalCompiler.compilePqsRelationCount("__events", normalizeCount("events", {
             where: { type: { equals: "exercised" } },
@@ -196,11 +197,13 @@ describe("PQS relational SQL compiler", () => {
         const eventType = `case "type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "type"::text end`;
 
         expect(query.text).toContain(`${eventId} as "eventId"`);
+        expect(query.text).not.toContain(`to_jsonb("pk")`);
         expect(query.text).toContain(`${eventType} as "type"`);
         expect(query.text).toContain('"type" = any($1)');
         expect(query.text).toContain(`${eventId} = $2`);
-        expect(query.text).toContain(`order by ${eventType} asc`);
-        expect(query.values).toEqual([["create", "exercise"], "547:0"]);
+        expect(query.text).toContain(`>= $3`);
+        expect(query.text).toContain(`${eventType} asc`);
+        expect(query.values).toEqual([["create", "exercise"], "547:0", "1"]);
         expect(count.text).toContain('"type" = $1');
         expect(count.values).toEqual(["exercise"]);
         expect(group.text).toContain(`case "event"."type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "event"."type"::text end as "type"`);

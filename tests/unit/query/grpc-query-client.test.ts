@@ -11,6 +11,7 @@ import { Archive } from "../../../src/transports/grpc/generated/canton/com/digit
 import { HashFunction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { createHash } from "node:crypto";
+import { canonicalPublicNumericIdentity, canonicalPublicNumericIdentityParts } from "../../../src/query/canonical/public-identity.js";
 import { queryConformanceDataset, evaluatorCases } from "./query-conformance-fixture.js";
 
 function fixtureProvider() {
@@ -19,14 +20,18 @@ function fixtureProvider() {
     };
 }
 
-function historyUpdate(offset = "1"): GetUpdateResponse {
+function historyUpdate(
+    offset = "1",
+    templateId = { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+    packageName = "app",
+): GetUpdateResponse {
     const created = CreatedEvent.create({
         offset,
         nodeId: 1,
         contractId: "C1",
-        templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
-        packageName: "app",
-        representativePackageId: "pkg-id",
+        templateId,
+        packageName,
+        representativePackageId: templateId.packageId,
         witnessParties: ["Alice"],
         signatories: ["Alice"],
         createdAt: { seconds: "1700000000", nanos: 0 },
@@ -198,7 +203,11 @@ describe("GrpcQueryClient", () => {
     });
 
     it("pins historical contract includes to the active cache offset", async () => {
-        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "300", updates: [historyUpdate("100")] });
+        const fixture = packageFixture();
+
+        const templateId = { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" };
+
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "300", updates: [historyUpdate("100", templateId, "sample-package")] });
 
         const stateService = {
             getLedgerEndAsync: vi.fn(),
@@ -209,7 +218,7 @@ describe("GrpcQueryClient", () => {
         const client = new GrpcQueryClient({
             stateService: stateService as never,
             updateService: { getUpdatesPageAsync } as never,
-            packageService: {} as never,
+            packageService: { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) } as never,
             contractCache: {
                 readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "300", contracts: [queryConformanceDataset.rows.contracts[0]] }),
             } as never,
@@ -400,7 +409,7 @@ describe("GrpcQueryClient", () => {
 
         const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
 
-        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "400" });
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "300" });
 
         const client = new GrpcQueryClient({
             stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
@@ -415,10 +424,19 @@ describe("GrpcQueryClient", () => {
             include: { contractType: { select: { entityName: true }, include: { contracts: { take: 10, select: { contractId: true, active: true } } } } },
         });
 
+        const exercises = await client.exercises.findMany({
+            select: { tpePk: true, contractTpePk: true },
+        });
+
         expect(rows).toEqual([expect.objectContaining({ contractId: "C1", contractType: expect.objectContaining({ entityName: "Iou", contracts: expect.arrayContaining([expect.objectContaining({ contractId: "C2", active: false })]) }) })]);
+        expect(exercises).toEqual([{
+            tpePk: canonicalPublicNumericIdentity("sample-package:Sample.Module:Iou:Transfer"),
+            contractTpePk: canonicalPublicNumericIdentityParts(["template", "sample-package:Sample.Module:Iou"]),
+        }]);
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
-        expect(getLedgerEndAsync).not.toHaveBeenCalled();
+        expect(getLedgerEndAsync).toHaveBeenCalledTimes(1);
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
-        expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
+        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(2);
+        expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
     });
 });

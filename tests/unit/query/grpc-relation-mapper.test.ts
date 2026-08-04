@@ -516,7 +516,13 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(first.rows.packages).toContainEqual(expect.objectContaining({ id: "pkg-upgrade", pk: canonicalPublicNumericIdentity("pkg-upgrade") }));
         expect(first.rows.contractTypes).toContainEqual(expect.objectContaining({ templateFqn: "representative:Main:Asset", pk: canonicalPublicNumericIdentityParts(["template", "representative:Main:Asset"]) }));
         expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ choiceFqn: "upgrade:Main:Asset:Archive", pk: canonicalPublicNumericIdentity("upgrade:Main:Asset:Archive") }));
-        expect(first.rows.exercises[0]).toMatchObject({ exercisedAtIx: "20", exerciseEventPk: canonicalPublicNumericIdentity("20:2"), packagePk: canonicalPublicNumericIdentity("pkg-upgrade") });
+        expect(first.rows.exercises[0]).toMatchObject({
+            tpePk: canonicalPublicNumericIdentity("upgrade:Main:Asset:Archive"),
+            contractTpePk: canonicalPublicNumericIdentityParts(["template", "representative:Main:Asset"]),
+            exercisedAtIx: "20",
+            exerciseEventPk: canonicalPublicNumericIdentity("20:2"),
+            packagePk: canonicalPublicNumericIdentity("pkg-upgrade"),
+        });
         expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "exerciseType")).toEqual([expect.objectContaining({ packageName: "upgrade" })]);
@@ -702,7 +708,9 @@ describe("mapGrpcQueryRelationFragment", () => {
         const duplicateVersion = packageMetadata("pkg-duplicate", "app", true, "2.0.0");
 
         expect(createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant").rows.packages).toHaveLength(2);
+
         const logicalTypes = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant");
+
         expect(logicalTypes.rows.contractTypes).toHaveLength(1);
         expect(logicalTypes.rows.exerciseTypes).toHaveLength(1);
         expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant")).toThrow(ValidationError);

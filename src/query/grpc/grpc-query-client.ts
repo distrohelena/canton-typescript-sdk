@@ -190,7 +190,7 @@ function predicateProvesActive(predicate: QueryPredicate | undefined): boolean {
 }
 
 function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
-    return closure.has("packages") || closure.has("contractTypes") || closure.has("exerciseTypes");
+    return closure.has("packages") || closure.has("contractTypes") || closure.has("exercises") || closure.has("exerciseTypes");
 }
 
 function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {

@@ -35,7 +35,7 @@ export function compileCanonicalPhysicalField(
         return eventIdExpression(physical);
     }
     if (relation === "__events" && field === "pk") {
-        return compileCanonicalPublicNumericIdentitySql(eventIdExpression(physical));
+        return compileCanonicalPublicNumericIdentitySql(eventIdExpression(qualified(alias, "event_id")));
     }
     if (relation === "__events" && field === "txIx") {
         return transactionOffsetExpression(profile, physical);

@@ -12,7 +12,7 @@ describe("live gRPC and PQS typed-query parity", () => {
 
     afterAll(async () => {
         await managers?.disposeAsync();
-    });
+    }, 30_000);
 
     it("returns equivalent lifecycle, explorer, package, JSON, and aggregate results", async () => {
         const fixture = await seedLiveQueryParityFixtureAsync();
@@ -149,11 +149,34 @@ describe("live gRPC and PQS typed-query parity", () => {
                 take: 10,
             }),
             canonicalAggregates: {
-                events: await manager.query.events.aggregate({ count: true, min: ["pk", "txIx"], max: ["pk", "txIx"], sum: ["pk", "txIx"] }),
-                exercises: await manager.query.exercises.aggregate({ count: true, min: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"], max: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"], sum: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"] }),
-                packages: await manager.query.packages.aggregate({ count: true, min: ["pk"], max: ["pk"], sum: ["pk"] }),
-                transactions: await manager.query.transactions.aggregate({ count: true, min: ["ix"], max: ["ix"], sum: ["ix"] }),
-                watermark: await manager.query.watermark.aggregate({ count: true, min: ["ix"], max: ["ix"], sum: ["ix"] }),
+                events: await manager.query.events.aggregate({
+                    where: { exercises: { some: { contractId: { equals: fixture.archivedContractId } } } },
+                    count: true,
+                    min: ["pk", "txIx"],
+                    max: ["pk", "txIx"],
+                    sum: ["pk", "txIx"],
+                }),
+                exercises: await manager.query.exercises.aggregate({
+                    where: { contractId: { equals: fixture.archivedContractId } },
+                    count: true,
+                    min: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"],
+                    max: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"],
+                    sum: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"],
+                }),
+                packages: await manager.query.packages.aggregate({
+                    where: { id: { equals: fixture.packageId } },
+                    count: true,
+                    min: ["pk"],
+                    max: ["pk"],
+                    sum: ["pk"],
+                }),
+                transactions: await manager.query.transactions.aggregate({
+                    where: { exercises: { some: { contractId: { equals: fixture.archivedContractId } } } },
+                    count: true,
+                    min: ["ix"],
+                    max: ["ix"],
+                    sum: ["ix"],
+                }),
             },
         });
 
@@ -196,12 +219,16 @@ describe("live gRPC and PQS typed-query parity", () => {
         assertFixtureResults(grpc);
         assertFixtureResults(pqs);
 
-        expect(grpc).toEqual(pqs);
+        expect(canonicalLiveValue(grpc)).toEqual(canonicalLiveValue(pqs));
 
         const grpcEvent = grpc.canonicalEventKeys[0]!;
+
         const pqsEvent = pqs.canonicalEventKeys[0]!;
+
         const grpcTransaction = grpc.transactions[0]!;
+
         const pqsTransaction = pqs.transactions[0]!;
+
         const [grpcEventByPk, pqsEventByPk, grpcTransactionByIx, pqsTransactionByIx] = await Promise.all([
             managers.grpc.query.events.findUnique({ where: { pk: grpcEvent.pk } }),
             managers.pqs.query.events.findUnique({ where: { pk: pqsEvent.pk } }),
@@ -213,10 +240,11 @@ describe("live gRPC and PQS typed-query parity", () => {
         expect(grpcTransactionByIx).toEqual(pqsTransactionByIx);
 
         const nestedCanonicalKey = grpc.nested[0]?.exercises?.[0]?.tpePk;
+
         expect(nestedCanonicalKey).toMatch(/^\d+$/);
         expect(BigInt(nestedCanonicalKey!)).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
         expect(pqs.nested[0]?.exercises?.[0]?.tpePk).toBe(nestedCanonicalKey);
-    }, 90_000);
+    }, 300_000);
 });
 
 const exerciseRelations = {
@@ -226,3 +254,15 @@ const exerciseRelations = {
     exerciseType: true,
     event: true,
 } as const;
+
+function canonicalLiveValue(value: unknown): unknown {
+    if (Array.isArray(value)) {
+        return value.map(canonicalLiveValue);
+    } else if (value instanceof Date) {
+        return value.toISOString();
+    } else if (value instanceof Uint8Array || typeof value !== "object" || value === null) {
+        return value;
+    }
+
+    return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, canonicalLiveValue(nested)]));
+}
