@@ -74,6 +74,14 @@ describe("npm publish metadata", () => {
             "canton-localnet-stop": "node/stop-local.sh",
             "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
             "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
+            "canton-localnet-splice-0.7.0-start": "node/start-local-splice-0.7.0.sh",
+            "canton-localnet-splice-0.7.0-stop": "node/stop-local-splice-0.7.0.sh",
+            "canton-localnet-splice-0.6.14-start": "node/start-local-splice-0.6.14.sh",
+            "canton-localnet-splice-0.6.14-stop": "node/stop-local-splice-0.6.14.sh",
+            "canton-localnet-splice-0.6.13-start": "node/start-local-splice-0.6.13.sh",
+            "canton-localnet-splice-0.6.13-stop": "node/stop-local-splice-0.6.13.sh",
+            "canton-localnet-splice-0.6.12-start": "node/start-local-splice-0.6.12.sh",
+            "canton-localnet-splice-0.6.12-stop": "node/stop-local-splice-0.6.12.sh",
         });
         expect(packageJson.scripts?.build).toBe(
             "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/write-cjs-package.mjs",
@@ -128,6 +136,14 @@ describe("npm pack verifier", () => {
             "canton-localnet-stop": "node/stop-local.sh",
             "canton-localnet-participant-358-start": "node/start-local-participant-358.sh",
             "canton-localnet-participant-358-stop": "node/stop-local-participant-358.sh",
+            "canton-localnet-splice-0.7.0-start": "node/start-local-splice-0.7.0.sh",
+            "canton-localnet-splice-0.7.0-stop": "node/stop-local-splice-0.7.0.sh",
+            "canton-localnet-splice-0.6.14-start": "node/start-local-splice-0.6.14.sh",
+            "canton-localnet-splice-0.6.14-stop": "node/stop-local-splice-0.6.14.sh",
+            "canton-localnet-splice-0.6.13-start": "node/start-local-splice-0.6.13.sh",
+            "canton-localnet-splice-0.6.13-stop": "node/stop-local-splice-0.6.13.sh",
+            "canton-localnet-splice-0.6.12-start": "node/start-local-splice-0.6.12.sh",
+            "canton-localnet-splice-0.6.12-stop": "node/stop-local-splice-0.6.12.sh",
         });
     });
 

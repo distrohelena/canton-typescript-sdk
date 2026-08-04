@@ -369,6 +369,45 @@ localnet and is never part of the normal test suite:
 PARTICIPANT_358_SMOKE_TEST=1 npm run test:participant-358-sidecar-smoke
 ```
 
+### Optional Splice image overrides
+
+`canton-localnet-start` normally launches the Canton and Splice images pinned
+by the CN Quickstart checkout's own `.env` (`SPLICE_VERSION`). To exercise the
+SDK against a different Splice release instead, without editing that
+checkout, use one of:
+
+```bash
+canton-localnet-splice-0.7.0-start
+canton-localnet-splice-0.7.0-stop
+
+canton-localnet-splice-0.6.14-start
+canton-localnet-splice-0.6.14-stop
+
+canton-localnet-splice-0.6.13-start
+canton-localnet-splice-0.6.13-stop
+
+canton-localnet-splice-0.6.12-start
+canton-localnet-splice-0.6.12-stop
+```
+
+These are thin wrappers around the normal launchers that default `IMAGE_TAG`
+to `0.7.0`, `0.6.14`, `0.6.13`, or `0.6.12` respectively before delegating to
+them; every other launcher option (extra participants, ES256, TLS,
+`AUTH_MODE`) still applies. Set `IMAGE_TAG` yourself beforehand to target a
+different version through the same wrappers.
+
+`npm run test:live` (with `EXTRA_PARTICIPANTS=4`) has been run against each of
+`0.7.0`, `0.6.14`, `0.6.13`, and `0.6.12` and passes on all four. Two
+intermittent failures were observed and are environment-timing issues
+unrelated to the Splice version under test: a PQS/scribe first-boot ingestion
+race (`live-query-parity`, self-resolves on retry) and a dedicated
+participant needing the domain's ACS reconciliation interval to elapse before
+a safe pruning point exists (`live-query-pruning`). Separately, Splice 0.7.0
+ships a Canton participant reporting Ledger API version `3.5.11`, which the
+workflow examples' compatibility guard (`examples/shared/workflow-compatibility.ts`)
+does not yet accept (it allows only `3.5.7`/`3.5.8`); those examples fail
+against the `0.7.0` launcher until that guard is updated.
+
 ### Optional ES256 bearer tokens
 
 Set `LOCALNET_ES256_JWT=1` when starting the localnet to add ES256 JWT
