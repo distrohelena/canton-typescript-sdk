@@ -225,7 +225,9 @@ const sourceLocalKeys = new Set([
 function withoutSourceLocalKeys(value: unknown): unknown {
     if (Array.isArray(value)) {
         return value.map(withoutSourceLocalKeys);
-    } else if (value instanceof Uint8Array || value instanceof Date || typeof value !== "object" || value === null) {
+    } else if (value instanceof Date) {
+        return value.toISOString();
+    } else if (value instanceof Uint8Array || typeof value !== "object" || value === null) {
         return value;
     }
 
