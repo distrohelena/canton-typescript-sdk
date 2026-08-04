@@ -4,6 +4,7 @@ import { Archive } from "../../../src/transports/grpc/generated/canton/com/digit
 import { HashFunction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { SampleLfPackageFixture } from "../../fixtures/daml-lf/sample-lf-package-fixture.js";
 import { GrpcPackageRelationReader } from "../../../src/query/grpc/grpc-package-relation-reader.js";
+import { DamlLfPackageLoader } from "../../../src/daml-lf/daml-lf-package-loader.js";
 
 function fixturePackage() {
     const archive = Archive.fromBinary(SampleLfPackageFixture.createLf2ArchiveBytes());
@@ -87,6 +88,33 @@ describe("GrpcPackageRelationReader", () => {
         expect(packages.map((item) => item.id)).toEqual([fixture.id]);
         expect(listPackagesAsync).not.toHaveBeenCalled();
         expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
+    });
+
+    it("omits listed LF packages without template or interface payload types", async () => {
+        const fixture = fixturePackage();
+
+        const loaded = new DamlLfPackageLoader().loadRawPackageOrThrow(
+            SampleLfPackageFixture.createLf2ArchiveBytes(),
+        );
+
+        const packageLoader = {
+            loadRawPackageOrThrow: vi.fn(() => ({
+                ...loaded,
+                rawPackage: { ...loaded.rawPackage, modules: [] },
+            })),
+        };
+
+        const getPackageAsync = vi.fn(async () => fixture.response);
+
+        const reader = new GrpcPackageRelationReader({
+            listPackagesAsync: async () => ({ packageIds: [fixture.id] }),
+            getPackageAsync,
+        }, packageLoader as never);
+
+        await expect(reader.readAllAsync()).resolves.toEqual([]);
+        expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({
+            packageId: fixture.id,
+        });
     });
 
     it("turns malformed package data into an explicit typed failure without a partial result", async () => {

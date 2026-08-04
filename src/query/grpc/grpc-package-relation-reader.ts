@@ -60,7 +60,9 @@ export class GrpcPackageRelationReader {
             throw new GrpcPackageRelationError("<list>", errorMessage(error));
         }
 
-        return this.readPackagesAsync(packageIds);
+        const packages = await this.readPackagesAsync(packageIds);
+
+        return Object.freeze(packages.filter((pkg) => pkg.templates.length > 0));
     }
 
     public async readPackagesAsync(packageIds: readonly string[]): Promise<readonly GrpcPackageMetadata[]> {
