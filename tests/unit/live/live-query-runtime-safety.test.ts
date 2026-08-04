@@ -111,6 +111,21 @@ describe("live query runtime safety", () => {
         )).toThrow(/dedicated participant-admin endpoint/i);
     });
 
+    it("rejects an IPv4-mapped IPv6 loopback alias", () => {
+        expect(() => assertDedicatedPruningEndpoints(
+            {
+                ledgerEndpoint: "http://[::ffff:127.0.0.1]:3901",
+                ledgerAdminEndpoint: "localhost:6902",
+                participantAdminEndpoint: "localhost:6903",
+            },
+            [{
+                ledgerEndpoint: "localhost:3901",
+                ledgerAdminEndpoint: "localhost:3902",
+                participantAdminEndpoint: "localhost:3903",
+            }],
+        )).toThrow(/dedicated ledger endpoint/i);
+    });
+
     it("waits for fixture contracts, relations, metadata, and watermark", async () => {
         const events = vi.fn()
             .mockResolvedValueOnce([])

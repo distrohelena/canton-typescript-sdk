@@ -210,11 +210,17 @@ function normalizePruningEndpoint(endpoint: string): string {
 function isLocalHostname(hostname: string): boolean {
     const unbracketed = hostname.replace(/^\[|\]$/gu, "");
 
+    const ipv4MappedLoopback = /^::ffff:([\da-f]{1,4}):[\da-f]{1,4}$/iu.exec(
+        unbracketed,
+    );
+
     return unbracketed === "localhost"
         || unbracketed === "0.0.0.0"
         || unbracketed === "::"
         || unbracketed === "::1"
-        || /^127(?:\.\d{1,3}){3}$/u.test(unbracketed);
+        || /^127(?:\.\d{1,3}){3}$/u.test(unbracketed)
+        || (ipv4MappedLoopback !== null
+            && (Number.parseInt(ipv4MappedLoopback[1]!, 16) >> 8) === 127);
 }
 
 async function pruneThroughAsync(

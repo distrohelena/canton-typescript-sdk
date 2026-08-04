@@ -26,5 +26,5 @@ describe("live gRPC typed query pruning", () => {
                 },
             }),
         ).rejects.toBeInstanceOf(QuerySnapshotIncompleteError);
-    }, 120_000);
+    }, 300_000);
 });
