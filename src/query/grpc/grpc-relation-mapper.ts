@@ -150,8 +150,10 @@ export function mapGrpcQueryRelationFragment(
 
             const template = requiredTemplate(item.event.templateId, "exercise template");
 
+            const owner = exerciseOwner(item.event);
+
             exerciseRows.push({
-                tpePk: registry.get(exerciseIdentity(template, item.event.choice, item.event.consuming))!,
+                tpePk: registry.get(exerciseIdentity(owner, item.event.choice, item.event.consuming))!,
                 contractTpePk: registry.get(contractIdentity(target?.templateId ?? template))!,
                 exerciseEventPk: eventPkByIdentity.get(item.identity)!,
                 exercisedAtIx: item.transaction.offset,
@@ -352,8 +354,21 @@ export function createGrpcQueryDataset(
 
 /** Package payloads required for a contract/history relation plan, excluding creation-only provenance. */
 export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): readonly string[] {
+    const packageIdByPk = new Map(fragment.packageIdentities.map((identity) => [identity.pk, identity.id]));
+
+    const concreteExercisePackages = fragment.exercises.map((exercise) => {
+        const packageId = packageIdByPk.get(exercise.packagePk);
+
+        if (packageId === undefined) {
+            throw new ValidationError("gRPC query relation package identity is missing");
+        }
+
+        return packageId;
+    });
+
     return Object.freeze([...new Set([
         ...fragment.creationIdentities.map((creation) => creation.representativePackageId ?? creation.creationPackageId),
+        ...concreteExercisePackages,
         ...fragment.typeIdentities.filter((identity) => identity.choice !== undefined).map((identity) => identity.packageId),
     ])].sort());
 }
@@ -455,11 +470,11 @@ function normalizePackageTemplate(packageId: string, packageName: string, templa
 
     const payloadType = value.payloadType;
 
-    if (payloadType !== "template") {
+    if (payloadType !== "template" && payloadType !== "interface") {
         throw new ValidationError(`gRPC query package ${packageId} template payload type is invalid`);
     }
 
-    const aliases = exactAlias(value.aliases, `${moduleName}:${entityName}`, `package ${packageId} template`);
+    const aliases = exactAliases(value.aliases, [`${packageName}:${moduleName}:${entityName}`, `${moduleName}:${entityName}`, entityName], `package ${packageId} template`);
 
     const templateFqn = exactText(value.templateFqn, `${packageName}:${moduleName}:${entityName}`, `package ${packageId} template FQN`);
 
@@ -505,7 +520,12 @@ function normalizePackageChoice(packageId: string, packageName: string, moduleNa
         throw new ValidationError(`gRPC query package ${packageId} choice consuming flag is invalid`);
     }
 
-    const aliases = exactAlias(value.aliases, `${moduleName}:${entityName}:${choiceName}`, `package ${packageId} choice`);
+    const aliases = exactAliases(value.aliases, [
+        `${packageName}:${moduleName}:${entityName}:${choiceName}`,
+        `${moduleName}:${entityName}:${choiceName}`,
+        `${entityName}:${choiceName}`,
+        choiceName,
+    ], `package ${packageId} choice`);
 
     const choiceFqn = exactText(value.choiceFqn, `${packageName}:${moduleName}:${entityName}:${choiceName}`, `package ${packageId} choice FQN`);
 
@@ -528,18 +548,18 @@ function dottedPackageName(value: unknown, name: string): string {
     return validDottedNameString(value, name);
 }
 
-function exactAlias(value: unknown, expected: string, name: string): readonly string[] {
+function exactAliases(value: unknown, expected: readonly string[], name: string): readonly string[] {
     if (!Array.isArray(value)) {
         throw new ValidationError(`gRPC query ${name} aliases are invalid`);
     }
 
     const aliases = Array.from(value) as readonly unknown[];
 
-    if (aliases.length !== 1 || aliases[0] !== expected) {
+    if (aliases.length !== expected.length || aliases.some((alias, index) => alias !== expected[index])) {
         throw new ValidationError(`gRPC query ${name} aliases are invalid`);
     }
 
-    return Object.freeze([expected]);
+    return Object.freeze([...expected]);
 }
 
 function exactText(value: unknown, expected: string, name: string): string {
@@ -633,6 +653,8 @@ function validatePending(transaction: Transaction, event: CreatedEvent | Exercis
     requiredTemplate(event.templateId, `${kind} event template`);
 
     if (isExercised(event)) {
+        exerciseOwner(event);
+
         if (event.packageName.length === 0) {
             throw new ValidationError("gRPC query exercise package name is missing");
         } else if (event.choiceArgument === undefined) {
@@ -695,7 +717,7 @@ function identitiesFor(event: CreatedEvent | ExercisedEvent): readonly string[] 
     const template = requiredTemplate(event.templateId, "event template");
 
     return isExercised(event)
-        ? [eventIdentity(event), contractIdentity(template), ...packageIdsFor(event).map(packageIdentity), exerciseIdentity(template, event.choice, event.consuming)]
+        ? [eventIdentity(event), contractIdentity(template), ...packageIdsFor(event).map(packageIdentity), exerciseIdentity(exerciseOwner(event), event.choice, event.consuming)]
         : [eventIdentity(event), contractIdentity(template), ...packageIdsFor(event).map(packageIdentity)];
 }
 
@@ -704,7 +726,13 @@ function typeIdentityRows(event: CreatedEvent | ExercisedEvent, registry: Readon
 
     const contract = { pk: registry.get(contractIdentity(template))!, templateId: copyTemplate(template), packageId: template.packageId };
 
-    return isExercised(event) ? [contract, { pk: registry.get(exerciseIdentity(template, event.choice, event.consuming))!, templateId: copyTemplate(template), packageId: template.packageId, choice: event.choice, consuming: event.consuming }] : [contract];
+    if (!isExercised(event)) {
+        return [contract];
+    }
+
+    const owner = exerciseOwner(event);
+
+    return [contract, { pk: registry.get(exerciseIdentity(owner, event.choice, event.consuming))!, templateId: copyTemplate(owner), packageId: owner.packageId, choice: event.choice, consuming: event.consuming }];
 }
 
 function activeContractEntries(responses: readonly GetActiveContractsResponse[]): readonly ActiveContractEntry[] {
@@ -856,7 +884,13 @@ function validateTransaction(transaction: Transaction): void {
 function packageIdsFor(event: CreatedEvent | ExercisedEvent): readonly string[] {
     const template = requiredTemplate(event.templateId, "event template");
 
-    return isExercised(event) ? [template.packageId] : [template.packageId, ...event.representativePackageId.length === 0 ? [] : [event.representativePackageId]];
+    if (!isExercised(event)) {
+        return [template.packageId, ...event.representativePackageId.length === 0 ? [] : [event.representativePackageId]];
+    }
+
+    const owner = exerciseOwner(event);
+
+    return owner.packageId === template.packageId ? [template.packageId] : [template.packageId, owner.packageId];
 }
 
 function keyRegistry(identities: readonly string[]): ReadonlyMap<string, string> {
@@ -894,6 +928,11 @@ function requiredTemplate(template: TemplateId | undefined, name: string): Templ
     validDottedNameString(template.entityName, `${name} entity name`);
 
     return template;
+}
+function exerciseOwner(event: ExercisedEvent): TemplateId {
+    return event.interfaceId === undefined
+        ? requiredTemplate(event.templateId, "exercise template")
+        : requiredTemplate(event.interfaceId, "exercise interface");
 }
 function copyTemplate(template: TemplateId): { packageId: string; moduleName: string; entityName: string } {
     return { packageId: template.packageId, moduleName: template.moduleName, entityName: template.entityName };

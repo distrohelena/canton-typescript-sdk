@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import { CantonError } from "../../core/errors/canton-error.js";
 import { DamlLfPackageLoader } from "../../daml-lf/daml-lf-package-loader.js";
 import { DamlLfTemplate } from "../../daml-lf/model/daml-lf-template.js";
+import { Lf2ModelMapper } from "../../daml-lf/model/lf-2-model-mapper.js";
 import { Archive, HashFunction as ArchiveHashFunction } from "../../transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf.js";
+import type { DefInterface, Package as LfArchivePackage, TemplateChoice } from "../../transports/grpc/generated/canton/com/digitalasset/daml/lf/archive/daml_lf2.js";
 import { HashFunction as PackageServiceHashFunction, type GetPackageResponse, type ListPackagesResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/package_service.js";
 import { validDottedNameString, validNameString, validPackageIdString } from "./grpc-query-value-mapper.js";
 
@@ -21,7 +23,7 @@ export interface GrpcPackageChoiceMetadata {
 export interface GrpcPackageTemplateMetadata {
     readonly moduleName: string;
     readonly entityName: string;
-    readonly payloadType: "template";
+    readonly payloadType: "template" | "interface";
     readonly aliases: readonly string[];
     readonly templateFqn: string;
     readonly choices: readonly GrpcPackageChoiceMetadata[];
@@ -109,15 +111,24 @@ export class GrpcPackageRelationReader {
                 hash: response.hash,
             });
 
-            const pkg = this.packageLoader.loadPackageOrThrow(archive);
+            const result = this.packageLoader.loadRawPackageOrThrow(archive);
+
+            const pkg = Lf2ModelMapper.mapPackage(result.packageId, result.rawPackage, result.languageVersion);
+
+            const packageName = requiredPackageText(pkg.packageName, "name");
+
+            const templates = [
+                ...pkg.modules.flatMap((module) => module.definitions
+                    .filter((definition): definition is DamlLfTemplate => definition instanceof DamlLfTemplate)
+                    .map((template) => templateMetadata(packageId, packageName, module.name, template))),
+                ...interfaceMetadata(packageId, packageName, result.rawPackage),
+            ];
 
             return Object.freeze({
                 id: packageId,
-                name: requiredPackageText(pkg.packageName, "name"),
+                name: packageName,
                 version: requiredPackageText(pkg.packageVersion, "version"),
-                templates: Object.freeze(pkg.modules.flatMap((module) => module.definitions
-                    .filter((definition): definition is DamlLfTemplate => definition instanceof DamlLfTemplate)
-                    .map((template) => templateMetadata(packageId, pkg.packageName, module.name, template)))),
+                templates: Object.freeze(templates),
             });
         } catch (error) {
             throw isGrpcPackageRelationError(error) ? error : new GrpcPackageRelationError(packageId, errorMessage(error));
@@ -171,14 +182,83 @@ function templateMetadata(packageId: string, packageName: string, moduleName: st
         moduleName,
         entityName,
         payloadType: "template",
-        aliases: Object.freeze([`${moduleName}:${entityName}`]),
+        aliases: contractTypeAliases(packageName, moduleName, entityName),
         templateFqn,
         choices: Object.freeze(template.choices.map((choice) => {
             validNameString(choice.name, "DAML-LF choice name");
 
-            return Object.freeze({ choice: choice.name, consuming: choice.consuming, aliases: Object.freeze([`${moduleName}:${entityName}:${choice.name}`]), choiceFqn: `${templateFqn}:${choice.name}` });
+            return Object.freeze({ choice: choice.name, consuming: choice.consuming, aliases: exerciseTypeAliases(packageName, moduleName, entityName, choice.name), choiceFqn: `${templateFqn}:${choice.name}` });
         }).sort((left, right) => left.choice.localeCompare(right.choice))),
     });
+}
+
+function interfaceMetadata(packageId: string, packageName: string, rawPackage: LfArchivePackage): readonly GrpcPackageTemplateMetadata[] {
+    return rawPackage.modules.flatMap((module) => {
+        const moduleName = resolveInternedDottedName(rawPackage, module.nameInternedDname);
+
+        return module.interfaces.map((definition) => rawInterfaceMetadata(packageId, packageName, moduleName, definition, rawPackage));
+    });
+}
+
+function rawInterfaceMetadata(packageId: string, packageName: string, moduleName: string, definition: DefInterface, rawPackage: LfArchivePackage): GrpcPackageTemplateMetadata {
+    validDottedNameString(moduleName, "DAML-LF module name");
+
+    const entityName = resolveInternedDottedName(rawPackage, definition.tyconInternedDname);
+
+    validDottedNameString(entityName, "DAML-LF interface name");
+
+    const templateFqn = `${packageName}:${moduleName}:${entityName}`;
+
+    return Object.freeze({
+        moduleName,
+        entityName,
+        payloadType: "interface",
+        aliases: contractTypeAliases(packageName, moduleName, entityName),
+        templateFqn,
+        choices: Object.freeze(definition.choices.map((choice) => rawInterfaceChoiceMetadata(packageId, packageName, moduleName, entityName, choice, rawPackage))
+            .sort((left, right) => left.choice.localeCompare(right.choice))),
+    });
+}
+
+function rawInterfaceChoiceMetadata(packageId: string, packageName: string, moduleName: string, entityName: string, choice: TemplateChoice, rawPackage: LfArchivePackage): GrpcPackageChoiceMetadata {
+    const choiceName = resolveInternedString(rawPackage, choice.nameInternedStr);
+
+    validNameString(choiceName, `DAML-LF package ${packageId} interface choice name`);
+
+    return Object.freeze({
+        choice: choiceName,
+        consuming: choice.consuming,
+        aliases: exerciseTypeAliases(packageName, moduleName, entityName, choiceName),
+        choiceFqn: `${packageName}:${moduleName}:${entityName}:${choiceName}`,
+    });
+}
+
+function contractTypeAliases(packageName: string, moduleName: string, entityName: string): readonly string[] {
+    return Object.freeze([`${packageName}:${moduleName}:${entityName}`, `${moduleName}:${entityName}`, entityName]);
+}
+
+function exerciseTypeAliases(packageName: string, moduleName: string, entityName: string, choiceName: string): readonly string[] {
+    return Object.freeze([`${packageName}:${moduleName}:${entityName}:${choiceName}`, `${moduleName}:${entityName}:${choiceName}`, `${entityName}:${choiceName}`, choiceName]);
+}
+
+function resolveInternedDottedName(rawPackage: LfArchivePackage, index: number): string {
+    const dottedName = rawPackage.internedDottedNames[index];
+
+    if (dottedName === undefined) {
+        throw new Error("DAML-LF interface references a missing interned dotted name");
+    }
+
+    return dottedName.segmentsInternedStr.map((segment) => resolveInternedString(rawPackage, segment)).join(".");
+}
+
+function resolveInternedString(rawPackage: LfArchivePackage, index: number): string {
+    const value = rawPackage.internedStrings[index];
+
+    if (value === undefined) {
+        throw new Error("DAML-LF interface references a missing interned string");
+    }
+
+    return value;
 }
 
 function requiredPackageText(value: string, name: string): string {

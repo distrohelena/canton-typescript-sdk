@@ -47,13 +47,25 @@ describe("GrpcPackageRelationReader", () => {
                 moduleName: "Sample.Module",
                 entityName: "Iou",
                 payloadType: "template",
-                aliases: ["Sample.Module:Iou"],
+                aliases: ["sample-package:Sample.Module:Iou", "Sample.Module:Iou", "Iou"],
                 templateFqn: "sample-package:Sample.Module:Iou",
                 choices: [expect.objectContaining({
                     choice: "Transfer",
                     consuming: true,
-                    aliases: ["Sample.Module:Iou:Transfer"],
+                    aliases: ["sample-package:Sample.Module:Iou:Transfer", "Sample.Module:Iou:Transfer", "Iou:Transfer", "Transfer"],
                     choiceFqn: "sample-package:Sample.Module:Iou:Transfer",
+                })],
+            }), expect.objectContaining({
+                moduleName: "Sample.Module",
+                entityName: "EventLog",
+                payloadType: "interface",
+                aliases: ["sample-package:Sample.Module:EventLog", "Sample.Module:EventLog", "EventLog"],
+                templateFqn: "sample-package:Sample.Module:EventLog",
+                choices: [expect.objectContaining({
+                    choice: "EventLog_HoldingsChange",
+                    consuming: false,
+                    aliases: ["sample-package:Sample.Module:EventLog:EventLog_HoldingsChange", "Sample.Module:EventLog:EventLog_HoldingsChange", "EventLog:EventLog_HoldingsChange", "EventLog_HoldingsChange"],
+                    choiceFqn: "sample-package:Sample.Module:EventLog:EventLog_HoldingsChange",
                 })],
             })],
         })]);
@@ -100,7 +112,7 @@ describe("GrpcPackageRelationReader", () => {
         }],
         ["package loader", (fixture: ReturnType<typeof fixturePackage>, thrown: unknown) => new GrpcPackageRelationReader(
             { listPackagesAsync: async () => ({ packageIds: [fixture.id] }), getPackageAsync: async () => fixture.response },
-            { loadPackageOrThrow: () => {
+            { loadRawPackageOrThrow: () => {
                 throw thrown;
             } } as never,
         )],

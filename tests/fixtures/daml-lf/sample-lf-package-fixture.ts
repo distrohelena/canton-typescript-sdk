@@ -126,7 +126,53 @@ export class SampleLfPackageFixture {
                         },
                     ],
                     exceptions: [],
-                    interfaces: [],
+                    interfaces: [
+                        {
+                            tyconInternedDname: 3,
+                            methods: [],
+                            paramInternedStr: 8,
+                            choices: [
+                                {
+                                    nameInternedStr: 14,
+                                    consuming: false,
+                                    argBinder: {
+                                        varInternedStr: 11,
+                                        type: {
+                                            sum: {
+                                                oneofKind: "builtin",
+                                                builtin: {
+                                                    builtin: BuiltinType.TEXT,
+                                                    args: [],
+                                                },
+                                            },
+                                        },
+                                    },
+                                    retType: {
+                                        sum: {
+                                            oneofKind: "builtin",
+                                            builtin: {
+                                                builtin: BuiltinType.TEXT,
+                                                args: [],
+                                            },
+                                        },
+                                    },
+                                    update: {
+                                        sum: {
+                                            oneofKind: "builtinLit",
+                                            builtinLit: {
+                                                sum: {
+                                                    oneofKind: "textInternedStr",
+                                                    textInternedStr: 11,
+                                                },
+                                            },
+                                        },
+                                    },
+                                    selfBinderInternedStr: 12,
+                                },
+                            ],
+                            requires: [],
+                        },
+                    ],
                 },
             ],
             internedStrings: [
@@ -143,6 +189,8 @@ export class SampleLfPackageFixture {
                 "Transfer",
                 "newOwner",
                 "self",
+                "EventLog",
+                "EventLog_HoldingsChange",
             ],
             internedDottedNames: [
                 {
@@ -153,6 +201,9 @@ export class SampleLfPackageFixture {
                 },
                 {
                     segmentsInternedStr: [5],
+                },
+                {
+                    segmentsInternedStr: [13],
                 },
             ],
             metadata: {

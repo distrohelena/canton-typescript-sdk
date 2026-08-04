@@ -299,8 +299,11 @@ describe("GrpcQueryClient", () => {
         const client = new GrpcQueryClient({ stateService: stateService as never, updateService: {} as never, packageService: packageService as never });
 
         await expect(client.packages.findMany({ select: { id: true } })).resolves.toEqual([{ id: fixture.id }]);
-        await expect(client.contractTypes.findMany({ select: { entityName: true } })).resolves.toEqual([{ entityName: "Iou" }]);
-        await expect(client.exerciseTypes.findMany({ select: { choice: true } })).resolves.toEqual([{ choice: "Transfer" }]);
+        await expect(client.contractTypes.findMany({ select: { entityName: true, payloadType: true } })).resolves.toEqual([
+            { entityName: "EventLog", payloadType: "interface" },
+            { entityName: "Iou", payloadType: "template" },
+        ]);
+        await expect(client.exerciseTypes.findMany({ select: { choice: true } })).resolves.toEqual([{ choice: "EventLog_HoldingsChange" }, { choice: "Transfer" }]);
         expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(3);
         expect(packageService.listPackagesAsync).toHaveBeenCalledTimes(3);
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(3);

@@ -162,6 +162,72 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(fragment.exercises[0]).toMatchObject({ contractTpePk: contractType.pk, tpePk: exerciseType.pk });
     });
 
+    it("maps an inherited exercise to its interface while retaining concrete target and package semantics", () => {
+        const creationTemplate = { packageId: "pkg-creation", moduleName: "Main", entityName: "Asset" };
+
+        const concreteTemplate = { packageId: "pkg-concrete", moduleName: "Main", entityName: "Asset" };
+
+        const interfaceId = { packageId: "pkg-interface", moduleName: "Api", entityName: "EventLog" };
+
+        const created = CreatedEvent.create({
+            ...create(),
+            templateId: creationTemplate,
+            representativePackageId: "pkg-representative",
+        });
+
+        const inherited = ExercisedEvent.create({
+            ...exercise(false),
+            templateId: concreteTemplate,
+            interfaceId,
+            choice: "EventLog_HoldingsChange",
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: inherited } })]),
+        ]);
+
+        const exerciseType = fragment.typeIdentities.find((identity) => identity.choice === inherited.choice)!;
+
+        expect(exerciseType).toMatchObject({ templateId: interfaceId, packageId: interfaceId.packageId });
+        expect(fragment.packageIdentities).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: concreteTemplate.packageId }),
+            expect.objectContaining({ id: interfaceId.packageId }),
+        ]));
+        expect(referencedGrpcPackageIds(fragment)).toEqual(["pkg-concrete", "pkg-interface", "pkg-representative"]);
+
+        const interfacePackage: GrpcPackageMetadata = {
+            id: interfaceId.packageId,
+            name: "events",
+            version: "1.0.0",
+            templates: [{
+                moduleName: interfaceId.moduleName,
+                entityName: interfaceId.entityName,
+                payloadType: "interface",
+                aliases: ["events:Api:EventLog", "Api:EventLog", "EventLog"],
+                templateFqn: "events:Api:EventLog",
+                choices: [{
+                    choice: inherited.choice,
+                    consuming: inherited.consuming,
+                    aliases: ["events:Api:EventLog:EventLog_HoldingsChange", "Api:EventLog:EventLog_HoldingsChange", "EventLog:EventLog_HoldingsChange", "EventLog_HoldingsChange"],
+                    choiceFqn: "events:Api:EventLog:EventLog_HoldingsChange",
+                }],
+            }],
+        };
+
+        const dataset = createGrpcQueryDataset(fragment, [
+            packageMetadata(concreteTemplate.packageId, "concrete", false),
+            interfacePackage,
+            packageMetadata("pkg-representative", "representative", false),
+        ], "20", "grpc://participant");
+
+        const exerciseRow = dataset.rows.exercises[0]!;
+
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "exerciseType")).toEqual([expect.objectContaining({ packageName: "events", entityName: "EventLog", choice: "EventLog_HoldingsChange" })]);
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "contractType")).toEqual([expect.objectContaining({ packageName: "representative", entityName: "Asset", payloadType: "template" })]);
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "package")).toEqual([expect.objectContaining({ id: concreteTemplate.packageId, name: "concrete" })]);
+    });
+
     it("rejects ACS data that conflicts with creation facts", () => {
         const contradictoryAcs = active(CreatedEvent.create({ ...create(), createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Bob" } }) }] } }));
 
@@ -395,7 +461,7 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(first.rows.packages.map((row) => row.id)).toEqual(["pkg-representative", "pkg-upgrade"]);
         expect(first.rows.contracts[0]).toMatchObject({ packageId: "pkg-id", templateId: { packageId: "pkg-id" } });
         expect(first.rows.contractTypes).toContainEqual(expect.objectContaining({ packageName: "representative", payloadType: "template", templateFqn: "representative:Main:Asset" }));
-        expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ packageName: "upgrade", choice: "Archive", consuming: false, aliases: ["Main:Asset:Archive"], choiceFqn: "upgrade:Main:Asset:Archive" }));
+        expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ packageName: "upgrade", choice: "Archive", consuming: false, aliases: ["upgrade:Main:Asset:Archive", "Main:Asset:Archive", "Asset:Archive", "Archive"], choiceFqn: "upgrade:Main:Asset:Archive" }));
         expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "exerciseType")).toEqual([expect.objectContaining({ packageName: "upgrade" })]);
@@ -424,6 +490,29 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(dataset.rows.contracts).toEqual([]);
         expect(dataset.edges.contracts!.contractType!.privateKeys).toEqual({ source: [], target: [] });
         expect(dataset.sourceLocalKeys.exercises).toEqual([["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]]);
+    });
+
+    it("materializes unobserved interface metadata as canonical type rows", () => {
+        const source = packageMetadata("pkg-id", "app", true);
+
+        const interfaceType: GrpcPackageMetadata["templates"][number] = {
+            moduleName: "Api",
+            entityName: "EventLog",
+            payloadType: "interface",
+            aliases: ["app:Api:EventLog", "Api:EventLog", "EventLog"],
+            templateFqn: "app:Api:EventLog",
+            choices: [{
+                choice: "EventLog_HoldingsChange",
+                consuming: false,
+                aliases: ["app:Api:EventLog:EventLog_HoldingsChange", "Api:EventLog:EventLog_HoldingsChange", "EventLog:EventLog_HoldingsChange", "EventLog_HoldingsChange"],
+                choiceFqn: "app:Api:EventLog:EventLog_HoldingsChange",
+            }],
+        };
+
+        const dataset = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [{ ...source, templates: [...source.templates, interfaceType] }], "0", "grpc://participant");
+
+        expect(dataset.rows.contractTypes).toContainEqual(expect.objectContaining({ entityName: "EventLog", payloadType: "interface", aliases: interfaceType.aliases }));
+        expect(dataset.rows.exerciseTypes).toContainEqual(expect.objectContaining({ entityName: "EventLog", choice: "EventLog_HoldingsChange", aliases: interfaceType.choices[0]!.aliases }));
     });
 
     it.each([
@@ -510,12 +599,12 @@ describe("mapGrpcQueryRelationFragment", () => {
 
         const choice = Object.defineProperties({ ...source.templates[0]!.choices[0]! }, {
             choice: { enumerable: true, get: () => ++reads.choice === 1 ? "Archive" : "Different" },
-            aliases: { enumerable: true, get: () => ++reads.choiceAliases === 1 ? ["Main:Asset:Archive"] : ["wrong"] },
+            aliases: { enumerable: true, get: () => ++reads.choiceAliases === 1 ? ["app:Main:Asset:Archive", "Main:Asset:Archive", "Asset:Archive", "Archive"] : ["wrong"] },
             choiceFqn: { enumerable: true, get: () => ++reads.choiceFqn === 1 ? "app:Main:Asset:Archive" : "wrong" },
         });
 
         const template = Object.defineProperties({ ...source.templates[0]! }, {
-            aliases: { enumerable: true, get: () => ++reads.aliases === 1 ? ["Main:Asset"] : ["wrong"] },
+            aliases: { enumerable: true, get: () => ++reads.aliases === 1 ? ["app:Main:Asset", "Main:Asset", "Asset"] : ["wrong"] },
             templateFqn: { enumerable: true, get: () => ++reads.templateFqn === 1 ? "app:Main:Asset" : "wrong" },
             choices: { enumerable: true, get: () => {
                 ++reads.choices;
@@ -537,8 +626,8 @@ describe("mapGrpcQueryRelationFragment", () => {
 
         expect(reads).toEqual({ name: 1, templates: 1, aliases: 1, templateFqn: 1, choices: 1, choice: 1, choiceAliases: 1, choiceFqn: 1 });
         expect(dataset.rows.packages).toEqual([expect.objectContaining({ id: "pkg-id", name: "app" })]);
-        expect(dataset.rows.contractTypes).toEqual([expect.objectContaining({ packageName: "app", aliases: ["Main:Asset"], templateFqn: "app:Main:Asset" })]);
-        expect(dataset.rows.exerciseTypes).toEqual([expect.objectContaining({ choice: "Archive", aliases: ["Main:Asset:Archive"], choiceFqn: "app:Main:Asset:Archive" })]);
+        expect(dataset.rows.contractTypes).toEqual([expect.objectContaining({ packageName: "app", aliases: ["app:Main:Asset", "Main:Asset", "Asset"], templateFqn: "app:Main:Asset" })]);
+        expect(dataset.rows.exerciseTypes).toEqual([expect.objectContaining({ choice: "Archive", aliases: ["app:Main:Asset:Archive", "Main:Asset:Archive", "Asset:Archive", "Archive"], choiceFqn: "app:Main:Asset:Archive" })]);
         expect(Object.isFrozen(dataset.rows.contractTypes[0]!.aliases)).toBe(true);
         expect(Object.isFrozen(dataset.rows.exerciseTypes[0]!.aliases)).toBe(true);
     });
@@ -577,9 +666,9 @@ function packageMetadata(id: string, name: string, consuming: boolean, version =
             moduleName: "Main",
             entityName: "Asset",
             payloadType: "template",
-            aliases: ["Main:Asset"],
+            aliases: [`${name}:Main:Asset`, "Main:Asset", "Asset"],
             templateFqn: `${name}:Main:Asset`,
-            choices: [{ choice: "Archive", consuming, aliases: ["Main:Asset:Archive"], choiceFqn: `${name}:Main:Asset:Archive` }],
+            choices: [{ choice: "Archive", consuming, aliases: [`${name}:Main:Asset:Archive`, "Main:Asset:Archive", "Asset:Archive", "Archive"], choiceFqn: `${name}:Main:Asset:Archive` }],
         }],
     };
 }
