@@ -9,6 +9,10 @@ import {
     DarArchiveLoader,
 } from "../../../src/daml-lf/index.js";
 import { mapGrpcSubmitCommandsForTransactionRequest } from "../../../src/transports/grpc/mappers/commands-mapper.js";
+import {
+    CreatedEvent,
+    Event,
+} from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { createLiveIouAsync } from "../../live/runtime/live-query-manager-factory.js";
 import { getLiveQueryModelFixtureAsync } from "../../live/runtime/live-query-model-fixture.js";
 
@@ -80,6 +84,32 @@ describe("live query DAML fixture", () => {
                 },
             },
         });
+    });
+
+    it("extracts the created contract id from a generated Event", async () => {
+        const submit = vi.fn().mockResolvedValue({
+            events: [Event.create({
+                event: {
+                    oneofKind: "created",
+                    created: CreatedEvent.create({ contractId: "00-query-iou" }),
+                },
+            })],
+        });
+
+        const manager = {
+            grpc: {
+                commandService: {
+                    submitAndWaitForTransactionAsync: submit,
+                },
+            },
+        } as unknown as CantonManager;
+
+        await expect(createLiveIouAsync(
+            manager,
+            "Issuer::1220",
+            "Owner::1220",
+            "package-id",
+        )).resolves.toBe("00-query-iou");
     });
 
     it("resolves the exact main package id from the committed DAR", async () => {

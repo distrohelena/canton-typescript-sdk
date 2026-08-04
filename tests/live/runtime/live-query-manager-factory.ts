@@ -337,6 +337,14 @@ function createdContractId(value: unknown): string | undefined {
 
     const record = value as Record<string, unknown>;
 
+    if (typeof record.event === "object" && record.event !== null) {
+        const event = record.event as Record<string, unknown>;
+
+        if (event.oneofKind === "created") {
+            return createdContractId(event.created);
+        }
+    }
+
     const created = record.created ?? record.createdEvent ?? record;
 
     return typeof (created as Record<string, unknown>).contractId === "string"
