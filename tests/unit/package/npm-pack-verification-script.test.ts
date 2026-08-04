@@ -95,7 +95,8 @@ describe("npm publish metadata", () => {
         const packageJson = await readPackageJsonAsync();
 
         expect(packageJson.scripts?.test).toContain("--exclude 'tests/live/**'");
-        expect(packageJson.scripts?.["test:live"]).toContain("tests/live");
+        expect(packageJson.scripts?.["test:live"]).toContain("--dir tests/live");
+        expect(packageJson.scripts?.["test:live"]).not.toContain("vitest run tests/live");
         expect(packageJson.scripts?.["test:live"]).not.toContain("--exclude");
     });
 });
