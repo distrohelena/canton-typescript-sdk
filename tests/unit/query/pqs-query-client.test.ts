@@ -169,7 +169,7 @@ describe("PQS query client", () => {
                 transaction: { transactionId: "exercise-tx" },
             }],
         });
-        expect(query.mock.calls[0][0]).toContain('jsonb_build_object(\'pk\', "contractType"."pk"');
+        expect(query.mock.calls[0][0]).toContain('jsonb_build_object(\'pk\', trunc(power(256::numeric');
         expect(query.mock.calls[0][0]).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual([2]);
     });
@@ -191,9 +191,9 @@ describe("PQS query client", () => {
         });
 
         const sql = query.mock.calls[0][0];
-        expect(sql).toContain('from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'exercisedAtIx\', "exercises"."exercised_at_ix"');
+        expect(sql).toContain('from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'exercisedAtIx\', (select "canonical_transaction"."offset"');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
-        expect(sql).toContain('order by "exercises"."exercised_at_ix" desc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited"');
+        expect(sql).toContain('order by (select "canonical_transaction"."offset" from "public"."__transactions" "canonical_transaction" where "canonical_transaction"."ix" = "exercises"."exercised_at_ix") desc');
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 2]);
     });
@@ -344,7 +344,7 @@ describe("PQS query client", () => {
         const sql = query.mock.calls[0][0];
         expect(sql).toContain('from (select jsonb_build_object');
         expect(sql).toContain('$1 = any("exercises"."witnesses")');
-        expect(sql).toContain('order by "exercises"."contract_id" asc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc limit $2) "exercises_limited"');
+        expect(sql).toContain('order by "exercises"."contract_id" asc, (select trunc(power(256::numeric');
         expect(sql).toContain('jsonb_agg("exercises_limited".value)');
         expect(query.mock.calls[0][1]).toEqual(["Alice", 3]);
     });
@@ -495,7 +495,7 @@ describe("PQS query client", () => {
         const query = vi.fn().mockResolvedValue({ rows: [] });
         const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
         await client.packages.findMany({ where: { or: [{ name: { ilike: "app%" } }, { pk: { gte: "10" } }], not: { id: { equals: "legacy" } } } });
-        expect(query.mock.calls[0][0]).toContain('(\"name\" ilike $1 or \"pk\" >= $2) and not (\"id\" = $3)');
+        expect(query.mock.calls[0][0]).toContain('(\"name\" ilike $1 or trunc(power(256::numeric');
         expect(query.mock.calls[0][1]).toEqual(["app%", "10", "legacy"]);
     });
 
@@ -546,7 +546,7 @@ describe("PQS query client", () => {
         });
         expect(query.mock.calls[1][0]).toContain('"transaction_id" is not null');
         expect(query.mock.calls[1][0]).toContain('"transaction_id" = any($1)');
-        expect(query.mock.calls[1][0]).toContain('order by "ix" desc');
+        expect(query.mock.calls[1][0]).toContain('order by "offset" desc');
         expect(query.mock.calls[1][1]).toEqual([["a", "b"]]);
     });
 
@@ -570,7 +570,7 @@ describe("PQS query client", () => {
             min: { pk: "1" },
             sum: { pk: "3" },
         });
-        expect(query.mock.calls[0][0]).toContain('min("pk")::text as "min_pk"');
+        expect(query.mock.calls[0][0]).toContain('min(trunc(power(256::numeric');
         await expect(client.packages.aggregate({ max: ["id"] })).rejects.toThrow("id is not a numeric aggregate field");
     });
 

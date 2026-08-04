@@ -1,6 +1,6 @@
 import { queryRelationEdges, queryRelationMetadata, type QueryRelation } from "./query-schema.js";
 
-/** Canonical rows are deliberately source-neutral: all source-local ids are ordinary values. */
+/** Canonical rows are deliberately source-neutral; public ids are semantic values. */
 export type QueryRow = Readonly<Record<string, unknown>>;
 export type QueryRowSets = Readonly<Record<QueryRelation, readonly QueryRow[]>>;
 
@@ -25,13 +25,13 @@ export interface QueryEdgeLookup {
 export type QueryEdgeLookups = Readonly<Partial<Record<QueryRelation, Readonly<Record<string, QueryEdgeLookup>>>>>;
 
 /**
- * A deterministic, in-memory canonical data source.  `sourceLocalKeys` documents
- * source-local identity only; the evaluator never gives those fields special semantics.
+ * A deterministic, in-memory canonical data source. `uniqueKeys` documents
+ * public row uniqueness only; the evaluator never gives those fields special semantics.
  */
 export interface QueryDataset {
     readonly rows: QueryRowSets;
     readonly edges: QueryEdgeLookups;
-    readonly sourceLocalKeys: Readonly<Record<QueryRelation, readonly (readonly string[])[]>>;
+    readonly uniqueKeys: Readonly<Record<QueryRelation, readonly (readonly string[])[]>>;
 }
 
 /** An edge is declared by the schema but its targets were unavailable in this snapshot. */
@@ -109,14 +109,14 @@ export function createQueryDataset(input: QueryDataset): QueryDataset {
             throw new Error(`Dataset is missing ${relation} rows`);
         }
 
-        const localKeys = dataset.sourceLocalKeys[relation];
+        const localKeys = dataset.uniqueKeys[relation];
 
         if (!Array.isArray(localKeys)) {
-            throw new Error(`Dataset is missing ${relation} source-local keys`);
+            throw new Error(`Dataset is missing ${relation} unique keys`);
         }
 
         for (const key of localKeys) {
-            validateUniquePaths(relation, rows, key, `${relation} source-local key`);
+            validateUniquePaths(relation, rows, key, `${relation} unique key`);
         }
     }
 

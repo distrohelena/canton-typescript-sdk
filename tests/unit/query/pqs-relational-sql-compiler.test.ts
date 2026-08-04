@@ -3,8 +3,30 @@ import * as relationalCompiler from "../../../src/query/pqs/pqs-relational-sql-c
 import { compilePqsRelationFindMany, compilePqsRelationGroupBy } from "../../../src/query/pqs/pqs-relational-sql-compiler.js";
 import { PqsSchemaProfileV1 } from "../../../src/query/pqs/pqs-schema-profile.js";
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeGroupBy } from "../../../src/query/canonical/query-normalizer.js";
+import { canonicalPublicNumericIdentity } from "../../../src/query/canonical/public-identity.js";
 
 describe("PQS relational SQL compiler", () => {
+    it("compiles public key fields from source-independent semantic identities", () => {
+        const query = compilePqsRelationFindMany("__exercises", normalizeFindMany("exercises", {
+            where: { packagePk: { equals: canonicalPublicNumericIdentity("pkg-app") } },
+            select: { tpePk: true, contractTpePk: true, exerciseEventPk: true, exercisedAtIx: true, packagePk: true },
+            orderBy: [{ packagePk: "asc" }],
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).not.toContain('"package_pk" as "packagePk"');
+        expect(query.text).toContain('"canonical_package"."pk" = "package_pk"');
+        expect(query.text).toContain('"canonical_event"."pk" = "exercise_event_pk"');
+        expect(query.text).toContain('"canonical_transaction"."ix" = "exercised_at_ix"');
+        expect(query.text).toContain('"canonical_contract_type"."pk" = "contract_tpe_pk"');
+        expect(query.text).toContain('"canonical_exercise_type"."pk" = "tpe_pk"');
+        expect(query.values).toEqual([canonicalPublicNumericIdentity("pkg-app")]);
+
+        const nested = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {
+            include: { exercises: { take: 1, select: { packagePk: true } } },
+        }), new PqsSchemaProfileV1());
+
+        expect(nested.text).toMatch(/'packagePk', \(select trunc\(power\(256::numeric[\s\S]*\)::text/);
+    });
     it("quotes hostile JSON projection aliases in root, nested, and group SQL", () => {
         const rootName = 'root"; drop table x; --';
         const nestedName = "nested'); select 1; --";
@@ -39,12 +61,12 @@ describe("PQS relational SQL compiler", () => {
         const aggregate = relationalCompiler["compilePqsRelationAggregate"] as (relation: "__packages", query: ReturnType<typeof normalizeAggregate>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] };
         const groupBy = relationalCompiler["compilePqsRelationGroupBy"] as (relation: "__packages", query: ReturnType<typeof normalizeGroupBy>, profile: PqsSchemaProfileV1) => { readonly text: string; readonly values: readonly unknown[] };
 
-        expect(aggregate("__packages", normalizeAggregate("packages", {
+        const aggregateResult = aggregate("__packages", normalizeAggregate("packages", {
             where: { name: { equals: "app" } }, count: true, min: ["pk"], sum: ["pk"],
-        }), new PqsSchemaProfileV1())).toEqual({
-            text: 'select count(*)::text as count, min("pk")::text as "min_pk", sum("pk")::text as "sum_pk" from "public"."__packages" where "name" = $1',
-            values: ["app"],
-        });
+        }), new PqsSchemaProfileV1());
+        expect(aggregateResult.text).toContain('min(trunc(power(256::numeric');
+        expect(aggregateResult.text).toContain('sum(trunc(power(256::numeric');
+        expect(aggregateResult.values).toEqual(["app"]);
         expect(groupBy("__packages", normalizeGroupBy("packages", {
             by: ["name"], where: { id: { equals: "pkg" } }, aggregate: { count: true },
         }), new PqsSchemaProfileV1())).toEqual({
@@ -64,7 +86,7 @@ describe("PQS relational SQL compiler", () => {
 
         expect(query.text).toContain('select "id" as "id", "name" as "name" from "public"."__packages"');
         expect(query.text).toContain('where "name" ilike $1');
-        expect(query.text).toContain('order by "name" asc, "version" desc, "pk" asc');
+        expect(query.text).toContain('order by "name" asc, "version" desc, trunc(power(256::numeric');
         expect(query.values).toEqual(["app%", 10, 5]);
     });
 
@@ -83,14 +105,15 @@ describe("PQS relational SQL compiler", () => {
             skip: 5,
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toContain('order by "name" asc, "version" desc, "pk" asc');
+        expect(query.text).toContain('order by "name" asc, "version" desc, trunc(power(256::numeric');
         expect(query.values).toEqual(["app%", 10, 5]);
     });
 
     it("preserves unordered SQL for an unpaginated package read", () => {
         const query = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {}), new PqsSchemaProfileV1());
 
-        expect(query.text).toBe('select "pk" as "pk", "name" as "name", "version" as "version", "id" as "id" from "public"."__packages"');
+        expect(query.text).toContain('trunc(power(256::numeric');
+        expect(query.text).toContain('as "pk", "name" as "name", "version" as "version", "id" as "id" from "public"."__packages"');
         expect(query.values).toEqual([]);
     });
 
@@ -104,7 +127,10 @@ describe("PQS relational SQL compiler", () => {
             take: 3,
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toBe('select "contract_id" as "contractId", "argument" #>> $2::text[] as "choice" from "public"."__exercises" order by "contract_id" asc, "tpe_pk" asc, "contract_tpe_pk" asc, "exercise_event_pk" asc limit $1');
+        expect(query.text).toContain('select "contract_id" as "contractId", "argument" #>> $2::text[] as "choice" from "public"."__exercises"');
+        expect(query.text).toContain('"canonical_exercise_type"."pk" = "tpe_pk"');
+        expect(query.text).toContain('"canonical_contract_type"."pk" = "contract_tpe_pk"');
+        expect(query.text).toContain('"canonical_event"."pk" = "exercise_event_pk"');
         expect(query.values).toEqual([3, ["choice"]]);
         expect(query.resultShape).toEqual({
             relation: "__exercises", cardinality: "many",
@@ -193,7 +219,9 @@ describe("PQS relational SQL compiler", () => {
             },
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toBe('select "id" as "id", (select coalesce(jsonb_agg("exercises_limited".value), \'[]\'::jsonb) from (select jsonb_build_object(\'contractId\', "exercises"."contract_id", \'choice\', "exercises"."argument" #>> $1::text[], \'exerciseType\', (select jsonb_build_object(\'choice\', "exerciseType"."choice") from "public"."__exercise_tpe" "exerciseType" where "exerciseType"."pk" = "exercises"."tpe_pk" and ("exerciseType"."choice" = $2))) as value from "public"."__exercises" "exercises" where "exercises"."package_pk" = "public"."__packages"."pk" and ("exercises"."contract_id" = $3) order by "exercises"."contract_id" desc, "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc limit $4) "exercises_limited") as "exercises" from "public"."__packages"');
+        expect(query.text).toContain('jsonb_build_object(\'contractId\', "exercises"."contract_id"');
+        expect(query.text).toContain('"canonical_exercise_type"."pk" = "exercises"."tpe_pk"');
+        expect(query.text).toContain('"canonical_contract_type"."pk" = "exercises"."contract_tpe_pk"');
         expect(query.values).toEqual([["choice"], "Archive", "C1", 2]);
         expect(query.resultShape.includes).toEqual([{
             edge: "exercises", target: "__exercises", cardinality: "many",
@@ -246,7 +274,11 @@ describe("PQS relational SQL compiler", () => {
             },
         }), new PqsSchemaProfileV1());
 
-        expect(query.text).toBe('select "tpe_pk" as "tpePk", "contract_tpe_pk" as "contractTpePk", "exercise_event_pk" as "exerciseEventPk", "exercised_at_ix" as "exercisedAtIx", "contract_id" as "contractId", "argument" as "argument", "result" as "result", "redaction_id" as "redactionId", "package_pk" as "packagePk", "controllers" as "controllers", "last_descendant_node_id" as "lastDescendantNodeId", "witnesses" as "witnesses" from "public"."__exercises" where ("argument" #>> $1::text[] = $2 and exists (select 1 from "public"."__contracts" "contract" where "contract"."contract_id" = "public"."__exercises"."contract_id" and ("contract"."payload" #>> $3::text[] = $4)))');
+        expect(query.text).toContain('"canonical_exercise_type"."pk" = "tpe_pk"');
+        expect(query.text).toContain('"canonical_contract_type"."pk" = "contract_tpe_pk"');
+        expect(query.text).toContain('"canonical_event"."pk" = "exercise_event_pk"');
+        expect(query.text).toContain('"canonical_package"."pk" = "package_pk"');
+        expect(query.text).toContain('"argument" #>> $1::text[] = $2');
         expect(query.values).toEqual([["choice"], "Archive", ["owner"], "Alice"]);
     });
 

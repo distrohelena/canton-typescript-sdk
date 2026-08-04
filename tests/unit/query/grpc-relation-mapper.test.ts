@@ -4,6 +4,7 @@ import { createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPac
 import { relatedQueryRows } from "../../../src/query/canonical/query-dataset.js";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
 import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
+import { canonicalPublicNumericIdentity, canonicalPublicNumericIdentityParts } from "../../../src/query/canonical/public-identity.js";
 import type { GrpcPackageMetadata } from "../../../src/query/grpc/grpc-package-relation-reader.js";
 import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
 import { Transaction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
@@ -511,11 +512,23 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(first.rows.contracts[0]).toMatchObject({ packageId: "pkg-id", templateId: { packageId: "pkg-id" } });
         expect(first.rows.contractTypes).toContainEqual(expect.objectContaining({ packageName: "representative", payloadType: "template", templateFqn: "representative:Main:Asset" }));
         expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ packageName: "upgrade", choice: "Archive", consuming: false, aliases: ["upgrade:Main:Asset:Archive", "Main:Asset:Archive", "Asset:Archive", "Archive"], choiceFqn: "upgrade:Main:Asset:Archive" }));
+        expect(first.rows.events).toContainEqual(expect.objectContaining({ eventId: "10:1", pk: canonicalPublicNumericIdentity("10:1"), txIx: "10" }));
+        expect(first.rows.packages).toContainEqual(expect.objectContaining({ id: "pkg-upgrade", pk: canonicalPublicNumericIdentity("pkg-upgrade") }));
+        expect(first.rows.contractTypes).toContainEqual(expect.objectContaining({ templateFqn: "representative:Main:Asset", pk: canonicalPublicNumericIdentityParts(["template", "representative:Main:Asset"]) }));
+        expect(first.rows.exerciseTypes).toContainEqual(expect.objectContaining({ choiceFqn: "upgrade:Main:Asset:Archive", pk: canonicalPublicNumericIdentity("upgrade:Main:Asset:Archive") }));
+        expect(first.rows.exercises[0]).toMatchObject({ exercisedAtIx: "20", exerciseEventPk: canonicalPublicNumericIdentity("20:2"), packagePk: canonicalPublicNumericIdentity("pkg-upgrade") });
         expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "contractType")).toEqual([expect.objectContaining({ packageName: "representative" })]);
         expect(relatedQueryRows(first, "exercises", first.rows.exercises[0]!, "exerciseType")).toEqual([expect.objectContaining({ packageName: "upgrade" })]);
         expect(Object.keys(first.rows.contracts[0]!)).toEqual(["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"]);
         expect(Object.keys(first.edges.contracts!.contractType!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.events!.transaction!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.events!.exercises!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.exercises!.exerciseType!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.exercises!.contractType!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.exercises!.event!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.exercises!.transaction!)).toEqual(["privateKeys"]);
+        expect(Object.keys(first.edges.exercises!.package!)).toEqual(["privateKeys"]);
         expect(first.edges.contracts!.createdTransaction!.complete).not.toBe(false);
         expect(relatedQueryRows(first, "contracts", first.rows.contracts[0]!, "createdTransaction")).toEqual([expect.objectContaining({ ix: "10" })]);
         expect(Object.keys(first.edges.watermark!)).toEqual([]);
@@ -538,7 +551,7 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(dataset.rows.watermark).toEqual([{ singleton: true, ix: "0", offset: "0", instanceId: "grpc://participant" }]);
         expect(dataset.rows.contracts).toEqual([]);
         expect(dataset.edges.contracts!.contractType!.privateKeys).toEqual({ source: [], target: [] });
-        expect(dataset.sourceLocalKeys.exercises).toEqual([["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]]);
+        expect(dataset.uniqueKeys.exercises).toEqual([["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]]);
     });
 
     it("materializes unobserved interface metadata as canonical type rows", () => {
@@ -689,6 +702,9 @@ describe("mapGrpcQueryRelationFragment", () => {
         const duplicateVersion = packageMetadata("pkg-duplicate", "app", true, "2.0.0");
 
         expect(createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant").rows.packages).toHaveLength(2);
+        const logicalTypes = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [older, representative], "0", "grpc://participant");
+        expect(logicalTypes.rows.contractTypes).toHaveLength(1);
+        expect(logicalTypes.rows.exerciseTypes).toHaveLength(1);
         expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant")).toThrow(ValidationError);
 
         const history = mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [active(create())]);

@@ -778,11 +778,11 @@ entry but never renew it. A cached gRPC result is internally consistent at its
 `invalidateContractsCache`. Under PQS the same lifecycle calls are safe no-ops
 and `cacheContracts` returns `{ source: QuerySource.pqs, cached: false }`.
 
-PQS database `pk`/`ix` values and gRPC synthetic `pk`/`ix` values are
-source-local. They are typed, ordered, and referentially consistent within a
-source, but not portable across sources; use contract IDs, package IDs,
-transaction IDs, and ledger offsets for cross-source identity. If pruning has
-removed history needed by a gRPC typed query, it rejects with
+Typed-query `pk`/`ix` values are canonical and source-independent. Transaction
+and watermark keys are ledger offsets; event, package, contract-type, and
+exercise-type keys are lossless positive-decimal encodings of their stable
+semantic identities. PQS physical keys are retained only for internal joins.
+If pruning has removed history needed by a gRPC typed query, it rejects with
 `QuerySnapshotIncompleteError` rather than returning partial rows, groups, or
 aggregates.
 

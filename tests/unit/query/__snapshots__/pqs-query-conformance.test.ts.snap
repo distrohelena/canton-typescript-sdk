@@ -61,7 +61,7 @@ exports[`PQS conformance harness > executes the 'contract count applies parties 
 exports[`PQS conformance harness > executes the 'contract types use array membership' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "pk" as "pk" from "public"."__contract_tpe" where $1 = any("aliases")",
+    "text": "select trunc(power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("payload_type", 'UTF8')), ':', "payload_type", octet_length(convert_to("template_fqn", 'UTF8')), ':', "template_fqn"), 'UTF8'))) + coalesce((select sum(get_byte(convert_to(concat(octet_length(convert_to("payload_type", 'UTF8')), ':', "payload_type", octet_length(convert_to("template_fqn", 'UTF8')), ':', "template_fqn"), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("payload_type", 'UTF8')), ':', "payload_type", octet_length(convert_to("template_fqn", 'UTF8')), ':', "template_fqn"), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to(concat(octet_length(convert_to("payload_type", 'UTF8')), ':', "payload_type", octet_length(convert_to("template_fqn", 'UTF8')), ':', "template_fqn"), 'UTF8')) - 1) as canonical_identity_byte), 0)) as "pk" from "public"."__contract_tpe" where $1 = any("aliases")",
     "values": [
       "App:Asset",
     ],
@@ -83,7 +83,7 @@ exports[`PQS conformance harness > executes the 'count applies a standalone pred
 exports[`PQS conformance harness > executes the 'empty aggregates retain count and nul…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select count(*)::text as count, min("paid_traffic_cost")::text as "min_paidTrafficCost", max("paid_traffic_cost")::text as "max_paidTrafficCost", sum("paid_traffic_cost")::text as "sum_paidTrafficCost" from "public"."__transactions" where "ix" > $1",
+    "text": "select count(*)::text as count, min("paid_traffic_cost")::text as "min_paidTrafficCost", max("paid_traffic_cost")::text as "max_paidTrafficCost", sum("paid_traffic_cost")::text as "sum_paidTrafficCost" from "public"."__transactions" where "offset" > $1",
     "values": [
       "999",
     ],
@@ -106,7 +106,7 @@ exports[`PQS conformance harness > executes the 'events expose ledger identities
 exports[`PQS conformance harness > executes the 'events traverse a to-one relation' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select (to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id') as "eventId" from "public"."__events" where exists (select 1 from "public"."__transactions" "transaction" where "transaction"."ix" = "public"."__events"."tx_ix" and ("transaction"."domain_id" = $1)) order by "pk" asc",
+    "text": "select (to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id') as "eventId" from "public"."__events" where exists (select 1 from "public"."__transactions" "transaction" where "transaction"."ix" = "public"."__events"."tx_ix" and ("transaction"."domain_id" = $1)) order by trunc(power(256::numeric, octet_length(convert_to((to_jsonb("pk")->>'offset') || ':' || (to_jsonb("pk")->>'node_id'), 'UTF8'))) + coalesce((select sum(get_byte(convert_to((to_jsonb("pk")->>'offset') || ':' || (to_jsonb("pk")->>'node_id'), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to((to_jsonb("pk")->>'offset') || ':' || (to_jsonb("pk")->>'node_id'), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to((to_jsonb("pk")->>'offset') || ':' || (to_jsonb("pk")->>'node_id'), 'UTF8')) - 1) as canonical_identity_byte), 0)) asc",
     "values": [
       "domain",
     ],
@@ -128,7 +128,7 @@ exports[`PQS conformance harness > executes the 'exercise types filter booleans'
 exports[`PQS conformance harness > executes the 'exercises filter JSON paths' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "tpe_pk" as "tpePk", "argument" #>> $3::text[] as "owner" from "public"."__exercises" where "argument" #>> $1::text[] = $2",
+    "text": "select (select trunc(power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__exercise_tpe" "canonical_exercise_type" where "canonical_exercise_type"."pk" = "tpe_pk") as "tpePk", "argument" #>> $3::text[] as "owner" from "public"."__exercises" where "argument" #>> $1::text[] = $2",
     "values": [
       [
         "by",
@@ -145,7 +145,7 @@ exports[`PQS conformance harness > executes the 'exercises filter JSON paths' ca
 exports[`PQS conformance harness > executes the 'findUnique maps physical numeric and …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix", "paid_traffic_cost" as "paidTrafficCost", "effective_at" as "effectiveAt" from "public"."__transactions" where "ix" = $1 limit $2",
+    "text": "select "offset" as "ix", "paid_traffic_cost" as "paidTrafficCost", "effective_at" as "effectiveAt" from "public"."__transactions" where "offset" = $1 limit $2",
     "values": [
       "100",
       1,
@@ -193,7 +193,7 @@ exports[`PQS conformance harness > executes the 'like honors SQL percent undersc
 exports[`PQS conformance harness > executes the 'multi-field nullable order appends th…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "ix" asc",
+    "text": "select "offset" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "offset" asc",
     "values": [],
   },
 ]
@@ -247,7 +247,7 @@ where not exists (select 1 from "public"."__exercises" "exercises" where "exerci
 exports[`PQS conformance harness > executes the 'null is predicates exclude present va…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') is null order by "ix" asc",
+    "text": "select "offset" as "ix" from "public"."__transactions" where nullif("workflow_id", '') is null order by "offset" asc",
     "values": [],
   },
 ]
@@ -269,7 +269,7 @@ exports[`PQS conformance harness > executes the 'null ordering and bounded inclu
   coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name,
-  (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', "exercises"."tpe_pk") as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises"
+  (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', (select trunc(power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__exercise_tpe" "canonical_exercise_type" where "canonical_exercise_type"."pk" = "exercises"."tpe_pk")::text) as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by (select trunc(power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__exercise_tpe" "canonical_exercise_type" where "canonical_exercise_type"."pk" = "exercises"."tpe_pk") asc, (select trunc(power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'))) + coalesce((select sum(get_byte(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__contract_tpe" "canonical_contract_type" where "canonical_contract_type"."pk" = "exercises"."contract_tpe_pk") asc, (select trunc(power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'))) + coalesce((select sum(get_byte(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__events" "canonical_event" where "canonical_event"."pk" = "exercises"."exercise_event_pk") asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises"
 from "public"."__contracts" contract_row
 join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix
@@ -290,7 +290,7 @@ limit $1
 exports[`PQS conformance harness > executes the 'null-only in never matches' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
+    "text": "select "offset" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
     "values": [
       [
         null,
@@ -303,7 +303,7 @@ exports[`PQS conformance harness > executes the 'null-only in never matches' can
 exports[`PQS conformance harness > executes the 'nullable descending ordering follows …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') desc, "ix" asc",
+    "text": "select "offset" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') desc, "offset" asc",
     "values": [],
   },
 ]
@@ -312,7 +312,7 @@ exports[`PQS conformance harness > executes the 'nullable descending ordering fo
 exports[`PQS conformance harness > executes the 'nullable equality follows PostgreSQL …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = $1",
+    "text": "select "offset" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = $1",
     "values": [
       null,
     ],
@@ -323,7 +323,7 @@ exports[`PQS conformance harness > executes the 'nullable equality follows Postg
 exports[`PQS conformance harness > executes the 'nullable in ignores null candidates' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
+    "text": "select "offset" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
     "values": [
       [
         null,
@@ -337,7 +337,7 @@ exports[`PQS conformance harness > executes the 'nullable in ignores null candid
 exports[`PQS conformance harness > executes the 'packages use scalar equality and in' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "id" as "id" from "public"."__packages" where ("id" = any($1) and "pk" = $2)",
+    "text": "select "id" as "id" from "public"."__packages" where ("id" = any($1) and trunc(power(256::numeric, octet_length(convert_to("id", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("id", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("id", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("id", 'UTF8')) - 1) as canonical_identity_byte), 0)) = $2)",
     "values": [
       [
         "pkg-app",
@@ -351,7 +351,7 @@ exports[`PQS conformance harness > executes the 'packages use scalar equality an
 exports[`PQS conformance harness > executes the 'range predicates compare UTC timestam…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where "effective_at" >= $1 order by "ix" asc",
+    "text": "select "offset" as "ix" from "public"."__transactions" where "effective_at" >= $1 order by "offset" asc",
     "values": [
       "2026-01-06T00:00:00.000Z",
     ],
@@ -362,7 +362,7 @@ exports[`PQS conformance harness > executes the 'range predicates compare UTC ti
 exports[`PQS conformance harness > executes the 'relation none filters all related rows' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where not exists (select 1 from "public"."__events" "events" where "events"."tx_ix" = "public"."__transactions"."ix" and ("events"."type" = $1))",
+    "text": "select "offset" as "ix" from "public"."__transactions" where not exists (select 1 from "public"."__events" "events" where "events"."tx_ix" = "public"."__transactions"."ix" and ("events"."type" = $1))",
     "values": [
       "create",
     ],
@@ -411,7 +411,7 @@ where (contract_row.contract_id like $1 and contract_row.payload #>> $2::text[] 
 exports[`PQS conformance harness > executes the 'skip and take follow multi-field stab…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "ix" asc limit $1 offset $2",
+    "text": "select "offset" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "offset" asc limit $1 offset $2",
     "values": [
       1,
       1,
@@ -423,7 +423,7 @@ exports[`PQS conformance harness > executes the 'skip and take follow multi-fiel
 exports[`PQS conformance harness > executes the 'stable descending order and pagination' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "id" as "id" from "public"."__packages" order by "name" desc, "pk" asc limit $1 offset $2",
+    "text": "select "id" as "id" from "public"."__packages" order by "name" desc, trunc(power(256::numeric, octet_length(convert_to("id", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("id", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("id", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("id", 'UTF8')) - 1) as canonical_identity_byte), 0)) asc limit $1 offset $2",
     "values": [
       1,
       1,
@@ -462,7 +462,7 @@ exports[`PQS conformance harness > executes the 'typed JSON projections and nest
   coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name,
-  (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', "exercises"."tpe_pk", 'contractTpePk', "exercises"."contract_tpe_pk", 'exerciseEventPk', "exercises"."exercise_event_pk", 'exercisedAtIx', "exercises"."exercised_at_ix", 'contractId', "exercises"."contract_id", 'argument', "exercises"."argument", 'result', "exercises"."result", 'redactionId', "exercises"."redaction_id", 'packagePk', "exercises"."package_pk", 'controllers', "exercises"."controllers", 'lastDescendantNodeId', "exercises"."last_descendant_node_id", 'witnesses', "exercises"."witnesses", 'package', (select jsonb_build_object('id', "package"."id") from "public"."__packages" "package" where "package"."pk" = "exercises"."package_pk" and (true))) as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises",
+  (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', (select trunc(power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__exercise_tpe" "canonical_exercise_type" where "canonical_exercise_type"."pk" = "exercises"."tpe_pk")::text, 'contractTpePk', (select trunc(power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'))) + coalesce((select sum(get_byte(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__contract_tpe" "canonical_contract_type" where "canonical_contract_type"."pk" = "exercises"."contract_tpe_pk")::text, 'exerciseEventPk', (select trunc(power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'))) + coalesce((select sum(get_byte(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__events" "canonical_event" where "canonical_event"."pk" = "exercises"."exercise_event_pk")::text, 'exercisedAtIx', (select "canonical_transaction"."offset" from "public"."__transactions" "canonical_transaction" where "canonical_transaction"."ix" = "exercises"."exercised_at_ix")::text, 'contractId', "exercises"."contract_id", 'argument', "exercises"."argument", 'result', "exercises"."result", 'redactionId', "exercises"."redaction_id", 'packagePk', (select trunc(power(256::numeric, octet_length(convert_to("canonical_package"."id", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_package"."id", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_package"."id", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_package"."id", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__packages" "canonical_package" where "canonical_package"."pk" = "exercises"."package_pk")::text, 'controllers', "exercises"."controllers", 'lastDescendantNodeId', "exercises"."last_descendant_node_id"::text, 'witnesses', "exercises"."witnesses", 'package', (select jsonb_build_object('id', "package"."id") from "public"."__packages" "package" where "package"."pk" = "exercises"."package_pk" and (true))) as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by (select trunc(power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'))) + coalesce((select sum(get_byte(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to("canonical_exercise_type"."choice_fqn", 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__exercise_tpe" "canonical_exercise_type" where "canonical_exercise_type"."pk" = "exercises"."tpe_pk") asc, (select trunc(power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'))) + coalesce((select sum(get_byte(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to(concat(octet_length(convert_to("canonical_contract_type"."payload_type", 'UTF8')), ':', "canonical_contract_type"."payload_type", octet_length(convert_to("canonical_contract_type"."template_fqn", 'UTF8')), ':', "canonical_contract_type"."template_fqn"), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__contract_tpe" "canonical_contract_type" where "canonical_contract_type"."pk" = "exercises"."contract_tpe_pk") asc, (select trunc(power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'))) + coalesce((select sum(get_byte(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8'), canonical_identity_byte) * power(256::numeric, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - canonical_identity_byte - 1)) from generate_series(0, octet_length(convert_to((to_jsonb("canonical_event"."event_id")->>'offset') || ':' || (to_jsonb("canonical_event"."event_id")->>'node_id'), 'UTF8')) - 1) as canonical_identity_byte), 0)) from "public"."__events" "canonical_event" where "canonical_event"."pk" = "exercises"."exercise_event_pk") asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises",
   contract_row.payload #>> $3::text[] as "owner",
   (contract_row.payload #>> $4::text[])::numeric::text as "amount",
   (contract_row.payload #>> $5::text[])::boolean as "enabled",

@@ -128,25 +128,33 @@ describe("live gRPC and PQS typed-query parity", () => {
                 min: ["createdEventOffset"],
                 max: ["createdEventOffset"],
             }),
-            sourceLocalEvents: await manager.query.events.findMany({
+            canonicalEventKeys: await manager.query.events.findMany({
                 where: {
-                    exercises: {
-                        some: { contractId: { equals: fixture.archivedContractId } },
-                    },
+                    pk: { gte: "1" },
+                    txIx: { gte: fixture.archivedAtOffset },
                 },
                 orderBy: [{ pk: "asc" }],
                 take: 10,
                 include: { transaction: true },
             }),
-            sourceLocalTransactions: await manager.query.transactions.findMany({
+            canonicalExerciseKeys: await manager.query.exercises.findMany({
                 where: {
-                    exercises: {
-                        some: { contractId: { equals: fixture.archivedContractId } },
-                    },
+                    tpePk: { gte: "1" },
+                    contractTpePk: { gte: "1" },
+                    exerciseEventPk: { isNot: null },
+                    exercisedAtIx: { gte: fixture.archivedAtOffset },
+                    packagePk: { gte: "1" },
                 },
-                orderBy: [{ ix: "asc" }],
+                orderBy: [{ tpePk: "asc" }, { contractTpePk: "asc" }, { exerciseEventPk: "asc" }, { exercisedAtIx: "asc" }, { packagePk: "asc" }],
                 take: 10,
             }),
+            canonicalAggregates: {
+                events: await manager.query.events.aggregate({ count: true, min: ["pk", "txIx"], max: ["pk", "txIx"], sum: ["pk", "txIx"] }),
+                exercises: await manager.query.exercises.aggregate({ count: true, min: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"], max: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"], sum: ["tpePk", "contractTpePk", "exerciseEventPk", "exercisedAtIx", "packagePk"] }),
+                packages: await manager.query.packages.aggregate({ count: true, min: ["pk"], max: ["pk"], sum: ["pk"] }),
+                transactions: await manager.query.transactions.aggregate({ count: true, min: ["ix"], max: ["ix"], sum: ["ix"] }),
+                watermark: await manager.query.watermark.aggregate({ count: true, min: ["ix"], max: ["ix"], sum: ["ix"] }),
+            },
         });
 
         const [grpc, pqs] = await Promise.all([
@@ -188,18 +196,26 @@ describe("live gRPC and PQS typed-query parity", () => {
         assertFixtureResults(grpc);
         assertFixtureResults(pqs);
 
-        assertSourceLocalKeyContract(grpc);
-        assertSourceLocalKeyContract(pqs);
-        assertAscendingSourceLocalKeys(grpc.sourceLocalEvents, "pk");
-        assertAscendingSourceLocalKeys(pqs.sourceLocalEvents, "pk");
-        assertAscendingSourceLocalKeys(grpc.sourceLocalTransactions, "ix");
-        assertAscendingSourceLocalKeys(pqs.sourceLocalTransactions, "ix");
+        expect(grpc).toEqual(pqs);
 
-        const { sourceLocalEvents: _grpcEvents, sourceLocalTransactions: _grpcTransactions, ...grpcComparable } = grpc;
+        const grpcEvent = grpc.canonicalEventKeys[0]!;
+        const pqsEvent = pqs.canonicalEventKeys[0]!;
+        const grpcTransaction = grpc.transactions[0]!;
+        const pqsTransaction = pqs.transactions[0]!;
+        const [grpcEventByPk, pqsEventByPk, grpcTransactionByIx, pqsTransactionByIx] = await Promise.all([
+            managers.grpc.query.events.findUnique({ where: { pk: grpcEvent.pk } }),
+            managers.pqs.query.events.findUnique({ where: { pk: pqsEvent.pk } }),
+            managers.grpc.query.transactions.findUnique({ where: { ix: grpcTransaction.ix } }),
+            managers.pqs.query.transactions.findUnique({ where: { ix: pqsTransaction.ix } }),
+        ]);
 
-        const { sourceLocalEvents: _pqsEvents, sourceLocalTransactions: _pqsTransactions, ...pqsComparable } = pqs;
+        expect(grpcEventByPk).toEqual(pqsEventByPk);
+        expect(grpcTransactionByIx).toEqual(pqsTransactionByIx);
 
-        expect(withoutSourceLocalKeys(grpcComparable)).toEqual(withoutSourceLocalKeys(pqsComparable));
+        const nestedCanonicalKey = grpc.nested[0]?.exercises?.[0]?.tpePk;
+        expect(nestedCanonicalKey).toMatch(/^\d+$/);
+        expect(BigInt(nestedCanonicalKey!)).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
+        expect(pqs.nested[0]?.exercises?.[0]?.tpePk).toBe(nestedCanonicalKey);
     }, 90_000);
 });
 
@@ -210,98 +226,3 @@ const exerciseRelations = {
     exerciseType: true,
     event: true,
 } as const;
-
-const sourceLocalKeys = new Set([
-    "pk",
-    "ix",
-    "txIx",
-    "tpePk",
-    "contractTpePk",
-    "exerciseEventPk",
-    "exercisedAtIx",
-    "packagePk",
-]);
-
-function withoutSourceLocalKeys(value: unknown): unknown {
-    if (Array.isArray(value)) {
-        return value.map(withoutSourceLocalKeys);
-    } else if (value instanceof Date) {
-        return value.toISOString();
-    } else if (value instanceof Uint8Array || typeof value !== "object" || value === null) {
-        return value;
-    }
-
-    return Object.fromEntries(Object.entries(value).flatMap(([key, nested]) =>
-        sourceLocalKeys.has(key) ? [] : [[key, withoutSourceLocalKeys(nested)]],
-    ));
-}
-
-function assertSourceLocalKeyContract(value: unknown): void {
-    visit(value);
-
-    function visit(current: unknown): void {
-        if (Array.isArray(current)) {
-            current.forEach(visit);
-        } else if (typeof current === "object" && current !== null) {
-            assertSourceLocalRelations(current);
-
-            for (const [key, nested] of Object.entries(current)) {
-                if (sourceLocalKeys.has(key) && nested !== null) {
-                    expect(nested).toMatch(/^\d+$/);
-                }
-
-                visit(nested);
-            }
-        }
-    }
-}
-
-function assertSourceLocalRelations(value: object): void {
-    const row = value as Record<string, unknown>;
-
-    if ("transaction" in row && typeof row.txIx === "string") {
-        expect(row.transaction).toMatchObject({ ix: row.txIx });
-    }
-
-    if ("transaction" in row && typeof row.exercisedAtIx === "string") {
-        expect(row.transaction).toMatchObject({ ix: row.exercisedAtIx });
-    }
-
-    if ("package" in row && typeof row.packagePk === "string") {
-        expect(row.package).toMatchObject({ pk: row.packagePk });
-    }
-
-    if ("contractType" in row && typeof row.contractTpePk === "string") {
-        expect(row.contractType).toMatchObject({ pk: row.contractTpePk });
-    }
-
-    if ("exerciseType" in row && typeof row.tpePk === "string") {
-        expect(row.exerciseType).toMatchObject({ pk: row.tpePk });
-    }
-
-    if ("event" in row && typeof row.exerciseEventPk === "string") {
-        expect(row.event).toMatchObject({ pk: row.exerciseEventPk });
-    }
-}
-
-function assertAscendingSourceLocalKeys(rows: readonly unknown[], key: string): void {
-    expect(rows).not.toHaveLength(0);
-
-    const keys = rows.map((row) => {
-        const value = (row as Record<string, unknown>)[key];
-
-        expect(value).toMatch(/^\d+$/);
-
-        return value as string;
-    });
-
-    expect(keys).toEqual([...keys].sort(compareNumericStrings));
-}
-
-function compareNumericStrings(left: string, right: string): number {
-    const leftValue = BigInt(left);
-
-    const rightValue = BigInt(right);
-
-    return leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
-}

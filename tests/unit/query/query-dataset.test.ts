@@ -45,7 +45,7 @@ describe("createQueryDataset", () => {
         expect(evaluator.execute(input, query)).toEqual([{ id: "pkg-app" }, { id: "pkg-other" }, { id: "pkg-unicode" }]);
     });
 
-    it("rejects malformed relation, edge, lookup, and source-local declarations", () => {
+    it("rejects malformed relation, edge, lookup, and unique-key declarations", () => {
         const missingRelation = mutableDataset();
 
         delete (missingRelation.rows as Partial<QueryDataset["rows"]>).packages;
@@ -73,8 +73,8 @@ describe("createQueryDataset", () => {
 
         const invalidLocal = mutableDataset();
 
-        (invalidLocal.sourceLocalKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
-        expect(() => createQueryDataset(invalidLocal)).toThrow("source-local key path missing is invalid");
+        (invalidLocal.uniqueKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
+        expect(() => createQueryDataset(invalidLocal)).toThrow("unique key path missing is invalid");
 
         const invalidCompleteness = mutableDataset();
 
@@ -86,7 +86,7 @@ describe("createQueryDataset", () => {
         const duplicateLocal = mutableDataset();
 
         duplicateLocal.rows = { ...duplicateLocal.rows, packages: [...duplicateLocal.rows.packages, { ...duplicateLocal.rows.packages[0] }] };
-        expect(() => createQueryDataset(duplicateLocal)).toThrow("packages source-local key is not unique");
+        expect(() => createQueryDataset(duplicateLocal)).toThrow("packages unique key is not unique");
 
         const duplicateToOne = mutableDataset();
 
@@ -100,8 +100,8 @@ describe("createQueryDataset", () => {
         const emptyLocal = mutableDataset();
 
         emptyLocal.rows = { ...emptyLocal.rows, packages: [] };
-        (emptyLocal.sourceLocalKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
-        expect(() => createQueryDataset(emptyLocal)).toThrow("source-local key path missing is invalid");
+        (emptyLocal.uniqueKeys as Record<string, readonly (readonly string[])[]>).packages = [["missing"]];
+        expect(() => createQueryDataset(emptyLocal)).toThrow("unique key path missing is invalid");
 
         const emptySource = mutableDataset();
 

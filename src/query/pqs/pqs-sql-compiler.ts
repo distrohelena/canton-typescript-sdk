@@ -4,6 +4,7 @@ import { PqsSchemaProfileV1 } from "./pqs-schema-profile.js";
 import { PqsRelation, pqsRelationEdges, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { quotePqsIdentifier, quotePqsString } from "./pqs-sql-syntax.js";
 import { compilePqsResultShape, type PqsRelationResultShape } from "./pqs-result-shape.js";
+import { compileCanonicalPublicNumericIdentityPartsSql, compileCanonicalPublicNumericIdentitySql } from "../canonical/public-identity.js";
 
 export interface CompiledPqsQuery {
     readonly text: string;
@@ -24,13 +25,20 @@ export function compileCanonicalPhysicalField(
     relation: PqsRelation,
     field: string,
     alias: string,
+    profile: PqsSchemaProfileV1,
 ): string {
     const column = pqsRelationMetadata[relation].fields[field];
     if (column === undefined) throw new Error(`${field} is not a field of ${relation}`);
     const physical = qualified(alias, column);
 
     if (relation === "__events" && field === "eventId") {
-        return `(to_jsonb(${physical})->>'offset') || ':' || (to_jsonb(${physical})->>'node_id')`;
+        return eventIdExpression(physical);
+    }
+    if (relation === "__events" && field === "pk") {
+        return compileCanonicalPublicNumericIdentitySql(eventIdExpression(physical));
+    }
+    if (relation === "__events" && field === "txIx") {
+        return transactionOffsetExpression(profile, physical);
     }
     if (relation === "__events" && field === "type") {
         return `case ${physical}::text when 'create' then 'created' when 'exercise' then 'exercised' else ${physical}::text end`;
@@ -41,8 +49,61 @@ export function compileCanonicalPhysicalField(
     if (relation === "__transactions" && field === "traceContext") {
         return `case when ${physical} is null then null else jsonb_strip_nulls(jsonb_build_object('traceparent', nullif(to_jsonb(${physical})->>'trace_parent', ''), 'tracestate', nullif(to_jsonb(${physical})->>'trace_state', ''))) end`;
     }
+    if ((relation === "__transactions" || relation === "__watermark") && (field === "ix" || field === "offset")) {
+        return qualified(alias, "offset");
+    }
+    if (relation === "__packages" && field === "pk") {
+        return compileCanonicalPublicNumericIdentitySql(qualified(alias, "id"));
+    }
+    if (relation === "__contract_tpe" && field === "pk") {
+        return compileCanonicalPublicNumericIdentitySql(compileCanonicalPublicNumericIdentityPartsSql([qualified(alias, "payload_type"), qualified(alias, "template_fqn")]));
+    }
+    if (relation === "__exercise_tpe" && field === "pk") {
+        return compileCanonicalPublicNumericIdentitySql(qualified(alias, "choice_fqn"));
+    }
+    if (relation === "__exercises" && field === "tpePk") {
+        return exerciseTypePublicKeyExpression(profile, physical);
+    }
+    if (relation === "__exercises" && field === "contractTpePk") {
+        return contractTypePublicKeyExpression(profile, physical);
+    }
+    if (relation === "__exercises" && field === "exerciseEventPk") {
+        return eventPublicKeyExpression(profile, physical);
+    }
+    if (relation === "__exercises" && field === "exercisedAtIx") {
+        return transactionOffsetExpression(profile, physical);
+    }
+    if (relation === "__exercises" && field === "packagePk") {
+        return packagePublicKeyExpression(profile, physical);
+    }
 
     return physical;
+}
+
+function eventIdExpression(physical: string): string {
+    return `(to_jsonb(${physical})->>'offset') || ':' || (to_jsonb(${physical})->>'node_id')`;
+}
+
+function transactionOffsetExpression(profile: PqsSchemaProfileV1, physicalIx: string): string {
+    return `(select "canonical_transaction"."offset" from ${profile.relation("__transactions")} "canonical_transaction" where "canonical_transaction"."ix" = ${physicalIx})`;
+}
+
+function eventPublicKeyExpression(profile: PqsSchemaProfileV1, physicalPk: string): string {
+    const eventId = eventIdExpression('"canonical_event"."event_id"');
+    return `(select ${compileCanonicalPublicNumericIdentitySql(eventId)} from ${profile.relation("__events")} "canonical_event" where "canonical_event"."pk" = ${physicalPk})`;
+}
+
+function packagePublicKeyExpression(profile: PqsSchemaProfileV1, physicalPk: string): string {
+    return `(select ${compileCanonicalPublicNumericIdentitySql('"canonical_package"."id"')} from ${profile.relation("__packages")} "canonical_package" where "canonical_package"."pk" = ${physicalPk})`;
+}
+
+function contractTypePublicKeyExpression(profile: PqsSchemaProfileV1, physicalPk: string): string {
+    const identity = compileCanonicalPublicNumericIdentityPartsSql(['"canonical_contract_type"."payload_type"', '"canonical_contract_type"."template_fqn"']);
+    return `(select ${compileCanonicalPublicNumericIdentitySql(identity)} from ${profile.relation("__contract_tpe")} "canonical_contract_type" where "canonical_contract_type"."pk" = ${physicalPk})`;
+}
+
+function exerciseTypePublicKeyExpression(profile: PqsSchemaProfileV1, physicalPk: string): string {
+    return `(select ${compileCanonicalPublicNumericIdentitySql('"canonical_exercise_type"."choice_fqn"')} from ${profile.relation("__exercise_tpe")} "canonical_exercise_type" where "canonical_exercise_type"."pk" = ${physicalPk})`;
 }
 export function compileContractFindMany(
     query: NormalizedFindManyQuery,
@@ -155,7 +216,7 @@ export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlia
         const json = (include.select?.json ?? []).flatMap((projection) => {
             const base = edge.target === "__contracts"
                 ? projection.field === "payload" ? `${alias}."payload"` : undefined
-                : pqsRelationMetadata[edge.target].fields[projection.field] === undefined ? undefined : compileCanonicalPhysicalField(edge.target, projection.field, alias);
+                : pqsRelationMetadata[edge.target].fields[projection.field] === undefined ? undefined : compileCanonicalPhysicalField(edge.target, projection.field, alias, profile);
             if (base === undefined) throw new Error(`Invalid canonical JSON projection ${projection.field}`);
             const text = `${base} #>> ${add(projection.path)}::text[]`;
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
@@ -180,7 +241,10 @@ function compileCanonicalIncludedFields(target: PqsRelation, select: NormalizedS
     if (target !== "__contracts") {
         const metadata = pqsRelationMetadata[target];
         const fields = select === undefined ? Object.keys(metadata.fields) : select.fields;
-        return fields.map((field) => [field, compileCanonicalPhysicalField(target, field, alias)] as const);
+        return fields.map((field) => {
+            const expression = compileCanonicalPhysicalField(target, field, alias, profile);
+            return [field, metadata.numericFields.includes(field) ? `${expression}::text` : expression] as const;
+        });
     }
     const fields = select === undefined ? ["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"] : select.fields;
     const expressions: Readonly<Record<string, string>> = {
@@ -219,8 +283,8 @@ function compileCanonicalPredicate(relation: PqsRelation, predicate: QueryPredic
     const canonicalExpression = logicalContracts
         ? contractPredicateExpression(alias, field, path, profile, add)
         : path.length > 0
-            ? `${compileCanonicalPhysicalField(relation, field, alias)} #>> ${add(path)}::text[]`
-            : compileCanonicalPhysicalField(relation, field, alias);
+            ? `${compileCanonicalPhysicalField(relation, field, alias, profile)} #>> ${add(path)}::text[]`
+            : compileCanonicalPhysicalField(relation, field, alias, profile);
     const inverseEventType = relation === "__events" && field === "type" && (predicate.operator === "equals" || predicate.operator === "in");
     const expression = inverseEventType ? qualified(alias, column!) : canonicalExpression;
     const value = inverseEventType ? physicalEventType(predicate.value) : predicate.value;
@@ -294,7 +358,7 @@ function compileCanonicalPhysicalOrderBy(relation: PqsRelation, orderBy: readonl
             archivedAt: contractTransactionFieldExpression(alias, "archived", "effective_at", profile),
         });
     }
-    return compileCanonicalOrderBy(orderBy, Object.fromEntries(Object.keys(pqsRelationMetadata[relation].fields).map((field) => [field, compileCanonicalPhysicalField(relation, field, alias)])));
+    return compileCanonicalOrderBy(orderBy, Object.fromEntries(Object.keys(pqsRelationMetadata[relation].fields).map((field) => [field, compileCanonicalPhysicalField(relation, field, alias, profile)])));
 }
 
 function compileCanonicalOrderBy(orderBy: readonly NormalizedOrder[], fields: Readonly<Record<string, string>>): string {

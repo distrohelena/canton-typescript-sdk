@@ -35,7 +35,7 @@ export const queryConformanceDataset: QueryDataset = createQueryDataset({
         exerciseTypes: Object.freeze({ exercises: { from: ["pk"], to: ["tpePk"] } }), packages: Object.freeze({ exercises: { from: ["pk"], to: ["packagePk"] } }),
         transactions: Object.freeze({ events: { from: ["ix"], to: ["txIx"] }, createdContracts: { from: ["ix"], to: ["createdEventOffset"] }, archivedContracts: { from: ["ix"], to: ["archivedEventOffset"] }, exercises: { from: ["ix"], to: ["exercisedAtIx"] } }), watermark: Object.freeze({}),
     }),
-    sourceLocalKeys: Object.freeze({ contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"]], transactions: [["ix"]], watermark: [["singleton"]] }),
+    uniqueKeys: Object.freeze({ contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"]], transactions: [["ix"]], watermark: [["singleton"]] }),
 });
 
 

@@ -19,7 +19,7 @@
 - Create `src/query/canonical/query-schema.ts` — source-neutral relation names, fields, edge metadata, unique keys, and scalar capabilities.
 - Create `src/query/canonical/query-ast.ts` — validated AST types for predicates, projections, includes, ordering, grouping, and aggregates.
 - Create `src/query/canonical/query-normalizer.ts` — runtime validation and normalization from public query arguments to the AST.
-- Create `src/query/canonical/query-dataset.ts` — immutable row-set and source-local key-registry contracts.
+- Create `src/query/canonical/query-dataset.ts` — immutable row-set, public unique-key, and private-edge contracts.
 - Create `src/query/canonical/in-memory-query-evaluator.ts` — AST evaluation and result shaping over a `QueryDataset`.
 - Create `tests/unit/query/query-conformance-fixture.ts` — shared eight-relation fixture and table-driven expected queries.
 - Create `tests/unit/query/query-normalizer.test.ts` and `tests/unit/query/in-memory-query-evaluator.test.ts`.
@@ -419,15 +419,16 @@ or partially labeled records when they cannot be represented with PQS field
 names; ACS/update requests already set `verbose: true`, so this is a malformed
 response rather than a query capability limitation.
 
-Create a deterministic key registry that canonical-sorts identity strings and
-assigns one-based decimal ordinals. Use transaction offset for transaction
-`ix`; use the registry for event/type/package keys and reuse the same values in
-foreign-key fields.
+Create a deterministic, collision-free positive-decimal identity codec shared
+with PQS. Use transaction offsets for transaction `ix`; derive event,
+package, contract-type, and exercise-type keys from stable semantic identities.
+Keep PQS physical keys and gRPC relation keys private to edges rather than
+exposing them in typed rows.
 
 Materialize contracts from create events and close them on consuming exercises.
-Set `createdAt` from `CreatedEvent.createdAt`, `archivedAt` from the containing
-transaction, and retain source-local visibility. Freeze rows and row arrays
-before returning `QueryDataset` fragments.
+Set `createdAt` from `CreatedEvent.createdAt` and `archivedAt` from the
+containing transaction. Freeze rows and row arrays before returning
+`QueryDataset` fragments.
 
 - [ ] **Step 4: Run focused mappers and DAML value regressions**
 
@@ -681,9 +682,8 @@ contracts, then run identical functions against both managers for:
 - JSON payload projection and grouping;
 - party activity grouping and numeric aggregates.
 
-Compare all ledger-domain fields directly. For source-local `pk`/`ix`, compare
-type, ordering, and referential consistency within each result rather than
-literal PQS sequence equality.
+Compare every typed field directly, including canonical `pk`/`ix` values.
+PQS physical keys and gRPC relation keys remain private implementation details.
 
 Add a separate live pruning fixture that provisions its own data on the first
 quickstart extra participant (`createLiveNodeTestEnvironment` with
@@ -728,7 +728,7 @@ or skip the live assertions.
 Replace the README statement that gRPC exposes only an ACS subset. Show one
 query function used with both source settings, an options object containing
 both source configurations, explicit `cacheContracts`, invalidation, TTL,
-snapshot staleness, participant visibility, source-local keys, pruning failure,
+snapshot staleness, participant visibility, canonical public keys, pruning failure,
 and `$queryRaw` as PQS-only.
 
 Make `verify-npm-pack` import the new value exports and compile the new type
