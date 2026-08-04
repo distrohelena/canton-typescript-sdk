@@ -29,7 +29,7 @@ describe("mapGrpcQueryRelationFragment", () => {
             transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
         ]);
 
-        expect(fragment.transactions).toEqual([expect.objectContaining({ ix: "10", offset: "10", transactionId: "update-10", effectiveAt: new Date("2023-11-14T22:15:00.456Z"), workflowId: "workflow", domainId: "sync", paidTrafficCost: "9007199254740993" }), expect.objectContaining({ ix: "20" })]);
+        expect(fragment.transactions).toEqual([expect.objectContaining({ ix: "10", offset: "10", transactionId: "update-10", effectiveAt: new Date("2023-11-14T22:15:00.456Z"), workflowId: "workflow", domainId: null, paidTrafficCost: "9007199254740993" }), expect.objectContaining({ ix: "20" })]);
         expect(fragment.events.map(row => [row.txIx, row.eventId, row.type])).toEqual([["10", "10:1", "created"], ["20", "20:2", "exercised"]]);
         expect(fragment.contracts).toEqual([expect.objectContaining({ contractId: "C1", payload: { owner: "Alice" }, createdEventOffset: "10", archivedEventOffset: "20", active: false, archivedAt: new Date("2023-11-14T22:15:00.456Z") })]);
         expect(fragment.exercises).toEqual([expect.objectContaining({ contractId: "C1", argument: { by: "Alice" }, result: {}, controllers: ["Alice"], witnesses: ["Alice"], redactionId: null, exercisedAtIx: "20" })]);

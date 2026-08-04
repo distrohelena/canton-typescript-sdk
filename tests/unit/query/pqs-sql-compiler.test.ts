@@ -13,9 +13,49 @@ describe("PQS SQL compiler", () => {
         expect(count.text).toContain("select count(*)::text as count from");
         expect(count.text).toContain("contract_row.archived_at_ix is null and contract_row.witnesses && $1::text[]");
         expect(aggregate.values).toEqual(["10"]);
-        expect(aggregate.text).toContain('min(contract_row.created_at_ix)::text as "min_createdEventOffset"');
-        expect(aggregate.text).toContain('sum(contract_row.archived_at_ix)::text as "sum_archivedEventOffset"');
+        expect(aggregate.text).toContain('min(created_tx.offset)::text as "min_createdEventOffset"');
+        expect(aggregate.text).toContain('sum(archived_tx.offset)::text as "sum_archivedEventOffset"');
         expect(aggregate.text).not.toContain("contract_row.contract_id as contract_id");
+    });
+
+    it("uses ledger offsets and concrete package IDs throughout logical contract plans", () => {
+        const profile = new PqsSchemaProfileV1();
+        const find = compileContractFindMany(normalizeFindMany("contracts", {
+            where: {
+                createdEventOffset: { gte: "500" },
+                packageId: { equals: "pkg-concrete" },
+                templateId: { packageId: { equals: "pkg-concrete" } },
+            },
+            orderBy: [{ archivedEventOffset: "desc" }],
+        }), profile);
+        const count = compileContractCount(normalizeCount("contracts", {
+            where: { archivedEventOffset: { equals: "547" } },
+        }), profile);
+        const aggregate = compileContractAggregate(normalizeAggregate("contracts", {
+            min: ["createdEventOffset"],
+            max: ["archivedEventOffset"],
+        }), profile);
+        const group = compileContractGroupBy(normalizeGroupBy("contracts", {
+            by: ["createdEventOffset"],
+            aggregate: { count: true, sum: ["archivedEventOffset"] },
+        }), profile);
+
+        expect(find.text).toContain("coalesce(contract_row.creation_package_id, contract_package.id) as package_id");
+        expect(find.text).toContain("coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id");
+        expect(find.text).toContain('left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk');
+        expect(find.text).toContain("created_tx.offset::text as created_event_offset");
+        expect(find.text).toContain("archived_tx.offset::text as archived_event_offset");
+        expect(find.text).toContain("created_tx.offset >= $1");
+        expect(find.text).toContain("coalesce(contract_row.creation_package_id, contract_package.id) = $2");
+        expect(find.text).toContain("coalesce(contract_row.creation_package_id, contract_package.id) = $3");
+        expect(find.text).toContain("order by archived_tx.offset desc");
+        expect(find.values).toEqual(["500", "pkg-concrete", "pkg-concrete"]);
+        expect(count.text).toContain("archived_tx.offset = $1");
+        expect(aggregate.text).toContain('min(created_tx.offset)::text as "min_createdEventOffset"');
+        expect(aggregate.text).toContain('max(archived_tx.offset)::text as "max_archivedEventOffset"');
+        expect(group.text).toContain('created_tx.offset as "createdEventOffset"');
+        expect(group.text).toContain('sum(archived_tx.offset)::text as "sum_archivedEventOffset"');
+        expect(group.text).toContain("group by created_tx.offset");
     });
 
     it("returns a frozen recursive contract result shape and quotes group aliases", () => {
@@ -89,7 +129,7 @@ describe("PQS SQL compiler", () => {
             ] },
         }), new PqsSchemaProfileV1());
 
-        expect(compiled.text).toContain("contract_row.created_at_ix >= $1");
+        expect(compiled.text).toContain("created_tx.offset >= $1");
         expect(compiled.text).toContain("contract_row.payload #>> $2::text[] ilike $3");
         expect(compiled.text).toContain("not (contract_row.archived_at_ix is not null)");
         expect(compiled.values).toEqual(["100", ["owner", "city"], "new%"]);
@@ -107,7 +147,7 @@ describe("PQS SQL compiler", () => {
 
         expect(query.text).toContain("contract_row.payload #>> $1::text[] as \"owner\"");
         expect(query.text).toContain("cross join lateral unnest(contract_row.witnesses) as witness(value)");
-        expect(query.text).toContain("sum(contract_row.created_at_ix)::text as \"sum_createdEventOffset\"");
+        expect(query.text).toContain("sum(created_tx.offset)::text as \"sum_createdEventOffset\"");
         expect(query.values).toEqual([["owner"]]);
     });
 

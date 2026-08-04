@@ -295,6 +295,24 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).not.toContain("order by");
     });
 
+    it("maps raw PQS event and transaction values to ledger canonical shapes", async () => {
+        const query = vi.fn()
+            .mockResolvedValueOnce({ rows: [{ event_id: { offset: "547", node_id: 0 }, type: "exercise" }] })
+            .mockResolvedValueOnce({ rows: [{ workflow_id: "", trace_context: { trace_parent: "00-trace", trace_state: "" } }] })
+            .mockResolvedValueOnce({ rows: [{ pk: "7", transaction: { workflow_id: "", trace_context: { trace_parent: "00-trace", trace_state: "vendor=value" } } }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.events.findMany({ select: { eventId: true, type: true } })).resolves.toEqual([
+            { eventId: "547:0", type: "exercised" },
+        ]);
+        await expect(client.transactions.findMany({ select: { workflowId: true, traceContext: true } })).resolves.toEqual([
+            { workflowId: null, traceContext: { traceparent: "00-trace" } },
+        ]);
+        await expect(client.events.findMany({ select: { pk: true }, include: { transaction: { select: { workflowId: true, traceContext: true } } } })).resolves.toEqual([
+            { pk: "7", transaction: { workflowId: null, traceContext: { traceparent: "00-trace", tracestate: "vendor=value" } } },
+        ]);
+    });
+
     it("includes every profile-declared physical relation through correlated queries", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [{ pk: "1", name: "package", version: "1.0", id: "pkg", exercises: [{ contractId: "cid", packagePk: "1", controllers: [], witnesses: [] }] }],
@@ -579,7 +597,7 @@ describe("PQS query client", () => {
         expect(query.mock.calls[0][0]).toContain("select count(*)::text as count from");
         expect(query.mock.calls[0][0]).not.toContain("contract_row.contract_id as contract_id");
         expect(query.mock.calls[0][1]).toEqual([["Alice"]]);
-        expect(query.mock.calls[1][0]).toContain('min(contract_row.created_at_ix)::text as "min_createdEventOffset"');
+        expect(query.mock.calls[1][0]).toContain('min(created_tx.offset)::text as "min_createdEventOffset"');
         expect(query.mock.calls[1][0]).not.toContain("contract_row.contract_id as contract_id");
     });
 
@@ -631,7 +649,7 @@ describe("PQS query client", () => {
             aggregate: { count: true },
         })).resolves.toEqual([{ type: "created", transaction_effectiveAt_day: new Date("2026-01-01T00:00:00Z"), count: 2 }]);
         expect(query.mock.calls[0][0]).toContain('date_trunc(\'day\', "transaction"."effective_at")');
-        expect(query.mock.calls[0][0]).toContain('group by "event"."type", date_trunc(\'day\', "transaction"."effective_at")');
+        expect(query.mock.calls[0][0]).toContain('group by case "event"."type"::text when \'create\' then \'created\' when \'exercise\' then \'exercised\' else "event"."type"::text end, date_trunc(\'day\', "transaction"."effective_at")');
         expect(query.mock.calls[0][0]).toContain('exists (select 1 from "public"."__exercises" "exercises"');
         expect(query.mock.calls[0][1]).toEqual(["Alice"]);
     });

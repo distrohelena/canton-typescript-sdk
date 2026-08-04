@@ -155,7 +155,7 @@ export class PqsQueryClient implements QueryClient {
         const metadata = pqsRelationMetadata[shape.relation];
         const scalar = Object.fromEntries(shape.fields
             .filter(({ name }) => Object.hasOwn(scalarSource, name) || Object.hasOwn(scalarSource, metadata.fields[name] ?? ""))
-            .map(({ name }) => [name, mapPhysicalValue(scalarSource[name] ?? scalarSource[metadata.fields[name] ?? ""], metadata, name)]));
+            .map(({ name }) => [name, mapPhysicalValue(scalarSource[name] ?? scalarSource[metadata.fields[name] ?? ""], shape.relation, metadata, name)]));
         const projected = Object.fromEntries(shape.json.map((projection) => [projection.name, mapJsonValue(row[projection.name], projection.as)]));
         const included = Object.fromEntries(shape.includes.map((include) => [include.edge, this.mapIncludedPhysicalValue(row[include.edge], include)]));
         return { ...scalar, ...projected, ...included };
@@ -223,8 +223,26 @@ export class PqsQueryClient implements QueryClient {
     }
 }
 
-function mapPhysicalValue(value: unknown, metadata: PqsRelationMetadata, field: string): unknown {
+function mapPhysicalValue(value: unknown, relation: PqsRelation, metadata: PqsRelationMetadata, field: string): unknown {
     if (value === null || value === undefined) return value ?? null;
+    if (relation === "__events" && field === "eventId" && typeof value === "object" && !Array.isArray(value)) {
+        const event = value as Readonly<Record<string, unknown>>;
+        if (event.offset !== undefined && event.node_id !== undefined) return `${String(event.offset)}:${String(event.node_id)}`;
+    }
+    if (relation === "__events" && field === "type") {
+        if (value === "create") return "created";
+        if (value === "exercise") return "exercised";
+    }
+    if (relation === "__transactions" && field === "workflowId" && value === "") return null;
+    if (relation === "__transactions" && field === "traceContext" && typeof value === "object" && !Array.isArray(value)) {
+        const trace = value as Readonly<Record<string, unknown>>;
+        const traceparent = trace.traceparent ?? trace.trace_parent;
+        const tracestate = trace.tracestate ?? trace.trace_state;
+        return Object.fromEntries([
+            ...(traceparent === undefined || traceparent === null || traceparent === "" ? [] : [["traceparent", String(traceparent)] as const]),
+            ...(tracestate === undefined || tracestate === null || tracestate === "" ? [] : [["tracestate", String(tracestate)] as const]),
+        ]);
+    }
     if (metadata.numericFields.includes(field)) return String(value);
     if (metadata.dateFields.includes(field)) return value instanceof Date ? value : new Date(String(value));
     if (metadata.binaryFields.includes(field)) return value instanceof Uint8Array ? value : new Uint8Array(value as ArrayLike<number>);

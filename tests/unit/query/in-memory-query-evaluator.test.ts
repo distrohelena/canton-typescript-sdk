@@ -59,7 +59,7 @@ describe("InMemoryQueryEvaluator", () => {
 
         expect(() => (transaction.effectiveAt as Date).setUTCFullYear(2000)).toThrow();
         expect(() => (transaction.traceContext as Record<string, unknown>).traceId = "changed").toThrow();
-        expect((queryConformanceDataset.rows.transactions[0]?.traceContext as Record<string, unknown>).traceId).toBe("a");
+        expect((queryConformanceDataset.rows.transactions[0]?.traceContext as Record<string, unknown>).traceparent).toBe("00-trace");
         expect((queryConformanceDataset.rows.exercises[1]?.argument as Record<string, unknown>).by).toBe("Alice");
 
         const byteResult = new InMemoryQueryEvaluator().execute(queryConformanceDataset, normalizeFindMany("transactions", {

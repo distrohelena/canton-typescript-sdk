@@ -48,7 +48,7 @@ exports[`PQS conformance harness > executes the 'aggregates use lossless decimal
 exports[`PQS conformance harness > executes the 'contract count applies parties and ac…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select count(*)::text as count from "public"."__contracts" contract_row join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix where contract_row.archived_at_ix is null and contract_row.witnesses && $1::text[]",
+    "text": "select count(*)::text as count from "public"."__contracts" contract_row join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk where contract_row.archived_at_ix is null and contract_row.witnesses && $1::text[]",
     "values": [
       [
         "Bob",
@@ -91,10 +91,22 @@ exports[`PQS conformance harness > executes the 'empty aggregates retain count a
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'events expose ledger identities and c…' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select (to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id') as "eventId", case "type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "type"::text end as "type" from "public"."__events" where ((to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id') = $1 and "type" = $2)",
+    "values": [
+      "547:0",
+      "exercise",
+    ],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'events traverse a to-one relation' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "event_id" as "eventId" from "public"."__events" where exists (select 1 from "public"."__transactions" "transaction" where "transaction"."ix" = "public"."__events"."tx_ix" and ("transaction"."domain_id" = $1)) order by "pk" asc",
+    "text": "select (to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id') as "eventId" from "public"."__events" where exists (select 1 from "public"."__transactions" "transaction" where "transaction"."ix" = "public"."__events"."tx_ix" and ("transaction"."domain_id" = $1)) order by "pk" asc",
     "values": [
       "domain",
     ],
@@ -157,7 +169,7 @@ exports[`PQS conformance harness > executes the 'findUnique returns undefined wh
 exports[`PQS conformance harness > executes the 'groups scalar array and JSON values' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select witness.value as "witnesses", contract_row.payload #>> $1::text[] as "owner", count(*)::text as count from "public"."__contracts" contract_row cross join lateral unnest(contract_row.witnesses) as witness(value) group by witness.value, contract_row.payload #>> $1::text[]",
+    "text": "select witness.value as "witnesses", contract_row.payload #>> $1::text[] as "owner", count(*)::text as count from "public"."__contracts" contract_row join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk cross join lateral unnest(contract_row.witnesses) as witness(value) group by witness.value, contract_row.payload #>> $1::text[]",
     "values": [
       [
         "owner",
@@ -181,7 +193,7 @@ exports[`PQS conformance harness > executes the 'like honors SQL percent undersc
 exports[`PQS conformance harness > executes the 'multi-field nullable order appends th…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" asc, "domain_id" asc, "ix" asc",
+    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "ix" asc",
     "values": [],
   },
 ]
@@ -205,21 +217,22 @@ exports[`PQS conformance harness > executes the 'none and every use vacuous trut
   {
     "text": "select
   contract_row.contract_id as contract_id,
-  contract_row.creation_package_id as package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as package_id,
   contract_row.payload,
   contract_row.witnesses,
-  contract_row.created_at_ix::text as created_event_offset,
+  created_tx.offset::text as created_event_offset,
   created_tx.effective_at as created_at,
-  contract_row.archived_at_ix::text as archived_event_offset,
+  archived_tx.offset::text as archived_event_offset,
   archived_tx.effective_at as archived_at,
   contract_row.archived_at_ix is null as active,
-  contract_row.creation_package_id as template_package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name
 from "public"."__contracts" contract_row
 join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix
 left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix
+left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk
 where not exists (select 1 from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and not ($1 = any("exercises"."controllers")))
  order by contract_row.contract_id asc
 
@@ -234,7 +247,7 @@ where not exists (select 1 from "public"."__exercises" "exercises" where "exerci
 exports[`PQS conformance harness > executes the 'null is predicates exclude present va…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" is null order by "ix" asc",
+    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') is null order by "ix" asc",
     "values": [],
   },
 ]
@@ -245,15 +258,15 @@ exports[`PQS conformance harness > executes the 'null ordering and bounded inclu
   {
     "text": "select
   contract_row.contract_id as contract_id,
-  contract_row.creation_package_id as package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as package_id,
   contract_row.payload,
   contract_row.witnesses,
-  contract_row.created_at_ix::text as created_event_offset,
+  created_tx.offset::text as created_event_offset,
   created_tx.effective_at as created_at,
-  contract_row.archived_at_ix::text as archived_event_offset,
+  archived_tx.offset::text as archived_event_offset,
   archived_tx.effective_at as archived_at,
   contract_row.archived_at_ix is null as active,
-  contract_row.creation_package_id as template_package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name,
   (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', "exercises"."tpe_pk") as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises"
@@ -261,6 +274,7 @@ from "public"."__contracts" contract_row
 join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix
 left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix
+left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk
 
  order by created_tx.effective_at asc, contract_row.contract_id asc
 limit $1
@@ -276,7 +290,7 @@ limit $1
 exports[`PQS conformance harness > executes the 'null-only in never matches' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = any($1)",
+    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
     "values": [
       [
         null,
@@ -289,7 +303,7 @@ exports[`PQS conformance harness > executes the 'null-only in never matches' can
 exports[`PQS conformance harness > executes the 'nullable descending ordering follows …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" desc, "ix" asc",
+    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') desc, "ix" asc",
     "values": [],
   },
 ]
@@ -298,7 +312,7 @@ exports[`PQS conformance harness > executes the 'nullable descending ordering fo
 exports[`PQS conformance harness > executes the 'nullable equality follows PostgreSQL …' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = $1",
+    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = $1",
     "values": [
       null,
     ],
@@ -309,7 +323,7 @@ exports[`PQS conformance harness > executes the 'nullable equality follows Postg
 exports[`PQS conformance harness > executes the 'nullable in ignores null candidates' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" where "workflow_id" = any($1)",
+    "text": "select "ix" as "ix" from "public"."__transactions" where nullif("workflow_id", '') = any($1)",
     "values": [
       [
         null,
@@ -350,7 +364,7 @@ exports[`PQS conformance harness > executes the 'relation none filters all relat
   {
     "text": "select "ix" as "ix" from "public"."__transactions" where not exists (select 1 from "public"."__events" "events" where "events"."tx_ix" = "public"."__transactions"."ix" and ("events"."type" = $1))",
     "values": [
-      "created",
+      "create",
     ],
   },
 ]
@@ -361,21 +375,22 @@ exports[`PQS conformance harness > executes the 'scalar, JSON, array, and relati
   {
     "text": "select
   contract_row.contract_id as contract_id,
-  contract_row.creation_package_id as package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as package_id,
   contract_row.payload,
   contract_row.witnesses,
-  contract_row.created_at_ix::text as created_event_offset,
+  created_tx.offset::text as created_event_offset,
   created_tx.effective_at as created_at,
-  contract_row.archived_at_ix::text as archived_event_offset,
+  archived_tx.offset::text as archived_event_offset,
   archived_tx.effective_at as archived_at,
   contract_row.archived_at_ix is null as active,
-  contract_row.creation_package_id as template_package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name
 from "public"."__contracts" contract_row
 join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix
 left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix
+left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk
 where (contract_row.contract_id like $1 and contract_row.payload #>> $2::text[] ilike $3 and $4 = any(contract_row.witnesses) and exists (select 1 from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and ($5 = any("exercises"."controllers"))))
  order by contract_row.contract_id asc
 
@@ -396,7 +411,7 @@ where (contract_row.contract_id like $1 and contract_row.payload #>> $2::text[] 
 exports[`PQS conformance harness > executes the 'skip and take follow multi-field stab…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
-    "text": "select "ix" as "ix" from "public"."__transactions" order by "workflow_id" asc, "domain_id" asc, "ix" asc limit $1 offset $2",
+    "text": "select "ix" as "ix" from "public"."__transactions" order by nullif("workflow_id", '') asc, "domain_id" asc, "ix" asc limit $1 offset $2",
     "values": [
       1,
       1,
@@ -417,20 +432,34 @@ exports[`PQS conformance harness > executes the 'stable descending order and pag
 ]
 `;
 
+exports[`PQS conformance harness > executes the 'transactions normalize empty workflow…' canonical case through PQS with exact parameterized calls 1`] = `
+[
+  {
+    "text": "select nullif("workflow_id", '') as "workflowId", case when "trace_context" is null then null else jsonb_strip_nulls(jsonb_build_object('traceparent', nullif(to_jsonb("trace_context")->>'trace_parent', ''), 'tracestate', nullif(to_jsonb("trace_context")->>'trace_state', ''))) end as "traceContext" from "public"."__transactions" where (nullif("workflow_id", '') is null and case when "trace_context" is null then null else jsonb_strip_nulls(jsonb_build_object('traceparent', nullif(to_jsonb("trace_context")->>'trace_parent', ''), 'tracestate', nullif(to_jsonb("trace_context")->>'trace_state', ''))) end #>> $1::text[] = $2)",
+    "values": [
+      [
+        "traceparent",
+      ],
+      "00-trace",
+    ],
+  },
+]
+`;
+
 exports[`PQS conformance harness > executes the 'typed JSON projections and nested bou…' canonical case through PQS with exact parameterized calls 1`] = `
 [
   {
     "text": "select
   contract_row.contract_id as contract_id,
-  contract_row.creation_package_id as package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as package_id,
   contract_row.payload,
   contract_row.witnesses,
-  contract_row.created_at_ix::text as created_event_offset,
+  created_tx.offset::text as created_event_offset,
   created_tx.effective_at as created_at,
-  contract_row.archived_at_ix::text as archived_event_offset,
+  archived_tx.offset::text as archived_event_offset,
   archived_tx.effective_at as archived_at,
   contract_row.archived_at_ix is null as active,
-  contract_row.creation_package_id as template_package_id,
+  coalesce(contract_row.creation_package_id, contract_package.id) as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name,
   (select coalesce(jsonb_agg("exercises_limited".value), '[]'::jsonb) from (select jsonb_build_object('tpePk', "exercises"."tpe_pk", 'contractTpePk', "exercises"."contract_tpe_pk", 'exerciseEventPk', "exercises"."exercise_event_pk", 'exercisedAtIx', "exercises"."exercised_at_ix", 'contractId', "exercises"."contract_id", 'argument', "exercises"."argument", 'result', "exercises"."result", 'redactionId', "exercises"."redaction_id", 'packagePk', "exercises"."package_pk", 'controllers', "exercises"."controllers", 'lastDescendantNodeId', "exercises"."last_descendant_node_id", 'witnesses', "exercises"."witnesses", 'package', (select jsonb_build_object('id', "package"."id") from "public"."__packages" "package" where "package"."pk" = "exercises"."package_pk" and (true))) as value from "public"."__exercises" "exercises" where "exercises"."contract_id" = contract_row."contract_id" and (true) order by "exercises"."tpe_pk" asc, "exercises"."contract_tpe_pk" asc, "exercises"."exercise_event_pk" asc, "exercises"."contract_id" asc limit $2) "exercises_limited") as "exercises",
@@ -442,6 +471,7 @@ from "public"."__contracts" contract_row
 join "public"."__contract_tpe" contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join "public"."__transactions" created_tx on created_tx.ix = contract_row.created_at_ix
 left join "public"."__transactions" archived_tx on archived_tx.ix = contract_row.archived_at_ix
+left join "public"."__packages" contract_package on contract_package.pk = contract_row.package_pk
 where contract_row.contract_id = $1
  order by contract_row.contract_id asc
 

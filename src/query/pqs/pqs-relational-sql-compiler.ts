@@ -1,7 +1,7 @@
 import { PqsRelation, PqsRelationMetadata, PqsSchemaProfileV1, pqsRelationMetadata } from "./pqs-schema-profile.js";
 import { pqsRelationEdges } from "./pqs-schema-profile.js";
 import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedGroupByQuery, NormalizedInclude, NormalizedSelection } from "../canonical/query-ast.js";
-import { compileCanonicalPhysicalIncludes, compileCanonicalPhysicalPredicate } from "./pqs-sql-compiler.js";
+import { compileCanonicalPhysicalField, compileCanonicalPhysicalIncludes, compileCanonicalPhysicalPredicate } from "./pqs-sql-compiler.js";
 import { quotePqsIdentifier } from "./pqs-sql-syntax.js";
 import { compilePqsResultShape, type PqsIncludedResultShape, type PqsJsonResultProjection, type PqsRelationResultShape, type PqsSelectedScalarField } from "./pqs-result-shape.js";
 
@@ -39,7 +39,7 @@ export function compilePqsRelationFindMany(
     const shape = compilePqsResultShape(relation, "many", query.select, query.includes);
 
     return {
-        text: `select ${[...fields.map(([field, column]) => `"${column}" as "${field}"`), ...json, ...included.map((include) => include.selection)].join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
+        text: `select ${[...fields.map(([field]) => `${compileCanonicalPhysicalField(relation, field, "")} as "${field}"`), ...json, ...included.map((include) => include.selection)].join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
         values,
         resultShape: shape,
     };
@@ -78,7 +78,7 @@ export function compilePqsRelationAggregate(
     for (const [operation, fields] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) {
         for (const name of fields) {
             if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
-            selected.push(`${operation}("${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
+            selected.push(`${operation}(${compileCanonicalPhysicalField(relation, name, "")})::text as "${operation}_${name}"`);
         }
     }
     if (selected.length === 0) throw new Error("aggregate must request at least one result");
@@ -108,23 +108,23 @@ export function compilePqsRelationGroupBy(
             const column = field(relation, metadata, fieldName);
             const expression = metadata.arrayFields.includes(fieldName)
                 ? `"${fieldName}".value`
-                : `"${root}"."${column}"`;
+                : compileCanonicalPhysicalField(relation, fieldName, `"${root}"`);
             if (metadata.arrayFields.includes(fieldName)) joins.push(`cross join lateral unnest("${root}"."${column}") as "${fieldName}"(value)`);
             expressions.push(expression);
             selected.push(`${expression} as "${fieldName}"`);
             continue;
         }
         if (key.kind === "json") {
-            const column = field(relation, metadata, key.field);
-            const text = `"${root}"."${column}" #>> ${add(key.path)}::text[]`;
+            field(relation, metadata, key.field);
+            const text = `${compileCanonicalPhysicalField(relation, key.field, `"${root}"`)} #>> ${add(key.path)}::text[]`;
             const expression = key.as === "text" ? text : key.as === "numeric" ? `(${text})::numeric` : key.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             expressions.push(expression);
             selected.push(`${expression} as ${quotePqsIdentifier(key.name)}`);
             continue;
         }
         if (key.kind === "bucket" && key.path.length === 1) {
-            const column = field(relation, metadata, key.path[0]);
-            const expression = `date_trunc('${key.bucket}', "${root}"."${column}")`;
+            field(relation, metadata, key.path[0]);
+            const expression = `date_trunc('${key.bucket}', ${compileCanonicalPhysicalField(relation, key.path[0], `"${root}"`)})`;
             expressions.push(expression);
             selected.push(`${expression} as "${key.path[0]}_${key.bucket}"`);
             continue;
@@ -133,16 +133,17 @@ export function compilePqsRelationGroupBy(
         const fieldName = key.path[1];
         const edge = pqsRelationEdges[relation]?.[edgeName];
         if (edge === undefined || edge.cardinality !== "one") throw new Error("group key must follow a profiled to-one edge");
-        const targetColumn = field(edge.target, pqsRelationMetadata[edge.target], fieldName);
+        field(edge.target, pqsRelationMetadata[edge.target], fieldName);
         joins.push(`join ${profile.relation(edge.target)} "${edgeName}" on "${edgeName}"."${edge.targetColumn}" = "${root}"."${edge.sourceColumn}"`);
-        const expression = `date_trunc('${key.bucket}', "${edgeName}"."${targetColumn}")`;
+        const expression = `date_trunc('${key.bucket}', ${compileCanonicalPhysicalField(edge.target, fieldName, `"${edgeName}"`)})`;
         expressions.push(expression);
         selected.push(`${expression} as "${edgeName}_${fieldName}_${key.bucket}"`);
     }
     if (query.aggregates.count) selected.push("count(*)::text as count");
     for (const [operation, fields] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) for (const name of fields) {
         if (!metadata.numericFields.includes(name)) throw new Error(`${name} is not a numeric aggregate field of ${relation}`);
-        selected.push(`${operation}("${root}"."${field(relation, metadata, name)}")::text as "${operation}_${name}"`);
+        field(relation, metadata, name);
+        selected.push(`${operation}(${compileCanonicalPhysicalField(relation, name, `"${root}"`)})::text as "${operation}_${name}"`);
     }
     return { text: `select ${selected.join(", ")} from ${profile.relation(relation)} "${root}"${joins.length === 0 ? "" : ` ${joins.join(" ")}`}${predicate} group by ${expressions.join(", ")}`, values };
 }
@@ -156,15 +157,18 @@ function selectedCanonicalFields(relation: PqsRelation, metadata: PqsRelationMet
 function compileCanonicalJsonSelections(relation: PqsRelation, selection: NormalizedSelection | undefined, add: (value: unknown) => string): readonly string[] {
     return (selection?.json ?? []).map((projection) => {
         if (!PqsSchemaProfileV1.jsonField(relation, projection.field)) throw new Error(`${projection.field} is not a JSON field of ${relation}`);
-        const column = field(relation, pqsRelationMetadata[relation], projection.field);
-        const text = `"${column}" #>> ${add(projection.path)}::text[]`;
+        field(relation, pqsRelationMetadata[relation], projection.field);
+        const text = `${compileCanonicalPhysicalField(relation, projection.field, "")} #>> ${add(projection.path)}::text[]`;
         const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
         return `${expression} as ${quotePqsIdentifier(projection.name)}`;
     });
 }
 function compileCanonicalOrderBy(relation: PqsRelation, metadata: PqsRelationMetadata, orderBy: NormalizedFindManyQuery["orderBy"]): string {
     if (orderBy.length === 0) return "";
-    return ` order by ${orderBy.map((order) => `"${field(relation, metadata, order.path[0])}" ${order.direction}`).join(", ")}`;
+    return ` order by ${orderBy.map((order) => {
+        field(relation, metadata, order.path[0]);
+        return `${compileCanonicalPhysicalField(relation, order.path[0], "")} ${order.direction}`;
+    }).join(", ")}`;
 }
 
 function field(relation: PqsRelation, metadata: PqsRelationMetadata, name: string): string {

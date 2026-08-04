@@ -117,6 +117,65 @@ describe("PQS relational SQL compiler", () => {
         expect(Object.isFrozen(query.resultShape.json[0].path)).toBe(true);
     });
 
+    it("canonicalizes event identities and types while filtering physical event values", () => {
+        const profile = new PqsSchemaProfileV1();
+        const query = compilePqsRelationFindMany("__events", normalizeFindMany("events", {
+            where: { and: [
+                { type: { in: ["created", "exercised"] } },
+                { eventId: { equals: "547:0" } },
+            ] },
+            select: { eventId: true, type: true },
+            orderBy: [{ type: "asc" }],
+        }), profile);
+        const count = relationalCompiler.compilePqsRelationCount("__events", normalizeCount("events", {
+            where: { type: { equals: "exercised" } },
+        }), profile);
+        const group = compilePqsRelationGroupBy("__events", normalizeGroupBy("events", {
+            by: ["type"],
+            aggregate: { count: true },
+        }), profile);
+
+        const eventId = `(to_jsonb("event_id")->>'offset') || ':' || (to_jsonb("event_id")->>'node_id')`;
+        const eventType = `case "type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "type"::text end`;
+
+        expect(query.text).toContain(`${eventId} as "eventId"`);
+        expect(query.text).toContain(`${eventType} as "type"`);
+        expect(query.text).toContain('"type" = any($1)');
+        expect(query.text).toContain(`${eventId} = $2`);
+        expect(query.text).toContain(`order by ${eventType} asc`);
+        expect(query.values).toEqual([["create", "exercise"], "547:0"]);
+        expect(count.text).toContain('"type" = $1');
+        expect(count.values).toEqual(["exercise"]);
+        expect(group.text).toContain(`case "event"."type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "event"."type"::text end as "type"`);
+        expect(group.text).toContain(`group by case "event"."type"::text`);
+    });
+
+    it("canonicalizes transaction workflow and trace context in roots, predicates, and includes", () => {
+        const query = compilePqsRelationFindMany("__transactions", normalizeFindMany("transactions", {
+            where: {
+                workflowId: { is: null },
+                traceContext: { path: ["traceparent"], equals: "00-trace" },
+            },
+            select: { workflowId: true, traceContext: true },
+            include: { events: { take: 1, select: { eventId: true, type: true } } },
+        }), new PqsSchemaProfileV1());
+        const nested = compilePqsRelationFindMany("__events", normalizeFindMany("events", {
+            select: { pk: true },
+            include: { transaction: { select: { workflowId: true, traceContext: true } } },
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain(`nullif("workflow_id", '') as "workflowId"`);
+        expect(query.text).toContain(`jsonb_build_object('traceparent', nullif(to_jsonb("trace_context")->>'trace_parent', ''), 'tracestate', nullif(to_jsonb("trace_context")->>'trace_state', ''))`);
+        expect(query.text).toContain(`nullif("workflow_id", '') is null`);
+        expect(query.text).toContain(`jsonb_build_object('traceparent', nullif(to_jsonb("trace_context")->>'trace_parent', ''), 'tracestate', nullif(to_jsonb("trace_context")->>'trace_state', ''))`);
+        expect(query.text).toContain("#>> $1::text[] = $2");
+        expect(query.text).toContain(`'eventId', (to_jsonb("events"."event_id")->>'offset') || ':' || (to_jsonb("events"."event_id")->>'node_id')`);
+        expect(query.text).toContain(`'type', case "events"."type"::text when 'create' then 'created' when 'exercise' then 'exercised' else "events"."type"::text end`);
+        expect(query.values).toEqual([["traceparent"], "00-trace", 1]);
+        expect(nested.text).toContain(`'workflowId', nullif("transaction"."workflow_id", '')`);
+        expect(nested.text).toContain(`'traceContext', case when "transaction"."trace_context" is null then null else jsonb_strip_nulls(jsonb_build_object('traceparent', nullif(to_jsonb("transaction"."trace_context")->>'trace_parent', ''), 'tracestate', nullif(to_jsonb("transaction"."trace_context")->>'trace_state', ''))) end`);
+    });
+
     it("compiles bounded nested physical includes from canonical nodes", () => {
         const query = compilePqsRelationFindMany("__packages", normalizeFindMany("packages", {
             select: { id: true },
@@ -155,6 +214,28 @@ describe("PQS relational SQL compiler", () => {
         expect(query.values).toEqual([]);
         expect(query.resultShape.includes[0]).toMatchObject({ edge: "contract", target: "__contracts", cardinality: "one" });
         expect(query.resultShape.includes[0]?.shape.fields).toEqual([{ name: "contractId" }, { name: "active" }]);
+    });
+
+    it("canonicalizes lifecycle offsets and package IDs in nested contract includes", () => {
+        const query = compilePqsRelationFindMany("__transactions", normalizeFindMany("transactions", {
+            select: { offset: true },
+            include: {
+                createdContracts: {
+                    take: 1,
+                    where: { createdEventOffset: { gte: "500" } },
+                    orderBy: [{ archivedEventOffset: "desc" }],
+                    select: { packageId: true, templateId: true, createdEventOffset: true, archivedEventOffset: true },
+                },
+            },
+        }), new PqsSchemaProfileV1());
+
+        expect(query.text).toContain("coalesce(\"createdContracts\".\"creation_package_id\", (select contract_package.\"id\"");
+        expect(query.text).toContain("'templateId', jsonb_build_object('packageId', coalesce(\"createdContracts\".\"creation_package_id\"");
+        expect(query.text).toContain("select created_transaction.\"offset\" from \"public\".\"__transactions\" created_transaction where created_transaction.\"ix\" = \"createdContracts\".\"created_at_ix\"");
+        expect(query.text).toContain("select archived_transaction.\"offset\" from \"public\".\"__transactions\" archived_transaction where archived_transaction.\"ix\" = \"createdContracts\".\"archived_at_ix\"");
+        expect(query.text).toContain(") >= $1");
+        expect(query.text).toContain("order by (select archived_transaction.\"offset\"");
+        expect(query.values).toEqual(["500", 1]);
     });
 
     it("preserves parameter order for JSON and relational canonical predicates", () => {

@@ -708,7 +708,7 @@ function mapTransaction(transaction: Transaction): TransactionRow {
         transactionId: transaction.updateId,
         effectiveAt: timestamp(transaction.effectiveAt, "transaction effective time", true),
         workflowId: nullableString(transaction.workflowId),
-        domainId: transaction.synchronizerId,
+        domainId: null,
         traceContext: transaction.traceContext === undefined ? null : transaction.traceContext,
         externalTransactionHash: transaction.transactionHash === undefined
             ? transaction.externalTransactionHash === undefined ? null : Uint8Array.from(transaction.externalTransactionHash)

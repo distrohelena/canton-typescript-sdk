@@ -19,6 +19,31 @@ export interface CompiledPqsInclude {
 export interface CompiledContractFindManyQuery extends CompiledPqsQuery {
     readonly resultShape: PqsRelationResultShape;
 }
+
+export function compileCanonicalPhysicalField(
+    relation: PqsRelation,
+    field: string,
+    alias: string,
+): string {
+    const column = pqsRelationMetadata[relation].fields[field];
+    if (column === undefined) throw new Error(`${field} is not a field of ${relation}`);
+    const physical = qualified(alias, column);
+
+    if (relation === "__events" && field === "eventId") {
+        return `(to_jsonb(${physical})->>'offset') || ':' || (to_jsonb(${physical})->>'node_id')`;
+    }
+    if (relation === "__events" && field === "type") {
+        return `case ${physical}::text when 'create' then 'created' when 'exercise' then 'exercised' else ${physical}::text end`;
+    }
+    if (relation === "__transactions" && field === "workflowId") {
+        return `nullif(${physical}, '')`;
+    }
+    if (relation === "__transactions" && field === "traceContext") {
+        return `case when ${physical} is null then null else jsonb_strip_nulls(jsonb_build_object('traceparent', nullif(to_jsonb(${physical})->>'trace_parent', ''), 'tracestate', nullif(to_jsonb(${physical})->>'trace_state', ''))) end`;
+    }
+
+    return physical;
+}
 export function compileContractFindMany(
     query: NormalizedFindManyQuery,
     profile: PqsSchemaProfileV1,
@@ -58,21 +83,22 @@ export function compileContractFindMany(
     return {
         text: `select
   contract_row.contract_id as contract_id,
-  contract_row.creation_package_id as package_id,
+  ${contractPackageIdExpression("contract_row", profile)} as package_id,
   contract_row.payload,
   contract_row.witnesses,
-  contract_row.created_at_ix::text as created_event_offset,
+  created_tx.offset::text as created_event_offset,
   created_tx.effective_at as created_at,
-  contract_row.archived_at_ix::text as archived_event_offset,
+  archived_tx.offset::text as archived_event_offset,
   archived_tx.effective_at as archived_at,
   contract_row.archived_at_ix is null as active,
-  contract_row.creation_package_id as template_package_id,
+  ${contractPackageIdExpression("contract_row", profile)} as template_package_id,
   contract_tpe_row.module_name as template_module_name,
   contract_tpe_row.entity_name as template_entity_name${[...included.map((include) => include.selection), ...jsonProjection].length === 0 ? "" : `,\n  ${[...included.map((include) => include.selection), ...jsonProjection].join(",\n  ")}`}
 from ${profile.relation("__contracts")} contract_row
 join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk
 left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix
 left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix
+left join ${profile.relation("__packages")} contract_package on contract_package.pk = contract_row.package_pk
 ${whereSql}
 ${orderBy}
 ${limitSql}
@@ -96,7 +122,7 @@ export function compileContractAggregate(query: NormalizedAggregateQuery, profil
     const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
     const selected: string[] = [];
     if (query.aggregates.count) selected.push("count(*)::text as count");
-    const fields: Readonly<Record<string, string>> = { createdEventOffset: "contract_row.created_at_ix", archivedEventOffset: "contract_row.archived_at_ix" };
+    const fields: Readonly<Record<string, string>> = { createdEventOffset: "created_tx.offset", archivedEventOffset: "archived_tx.offset" };
     for (const [operation, requested] of [["min", query.aggregates.min], ["max", query.aggregates.max], ["sum", query.aggregates.sum]] as const) {
         for (const field of requested) {
             const expression = fields[field];
@@ -109,7 +135,7 @@ export function compileContractAggregate(query: NormalizedAggregateQuery, profil
 }
 
 function contractFrom(profile: PqsSchemaProfileV1): string {
-    return `from ${profile.relation("__contracts")} contract_row join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix`;
+    return `from ${profile.relation("__contracts")} contract_row join ${profile.relation("__contract_tpe")} contract_tpe_row on contract_tpe_row.pk = contract_row.tpe_pk left join ${profile.relation("__transactions")} created_tx on created_tx.ix = contract_row.created_at_ix left join ${profile.relation("__transactions")} archived_tx on archived_tx.ix = contract_row.archived_at_ix left join ${profile.relation("__packages")} contract_package on contract_package.pk = contract_row.package_pk`;
 }
 
 function compileContractWhere(predicate: QueryPredicate | undefined, parties: readonly string[] | undefined, profile: PqsSchemaProfileV1, add: (value: unknown) => string): string {
@@ -127,9 +153,11 @@ export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlia
         const alias = quotePqsIdentifier(include.edge);
         const fields = compileCanonicalIncludedFields(edge.target, include.select, alias, profile);
         const json = (include.select?.json ?? []).flatMap((projection) => {
-            const column = edge.target === "__contracts" ? projection.field === "payload" ? "payload" : undefined : pqsRelationMetadata[edge.target].fields[projection.field];
-            if (column === undefined) throw new Error(`Invalid canonical JSON projection ${projection.field}`);
-            const text = `${alias}."${column}" #>> ${add(projection.path)}::text[]`;
+            const base = edge.target === "__contracts"
+                ? projection.field === "payload" ? `${alias}."payload"` : undefined
+                : pqsRelationMetadata[edge.target].fields[projection.field] === undefined ? undefined : compileCanonicalPhysicalField(edge.target, projection.field, alias);
+            if (base === undefined) throw new Error(`Invalid canonical JSON projection ${projection.field}`);
+            const text = `${base} #>> ${add(projection.path)}::text[]`;
             const expression = projection.as === "text" ? text : projection.as === "numeric" ? `(${text})::numeric::text` : projection.as === "boolean" ? `(${text})::boolean` : `(${text})::timestamptz`;
             return [quotePqsString(projection.name), expression];
         });
@@ -138,7 +166,7 @@ export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlia
         const object = `jsonb_build_object(${[...fields.flatMap(([field, expression]) => [`'${field}'`, expression]), ...json.flat(), ...nestedFields].join(", ")})`;
         const filter = include.predicate === undefined ? "true" : compileCanonicalPhysicalPredicate(edge.target, include.predicate, alias, profile, add);
         const condition = `${alias}."${edge.targetColumn}" = ${parentAlias}."${edge.sourceColumn}" and (${filter})`;
-        const orderBy = compileCanonicalPhysicalOrderBy(edge.target, include.orderBy, alias);
+        const orderBy = compileCanonicalPhysicalOrderBy(edge.target, include.orderBy, alias, profile);
         const limit = include.cardinality === "many" ? ` limit ${add(include.take)}` : "";
         const offset = include.cardinality === "many" && include.skip > 0 ? ` offset ${add(include.skip)}` : "";
         const expression = include.cardinality === "one"
@@ -152,11 +180,11 @@ function compileCanonicalIncludedFields(target: PqsRelation, select: NormalizedS
     if (target !== "__contracts") {
         const metadata = pqsRelationMetadata[target];
         const fields = select === undefined ? Object.keys(metadata.fields) : select.fields;
-        return fields.map((field) => [field, `${alias}."${metadata.fields[field]}"`] as const);
+        return fields.map((field) => [field, compileCanonicalPhysicalField(target, field, alias)] as const);
     }
     const fields = select === undefined ? ["contractId", "templateId", "packageId", "payload", "witnesses", "createdEventOffset", "createdAt", "archivedEventOffset", "archivedAt", "active"] : select.fields;
     const expressions: Readonly<Record<string, string>> = {
-        contractId: `${alias}."contract_id"`, templateId: `jsonb_build_object('packageId', ${alias}."creation_package_id", 'moduleName', (select contract_type."module_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"), 'entityName', (select contract_type."entity_name" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${alias}."tpe_pk"))`, packageId: `${alias}."creation_package_id"`, payload: `${alias}."payload"`, witnesses: `${alias}."witnesses"`, createdEventOffset: `${alias}."created_at_ix"::text`, createdAt: `(select created_transaction."effective_at" from ${profile.relation("__transactions")} created_transaction where created_transaction."ix" = ${alias}."created_at_ix")`, archivedEventOffset: `${alias}."archived_at_ix"::text`, archivedAt: `(select archived_transaction."effective_at" from ${profile.relation("__transactions")} archived_transaction where archived_transaction."ix" = ${alias}."archived_at_ix")`, active: `${alias}."archived_at_ix" is null`,
+        contractId: `${alias}."contract_id"`, templateId: `jsonb_build_object('packageId', ${contractPackageIdExpression(alias, profile)}, 'moduleName', ${contractTypeFieldExpression(alias, "module_name", profile)}, 'entityName', ${contractTypeFieldExpression(alias, "entity_name", profile)})`, packageId: contractPackageIdExpression(alias, profile), payload: `${alias}."payload"`, witnesses: `${alias}."witnesses"`, createdEventOffset: `${contractTransactionFieldExpression(alias, "created", "offset", profile)}::text`, createdAt: contractTransactionFieldExpression(alias, "created", "effective_at", profile), archivedEventOffset: `${contractTransactionFieldExpression(alias, "archived", "offset", profile)}::text`, archivedAt: contractTransactionFieldExpression(alias, "archived", "effective_at", profile), active: `${alias}."archived_at_ix" is null`,
     };
     return fields.map((field) => [field, expressions[field]] as const);
 }
@@ -186,19 +214,44 @@ function compileCanonicalPredicate(relation: PqsRelation, predicate: QueryPredic
     const [field, ...path] = predicate.path;
     if (logicalContracts && field === "active") return `${logicalQualified(alias, "archived_at_ix")} is ${predicate.value === true ? "null" : "not null"}`;
     if (logicalContracts && field === "witnesses") return `${add(predicate.value)} = any(${logicalQualified(alias, "witnesses")})`;
-    const column = logicalContracts ? ({ contractId: "contract_id", packageId: "creation_package_id", createdEventOffset: "created_at_ix", createdAt: "effective_at", archivedEventOffset: "archived_at_ix", archivedAt: "effective_at" } as Record<string, string>)[field] : pqsRelationMetadata[relation].fields[field];
-    const templateColumn = field === "templateId" ? ({ packageId: "creation_package_id", moduleName: "module_name", entityName: "entity_name" } as Record<string, string>)[path[0]] : undefined;
-    const logicalExpression = field === "payload" ? `${logicalQualified(alias, "payload")} #>> ${add(path)}::text[]`
-        : field === "createdAt" ? "created_tx.effective_at" : field === "archivedAt" ? "archived_tx.effective_at"
-            : `${alias}.${column}`;
-    const expression = templateColumn === undefined ? logicalContracts ? logicalExpression : path.length > 0 ? `${qualified(alias, column)} #>> ${add(path)}::text[]` : qualified(alias, column) : path[0] === "packageId" ? qualified(alias, templateColumn) : `contract_tpe_row."${templateColumn}"`;
+    const column = logicalContracts ? undefined : pqsRelationMetadata[relation].fields[field];
+    if (!logicalContracts && column === undefined) throw new Error(`${field} is not a field of ${relation}`);
+    const canonicalExpression = logicalContracts
+        ? contractPredicateExpression(alias, field, path, profile, add)
+        : path.length > 0
+            ? `${compileCanonicalPhysicalField(relation, field, alias)} #>> ${add(path)}::text[]`
+            : compileCanonicalPhysicalField(relation, field, alias);
+    const inverseEventType = relation === "__events" && field === "type" && (predicate.operator === "equals" || predicate.operator === "in");
+    const expression = inverseEventType ? qualified(alias, column!) : canonicalExpression;
+    const value = inverseEventType ? physicalEventType(predicate.value) : predicate.value;
     const sql = ({ equals: "=", lt: "<", lte: "<=", gt: ">", gte: ">=", like: "like", ilike: "ilike" } as const)[predicate.operator as "equals" | "lt" | "lte" | "gt" | "gte" | "like" | "ilike"];
     if (predicate.operator === "is") return `${expression} is null`;
     if (predicate.operator === "isNot") return `${expression} is not null`;
-    if (predicate.operator === "in") return (predicate.value as readonly unknown[]).length === 0 ? "false" : `${expression} = any(${add(predicate.value)})`;
-    if (predicate.operator === "has") return `${add(predicate.value)} = any(${qualified(alias, column)})`;
+    if (predicate.operator === "in") return (value as readonly unknown[]).length === 0 ? "false" : `${expression} = any(${add(value)})`;
+    if (predicate.operator === "has") return `${add(value)} = any(${qualified(alias, column!)})`;
     if (sql === undefined) throw new Error(`Unsupported canonical operator ${predicate.operator}`);
-    return `${expression} ${sql} ${add(predicate.value)}`;
+    return `${expression} ${sql} ${add(value)}`;
+}
+
+function contractPredicateExpression(alias: string, field: string, path: readonly string[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): string {
+    if (field === "payload") return `${logicalQualified(alias, "payload")} #>> ${add(path)}::text[]`;
+    if (field === "contractId") return logicalQualified(alias, "contract_id");
+    if (field === "packageId") return contractPackageIdExpression(alias, profile);
+    if (field === "createdEventOffset") return contractTransactionFieldExpression(alias, "created", "offset", profile);
+    if (field === "createdAt") return contractTransactionFieldExpression(alias, "created", "effective_at", profile);
+    if (field === "archivedEventOffset") return contractTransactionFieldExpression(alias, "archived", "offset", profile);
+    if (field === "archivedAt") return contractTransactionFieldExpression(alias, "archived", "effective_at", profile);
+    if (field === "templateId" && path[0] === "packageId") return contractPackageIdExpression(alias, profile);
+    if (field === "templateId" && path[0] === "moduleName") return contractTypeFieldExpression(alias, "module_name", profile);
+    if (field === "templateId" && path[0] === "entityName") return contractTypeFieldExpression(alias, "entity_name", profile);
+    throw new Error(`${field} is not a field of contracts`);
+}
+
+function physicalEventType(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(physicalEventType);
+    if (value === "created") return "create";
+    if (value === "exercised") return "exercise";
+    return value;
 }
 
 function qualified(alias: string, column: string): string {
@@ -209,13 +262,39 @@ function logicalQualified(alias: string, column: string): string {
     return alias === "contract_row" ? `${alias}.${column}` : qualified(alias, column);
 }
 
-function compileCanonicalContractOrderBy(orderBy: readonly NormalizedOrder[]): string {
-    return compileCanonicalOrderBy(orderBy, { contractId: "contract_row.contract_id", createdEventOffset: "contract_row.created_at_ix", createdAt: "created_tx.effective_at", archivedEventOffset: "contract_row.archived_at_ix", archivedAt: "archived_tx.effective_at" });
+function contractPackageIdExpression(alias: string, profile: PqsSchemaProfileV1): string {
+    const packageId = alias === "contract_row"
+        ? "contract_package.id"
+        : `(select contract_package."id" from ${profile.relation("__packages")} contract_package where contract_package."pk" = ${qualified(alias, "package_pk")})`;
+    return `coalesce(${logicalQualified(alias, "creation_package_id")}, ${packageId})`;
 }
 
-function compileCanonicalPhysicalOrderBy(relation: PqsRelation, orderBy: readonly NormalizedOrder[], alias: string): string {
-    const fields = relation === "__contracts" ? { contractId: "contract_id", createdEventOffset: "created_at_ix", createdAt: "created_at_ix", archivedEventOffset: "archived_at_ix", archivedAt: "archived_at_ix" } : pqsRelationMetadata[relation].fields;
-    return compileCanonicalOrderBy(orderBy, Object.fromEntries(Object.entries(fields).map(([field, column]) => [field, `${alias}."${column}"`])));
+function contractTransactionFieldExpression(alias: string, lifecycle: "created" | "archived", field: "offset" | "effective_at", profile: PqsSchemaProfileV1): string {
+    if (alias === "contract_row") return `${lifecycle}_tx.${field}`;
+    const transaction = `${lifecycle}_transaction`;
+    return `(select ${transaction}."${field}" from ${profile.relation("__transactions")} ${transaction} where ${transaction}."ix" = ${qualified(alias, `${lifecycle}_at_ix`)})`;
+}
+
+function contractTypeFieldExpression(alias: string, field: "module_name" | "entity_name", profile: PqsSchemaProfileV1): string {
+    if (alias === "contract_row") return `contract_tpe_row.${field}`;
+    return `(select contract_type."${field}" from ${profile.relation("__contract_tpe")} contract_type where contract_type."pk" = ${qualified(alias, "tpe_pk")})`;
+}
+
+function compileCanonicalContractOrderBy(orderBy: readonly NormalizedOrder[]): string {
+    return compileCanonicalOrderBy(orderBy, { contractId: "contract_row.contract_id", createdEventOffset: "created_tx.offset", createdAt: "created_tx.effective_at", archivedEventOffset: "archived_tx.offset", archivedAt: "archived_tx.effective_at" });
+}
+
+function compileCanonicalPhysicalOrderBy(relation: PqsRelation, orderBy: readonly NormalizedOrder[], alias: string, profile: PqsSchemaProfileV1): string {
+    if (relation === "__contracts") {
+        return compileCanonicalOrderBy(orderBy, {
+            contractId: qualified(alias, "contract_id"),
+            createdEventOffset: contractTransactionFieldExpression(alias, "created", "offset", profile),
+            createdAt: contractTransactionFieldExpression(alias, "created", "effective_at", profile),
+            archivedEventOffset: contractTransactionFieldExpression(alias, "archived", "offset", profile),
+            archivedAt: contractTransactionFieldExpression(alias, "archived", "effective_at", profile),
+        });
+    }
+    return compileCanonicalOrderBy(orderBy, Object.fromEntries(Object.keys(pqsRelationMetadata[relation].fields).map((field) => [field, compileCanonicalPhysicalField(relation, field, alias)])));
 }
 
 function compileCanonicalOrderBy(orderBy: readonly NormalizedOrder[], fields: Readonly<Record<string, string>>): string {
@@ -237,8 +316,10 @@ export function compileContractGroupBy(
     const where = query.predicate === undefined ? undefined : compileCanonicalContractPredicate(query.predicate, add, profile, "contract_row");
     const fields: Readonly<Record<string, string>> = {
         contractId: "contract_row.contract_id",
-        createdEventOffset: "contract_row.created_at_ix",
-        archivedEventOffset: "contract_row.archived_at_ix",
+        createdEventOffset: "created_tx.offset",
+        createdAt: "created_tx.effective_at",
+        archivedEventOffset: "archived_tx.offset",
+        archivedAt: "archived_tx.effective_at",
     };
     const expressions: string[] = [];
     const select: string[] = [];
@@ -269,7 +350,7 @@ export function compileContractGroupBy(
         }
     }
     return {
-        text: `select ${select.join(", ")} from ${profile.relation("__contracts")} contract_row${unnestWitnesses ? " cross join lateral unnest(contract_row.witnesses) as witness(value)" : ""}${where === undefined ? "" : ` where ${where}`} group by ${expressions.join(", ")}`,
+        text: `select ${select.join(", ")} ${contractFrom(profile)}${unnestWitnesses ? " cross join lateral unnest(contract_row.witnesses) as witness(value)" : ""}${where === undefined ? "" : ` where ${where}`} group by ${expressions.join(", ")}`,
         values,
     };
 }
