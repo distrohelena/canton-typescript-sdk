@@ -49,6 +49,15 @@ describe("live multi-node runtime", () => {
         );
     });
 
+    it("allows slow local Canton operations to finish", () => {
+        const options = createLiveNodeClientOptions({
+            transportKind: TransportKind.grpc,
+            nodeIndex: 0,
+        });
+
+        expect(options.defaultRequestTimeoutMs).toBe(30_000);
+    });
+
     it("honors quaternary and quinary endpoint environment overrides", () => {
         process.env.SDK_TEST_QUATERNARY_LEDGER_ENDPOINT =
             "http://override-fourth-ledger:6901";
@@ -67,6 +76,7 @@ describe("live multi-node runtime", () => {
             transportKind: TransportKind.grpc,
             nodeIndex: 3,
         });
+
         const quinary = createLiveNodeClientOptions({
             transportKind: TransportKind.grpc,
             nodeIndex: 4,
@@ -107,6 +117,7 @@ describe("live multi-node runtime", () => {
         const environment = createLiveMultiNodeEnvironment({
             transportKind: TransportKind.grpc,
         });
+
         const clients = createLiveMultiNodeClients(environment);
 
         expect(clients.primary).toBe(fakeClients[0]);

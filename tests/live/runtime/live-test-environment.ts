@@ -9,7 +9,7 @@ import {
 } from "../fixtures/live-endpoint-defaults.js";
 import { createHmac, randomBytes } from "node:crypto";
 
-const defaultRequestTimeoutMs = 5_000;
+const defaultRequestTimeoutMs = 30_000;
 
 const grpcConnectTimeoutMs = 3_000;
 
