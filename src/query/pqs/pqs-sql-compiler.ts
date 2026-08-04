@@ -226,7 +226,7 @@ export function compileCanonicalPhysicalIncludes(source: PqsRelation, parentAlia
         const nestedFields = nested.flatMap((selection) => [quotePqsString(selection.key), selection.expression]);
         const object = `jsonb_build_object(${[...fields.flatMap(([field, expression]) => [`'${field}'`, expression]), ...json.flat(), ...nestedFields].join(", ")})`;
         const filter = include.predicate === undefined ? "true" : compileCanonicalPhysicalPredicate(edge.target, include.predicate, alias, profile, add);
-        const condition = `${alias}."${edge.targetColumn}" = ${parentAlias}."${edge.sourceColumn}" and (${filter})`;
+        const condition = `${compileCanonicalPhysicalEdgeJoin(source, include.edge, parentAlias, alias, profile)} and (${filter})`;
         const orderBy = compileCanonicalPhysicalOrderBy(edge.target, include.orderBy, alias, profile);
         const limit = include.cardinality === "many" ? ` limit ${add(include.take)}` : "";
         const offset = include.cardinality === "many" && include.skip > 0 ? ` offset ${add(include.skip)}` : "";
@@ -268,8 +268,7 @@ function compileCanonicalPredicate(relation: PqsRelation, predicate: QueryPredic
         const edge = pqsRelationEdges[relation]?.[predicate.edge];
         if (edge === undefined) throw new Error(`Invalid canonical edge ${predicate.edge}`);
         const relatedAlias = `"${predicate.edge}"`;
-        const parent = alias.length === 0 ? `${profile.relation(relation)}."${edge.sourceColumn}"` : qualified(alias, edge.sourceColumn);
-        const join = `${relatedAlias}."${edge.targetColumn}" = ${parent}`;
+        const join = compileCanonicalPhysicalEdgeJoin(relation, predicate.edge, alias, relatedAlias, profile);
         const condition = compileCanonicalPredicate(edge.target, predicate.predicate, relatedAlias, profile, add, edge.target === "__contracts");
         const base = `select 1 from ${profile.relation(edge.target)} ${relatedAlias} where ${join} and (${condition})`;
         return predicate.quantifier === "one" || predicate.quantifier === "some" ? `exists (${base})` : predicate.quantifier === "none" ? `not exists (${base})` : `not exists (select 1 from ${profile.relation(edge.target)} ${relatedAlias} where ${join} and not (${condition}))`;
@@ -295,6 +294,26 @@ function compileCanonicalPredicate(relation: PqsRelation, predicate: QueryPredic
     if (predicate.operator === "has") return `${add(value)} = any(${qualified(alias, column!)})`;
     if (sql === undefined) throw new Error(`Unsupported canonical operator ${predicate.operator}`);
     return `${expression} ${sql} ${add(value)}`;
+}
+
+function compileCanonicalPhysicalEdgeJoin(source: PqsRelation, edgeName: string, parentAlias: string, targetAlias: string, profile: PqsSchemaProfileV1): string {
+    const edge = pqsRelationEdges[source]?.[edgeName];
+    if (edge === undefined) throw new Error(`Invalid canonical edge ${edgeName}`);
+
+    if (source === "__contract_tpe" && edgeName === "contracts") {
+        return `${contractTypePublicKeyExpression(profile, qualified(targetAlias, "tpe_pk"))} = ${compileCanonicalPhysicalField(source, "pk", parentAlias, profile)}`;
+    }
+    if (source === "__contract_tpe" && edgeName === "exercises") {
+        return `${compileCanonicalPhysicalField("__exercises", "contractTpePk", targetAlias, profile)} = ${compileCanonicalPhysicalField(source, "pk", parentAlias, profile)}`;
+    }
+    if (source === "__exercise_tpe" && edgeName === "exercises") {
+        return `${compileCanonicalPhysicalField("__exercises", "tpePk", targetAlias, profile)} = ${compileCanonicalPhysicalField(source, "pk", parentAlias, profile)}`;
+    }
+
+    const parent = parentAlias.length === 0
+        ? `${profile.relation(source)}."${edge.sourceColumn}"`
+        : qualified(parentAlias, edge.sourceColumn);
+    return `${targetAlias}."${edge.targetColumn}" = ${parent}`;
 }
 
 function contractPredicateExpression(alias: string, field: string, path: readonly string[], profile: PqsSchemaProfileV1, add: (value: unknown) => string): string {

@@ -25,7 +25,38 @@ describe("PQS relational SQL compiler", () => {
             include: { exercises: { take: 1, select: { packagePk: true } } },
         }), new PqsSchemaProfileV1());
 
-        expect(nested.text).toMatch(/'packagePk', \(select trunc\(power\(256::numeric[\s\S]*\)::text/);
+        expect(nested.text).toMatch(/'packagePk', \(select \(select case when octet_length[\s\S]*\)::text/);
+    });
+
+    it("deduplicates upgrade-equivalent root types by public key while reverse includes span physical rows", () => {
+        const profile = new PqsSchemaProfileV1();
+        const contractTypes = compilePqsRelationFindMany("__contract_tpe", normalizeFindMany("contractTypes", {
+            where: { pk: { equals: canonicalPublicNumericIdentity("logical-contract-type") } },
+            orderBy: [{ packageName: "asc" }],
+            include: { contracts: { take: 10, select: { contractId: true } } },
+        }), profile);
+        const exerciseTypes = compilePqsRelationFindMany("__exercise_tpe", normalizeFindMany("exerciseTypes", {
+            include: { exercises: { take: 10, select: { contractId: true } } },
+        }), profile);
+
+        expect(contractTypes.text).toContain('distinct on (');
+        expect(contractTypes.text).toContain('from "public"."__contract_tpe" "physical_type"');
+        expect(contractTypes.text).toContain('order by ');
+        expect(contractTypes.text).toContain('"physical_type"."pk" asc');
+        expect(contractTypes.text).toContain('order by "package_name" asc');
+        expect(contractTypes.text).toContain('"canonical_contract_type"."pk" = "contracts"."tpe_pk"');
+        expect(contractTypes.values).toEqual([canonicalPublicNumericIdentity("logical-contract-type"), 10]);
+        expect(exerciseTypes.text).toContain('from "public"."__exercise_tpe" "physical_type"');
+        expect(exerciseTypes.text).toContain('"canonical_exercise_type"."pk" = "exercises"."tpe_pk"');
+        expect(exerciseTypes.values).toEqual([10]);
+
+        const count = relationalCompiler.compilePqsRelationCount("__contract_tpe", normalizeCount("contractTypes", { where: { contracts: { some: { contractId: { equals: "C1" } } } } }), profile);
+        const aggregate = relationalCompiler.compilePqsRelationAggregate("__exercise_tpe", normalizeAggregate("exerciseTypes", { count: true }), profile);
+        const group = compilePqsRelationGroupBy("__contract_tpe", normalizeGroupBy("contractTypes", { by: ["packageName"], aggregate: { count: true } }), profile);
+
+        for (const query of [count, aggregate, group]) expect(query.text).toContain('with "logical_type_root" as (select distinct on (');
+        expect(count.text).toContain('"canonical_contract_type"."pk" = "contracts"."tpe_pk"');
+        expect(count.values).toEqual(["C1"]);
     });
     it("quotes hostile JSON projection aliases in root, nested, and group SQL", () => {
         const rootName = 'root"; drop table x; --';

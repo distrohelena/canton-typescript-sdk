@@ -560,6 +560,18 @@ describe("PQS query client", () => {
         expect(query).toHaveBeenCalledTimes(1);
     });
 
+    it("finds one deterministic logical type by its public key", async () => {
+        const query = vi.fn().mockResolvedValue({ rows: [{ pk: "101", packageName: "app" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1());
+
+        await expect(client.contractTypes.findUnique({ where: { pk: "101" }, select: { pk: true, packageName: true } })).resolves.toEqual({ pk: "101", packageName: "app" });
+        expect(query).toHaveBeenCalledTimes(1);
+        expect(query.mock.calls[0][0]).toContain('with "logical_type_root" as (select distinct on (');
+        expect(query.mock.calls[0][0]).toContain('"physical_type"."pk" asc');
+        expect(query.mock.calls[0][0]).toContain('limit $2');
+        expect(query.mock.calls[0][1]).toEqual(["101", 1]);
+    });
+
     it("supports profile-controlled numeric aggregates", async () => {
         const query = vi.fn().mockResolvedValue({ rows: [{ count: "2", min_pk: "1", sum_pk: "3" }] });
 

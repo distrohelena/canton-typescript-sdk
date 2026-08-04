@@ -23,6 +23,7 @@ export function compilePqsRelationFindMany(
 ): CompiledPqsRelationFindManyQuery {
     assertCanonicalPhysicalFindMany(relation, query);
     const metadata = pqsRelationMetadata[relation];
+    const source = logicalTypeRootSource(relation, profile);
     const values: unknown[] = [];
     const add = (value: unknown) => {
         values.push(value);
@@ -34,12 +35,12 @@ export function compilePqsRelationFindMany(
     const orderBy = compileCanonicalOrderBy(relation, metadata, query.orderBy, profile);
     const limit = query.take === undefined ? "" : ` limit ${add(query.take)}`;
     const offset = query.skip === 0 ? "" : ` offset ${add(query.skip)}`;
-    const included = compileCanonicalPhysicalIncludes(relation, profile.relation(relation), query.includes, profile, add);
+    const included = compileCanonicalPhysicalIncludes(relation, source.reference, query.includes, profile, add);
     const json = compileCanonicalJsonSelections(relation, query.select, profile, add);
     const shape = compilePqsResultShape(relation, "many", query.select, query.includes);
 
     return {
-        text: `select ${[...fields.map(([field]) => `${compileCanonicalPhysicalField(relation, field, "", profile)} as "${field}"`), ...json, ...included.map((include) => include.selection)].join(", ")} from ${profile.relation(relation)}${where}${orderBy}${limit}${offset}`,
+        text: `${source.withClause}select ${[...fields.map(([field]) => `${compileCanonicalPhysicalField(relation, field, "", profile)} as "${field}"`), ...json, ...included.map((include) => include.selection)].join(", ")} from ${source.relation}${where}${orderBy}${limit}${offset}`,
         values,
         resultShape: shape,
     };
@@ -51,6 +52,7 @@ export function compilePqsRelationCount(
     profile: PqsSchemaProfileV1,
 ): CompiledPqsRelationQuery {
     assertCanonicalPhysicalQuery(relation, query, "count");
+    const source = logicalTypeRootSource(relation, profile);
     const values: unknown[] = [];
     const add = (value: unknown) => {
         values.push(value);
@@ -58,7 +60,7 @@ export function compilePqsRelationCount(
     };
     const predicate = query.predicate === undefined ? "" : ` where ${compileCanonicalPhysicalPredicate(relation, query.predicate, "", profile, add)}`;
 
-    return { text: `select count(*)::text as count from ${profile.relation(relation)}${predicate}`, values };
+    return { text: `${source.withClause}select count(*)::text as count from ${source.relation}${predicate}`, values };
 }
 
 export function compilePqsRelationAggregate(
@@ -68,6 +70,7 @@ export function compilePqsRelationAggregate(
 ): CompiledPqsRelationQuery {
     assertCanonicalPhysicalQuery(relation, query, "aggregate");
     const metadata = pqsRelationMetadata[relation];
+    const source = logicalTypeRootSource(relation, profile);
     const values: unknown[] = [];
     const add = (value: unknown) => {
         values.push(value);
@@ -84,7 +87,7 @@ export function compilePqsRelationAggregate(
     if (selected.length === 0) throw new Error("aggregate must request at least one result");
     const predicate = query.predicate === undefined ? "" : ` where ${compileCanonicalPhysicalPredicate(relation, query.predicate, "", profile, add)}`;
 
-    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)}${predicate}`, values };
+    return { text: `${source.withClause}select ${selected.join(", ")} from ${source.relation}${predicate}`, values };
 }
 
 export function compilePqsRelationGroupBy(
@@ -95,6 +98,7 @@ export function compilePqsRelationGroupBy(
     assertCanonicalPhysicalQuery(relation, query, "groupBy");
     if (query.by.length === 0 || (!query.aggregates.count && query.aggregates.min.length === 0 && query.aggregates.max.length === 0 && query.aggregates.sum.length === 0)) throw new Error("groupBy requires a key and aggregate");
     const metadata = pqsRelationMetadata[relation];
+    const source = logicalTypeRootSource(relation, profile);
     const root = relation === "__events" ? "event" : "root";
     const joins: string[] = [];
     const expressions: string[] = [];
@@ -145,7 +149,22 @@ export function compilePqsRelationGroupBy(
         field(relation, metadata, name);
         selected.push(`${operation}(${compileCanonicalPhysicalField(relation, name, `"${root}"`, profile)})::text as "${operation}_${name}"`);
     }
-    return { text: `select ${selected.join(", ")} from ${profile.relation(relation)} "${root}"${joins.length === 0 ? "" : ` ${joins.join(" ")}`}${predicate} group by ${expressions.join(", ")}`, values };
+    return { text: `${source.withClause}select ${selected.join(", ")} from ${source.relation} "${root}"${joins.length === 0 ? "" : ` ${joins.join(" ")}`}${predicate} group by ${expressions.join(", ")}`, values };
+}
+
+function logicalTypeRootSource(relation: PqsRelation, profile: PqsSchemaProfileV1): { readonly withClause: string; readonly relation: string; readonly reference: string } {
+    if (relation !== "__contract_tpe" && relation !== "__exercise_tpe") {
+        const physical = profile.relation(relation);
+        return { withClause: "", relation: physical, reference: physical };
+    }
+
+    const publicKey = compileCanonicalPhysicalField(relation, "pk", '"physical_type"', profile);
+    const logicalRelation = '"logical_type_root"';
+    return {
+        withClause: `with ${logicalRelation} as (select distinct on (${publicKey}) "physical_type".* from ${profile.relation(relation)} "physical_type" order by ${publicKey}, "physical_type"."pk" asc) `,
+        relation: logicalRelation,
+        reference: logicalRelation,
+    };
 }
 
 function selectedCanonicalFields(relation: PqsRelation, metadata: PqsRelationMetadata, selected: readonly string[] | undefined, allowEmpty = false): readonly (readonly [string, string])[] {
