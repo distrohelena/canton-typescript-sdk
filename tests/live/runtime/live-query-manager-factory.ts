@@ -9,6 +9,7 @@ import {
     ExerciseCommand,
     ListUserRightsRequest,
     QuerySource,
+    RequestOptions,
     SubmitCommandsRequest,
     TransportKind,
     UserRightKind,
@@ -359,6 +360,7 @@ export async function createLiveIouAsync(
                 }),
             })],
         }),
+        new RequestOptions({ timeoutMs: 30_000 }),
     );
 
     for (const event of response.events) {
@@ -389,6 +391,7 @@ export async function archiveLiveIouAsync(
                 choiceArgument: {},
             })],
         }),
+        new RequestOptions({ timeoutMs: 30_000 }),
     );
 
     const transaction = response.transaction;

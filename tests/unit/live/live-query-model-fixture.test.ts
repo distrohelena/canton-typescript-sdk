@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
     ListUserRightsRequest,
+    RequestOptions,
     SubmitCommandsRequest,
     UserRightKind,
     type CantonManager,
@@ -83,14 +84,17 @@ describe("live query DAML fixture", () => {
             "package-id",
         )).resolves.toBe("157");
 
-        expect(submit).toHaveBeenCalledWith(expect.objectContaining({
-            applicationId: "sdk-live-query-parity",
-            actAs: ["Visible::1220"],
-            commands: [expect.objectContaining({
-                contractId: "00-archived-iou",
-                choice: "Archive",
-            })],
-        }));
+        expect(submit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                applicationId: "sdk-live-query-parity",
+                actAs: ["Visible::1220"],
+                commands: [expect.objectContaining({
+                    contractId: "00-archived-iou",
+                    choice: "Archive",
+                })],
+            }),
+            new RequestOptions({ timeoutMs: 30_000 }),
+        );
     });
 
     it.each([
@@ -233,6 +237,11 @@ describe("live query DAML fixture", () => {
         const request = submit.mock.calls[0]?.[0] as SubmitCommandsRequest;
 
         const mapped = mapGrpcSubmitCommandsForTransactionRequest(request);
+
+        expect(submit).toHaveBeenCalledWith(
+            request,
+            new RequestOptions({ timeoutMs: 30_000 }),
+        );
 
         expect(mapped.commands.commands[0]).toMatchObject({
             command: {
