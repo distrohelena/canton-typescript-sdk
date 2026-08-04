@@ -1,11 +1,15 @@
 import { readFile } from "node:fs/promises";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import type { CantonManager } from "../../../src/index.js";
+import { SubmitCommandsRequest } from "../../../src/index.js";
 import {
     DamlLfBuiltinType,
     DamlLfNodeKind,
     DamlLfPackageLoader,
     DarArchiveLoader,
 } from "../../../src/daml-lf/index.js";
+import { mapGrpcSubmitCommandsForTransactionRequest } from "../../../src/transports/grpc/mappers/commands-mapper.js";
+import { createLiveIouAsync } from "../../live/runtime/live-query-manager-factory.js";
 import { getLiveQueryModelFixtureAsync } from "../../live/runtime/live-query-model-fixture.js";
 
 const queryModelDarUrl = new URL(
@@ -14,6 +18,70 @@ const queryModelDarUrl = new URL(
 );
 
 describe("live query DAML fixture", () => {
+    it("maps the Iou helper payload as Party, Party, and Numeric", async () => {
+        const submit = vi.fn().mockResolvedValue({
+            events: [{ created: { contractId: "00-query-iou" } }],
+        });
+
+        const manager = {
+            grpc: {
+                commandService: {
+                    submitAndWaitForTransactionAsync: submit,
+                },
+            },
+        } as unknown as CantonManager;
+
+        await expect(createLiveIouAsync(
+            manager,
+            "Issuer::1220",
+            "Owner::1220",
+            "package-id",
+        )).resolves.toBe("00-query-iou");
+
+        const request = submit.mock.calls[0]?.[0] as SubmitCommandsRequest;
+
+        const mapped = mapGrpcSubmitCommandsForTransactionRequest(request);
+
+        expect(mapped.commands.commands[0]).toMatchObject({
+            command: {
+                oneofKind: "create",
+                create: {
+                    createArguments: {
+                        fields: [
+                            {
+                                label: "issuer",
+                                value: {
+                                    sum: {
+                                        oneofKind: "party",
+                                        party: "Issuer::1220",
+                                    },
+                                },
+                            },
+                            {
+                                label: "owner",
+                                value: {
+                                    sum: {
+                                        oneofKind: "party",
+                                        party: "Owner::1220",
+                                    },
+                                },
+                            },
+                            {
+                                label: "amount",
+                                value: {
+                                    sum: {
+                                        oneofKind: "numeric",
+                                        numeric: "1.0",
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+        });
+    });
+
     it("resolves the exact main package id from the committed DAR", async () => {
         const fixture = await getLiveQueryModelFixtureAsync();
 

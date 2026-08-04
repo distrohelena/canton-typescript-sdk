@@ -3,6 +3,8 @@ import {
     CantonManager,
     CantonClientOptions,
     CreateCommand,
+    DamlNumeric,
+    DamlParty,
     DamlRecord,
     ExerciseCommand,
     QuerySource,
@@ -293,7 +295,11 @@ export async function createLiveIouAsync(
             actAs: [issuer],
             commands: [new CreateCommand({
                 templateId: { ...iouTemplate, packageId },
-                createArguments: new DamlRecord({ issuer, owner, amount: 1 }),
+                createArguments: new DamlRecord({
+                    issuer: new DamlParty(issuer),
+                    owner: new DamlParty(owner),
+                    amount: new DamlNumeric("1.0"),
+                }),
             })],
         }),
     );
