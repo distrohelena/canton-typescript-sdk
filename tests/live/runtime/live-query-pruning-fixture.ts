@@ -14,7 +14,6 @@ import {
     buildGrpcCallOptionsAsync,
     createGrpcChannelCredentials,
 } from "../../../src/transports/grpc/grpc-call-options-factory.js";
-import { getLiveSeededContextAsync } from "./live-seeded-context.js";
 import {
     createLiveNodeTestEnvironment,
 } from "./live-test-environment.js";
@@ -22,7 +21,7 @@ import {
     createLiveIouAsync,
     grantLedgerUserActAsAsync,
 } from "./live-query-manager-factory.js";
-import { resolveLiveIouPackageIdAsync } from "../fuzz/live-fuzz-fixture.js";
+import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
 
 const pruningPollTimeoutMs = 30_000;
 
@@ -60,7 +59,7 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
         secondary.options,
     ]);
 
-    const seeded = await getLiveSeededContextAsync();
+    const queryModel = await getLiveQueryModelFixtureAsync();
 
     const manager = new CantonManager({
         grpc: environment.options,
@@ -69,10 +68,10 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
 
     try {
         await manager.grpc.packageManagementService.uploadDarFileAsync(
-            UploadDarFileRequest.create({ darFile: seeded.uploadedDarBytes }),
+            UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
         );
 
-        const packageId = await resolveLiveIouPackageIdAsync(manager.grpc);
+        const packageId = queryModel.packageId;
 
         const partyHint = `sdk-query-pruning-${environment.runId}`;
 
@@ -94,11 +93,7 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
                 applicationId: "sdk-live-query-pruning",
                 actAs: [party],
                 commands: [new ExerciseCommand({
-                    templateId: {
-                        packageId,
-                        moduleName: "Main",
-                        entityName: "Iou",
-                    },
+                    templateId: queryModel.templateId,
                     contractId,
                     choice: "Archive",
                     choiceArgument: {},
@@ -113,11 +108,7 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
 
         return {
             manager,
-            templateId: {
-                packageId,
-                moduleName: "Main",
-                entityName: "Iou",
-            },
+            templateId: queryModel.templateId,
             disposeAsync: () => manager.disposeAsync(),
         };
     } catch (error) {

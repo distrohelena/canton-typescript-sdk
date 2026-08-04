@@ -10,13 +10,14 @@ import {
     TransportKind,
     type PqsQueryOptions,
 } from "../../../src/index.js";
+import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { GrantUserRightsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { getLiveSeededContextAsync } from "./live-seeded-context.js";
-import { resolveLiveIouPackageIdAsync } from "../fuzz/live-fuzz-fixture.js";
 import {
     LiveTestEnvironment,
     createLiveTestEnvironment,
 } from "./live-test-environment.js";
+import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
 
 const pqsReadyTimeoutMs = 30_000;
 
@@ -107,13 +108,19 @@ export function createDefaultLiveQueryManagerOptions(): {
 export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParityFixture> {
     const seeded = await getLiveSeededContextAsync();
 
+    const queryModel = await getLiveQueryModelFixtureAsync();
+
     const client = new CantonManager({
         grpc: seeded.grpcEnvironment.options,
         querySource: QuerySource.grpc,
     });
 
     try {
-        const packageId = await resolveLiveIouPackageIdAsync(client.grpc);
+        await client.grpc.packageManagementService.uploadDarFileAsync(
+            UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
+        );
+
+        const packageId = queryModel.packageId;
 
         const partyHint = `sdk-query-parity-${seeded.runId}`;
 
@@ -147,7 +154,7 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
         return {
             environment: seeded.grpcEnvironment,
             packageId,
-            templateId: { ...iouTemplate, packageId },
+            templateId: queryModel.templateId,
             party,
             activeContractId,
             archivedContractId,
