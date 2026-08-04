@@ -37,10 +37,12 @@ known target creation) for `contractTpePk`, and continue using the concrete
 template package for `packagePk`. Validate an interface identifier when it is
 present.
 
-Referenced-package loading includes every package used by a type identity, in
-addition to representative creation packages. This loads both the concrete
-template package and the interface package for inherited exercises while still
-excluding creation-only provenance when a representative package exists.
+Referenced-package loading combines three explicit sources: representative
+creation packages, each exercise row's concrete package identity, and
+choice-bearing type-identity packages. The second source loads the exercised
+event's concrete template package and the third loads its interface package.
+Contract type identities are not included wholesale, so a creation package is
+still excluded when its distinct representative package is available.
 
 ## Data Flow
 
@@ -64,7 +66,8 @@ Regression coverage will prove:
 2. root type queries return an unobserved interface and its choice;
 3. inherited exercise mapping uses the interface for type identity while
    retaining concrete contract/package semantics;
-4. referenced package IDs contain both concrete and interface packages;
+4. referenced package IDs contain representative, concrete exercised-template,
+   and interface packages while excluding distinct creation-only provenance;
 5. the completed dataset links all three edges to the intended rows.
 
 Each behavior is run RED before production changes, then focused query and LF
