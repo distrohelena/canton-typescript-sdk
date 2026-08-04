@@ -17,7 +17,9 @@ import {
     CreatedEvent,
     Event,
 } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import { Transaction } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction.js";
 import {
+    archiveLiveIouAsync,
     createLiveIouAsync,
     resolveLiveQueryParityPartyAsync,
 } from "../../live/runtime/live-query-manager-factory.js";
@@ -61,6 +63,63 @@ afterEach(() => {
 });
 
 describe("live query DAML fixture", () => {
+    it("returns the exact offset from the generated Archive transaction", async () => {
+        const submit = vi.fn().mockResolvedValue({
+            transaction: Transaction.create({ offset: "157" }),
+        });
+
+        const manager = {
+            grpc: {
+                commandService: {
+                    submitAndWaitForTransactionAsync: submit,
+                },
+            },
+        } as unknown as CantonManager;
+
+        await expect(archiveLiveIouAsync(
+            manager,
+            "Visible::1220",
+            "00-archived-iou",
+            "package-id",
+        )).resolves.toBe("157");
+
+        expect(submit).toHaveBeenCalledWith(expect.objectContaining({
+            applicationId: "sdk-live-query-parity",
+            actAs: ["Visible::1220"],
+            commands: [expect.objectContaining({
+                contractId: "00-archived-iou",
+                choice: "Archive",
+            })],
+        }));
+    });
+
+    it.each([
+        ["missing transaction", undefined],
+        ["empty offset", Transaction.create({ offset: "" })],
+        ["zero offset", Transaction.create({ offset: "0" })],
+        ["signed offset", Transaction.create({ offset: "+157" })],
+        ["nonnumeric offset", Transaction.create({ offset: "offset-157" })],
+    ])("rejects an Archive response with %s", async (_case, transaction) => {
+        const manager = {
+            grpc: {
+                commandService: {
+                    submitAndWaitForTransactionAsync: vi.fn().mockResolvedValue({
+                        transaction,
+                    }),
+                },
+            },
+        } as unknown as CantonManager;
+
+        await expect(archiveLiveIouAsync(
+            manager,
+            "Visible::1220",
+            "00-archived-iou",
+            "package-id",
+        )).rejects.toThrow(
+            "Live query parity Archive did not return a positive transaction offset.",
+        );
+    });
+
     it("uses an explicit PQS-visible party without reading rights or allocating", async () => {
         const fixture = createPartyResolutionManager([]);
 

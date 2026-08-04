@@ -139,20 +139,12 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
 
         const archivedContractId = await createLiveIouAsync(client, party, party, packageId);
 
-        await client.grpc.commandService.submitAndWaitAsync(
-            new SubmitCommandsRequest({
-                applicationId: "sdk-live-query-parity",
-                actAs: [party],
-                commands: [new ExerciseCommand({
-                    templateId: { ...iouTemplate, packageId },
-                    contractId: archivedContractId,
-                    choice: "Archive",
-                    choiceArgument: {},
-                })],
-            }),
+        const archivedAtOffset = await archiveLiveIouAsync(
+            client,
+            party,
+            archivedContractId,
+            packageId,
         );
-
-        const archiveEnd = await client.grpc.stateService.getLedgerEndAsync({});
 
         return {
             environment: seeded.grpcEnvironment,
@@ -161,7 +153,7 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
             party,
             activeContractId,
             archivedContractId,
-            archivedAtOffset: archiveEnd.offset,
+            archivedAtOffset,
         };
     } finally {
         await client.disposeAsync();
@@ -378,6 +370,40 @@ export async function createLiveIouAsync(
     }
 
     throw new Error("Live query parity Iou creation did not return a created contract id.");
+}
+
+export async function archiveLiveIouAsync(
+    manager: CantonManager,
+    party: string,
+    contractId: string,
+    packageId: string,
+): Promise<string> {
+    const response = await manager.grpc.commandService.submitAndWaitForTransactionAsync(
+        new SubmitCommandsRequest({
+            applicationId: "sdk-live-query-parity",
+            actAs: [party],
+            commands: [new ExerciseCommand({
+                templateId: { ...iouTemplate, packageId },
+                contractId,
+                choice: "Archive",
+                choiceArgument: {},
+            })],
+        }),
+    );
+
+    const transaction = response.transaction;
+
+    const offset = typeof transaction === "object" && transaction !== null
+        ? (transaction as Record<string, unknown>).offset
+        : undefined;
+
+    if (typeof offset !== "string" || !/^[1-9]\d*$/u.test(offset)) {
+        throw new Error(
+            "Live query parity Archive did not return a positive transaction offset.",
+        );
+    }
+
+    return offset;
 }
 
 export async function grantLedgerUserActAsAsync(manager: CantonManager, party: string): Promise<void> {
