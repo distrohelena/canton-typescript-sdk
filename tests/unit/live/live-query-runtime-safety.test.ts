@@ -13,10 +13,12 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "https://127.0.0.1:3901/",
                 ledgerAdminEndpoint: "localhost:6901",
+                participantAdminEndpoint: "localhost:6902",
             },
             [{
                 ledgerEndpoint: "LOCALHOST:3901",
                 ledgerAdminEndpoint: "http://localhost:3902",
+                participantAdminEndpoint: "localhost:3903",
             }],
         )).toThrow(/dedicated ledger endpoint/i);
     });
@@ -26,10 +28,12 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "localhost:6901",
                 ledgerAdminEndpoint: "HTTP://LOCALHOST:3902/",
+                participantAdminEndpoint: "localhost:6902",
             },
             [{
                 ledgerEndpoint: "http://localhost:3902",
                 ledgerAdminEndpoint: "localhost:4902",
+                participantAdminEndpoint: "localhost:4903",
             }],
         )).toThrow(/dedicated ledger-admin endpoint/i);
     });
@@ -39,10 +43,12 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "localhost",
                 ledgerAdminEndpoint: "localhost:6902",
+                participantAdminEndpoint: "localhost:6903",
             },
             [{
                 ledgerEndpoint: "https://localhost",
                 ledgerAdminEndpoint: "https://localhost:3902",
+                participantAdminEndpoint: "https://localhost:3903",
             }],
         )).toThrow(/dedicated ledger endpoint/i);
     });
@@ -52,10 +58,12 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "localhost:8443",
                 ledgerAdminEndpoint: "localhost:6902",
+                participantAdminEndpoint: "localhost:6903",
             },
             [{
                 ledgerEndpoint: "https://localhost",
                 ledgerAdminEndpoint: "https://localhost:3902",
+                participantAdminEndpoint: "https://localhost:3903",
             }],
         )).not.toThrow();
     });
@@ -65,10 +73,12 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "localhost:6901",
                 ledgerAdminEndpoint: undefined,
+                participantAdminEndpoint: "localhost:6903",
             },
             [{
                 ledgerEndpoint: "localhost:3901",
                 ledgerAdminEndpoint: "localhost:3902",
+                participantAdminEndpoint: "localhost:3903",
             }],
         )).toThrow(/ledger-admin endpoint/i);
 
@@ -76,12 +86,29 @@ describe("live query runtime safety", () => {
             {
                 ledgerEndpoint: "localhost:6901",
                 ledgerAdminEndpoint: "localhost:6902",
+                participantAdminEndpoint: "localhost:6903",
             },
             [{
                 ledgerEndpoint: "localhost:3901",
                 ledgerAdminEndpoint: "localhost:3902",
+                participantAdminEndpoint: "localhost:3903",
             }],
         )).not.toThrow();
+    });
+
+    it("rejects a participant-admin endpoint that aliases a protected participant", () => {
+        expect(() => assertDedicatedPruningEndpoints(
+            {
+                ledgerEndpoint: "localhost:6901",
+                ledgerAdminEndpoint: "localhost:6902",
+                participantAdminEndpoint: "LOCALHOST:3903",
+            },
+            [{
+                ledgerEndpoint: "localhost:3901",
+                ledgerAdminEndpoint: "localhost:3902",
+                participantAdminEndpoint: "http://127.0.0.1:3903",
+            }],
+        )).toThrow(/dedicated participant-admin endpoint/i);
     });
 
     it("waits for fixture contracts, relations, metadata, and watermark", async () => {

@@ -1,15 +1,19 @@
 import { GrpcTransport as ProtobufGrpcTransport } from "@protobuf-ts/grpc-transport";
 import {
-    AllocatePartyRequest,
     CantonManager,
-    ExerciseCommand,
     QuerySource,
-    SubmitCommandsRequest,
     TransportKind,
 } from "../../../src/index.js";
 import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { ParticipantPruningServiceClient } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/participant_pruning_service.client.js";
 import { PruneRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/participant_pruning_service.js";
+import { PruningServiceClient as CantonPruningServiceClient } from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.client.js";
+import {
+    GetSafePruningOffsetRequest,
+    PruneRequest as CantonPruneRequest,
+    SafeToPruneCommitmentState,
+} from "../../../src/transports/grpc/generated/canton/com/digitalasset/canton/admin/participant/v30/pruning_service.js";
+import { Timestamp } from "../../../src/transports/grpc/generated/canton/google/protobuf/timestamp.js";
 import {
     buildGrpcCallOptionsAsync,
     createGrpcChannelCredentials,
@@ -17,15 +21,13 @@ import {
 import {
     createLiveNodeTestEnvironment,
 } from "./live-test-environment.js";
-import {
-    createLiveIouAsync,
-    grantLedgerUserActAsAsync,
-} from "./live-query-manager-factory.js";
 import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
 
 const pruningPollTimeoutMs = 30_000;
 
 const pruningPollIntervalMs = 500;
+
+const pruningRequestTimeoutMs = 120_000;
 
 export interface LiveQueryPruningFixture {
     readonly manager: CantonManager;
@@ -71,40 +73,12 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
             UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
         );
 
-        const packageId = queryModel.packageId;
+        const ledgerEnd = await manager.grpc.stateService.getLedgerEndAsync({});
 
-        const partyHint = `sdk-query-pruning-${environment.runId}`;
+        const safeOffset = await getSafePruningOffsetAsync(manager, ledgerEnd.offset);
 
-        const party = (await manager.grpc.partyManagementService.allocatePartyAsync(
-            new AllocatePartyRequest({ partyIdHint: partyHint, displayName: partyHint }),
-        )).party;
-
-        await grantLedgerUserActAsAsync(manager, party);
-
-        const contractId = await createLiveIouAsync(
-            manager,
-            party,
-            party,
-            packageId,
-        );
-
-        await manager.grpc.commandService.submitAndWaitAsync(
-            new SubmitCommandsRequest({
-                applicationId: "sdk-live-query-pruning",
-                actAs: [party],
-                commands: [new ExerciseCommand({
-                    templateId: queryModel.templateId,
-                    contractId,
-                    choice: "Archive",
-                    choiceArgument: {},
-                })],
-            }),
-        );
-
-        const archiveEnd = await manager.grpc.stateService.getLedgerEndAsync({});
-
-        await pruneThroughAsync(environment, archiveEnd.offset);
-        await waitForPruningAsync(manager, archiveEnd.offset);
+        await pruneThroughAsync(environment, safeOffset);
+        await waitForPruningAsync(manager, safeOffset);
 
         return {
             manager,
@@ -118,9 +92,41 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
     }
 }
 
+async function getSafePruningOffsetAsync(
+    manager: CantonManager,
+    ledgerEnd: string,
+): Promise<string> {
+    const response = await manager.grpc.pruningService.getSafePruningOffsetAsync(
+        GetSafePruningOffsetRequest.create({
+            beforeOrAt: Timestamp.create({
+                seconds: String(Math.floor(Date.now() / 1_000)),
+                nanos: 0,
+            }),
+            ledgerEnd,
+        }),
+    );
+
+    if (response.response.oneofKind !== "safePruningOffset") {
+        throw new Error(
+            "Live query pruning found no safe offset. Configure the dedicated participant with a shorter ACS journal garbage-collection delay or retain it long enough to produce a safe pruning point.",
+        );
+    }
+
+    const safeOffset = response.response.safePruningOffset;
+
+    if (BigInt(safeOffset) <= 0n || BigInt(safeOffset) >= BigInt(ledgerEnd)) {
+        throw new Error(
+            `Live query pruning requires a positive safe offset before ledger end ${ledgerEnd}; received ${safeOffset}.`,
+        );
+    }
+
+    return safeOffset;
+}
+
 interface PruningEndpointPair {
     readonly ledgerEndpoint?: string;
     readonly ledgerAdminEndpoint?: string;
+    readonly participantAdminEndpoint?: string;
 }
 
 export function assertDedicatedPruningEndpoints(
@@ -130,6 +136,7 @@ export function assertDedicatedPruningEndpoints(
     const protectedEndpoints = protectedParticipants.flatMap((participant) => [
         participant.ledgerEndpoint,
         participant.ledgerAdminEndpoint,
+        participant.participantAdminEndpoint,
     ]);
 
     assertDedicatedPruningEndpoint(
@@ -142,10 +149,15 @@ export function assertDedicatedPruningEndpoints(
         candidate.ledgerAdminEndpoint,
         protectedEndpoints,
     );
+    assertDedicatedPruningEndpoint(
+        "participant-admin",
+        candidate.participantAdminEndpoint,
+        protectedEndpoints,
+    );
 }
 
 function assertDedicatedPruningEndpoint(
-    kind: "ledger" | "ledger-admin",
+    kind: "ledger" | "ledger-admin" | "participant-admin",
     candidate: string | undefined,
     protectedEndpoints: readonly (string | undefined)[],
 ): void {
@@ -168,7 +180,10 @@ function assertDedicatedPruningEndpoint(
     }
 }
 
-function pruningEndpointError(kind: "ledger" | "ledger-admin", endpoint: string | undefined): Error {
+function pruningEndpointError(
+    kind: "ledger" | "ledger-admin" | "participant-admin",
+    endpoint: string | undefined,
+): Error {
     return new Error(
         `Live query pruning requires a dedicated ${kind} endpoint; received ${endpoint ?? "<missing>"}. Start the quickstart with EXTRA_PARTICIPANTS=1.`,
     );
@@ -206,14 +221,32 @@ async function pruneThroughAsync(
     environment: ReturnType<typeof createLiveNodeTestEnvironment>,
     pruneUpTo: string,
 ): Promise<void> {
-    const endpoint = environment.options.ledgerAdminEndpoint;
+    const ledgerEndpoint = environment.options.ledgerAdminEndpoint;
 
-    if (endpoint === undefined) {
+    if (ledgerEndpoint === undefined) {
         throw new Error("Live query pruning requires a ledger-admin endpoint.");
     }
 
-    const transport = new ProtobufGrpcTransport({
-        host: endpoint.includes("://") ? new URL(endpoint).host : endpoint,
+    const participantEndpoint = environment.options.participantAdminEndpoint;
+
+    if (participantEndpoint === undefined) {
+        throw new Error("Live query pruning requires a participant-admin endpoint.");
+    }
+
+    const ledgerTransport = new ProtobufGrpcTransport({
+        host: ledgerEndpoint.includes("://")
+            ? new URL(ledgerEndpoint).host
+            : ledgerEndpoint,
+        channelCredentials: createGrpcChannelCredentials(
+            environment.options.grpcChannelSecurity,
+            environment.options.grpcTlsRootCertificates,
+        ),
+    });
+
+    const participantTransport = new ProtobufGrpcTransport({
+        host: participantEndpoint.includes("://")
+            ? new URL(participantEndpoint).host
+            : participantEndpoint,
         channelCredentials: createGrpcChannelCredentials(
             environment.options.grpcChannelSecurity,
             environment.options.grpcTlsRootCertificates,
@@ -221,23 +254,43 @@ async function pruneThroughAsync(
     });
 
     try {
-        const pruning = new ParticipantPruningServiceClient(transport);
+        const cantonPruning = new CantonPruningServiceClient(participantTransport);
 
-        const options = await buildGrpcCallOptionsAsync(
-            environment.options.ledgerAdminAuthProvider,
+        const ledgerPruning = new ParticipantPruningServiceClient(ledgerTransport);
+
+        const participantOptions = await buildGrpcCallOptionsAsync(
+            environment.options.participantAdminAuthProvider,
             environment.options.defaultRequestTimeoutMs,
+            { timeoutMs: pruningRequestTimeoutMs },
         );
 
-        await pruning.prune(
+        const ledgerOptions = await buildGrpcCallOptionsAsync(
+            environment.options.ledgerAdminAuthProvider,
+            environment.options.defaultRequestTimeoutMs,
+            { timeoutMs: pruningRequestTimeoutMs },
+        );
+
+        // Use the same matching-commitments policy as the ledger API. Prune Canton
+        // stores first; the ledger API call then advances its own pruning watermark.
+        await cantonPruning.prune(
+            CantonPruneRequest.create({
+                pruneUpTo,
+                counterParticipantsCommitmentsState: SafeToPruneCommitmentState.MATCH,
+            }),
+            participantOptions,
+        ).response;
+
+        await ledgerPruning.prune(
             PruneRequest.create({
                 pruneUpTo,
                 submissionId: `sdk-query-pruning-${environment.runId}`,
                 pruneAllDivulgedContracts: true,
             }),
-            options,
+            ledgerOptions,
         ).response;
     } finally {
-        transport.close();
+        participantTransport.close();
+        ledgerTransport.close();
     }
 }
 
