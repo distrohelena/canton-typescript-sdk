@@ -285,7 +285,7 @@ export function createGrpcQueryDataset(
     const exercises = fragment.exercises.map((exercise) => ({
         ...exercise,
         tpePk: registryKeyForType(typeIdentityByOldPk.get(exercise.tpePk), registry),
-        contractTpePk: registryKeyForRepresentativeContract(exercise.contractId, creationByContract, registry),
+        contractTpePk: registryKeyForContractType(exercise.contractId, typeIdentityByOldPk.get(exercise.contractTpePk), creationByContract, registry),
         packagePk: registryKeyForPackage(packageIdByOldPk.get(exercise.packagePk), registry),
     }));
 
@@ -599,11 +599,15 @@ function registryKeyForType(identity: GrpcQueryTypeIdentity | undefined, registr
 
     return key;
 }
-function registryKeyForRepresentativeContract(contractId: string, creations: ReadonlyMap<string, GrpcQueryCreationIdentity>, registry: ReadonlyMap<string, string>): string {
+function registryKeyForContractType(contractId: string, orphanIdentity: GrpcQueryTypeIdentity | undefined, creations: ReadonlyMap<string, GrpcQueryCreationIdentity>, registry: ReadonlyMap<string, string>): string {
     const creation = creations.get(contractId);
 
     if (creation === undefined) {
-        throw new ValidationError(`gRPC query creation identity is missing ${contractId}`);
+        if (orphanIdentity === undefined || orphanIdentity.choice !== undefined) {
+            throw new ValidationError("gRPC query orphan contract type identity is invalid");
+        }
+
+        return registryKeyForType(orphanIdentity, registry);
     }
 
     const packageId = creation.representativePackageId ?? creation.creationPackageId;

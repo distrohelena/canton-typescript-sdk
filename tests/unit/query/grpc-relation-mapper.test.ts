@@ -104,6 +104,55 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(exerciseType.templateId).toEqual(orphanTemplate);
     });
 
+    it("assembles an orphan exercise with concrete type/package links and a null contract", () => {
+        const orphanTemplate = { packageId: "pkg-orphan", moduleName: "Main", entityName: "Asset" };
+
+        const orphan = ExercisedEvent.create({
+            ...exercise(),
+            contractId: "orphan-contract",
+            templateId: orphanTemplate,
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: orphan } })]),
+        ]);
+
+        const dataset = createGrpcQueryDataset(fragment, [packageMetadata(orphanTemplate.packageId, "orphan", true)], "20", "grpc://participant");
+
+        const exerciseRow = dataset.rows.exercises[0]!;
+
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "contractType")).toEqual([expect.objectContaining({ packageName: "orphan", entityName: "Asset" })]);
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "package")).toEqual([expect.objectContaining({ id: orphanTemplate.packageId, name: "orphan" })]);
+        expect(relatedQueryRows(dataset, "exercises", exerciseRow, "exerciseType")).toEqual([expect.objectContaining({ packageName: "orphan", choice: "Archive" })]);
+        expect(new InMemoryQueryEvaluator().execute(dataset, normalizeFindMany("exercises", {
+            where: { contractId: { equals: orphan.contractId } },
+            include: { contract: true },
+        }))).toEqual([expect.objectContaining({ contractId: orphan.contractId, contract: null })]);
+    });
+
+    it("rejects a choice identity as an orphan contract type fallback", () => {
+        const orphanTemplate = { packageId: "pkg-orphan", moduleName: "Main", entityName: "Asset" };
+
+        const orphan = ExercisedEvent.create({
+            ...exercise(),
+            contractId: "orphan-contract",
+            templateId: orphanTemplate,
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: orphan } })]),
+        ]);
+
+        const choiceIdentity = fragment.typeIdentities.find((identity) => identity.choice !== undefined)!;
+
+        const malformed = {
+            ...fragment,
+            exercises: fragment.exercises.map((row) => ({ ...row, contractTpePk: choiceIdentity.pk })),
+        };
+
+        expect(() => createGrpcQueryDataset(malformed, [packageMetadata(orphanTemplate.packageId, "orphan", true)], "20", "grpc://participant")).toThrow("gRPC query orphan contract type identity is invalid");
+    });
+
     it("materializes multiple consuming orphans independently", () => {
         const second = ExercisedEvent.create({
             ...exercise(),
