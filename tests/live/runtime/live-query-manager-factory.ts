@@ -7,9 +7,11 @@ import {
     DamlParty,
     DamlRecord,
     ExerciseCommand,
+    ListUserRightsRequest,
     QuerySource,
     SubmitCommandsRequest,
     TransportKind,
+    UserRightKind,
     type PqsQueryOptions,
 } from "../../../src/index.js";
 import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
@@ -54,6 +56,11 @@ export interface LiveQueryParityFixture {
 export interface LivePqsParityWaitOptions {
     readonly timeoutMs?: number;
     readonly intervalMs?: number;
+}
+
+export interface LiveQueryParityPartyOptions {
+    readonly visibleParty?: string;
+    readonly pqsLedgerUserId?: string;
 }
 
 type LivePqsParityReadinessFixture = Pick<
@@ -124,13 +131,7 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
 
         const packageId = queryModel.packageId;
 
-        const partyHint = `sdk-query-parity-${seeded.runId}`;
-
-        const allocated = await client.grpc.partyManagementService.allocatePartyAsync(
-            new AllocatePartyRequest({ partyIdHint: partyHint, displayName: partyHint }),
-        );
-
-        const party = allocated.party;
+        const party = await resolveLiveQueryParityPartyAsync(client, seeded.runId);
 
         await grantLedgerUserActAsAsync(client, party);
 
@@ -165,6 +166,70 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
     } finally {
         await client.disposeAsync();
     }
+}
+
+export async function resolveLiveQueryParityPartyAsync(
+    manager: CantonManager,
+    runId: string,
+    options: LiveQueryParityPartyOptions = {},
+): Promise<string> {
+    const visibleParty = (
+        options.visibleParty
+        ?? process.env.SDK_TEST_PQS_VISIBLE_PARTY
+        ?? ""
+    ).trim();
+
+    if (visibleParty.length > 0) {
+        return visibleParty;
+    }
+
+    const pqsLedgerUserId = (
+        options.pqsLedgerUserId
+        ?? process.env.SDK_TEST_PQS_LEDGER_USER_ID
+        ?? ""
+    ).trim() || "app-provider-pqs-user";
+
+    const response = await manager.grpc.userManagementService.listUserRightsAsync(
+        new ListUserRightsRequest({ userId: pqsLedgerUserId }),
+    );
+
+    if (response.rights.some((right) =>
+        right.type === UserRightKind.canReadAsAnyParty
+    )) {
+        const partyHint = `sdk-query-parity-${runId}`;
+
+        return (await manager.grpc.partyManagementService.allocatePartyAsync(
+            new AllocatePartyRequest({
+                partyIdHint: partyHint,
+                displayName: partyHint,
+            }),
+        )).party;
+    }
+
+    const listedParties = [...new Set(response.rights.flatMap((right) => {
+        if (
+            right.type !== UserRightKind.canReadAs
+            && right.type !== UserRightKind.canActAs
+        ) {
+            return [];
+        }
+
+        const party = right.party?.trim();
+
+        return party === undefined || party.length === 0 ? [] : [party];
+    }))];
+
+    if (listedParties.length === 1) {
+        return listedParties[0]!;
+    } else if (listedParties.length === 0) {
+        throw new Error(
+            `PQS ledger user '${pqsLedgerUserId}' has no usable party visibility; set SDK_TEST_PQS_VISIBLE_PARTY explicitly.`,
+        );
+    }
+
+    throw new Error(
+        `PQS ledger user '${pqsLedgerUserId}' has ambiguous party visibility (${listedParties.join(", ")}); set SDK_TEST_PQS_VISIBLE_PARTY explicitly.`,
+    );
 }
 
 export async function waitForLivePqsParityFixtureAsync(
