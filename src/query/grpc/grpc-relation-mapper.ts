@@ -144,9 +144,7 @@ export function mapGrpcQueryRelationFragment(
         } else {
             const target = contracts.get(item.event.contractId);
 
-            if (target === undefined) {
-                throw new ValidationError(`gRPC query exercise references unknown contract ${item.event.contractId}`);
-            } else if (!target.active) {
+            if (target !== undefined && !target.active) {
                 throw new ValidationError(`gRPC query exercise archives already archived contract ${item.event.contractId}`);
             }
 
@@ -154,7 +152,7 @@ export function mapGrpcQueryRelationFragment(
 
             exerciseRows.push({
                 tpePk: registry.get(exerciseIdentity(template, item.event.choice, item.event.consuming))!,
-                contractTpePk: registry.get(contractIdentity(target.templateId))!,
+                contractTpePk: registry.get(contractIdentity(target?.templateId ?? template))!,
                 exerciseEventPk: eventPkByIdentity.get(item.identity)!,
                 exercisedAtIx: item.transaction.offset,
                 contractId: item.event.contractId,
@@ -167,7 +165,7 @@ export function mapGrpcQueryRelationFragment(
                 witnesses: immutableStrings(item.event.witnessParties, "exercise witnesses", true),
             });
 
-            if (item.event.consuming) {
+            if (item.event.consuming && target !== undefined) {
                 contracts.set(target.contractId, { ...target, archivedEventOffset: item.transaction.offset, archivedAt: timestamp(item.transaction.effectiveAt, "transaction effective time", true), active: false });
             }
         }

@@ -40,9 +40,87 @@ describe("mapGrpcQueryRelationFragment", () => {
     });
 
     it("rejects contradictory lifecycle data instead of overwriting it", () => {
+        const secondArchive = ExercisedEvent.create({
+            ...exercise(),
+            offset: "30",
+            nodeId: 3,
+            lastDescendantNodeId: 3,
+        });
+
         expect(() => mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), transaction("11", [Event.create({ event: { oneofKind: "created", created: CreatedEvent.create({ ...create(), offset: "11" }) } })])])).toThrow(/duplicate contract/i);
-        expect(() => mapGrpcQueryRelationFragment([transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise() } })])])).toThrow(/unknown contract/i);
+        expect(() => mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise() } })]),
+            transaction("30", [Event.create({ event: { oneofKind: "exercised", exercised: secondArchive } })]),
+        ])).toThrow(/already archived contract/i);
         expect(() => mapGrpcQueryRelationFragment([Transaction.create({ ...transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]), paidTrafficCost: "9223372036854775808" })])).toThrow(/traffic cost/i);
+    });
+
+    it("materializes a consuming orphan exercise without fabricating contract lifecycle", () => {
+        const orphanTemplate = {
+            packageId: "pkg-orphan",
+            moduleName: "Projected",
+            entityName: "Asset",
+        };
+
+        const orphan = ExercisedEvent.create({
+            ...exercise(),
+            contractId: "orphan-contract",
+            templateId: orphanTemplate,
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: orphan } })]),
+        ]);
+
+        const contractType = fragment.typeIdentities.find((identity) =>
+            identity.choice === undefined
+            && identity.templateId.packageId === orphanTemplate.packageId
+        )!;
+
+        const exerciseType = fragment.typeIdentities.find((identity) =>
+            identity.choice === orphan.choice
+        )!;
+
+        expect(fragment.transactions).toHaveLength(1);
+        expect(fragment.events).toEqual([
+            expect.objectContaining({ txIx: "20", type: "exercised" }),
+        ]);
+        expect(fragment.exercises).toEqual([
+            expect.objectContaining({
+                contractId: "orphan-contract",
+                contractTpePk: contractType.pk,
+                tpePk: exerciseType.pk,
+                exercisedAtIx: "20",
+            }),
+        ]);
+        expect(fragment.contracts).toEqual([]);
+        expect(fragment.creationIdentities).toEqual([]);
+        expect(fragment.activeContractIdentities).toEqual([]);
+        expect(fragment.packageIdentities).toContainEqual(
+            expect.objectContaining({ id: orphanTemplate.packageId }),
+        );
+        expect(contractType.templateId).toEqual(orphanTemplate);
+        expect(exerciseType.templateId).toEqual(orphanTemplate);
+    });
+
+    it("materializes multiple consuming orphans independently", () => {
+        const second = ExercisedEvent.create({
+            ...exercise(),
+            offset: "30",
+            nodeId: 3,
+            lastDescendantNodeId: 3,
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise() } })]),
+            transaction("30", [Event.create({ event: { oneofKind: "exercised", exercised: second } })]),
+        ]);
+
+        expect(fragment.exercises).toHaveLength(2);
+        expect(fragment.contracts).toEqual([]);
+        expect(fragment.creationIdentities).toEqual([]);
+        expect(fragment.activeContractIdentities).toEqual([]);
     });
 
     it("prefers the current transaction hash and preserves detached immutable bytes", () => {
