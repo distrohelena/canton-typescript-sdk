@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
-import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
+import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, packageMetadataFromEvents, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
 import { relatedQueryRows } from "../../../src/query/canonical/query-dataset.js";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
 import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
@@ -753,7 +753,7 @@ describe("contractTypeMetadataFromCreations", () => {
         expect(contractTypeMetadataFromCreations(fragment.creationIdentities)).toEqual([{
             id: "pkg-id",
             name: "app",
-            version: "unresolved",
+            version: "unresolved-pkg-id",
             templates: [{
                 moduleName: "Main",
                 entityName: "Asset",
@@ -787,5 +787,74 @@ describe("contractTypeMetadataFromCreations", () => {
         const conflicting = fragment.creationIdentities.map((identity, index) => index === 0 ? { ...identity, packageName: "other" } : identity);
 
         expect(() => contractTypeMetadataFromCreations(conflicting)).toThrow("reports conflicting package names");
+    });
+});
+
+describe("packageMetadataFromEvents", () => {
+    it("derives template and direct-exercise choice metadata that resolves the full dataset", () => {
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: exercise() } })]),
+        ]);
+
+        const metadata = packageMetadataFromEvents(fragment)!;
+
+        expect(metadata).toEqual([expect.objectContaining({
+            id: "pkg-id",
+            name: "app",
+            version: "unresolved-pkg-id",
+            templates: [expect.objectContaining({
+                moduleName: "Main",
+                entityName: "Asset",
+                payloadType: "template",
+                templateFqn: "app:Main:Asset",
+                choices: [expect.objectContaining({ choice: "Archive", consuming: true, choiceFqn: "app:Main:Asset:Archive", aliases: ["app:Main:Asset:Archive", "Main:Asset:Archive", "Asset:Archive", "Archive"] })],
+            })],
+        })]);
+
+        const dataset = createGrpcQueryDataset(fragment, metadata, "20", "ledger");
+
+        expect(dataset.rows.exercises).toEqual([expect.objectContaining({
+            tpePk: canonicalPublicNumericIdentity("app:Main:Asset:Archive"),
+            contractTpePk: canonicalPublicNumericIdentityParts(["template", "app:Main:Asset"]),
+        })]);
+    });
+
+    it("returns undefined for a window containing an interface-exercised choice", () => {
+        const inherited = ExercisedEvent.create({
+            ...exercise(false),
+            interfaceId: { packageId: "pkg-interface", moduleName: "Api", entityName: "EventLog" },
+            choice: "EventLog_HoldingsChange",
+        });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: inherited } })]),
+        ]);
+
+        expect(packageMetadataFromEvents(fragment)).toBeUndefined();
+    });
+
+    it("derives distinct same-name packages for an upgraded exercise and resolves its keys", () => {
+        const upgraded = ExercisedEvent.create({ ...exercise(false), templateId: { packageId: "pkg-upgrade", moduleName: "Main", entityName: "Asset" } });
+
+        const fragment = mapGrpcQueryRelationFragment([
+            transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })]),
+            transaction("20", [Event.create({ event: { oneofKind: "exercised", exercised: upgraded } })]),
+        ]);
+
+        const metadata = packageMetadataFromEvents(fragment)!;
+
+        expect(metadata.map((pkg) => [pkg.id, pkg.name, pkg.version]).sort()).toEqual([
+            ["pkg-id", "app", "unresolved-pkg-id"],
+            ["pkg-upgrade", "app", "unresolved-pkg-upgrade"],
+        ]);
+
+        const dataset = createGrpcQueryDataset(fragment, metadata, "20", "ledger");
+
+        expect(dataset.rows.exercises).toEqual([expect.objectContaining({
+            tpePk: canonicalPublicNumericIdentity("app:Main:Asset:Archive"),
+            contractTpePk: canonicalPublicNumericIdentityParts(["template", "app:Main:Asset"]),
+        })]);
     });
 });

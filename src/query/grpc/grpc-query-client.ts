@@ -11,7 +11,7 @@ import { queryRelationEdges, queryRelations, type QueryRelation } from "../canon
 import type { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { GrpcContractCache } from "./grpc-contract-cache.js";
-import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
+import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, packageMetadataFromEvents, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { GrpcPackageRelationReader } from "./grpc-package-relation-reader.js";
 import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
 import { validDottedNameString } from "./grpc-query-value-mapper.js";
@@ -141,23 +141,34 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 
             const fragment = mapGrpcQueryRelationFragment(transactions);
 
-            const useCreationsOnlyMetadata = requiresPackageMetadata(closure)
-                && query.relation !== "packages" && query.relation !== "contractTypes" && query.relation !== "exerciseTypes"
-                && derivableFromCreationsOnly(closure);
+            // Catalog queries rooted at packages/contractTypes/exerciseTypes need every known package's
+            // full type inventory, which only the decoded archives provide.
+            const catalogRelation = query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes";
+
+            const closureNeedsExercises = closure.has("exercises") || closure.has("exerciseTypes");
+
+            // Non-catalog metadata can usually come straight from the fetched events: creations always name
+            // their own package, and direct exercises name their choice owner's. packageMetadataFromEvents
+            // returns undefined when the window holds an interface-exercised choice (owner package name is
+            // not on the event), and "packages" rows (version) have no event equivalent at all — both fall
+            // back to the archive decode.
+            const derivedMetadata = requiresPackageMetadata(closure) && !catalogRelation && !closure.has("packages")
+                ? closureNeedsExercises
+                    ? packageMetadataFromEvents(fragment)
+                    : contractTypeMetadataFromCreations(fragment.creationIdentities)
+                : undefined;
 
             const packageMetadata = !requiresPackageMetadata(closure)
                 ? []
-                : query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes"
+                : catalogRelation
                     ? await this.packages.readAllAsync()
-                    : useCreationsOnlyMetadata
-                        ? contractTypeMetadataFromCreations(fragment.creationIdentities)
-                        : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
+                    : derivedMetadata ?? await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
 
-            // The closure guarantees this query never reads "exercises" here, but the replayed window can still
-            // contain unrelated exercises (createGrpcQueryDataset always resolves package metadata for every
-            // exercise in the fragment). contractTypeMetadataFromCreations only knows about templates, so drop
-            // the exercises this query doesn't need instead of paying for their canonical keys.
-            const datasetFragment = useCreationsOnlyMetadata ? { ...fragment, exercises: [] } : fragment;
+            // When the closure never reads exercises, the replayed window's unrelated exercises are dropped:
+            // createGrpcQueryDataset resolves canonical keys for every exercise present, and creations-only
+            // metadata knows nothing about choices. When the closure does read exercises, the event-derived
+            // metadata covers them and they stay.
+            const datasetFragment = derivedMetadata !== undefined && !closureNeedsExercises ? { ...fragment, exercises: [] } : fragment;
 
             return packageMetadata.length === 0
                 ? fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger")
@@ -363,25 +374,6 @@ function isValidTemplateRef(ref: GrpcQueryTemplateRef): boolean {
     } catch {
         return false;
     }
-}
-
-/**
- * True when contractType metadata can be derived from the fetched creation events alone (see
- * contractTypeMetadataFromCreations), instead of decoding LF packages. Every CreatedEvent already carries its
- * own packageName, so this always holds whenever the query's closure needs only "contractTypes" (plus
- * "contracts"/"transactions"/"events", which carry no package linkage of their own). It does NOT extend to
- * "exercises"/"exerciseTypes": ExercisedEvent.packageName documents "the package name of the contract" — i.e.
- * the template side — so it is not a reliable source for the choice owner's package name when a choice was
- * exercised via an interface. "packages" is excluded because its own rows (e.g. version) have no event
- * equivalent at all.
- *
- * The caller is responsible for dropping any exercises the fetched fragment happens to contain before handing
- * it to createGrpcQueryDataset: a full-history fragment reflects the *entire* replayed window, not just what
- * this query's closure touches, and createGrpcQueryDataset unconditionally resolves package metadata for
- * every exercise present — this function only knows about templates, not choices.
- */
-function derivableFromCreationsOnly(closure: ReadonlySet<QueryRelation>): boolean {
-    return closure.has("contractTypes") && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages");
 }
 
 function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {

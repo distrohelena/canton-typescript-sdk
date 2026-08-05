@@ -14,6 +14,13 @@ export interface GrpcQueryTypeIdentity {
     readonly pk: string;
     readonly templateId: Readonly<{ packageId: string; moduleName: string; entityName: string }>;
     readonly packageId: string;
+    /**
+     * The owning package's name when the event states it reliably: always for contract types
+     * (CreatedEvent/ExercisedEvent packageName is the contract's package), and for choice types only on
+     * direct exercises — an interface-exercised choice is owned by the interface, whose package name the
+     * event does not carry.
+     */
+    readonly packageName?: string;
     readonly choice?: string;
     readonly consuming?: boolean;
 }
@@ -391,51 +398,127 @@ export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): r
     ])].sort());
 }
 
+interface DerivedPackage {
+    readonly name: string;
+    readonly templates: Map<string, { readonly moduleName: string; readonly entityName: string; readonly choices: Map<string, boolean> }>;
+}
+
 /**
  * Derives contractType metadata straight from already-fetched created-contract events instead of the
  * Package Service. Only valid where the caller has confirmed the query's relation closure is a subset of
  * {contracts, contractTypes} — every contract's own creation event already carries packageName directly,
- * so no archive decode is needed. "version" is a placeholder: this path is unreachable from any query that
- * can see the "packages" relation, so it is never observed.
+ * so no archive decode is needed. "version" is a per-package placeholder: this path is unreachable from
+ * any query that can see the "packages" relation, so it is never observed.
  */
 export function contractTypeMetadataFromCreations(creationIdentities: readonly GrpcQueryCreationIdentity[]): readonly GrpcPackageMetadata[] {
-    const packages = new Map<string, { name: string; templates: Map<string, GrpcPackageMetadata["templates"][number]> }>();
+    const packages = new Map<string, DerivedPackage>();
 
-    for (const creation of creationIdentities) {
-        const packageId = creation.representativePackageId ?? creation.creationPackageId;
+    addDerivedCreationEntries(packages, creationIdentities);
 
-        const { moduleName, entityName } = creation.templateId;
+    return finalizeDerivedPackages(packages);
+}
 
-        let pkg = packages.get(packageId);
+/**
+ * Extends the creations-only derivation to exercises: for a direct exercise the choice owner IS the
+ * exercised template, so the event's own packageName names the owner's package and choice/consuming come
+ * straight off the event. Returns undefined when the window contains an interface-exercised choice — its
+ * owner is the interface, whose package name the event does not carry, so only the decoded archive can
+ * produce its canonical choiceFqn. Unobserved choices are simply absent, which is complete for query plans
+ * that reach exerciseTypes only through observed exercises (never for exerciseTypes catalog queries).
+ */
+export function packageMetadataFromEvents(fragment: Pick<GrpcQueryRelationFragment, "creationIdentities" | "typeIdentities">): readonly GrpcPackageMetadata[] | undefined {
+    if (fragment.typeIdentities.some((identity) => identity.choice !== undefined && identity.packageName === undefined)) {
+        return undefined;
+    }
 
-        if (pkg === undefined) {
-            pkg = { name: creation.packageName, templates: new Map() };
-            packages.set(packageId, pkg);
-        } else if (pkg.name !== creation.packageName) {
-            throw new ValidationError(`gRPC query package ${packageId} reports conflicting package names`);
+    const packages = new Map<string, DerivedPackage>();
+
+    addDerivedCreationEntries(packages, fragment.creationIdentities);
+
+    for (const identity of fragment.typeIdentities) {
+        if (identity.packageName === undefined) {
+            throw new ValidationError("gRPC query contract type identity is missing its package name");
         }
 
-        const identity = `${moduleName} ${entityName}`;
+        const template = derivedTemplateFor(derivedPackageFor(packages, identity.packageId, identity.packageName), identity.templateId.moduleName, identity.templateId.entityName);
 
-        if (!pkg.templates.has(identity)) {
-            const templateFqn = `${pkg.name}:${moduleName}:${entityName}`;
+        if (identity.choice !== undefined) {
+            const consuming = template.choices.get(identity.choice);
 
-            pkg.templates.set(identity, Object.freeze({
-                moduleName,
-                entityName,
-                payloadType: "template" as const,
-                aliases: Object.freeze([templateFqn, `${moduleName}:${entityName}`, entityName]),
-                templateFqn,
-                choices: Object.freeze([]),
-            }));
+            if (consuming !== undefined && consuming !== identity.consuming) {
+                throw new ValidationError(`gRPC query choice ${identity.choice} reports conflicting consuming flags`);
+            }
+
+            template.choices.set(identity.choice, identity.consuming === true);
         }
     }
 
+    return finalizeDerivedPackages(packages);
+}
+
+function addDerivedCreationEntries(packages: Map<string, DerivedPackage>, creationIdentities: readonly GrpcQueryCreationIdentity[]): void {
+    for (const creation of creationIdentities) {
+        derivedTemplateFor(
+            derivedPackageFor(packages, creation.representativePackageId ?? creation.creationPackageId, creation.packageName),
+            creation.templateId.moduleName,
+            creation.templateId.entityName,
+        );
+    }
+}
+
+function derivedPackageFor(packages: Map<string, DerivedPackage>, packageId: string, packageName: string): DerivedPackage {
+    const existing = packages.get(packageId);
+
+    if (existing === undefined) {
+        const created: DerivedPackage = { name: packageName, templates: new Map() };
+
+        packages.set(packageId, created);
+
+        return created;
+    } else if (existing.name !== packageName) {
+        throw new ValidationError(`gRPC query package ${packageId} reports conflicting package names`);
+    }
+
+    return existing;
+}
+
+function derivedTemplateFor(pkg: DerivedPackage, moduleName: string, entityName: string): { readonly moduleName: string; readonly entityName: string; readonly choices: Map<string, boolean> } {
+    const identity = `${moduleName} ${entityName}`;
+
+    let template = pkg.templates.get(identity);
+
+    if (template === undefined) {
+        template = { moduleName, entityName, choices: new Map() };
+        pkg.templates.set(identity, template);
+    }
+
+    return template;
+}
+
+function finalizeDerivedPackages(packages: Map<string, DerivedPackage>): readonly GrpcPackageMetadata[] {
     return Object.freeze([...packages.entries()].map(([id, pkg]) => Object.freeze({
         id,
         name: pkg.name,
-        version: "unresolved",
-        templates: Object.freeze([...pkg.templates.values()]),
+        // Unique per package: two versions of the same package name can both appear in one window, and
+        // duplicate name+version pairs are rejected during dataset normalization.
+        version: `unresolved-${id}`,
+        templates: Object.freeze([...pkg.templates.values()].map((template) => {
+            const templateFqn = `${pkg.name}:${template.moduleName}:${template.entityName}`;
+
+            return Object.freeze({
+                moduleName: template.moduleName,
+                entityName: template.entityName,
+                payloadType: "template" as const,
+                aliases: Object.freeze([templateFqn, `${template.moduleName}:${template.entityName}`, template.entityName]),
+                templateFqn,
+                choices: Object.freeze([...template.choices.entries()].map(([choice, consuming]) => Object.freeze({
+                    choice,
+                    consuming,
+                    aliases: Object.freeze([`${templateFqn}:${choice}`, `${template.moduleName}:${template.entityName}:${choice}`, `${template.entityName}:${choice}`, choice]),
+                    choiceFqn: `${templateFqn}:${choice}`,
+                })).sort((left, right) => left.choice.localeCompare(right.choice))),
+            });
+        })),
     })));
 }
 
@@ -825,7 +908,7 @@ function identitiesFor(event: CreatedEvent | ExercisedEvent): readonly string[] 
 function typeIdentityRows(event: CreatedEvent | ExercisedEvent, registry: ReadonlyMap<string, string>): readonly GrpcQueryTypeIdentity[] {
     const template = requiredTemplate(event.templateId, "event template");
 
-    const contract = { pk: registry.get(contractIdentity(template))!, templateId: copyTemplate(template), packageId: template.packageId };
+    const contract = { pk: registry.get(contractIdentity(template))!, templateId: copyTemplate(template), packageId: template.packageId, packageName: event.packageName };
 
     if (!isExercised(event)) {
         return [contract];
@@ -833,7 +916,14 @@ function typeIdentityRows(event: CreatedEvent | ExercisedEvent, registry: Readon
 
     const owner = exerciseOwner(event);
 
-    return [contract, { pk: registry.get(exerciseIdentity(owner, event.choice, event.consuming))!, templateId: copyTemplate(owner), packageId: owner.packageId, choice: event.choice, consuming: event.consuming }];
+    return [contract, {
+        pk: registry.get(exerciseIdentity(owner, event.choice, event.consuming))!,
+        templateId: copyTemplate(owner),
+        packageId: owner.packageId,
+        ...(event.interfaceId === undefined ? { packageName: event.packageName } : {}),
+        choice: event.choice,
+        consuming: event.consuming,
+    }];
 }
 
 function activeContractEntries(responses: readonly GetActiveContractsResponse[]): readonly ActiveContractEntry[] {

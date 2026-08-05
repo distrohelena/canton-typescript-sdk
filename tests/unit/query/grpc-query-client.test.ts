@@ -512,11 +512,71 @@ describe("GrpcQueryClient", () => {
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
         expect(getLedgerEndAsync).toHaveBeenCalledTimes(1);
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
-        // The contracts/contractType query derives packageName/entityName from its own creation events and
-        // never calls the Package Service at all; only the exercises query (which needs the real choice
-        // owner's package) does, accounting for this single call.
-        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
-        expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
+        // Both queries derive their metadata from the fetched events: creations name their own package, and
+        // the Transfer exercise is direct (no interfaceId), so its choice owner IS the exercised template
+        // and the event's packageName names it. The Package Service is never needed.
+        expect(packageService.getPackageAsync).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the Package Service for exercises when the window contains an interface-exercised choice", async () => {
+        const fixture = packageFixture();
+
+        const templateId = { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" };
+
+        const created = CreatedEvent.create({
+            offset: "1",
+            nodeId: 1,
+            contractId: "C1",
+            templateId,
+            packageName: "sample-package",
+            representativePackageId: fixture.id,
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const inherited = ExercisedEvent.create({
+            offset: "2",
+            nodeId: 1,
+            contractId: "C1",
+            templateId,
+            interfaceId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "EventLog" },
+            packageName: "sample-package",
+            choice: "EventLog_HoldingsChange",
+            choiceArgument: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            exerciseResult: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            actingParties: ["Alice"],
+            witnessParties: ["Alice"],
+            consuming: false,
+            lastDescendantNodeId: 1,
+        });
+
+        const makeTransaction = (offset: string, event: Event) => Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000000", nanos: 0 }, recordTime: { seconds: "1700000000", nanos: 0 }, synchronizerId: "sync", events: [event] });
+
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({
+            lowestPageOffsetExclusive: "0",
+            highestPageOffsetInclusive: "2",
+            updates: [
+                GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: makeTransaction("1", Event.create({ event: { oneofKind: "created", created } })) } }),
+                GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: makeTransaction("2", Event.create({ event: { oneofKind: "exercised", exercised: inherited } })) } }),
+            ],
+        });
+
+        const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "2" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: { getUpdatesPageAsync } as never,
+            packageService: packageService as never,
+        });
+
+        // The choice is owned by the EventLog interface, whose package name the event does not carry —
+        // events alone cannot produce its canonical choiceFqn, so the archive decode must run.
+        const rows = await client.exercises.findMany({ select: { tpePk: true } });
+
+        expect(rows).toEqual([{ tpePk: canonicalPublicNumericIdentity("sample-package:Sample.Module:EventLog:EventLog_HoldingsChange") }]);
+        expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
     it("resolves packageName/entityName/payload contract filters without touching the Package Service at all", async () => {
