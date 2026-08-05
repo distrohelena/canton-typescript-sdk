@@ -127,17 +127,27 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 
             const fragment = mapGrpcQueryRelationFragment(transactions);
 
+            const useCreationsOnlyMetadata = requiresPackageMetadata(closure)
+                && query.relation !== "packages" && query.relation !== "contractTypes" && query.relation !== "exerciseTypes"
+                && derivableFromCreationsOnly(closure);
+
             const packageMetadata = !requiresPackageMetadata(closure)
                 ? []
                 : query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes"
                     ? await this.packages.readAllAsync()
-                    : derivableFromCreationsOnly(closure, fragment)
+                    : useCreationsOnlyMetadata
                         ? contractTypeMetadataFromCreations(fragment.creationIdentities)
                         : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
 
+            // The closure guarantees this query never reads "exercises" here, but the replayed window can still
+            // contain unrelated exercises (createGrpcQueryDataset always resolves package metadata for every
+            // exercise in the fragment). contractTypeMetadataFromCreations only knows about templates, so drop
+            // the exercises this query doesn't need instead of paying for their canonical keys.
+            const datasetFragment = useCreationsOnlyMetadata ? { ...fragment, exercises: [] } : fragment;
+
             return packageMetadata.length === 0
                 ? fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger")
-                : createGrpcQueryDataset(fragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
+                : createGrpcQueryDataset(datasetFragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
         }
 
         const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
@@ -204,7 +214,17 @@ function predicateProvesActive(predicate: QueryPredicate | undefined): boolean {
     if (predicate === undefined) {
         return false;
     } else if (predicate.kind === "scalar") {
-        return predicate.path.length === 1 && predicate.path[0] === "active" && predicate.operator === "equals" && predicate.value === true;
+        if (predicate.path.length !== 1) {
+            return false;
+        }
+
+        const [field] = predicate.path;
+
+        // A contract is active iff archivedAt/archivedEventOffset are null, so either form proves the
+        // same fact as active: true (kept in sync with provesActive in canonical/query-normalizer.ts).
+        return field === "active"
+            ? predicate.operator === "equals" && predicate.value === true
+            : (field === "archivedAt" || field === "archivedEventOffset") && predicate.operator === "is" && predicate.value === null;
     } else if (predicate.kind === "and") {
         return predicate.children.some(predicateProvesActive);
     } else if (predicate.kind === "or") {
@@ -221,20 +241,20 @@ function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
 /**
  * True when contractType metadata can be derived from the fetched creation events alone (see
  * contractTypeMetadataFromCreations), instead of decoding LF packages. Every CreatedEvent already carries its
- * own packageName, so this always holds for "contractTypes" by itself. It does NOT extend to "exercises"/
- * "exerciseTypes": ExercisedEvent.packageName documents "the package name of the contract" — i.e. the
- * template side — so it is not a reliable source for the choice owner's package name when a choice was
+ * own packageName, so this always holds whenever the query's closure needs only "contractTypes" (plus
+ * "contracts"/"transactions"/"events", which carry no package linkage of their own). It does NOT extend to
+ * "exercises"/"exerciseTypes": ExercisedEvent.packageName documents "the package name of the contract" — i.e.
+ * the template side — so it is not a reliable source for the choice owner's package name when a choice was
  * exercised via an interface. "packages" is excluded because its own rows (e.g. version) have no event
  * equivalent at all.
  *
- * The closure alone is enough in the ACS-only path (ACS pages structurally never contain exercises), but a
- * full-history fragment reflects the *entire* replayed window, not just what this query's closure touches —
- * createGrpcQueryDataset still unconditionally resolves package metadata for every exercise it contains, so
- * an unrelated exercise elsewhere in that window would break canonical exerciseType/contractType keys. Hence
- * the extra check that the fetched fragment itself has no exercises at all.
+ * The caller is responsible for dropping any exercises the fetched fragment happens to contain before handing
+ * it to createGrpcQueryDataset: a full-history fragment reflects the *entire* replayed window, not just what
+ * this query's closure touches, and createGrpcQueryDataset unconditionally resolves package metadata for
+ * every exercise present — this function only knows about templates, not choices.
  */
-function derivableFromCreationsOnly(closure: ReadonlySet<QueryRelation>, fragment: GrpcQueryRelationFragment): boolean {
-    return closure.has("contractTypes") && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages") && fragment.exercises.length === 0;
+function derivableFromCreationsOnly(closure: ReadonlySet<QueryRelation>): boolean {
+    return closure.has("contractTypes") && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages");
 }
 
 function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {

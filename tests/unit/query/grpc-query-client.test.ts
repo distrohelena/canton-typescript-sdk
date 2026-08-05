@@ -468,7 +468,9 @@ describe("GrpcQueryClient", () => {
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
         expect(getLedgerEndAsync).toHaveBeenCalledTimes(1);
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
-        // Both queries reference the same package; the second call is served from the packageId cache.
+        // The contracts/contractType query derives packageName/entityName from its own creation events and
+        // never calls the Package Service at all; only the exercises query (which needs the real choice
+        // owner's package) does, accounting for this single call.
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
         expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
     });
@@ -501,6 +503,109 @@ describe("GrpcQueryClient", () => {
                 contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } },
                 payload: { match: { owner: { equals: "Alice" } } },
             },
+            select: { contractId: true },
+        });
+
+        expect(rows).toEqual([{ contractId: "C1" }]);
+    });
+
+    it("treats archivedAt/archivedEventOffset is-null filters as proving active, same as active: true", async () => {
+        const created = CreatedEvent.create({
+            offset: "1",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: {} as never,
+        });
+
+        // No literal "active: true" — archivedAt: { is: null } is the same fact, and should take the same
+        // ACS fast path (no full-history replay, no Package Service call for the derived contractType).
+        const byArchivedAt = await client.contracts.findMany({ where: { archivedAt: { is: null }, contractType: { entityName: { equals: "Asset" } } }, select: { contractId: true } });
+        const byArchivedOffset = await client.contracts.findMany({ where: { archivedEventOffset: { is: null } }, select: { contractId: true } });
+
+        expect(byArchivedAt).toEqual([{ contractId: "C1" }]);
+        expect(byArchivedOffset).toEqual([{ contractId: "C1" }]);
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it("derives contractType metadata from creations even when the replayed history also contains an unrelated exercise", async () => {
+        const otherTemplate = { packageId: "pkg-other", moduleName: "Other", entityName: "Widget" };
+
+        const otherCreated = CreatedEvent.create({
+            offset: "1",
+            nodeId: 1,
+            contractId: "C-other",
+            templateId: otherTemplate,
+            packageName: "other-app",
+            representativePackageId: "pkg-other",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [] },
+        });
+
+        const otherExercise = ExercisedEvent.create({
+            offset: "2",
+            nodeId: 1,
+            contractId: "C-other",
+            templateId: otherTemplate,
+            packageName: "other-app",
+            choice: "Archive",
+            choiceArgument: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            exerciseResult: Value.create({ sum: { oneofKind: "unit", unit: {} } }),
+            actingParties: ["Alice"],
+            witnessParties: ["Alice"],
+            consuming: true,
+            lastDescendantNodeId: 1,
+        });
+
+        const created = CreatedEvent.create({
+            offset: "3",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({
+            lowestPageOffsetExclusive: "0",
+            highestPageOffsetInclusive: "3",
+            updates: [
+                GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: Transaction.create({ offset: "1", updateId: "update-1", effectiveAt: { seconds: "1700000000", nanos: 0 }, recordTime: { seconds: "1700000000", nanos: 0 }, synchronizerId: "sync", events: [Event.create({ event: { oneofKind: "created", created: otherCreated } })] }) } }),
+                GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: Transaction.create({ offset: "2", updateId: "update-2", effectiveAt: { seconds: "1700000000", nanos: 0 }, recordTime: { seconds: "1700000000", nanos: 0 }, synchronizerId: "sync", events: [Event.create({ event: { oneofKind: "exercised", exercised: otherExercise } })] }) } }),
+                GetUpdateResponse.create({ update: { oneofKind: "transaction", transaction: Transaction.create({ offset: "3", updateId: "update-3", effectiveAt: { seconds: "1700000000", nanos: 0 }, recordTime: { seconds: "1700000000", nanos: 0 }, synchronizerId: "sync", events: [Event.create({ event: { oneofKind: "created", created } })] }) } }),
+            ],
+        });
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "3" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: { getUpdatesPageAsync } as never,
+            packageService: {} as never,
+        });
+
+        // No active: true, so this forces full history — which also happens to contain an unrelated
+        // create+archive for a completely different template. That must not force a Package Service call:
+        // the query's own closure only needs contractType data for "Asset", derivable from its own creation.
+        const rows = await client.contracts.findMany({
+            where: { contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
             select: { contractId: true },
         });
 

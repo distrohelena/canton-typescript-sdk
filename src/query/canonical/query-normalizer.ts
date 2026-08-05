@@ -644,11 +644,28 @@ function provesActive(predicate: QueryPredicate | undefined): boolean {
     if (predicate === undefined) {
         return false;
     } else if (predicate.kind === "scalar") {
-        return predicate.path.length === 1 && predicate.path[0] === "active" && predicate.operator === "equals" && predicate.value === true;
+        return provesActiveScalar(predicate);
     } else if (predicate.kind === "and") {
         return predicate.children.some(provesActive);
     } else if (predicate.kind === "or") {
         return predicate.children.length > 0 && predicate.children.every(provesActive);
+    }
+
+    return false;
+}
+
+/** A contract is active iff archivedAt/archivedEventOffset are null, so either form proves the same fact as active: true. */
+function provesActiveScalar(predicate: Extract<QueryPredicate, { kind: "scalar" }>): boolean {
+    if (predicate.path.length !== 1) {
+        return false;
+    }
+
+    const [field] = predicate.path;
+
+    if (field === "active") {
+        return predicate.operator === "equals" && predicate.value === true;
+    } else if (field === "archivedAt" || field === "archivedEventOffset") {
+        return predicate.operator === "is" && predicate.value === null;
     }
 
     return false;

@@ -62,6 +62,10 @@ describe("canonical query normalizer", () => {
         ["or branches all active", { or: [{ active: true }, { and: [{ active: true }, { contractId: { equals: "cid" } }] }] }, true],
         ["or branch without active", { or: [{ active: true }, { contractId: { equals: "cid" } }] }, false],
         ["not", { not: { active: true } }, false],
+        ["archivedAt is null", { archivedAt: { is: null } }, true],
+        ["archivedEventOffset is null", { archivedEventOffset: { is: null } }, true],
+        ["archivedAt equals a date", { archivedAt: { equals: new Date("2024-01-01") } }, false],
+        ["archivedAt isNot null", { archivedAt: { isNot: null } }, false],
     ])("proves active-only only when %s", (_name, where, activeOnly) => {
         expect(normalizeFindMany("contracts", { where }).activeOnly).toBe(activeOnly);
     });
