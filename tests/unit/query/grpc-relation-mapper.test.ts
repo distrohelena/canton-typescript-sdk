@@ -700,7 +700,7 @@ describe("mapGrpcQueryRelationFragment", () => {
         expect(Object.isFrozen(dataset.rows.exerciseTypes[0]!.aliases)).toBe(true);
     });
 
-    it("accepts same-name packages at different versions and marks ACS-only creation transactions incomplete", () => {
+    it("accepts same-name packages at any version pairing and marks ACS-only creation transactions incomplete", () => {
         const older = packageMetadata("pkg-old", "app", true, "1.0.0");
 
         const representative = packageMetadata("pkg-id", "app", true, "2.0.0");
@@ -713,7 +713,14 @@ describe("mapGrpcQueryRelationFragment", () => {
 
         expect(logicalTypes.rows.contractTypes).toHaveLength(1);
         expect(logicalTypes.rows.exerciseTypes).toHaveLength(1);
-        expect(() => createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant")).toThrow(ValidationError);
+
+        // Package ids are content-addressed: a recompiled DAR reappears under a new id with the same
+        // name+version. Both package rows survive; the name-keyed type rows deduplicate to one.
+        const sameVersion = createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [representative, duplicateVersion], "0", "grpc://participant");
+
+        expect(sameVersion.rows.packages).toHaveLength(2);
+        expect(sameVersion.rows.contractTypes).toHaveLength(1);
+        expect(sameVersion.rows.exerciseTypes).toHaveLength(1);
 
         const history = mapGrpcQueryRelationFragment([transaction("10", [Event.create({ event: { oneofKind: "created", created: create() } })])], [active(create())]);
 

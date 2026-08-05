@@ -547,8 +547,6 @@ function normalizeGrpcPackageMetadataUnsafe(packages: unknown): readonly GrpcPac
 
     const packageIds = new Set<string>();
 
-    const packageNameVersions = new Set<string>();
-
     const normalized: GrpcPackageMetadata[] = [];
 
     for (const pkg of packageValues) {
@@ -572,14 +570,10 @@ function normalizeGrpcPackageMetadataUnsafe(packages: unknown): readonly GrpcPac
 
         packageIds.add(packageId);
 
-        const nameVersion = `${packageName}\u0000${packageVersion}`;
-
-        if (packageNameVersions.has(nameVersion)) {
-            throw new ValidationError(`gRPC query has duplicate package metadata ${packageName}@${packageVersion}`);
-        }
-
-        packageNameVersions.add(nameVersion);
-
+        // Same name+version under two different ids is NOT rejected: package ids are content-addressed, so a
+        // recompiled or re-uploaded DAR legitimately reappears with a new id and an unchanged manifest. The
+        // name-derived canonical rows go through deduplicateCanonicalRows, which throws on any genuine
+        // metadata conflict for one canonical key — the only conflict that would actually matter.
         const templatesValue = value.templates;
 
         if (!Array.isArray(templatesValue)) {
