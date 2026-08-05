@@ -278,4 +278,46 @@ describe("live gRPC typed query regressions", () => {
 
         expect(rows.map((row) => row.contractId)).toContain(extraContractId);
     }, 120_000);
+
+    it("keeps the delta-patched cache identical to an independent full download across mutation rounds", async () => {
+        const comparable = (row: { contractId: string; templateId: unknown; packageId: unknown; payload: unknown; witnesses: readonly string[]; createdEventOffset: string; active: boolean }) => ({
+            contractId: row.contractId,
+            templateId: row.templateId,
+            packageId: row.packageId,
+            payload: row.payload,
+            witnesses: [...row.witnesses],
+            createdEventOffset: row.createdEventOffset,
+            active: row.active,
+        });
+
+        for (let round = 0; round < 3; round += 1) {
+            const packageId = round % 2 === 0 ? v1PackageId : v2PackageId;
+
+            const first = await createLiveIouAsync(manager!, party, party, packageId);
+
+            await createLiveIouAsync(manager!, party, party, packageId);
+            await archiveLiveIouAsync(manager!, party, first, packageId);
+
+            const result = await manager!.query.cacheContracts({ parties: [party] });
+
+            expect(result).toMatchObject({ cached: true, refresh: "delta" });
+
+            // Ground truth: a completely independent full ACS download into a fresh store.
+            const groundTruthCache = new GrpcContractCache(
+                manager!.grpc.stateService as never,
+                new MemoryQueryCache(),
+                600_000,
+                "ground-truth",
+            );
+
+            await groundTruthCache.cacheContracts({ parties: [party] });
+
+            const patched = await manager!.query.contracts.findMany({ parties: [party], where: { active: true }, orderBy: [{ contractId: "asc" }] });
+
+            const groundTruth = [...(await groundTruthCache.readContractsAsync({ parties: [party] }))!]
+                .sort((left, right) => left.contractId.localeCompare(right.contractId));
+
+            expect(patched.map((row) => comparable(row as never))).toEqual(groundTruth.map((row) => comparable(row as never)));
+        }
+    }, 300_000);
 });
