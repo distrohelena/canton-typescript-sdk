@@ -439,4 +439,79 @@ describe("GrpcQueryClient", () => {
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(2);
         expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
     });
+
+    it("resolves a proven-active nested contracts include from contractTypes via ACS instead of full history", async () => {
+        const fixture = packageFixture();
+
+        const created = CreatedEvent.create({
+            offset: "99",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
+            packageName: "sample-package",
+            representativePackageId: fixture.id,
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "100", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
+
+        const packageService = { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: packageService as never,
+        });
+
+        const rows = await client.contractTypes.findMany({
+            where: { packageName: { equals: "sample-package" }, entityName: { equals: "Iou" } },
+            select: { entityName: true },
+            include: { contracts: { where: { active: true }, take: 10, select: { contractId: true } } },
+        });
+
+        expect(rows).toEqual([expect.objectContaining({ entityName: "Iou", contracts: [{ contractId: "C1" }] })]);
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it("resolves a proven-active where-relation to contracts from contractTypes via ACS instead of full history", async () => {
+        const fixture = packageFixture();
+
+        const created = CreatedEvent.create({
+            offset: "99",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
+            packageName: "sample-package",
+            representativePackageId: fixture.id,
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "100", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
+
+        const packageService = { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: packageService as never,
+        });
+
+        const rows = await client.contractTypes.findMany({
+            where: { contracts: { some: { active: true } } },
+            select: { entityName: true },
+        });
+
+        expect(rows).toEqual([expect.objectContaining({ entityName: "Iou" })]);
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+    });
 });

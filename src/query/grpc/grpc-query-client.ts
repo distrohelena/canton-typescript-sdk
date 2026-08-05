@@ -112,6 +112,13 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
         if (cached !== undefined && !needsHistory && !requiresPackageMetadata(closure)) {
             return cachedContractsDataset(cached.contracts as unknown as readonly QueryRow[], cached.activeAtOffset, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
+            console.warn(
+                `[GrpcQueryClient] Falling back to a full ledger replay from offset 0 for a "${query.relation}" query. `
+                    + "This is expensive and should be an extreme edge case. It is usually triggered by a \"contracts\" query "
+                    + "that does not explicitly prove `active: true` (so archived contracts may be in scope), or by querying "
+                    + "\"transactions\"/\"events\"/\"exercises\" directly. Add an explicit active:true filter if only current state is needed.",
+            );
+
             const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
 
             const history = await this.snapshots.readHistoryAsync(endInclusive);
@@ -134,7 +141,14 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
         const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
 
         if (query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes") {
-            return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), await this.packages.readAllAsync(), endInclusive, this.options.endpointScope ?? "ledger");
+            // A proven-active where/include on "contracts" (see predicateRequiresHistory/includesRequireHistory)
+            // can put "contracts" in the closure here without needsHistory being true, so the ACS still has to
+            // be read — otherwise that where/include would silently resolve against an empty row set.
+            const contractsFragment = closure.has("contracts")
+                ? mapGrpcQueryRelationFragment([], (await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query))).activeContracts)
+                : mapGrpcQueryRelationFragment([]);
+
+            return createGrpcQueryDataset(contractsFragment, await this.packages.readAllAsync(), endInclusive, this.options.endpointScope ?? "ledger");
         } else if (query.relation === "watermark") {
             return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [], endInclusive, this.options.endpointScope ?? "ledger");
         }
@@ -206,11 +220,26 @@ function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredi
 
     const target = queryRelationEdges[relation]?.[predicate.edge]?.target;
 
-    return target === "contracts" || target === "transactions" || target === "events" || target === "exercises" || target !== undefined && predicateRequiresHistory(target, predicate.predicate);
+    if (target === "contracts") {
+        // "every"/"none" must see archived rows too (an archived row can silently violate "every",
+        // or an unseen one could exist for "none"); only "some"/"one" ask "does an active row match?",
+        // which the active contract set alone already answers completely.
+        const provenActiveOnly = (predicate.quantifier === "some" || predicate.quantifier === "one") && predicateProvesActive(predicate.predicate);
+
+        return !provenActiveOnly;
+    }
+
+    return target === "transactions" || target === "events" || target === "exercises" || target !== undefined && predicateRequiresHistory(target, predicate.predicate);
 }
 
 function includesRequireHistory(relation: QueryRelation, includes: readonly NormalizedInclude[]): boolean {
-    return includes.some((include) => include.relation === "contracts" || include.relation === "transactions" || include.relation === "events" || include.relation === "exercises" || predicateRequiresHistory(include.relation, include.predicate) || includesRequireHistory(include.relation, include.includes));
+    return includes.some((include) => {
+        if (include.relation === "contracts") {
+            return !predicateProvesActive(include.predicate);
+        }
+
+        return include.relation === "transactions" || include.relation === "events" || include.relation === "exercises" || predicateRequiresHistory(include.relation, include.predicate) || includesRequireHistory(include.relation, include.includes);
+    });
 }
 
 function relationClosure(query: NormalizedQuery): ReadonlySet<QueryRelation> {
