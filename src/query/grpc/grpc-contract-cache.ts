@@ -1,16 +1,39 @@
 import { isProxy } from "node:util/types";
 import { ValidationError } from "../../core/errors/validation-error.js";
 import { StateServiceClient } from "../../services/state/state-service-client.js";
+import { UpdateServiceClient } from "../../services/update/update-service-client.js";
 import type { GetActiveContractsResponse } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/state_service.js";
+import type { CreatedEvent } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
+import type { GetUpdatesPageRequest } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
+import { TransactionShape } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
 import { QueryCacheStore } from "../cache/query-cache-store.js";
 import { ContractRow } from "../model-types.js";
-import { ContractCacheArgs, ContractCacheResult } from "../query-client.js";
+import { ContractCacheArgs, ContractCacheInspection, ContractCacheResult } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { mapGrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { isCanonicalGrpcOffset } from "./grpc-query-snapshot-reader.js";
 
-type ActiveContractsReader = Pick<StateServiceClient, "getActiveContractsPageAsync">;
+type ActiveContractsReader = Pick<StateServiceClient, "getActiveContractsPageAsync"> & Partial<Pick<StateServiceClient, "getLedgerEndAsync" | "getLatestPrunedOffsetsAsync">>;
+
+type CacheUpdateReader = Pick<UpdateServiceClient, "getUpdatesPageAsync">;
+
+/** Budgets for patching a warm snapshot forward from the update stream instead of re-downloading the ACS. */
+export interface GrpcContractCacheDeltaOptions {
+    /**
+     * BETA: delta refresh is opt-in. When absent or false, every re-warm performs the full ACS download
+     * regardless of the other options here.
+     */
+    readonly enabled?: boolean;
+    /** Skip the delta attempt outright when the ledger has run further than this past the snapshot. */
+    readonly maxOffsetGap?: number;
+    /** Abandon the delta (fall back to a full download) after this many applied updates. */
+    readonly maxUpdates?: number;
+}
+
+const DELTA_DEFAULT_MAX_OFFSET_GAP = 1_000_000;
+
+const DELTA_MAX_PAGES = 10_000;
 
 /** Per-contract creation facts the contractType join needs; stored so cached reads never re-fetch the ACS. */
 export interface GrpcCachedCreationMetadata {
@@ -52,11 +75,19 @@ export class GrpcContractCache {
         private readonly endpointScope: string,
         private readonly now: () => number = Date.now,
         private readonly maxPageSize?: number,
+        private readonly updateService?: CacheUpdateReader,
+        private readonly delta: GrpcContractCacheDeltaOptions = {},
     ) {
         if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
             throw new ValidationError("Contract cache ttlMs must be a positive finite number.");
         } else if (maxPageSize !== undefined && (!Number.isFinite(maxPageSize) || !Number.isInteger(maxPageSize) || maxPageSize <= 0)) {
             throw new ValidationError("Contract cache maxPageSize must be a positive integer.");
+        }
+
+        for (const [name, value] of Object.entries({ maxOffsetGap: delta.maxOffsetGap, maxUpdates: delta.maxUpdates })) {
+            if (value !== undefined && (!Number.isFinite(value) || !Number.isInteger(value) || value < 0)) {
+                throw new ValidationError(`Contract cache delta ${name} must be a non-negative integer.`);
+            }
         }
     }
 
@@ -118,9 +149,268 @@ export class GrpcContractCache {
         await this.store.deleteAsync(key);
     }
 
+    /** Measures the cached snapshot against the current ledger end, without changing anything. */
+    public async inspectContractsCacheAsync(args?: ContractCacheArgs): Promise<ContractCacheInspection | undefined> {
+        const parties = normalizeParties(args);
+
+        const base = asCompatibleSnapshot(
+            await this.store.getAsync<unknown>(cacheKey(this.endpointScope, parties)),
+            this.endpointScope,
+            parties,
+            currentEpochMs(this.now),
+            true,
+        );
+
+        if (base === undefined || this.stateService.getLedgerEndAsync === undefined) {
+            return undefined;
+        }
+
+        const ledgerEnd = parseCacheOffset((await this.stateService.getLedgerEndAsync({})).offset);
+
+        const activeAt = parseCacheOffset(base.activeAtOffset);
+
+        if (ledgerEnd === undefined || activeAt === undefined || ledgerEnd < activeAt) {
+            return undefined;
+        }
+
+        return Object.freeze({
+            activeAtOffset: base.activeAtOffset,
+            ledgerEndOffset: ledgerEnd.toString(),
+            offsetGap: (ledgerEnd - activeAt).toString(),
+            contractCount: base.contracts.length,
+            expiresAt: new Date(base.expiresAtEpochMs),
+        });
+    }
+
     private async populateAsync(
         parties: readonly string[] | undefined,
         key: string,
+    ): Promise<ContractCacheResult> {
+        // An expired snapshot is still a valid delta base: expiry gates queries, not refreshes.
+        const base = asCompatibleSnapshot(await this.store.getAsync<unknown>(key), this.endpointScope, parties, currentEpochMs(this.now), true);
+
+        if (base !== undefined && this.updateService !== undefined && this.delta.enabled === true) {
+            const delta = await this.tryDeltaRefreshAsync(parties, key, base);
+
+            if (delta !== undefined) {
+                return delta;
+            }
+        }
+
+        return this.fullRefreshAsync(parties, key, base);
+    }
+
+    /**
+     * Patches the base snapshot forward from the update stream instead of re-downloading the ACS. Returns
+     * undefined — meaning "do the full download instead" — whenever correctness cannot be proven cheaply:
+     * pruning past the base offset, an offset gap or update count beyond the configured budgets, any
+     * reassignment or topology change in the window (multi-synchronizer moves cannot be patched safely), an
+     * exercised event where ACS_DELTA promises none, or an archive/create inconsistent with the base rows.
+     */
+    private async tryDeltaRefreshAsync(
+        parties: readonly string[] | undefined,
+        key: string,
+        base: CachedContractSnapshot,
+    ): Promise<ContractCacheResult | undefined> {
+        if (this.stateService.getLedgerEndAsync === undefined || this.stateService.getLatestPrunedOffsetsAsync === undefined || this.updateService === undefined) {
+            return undefined;
+        }
+
+        try {
+            const baseOffset = parseCacheOffset(base.activeAtOffset);
+
+            const pruned = parseCacheOffset((await this.stateService.getLatestPrunedOffsetsAsync({})).participantPrunedUpToInclusive);
+
+            const ledgerEnd = parseCacheOffset((await this.stateService.getLedgerEndAsync({})).offset);
+
+            if (baseOffset === undefined || pruned === undefined || pruned > baseOffset || ledgerEnd === undefined || ledgerEnd < baseOffset) {
+                return undefined;
+            }
+
+            const offsetGap = ledgerEnd - baseOffset;
+
+            if (offsetGap === 0n) {
+                return this.writeSnapshotAsync(parties, key, base.activeAtOffset, base.contracts, base.creationMetadata, { refresh: "noop", offsetGap: "0" });
+            }
+
+            const maxOffsetGap = BigInt(this.delta.maxOffsetGap ?? DELTA_DEFAULT_MAX_OFFSET_GAP);
+
+            if (offsetGap > maxOffsetGap) {
+                return undefined;
+            }
+
+            const window = await this.readDeltaWindowAsync(parties, base, ledgerEnd.toString());
+
+            if (window === undefined) {
+                return undefined;
+            }
+
+            const baseIds = new Set(base.contracts.map((row) => row.contractId));
+
+            const adds = new Map<string, { readonly event: CreatedEvent; readonly synchronizerId: string }>();
+
+            const removes = new Set<string>();
+
+            for (const entry of window.entries) {
+                if (entry.kind === "created") {
+                    if (baseIds.has(entry.event.contractId) || adds.has(entry.event.contractId)) {
+                        return undefined;
+                    }
+
+                    adds.set(entry.event.contractId, { event: entry.event, synchronizerId: entry.synchronizerId });
+                } else if (adds.has(entry.contractId)) {
+                    adds.delete(entry.contractId);
+                } else if (baseIds.has(entry.contractId)) {
+                    removes.add(entry.contractId);
+                } else {
+                    return undefined;
+                }
+            }
+
+            const survivors = [...adds.values()].map(({ event, synchronizerId }) => ({
+                contractEntry: {
+                    oneofKind: "activeContract" as const,
+                    activeContract: { createdEvent: event, synchronizerId, reassignmentCounter: "0" },
+                },
+            }) as GetActiveContractsResponse);
+
+            const fragment = mapGrpcQueryRelationFragment([], survivors);
+
+            const contracts = [...base.contracts.filter((row) => !removes.has(row.contractId)), ...fragment.contracts]
+                .sort((left, right) => left.contractId.localeCompare(right.contractId));
+
+            const addedMetadata = fragment.creationIdentities.map((identity) => ({
+                contractId: identity.contractId,
+                packageName: identity.packageName,
+                representativePackageId: identity.representativePackageId,
+            }));
+
+            const creationMetadata = [...base.creationMetadata.filter((entry) => !removes.has(entry.contractId)), ...addedMetadata]
+                .sort((left, right) => left.contractId.localeCompare(right.contractId));
+
+            return await this.writeSnapshotAsync(parties, key, ledgerEnd.toString(), contracts, creationMetadata, {
+                refresh: "delta",
+                offsetGap: offsetGap.toString(),
+                deltaUpdateCount: window.entries.length,
+            });
+        } catch {
+            // Any validation failure in the window falls back to the full download, which re-validates from scratch.
+            return undefined;
+        }
+    }
+
+    private async readDeltaWindowAsync(
+        parties: readonly string[] | undefined,
+        base: CachedContractSnapshot,
+        endInclusive: string,
+    ): Promise<{ readonly entries: readonly DeltaEntry[] } | undefined> {
+        const eventFormat = mapGrpcQueryContractsRequest(parties === undefined ? { allParties: true } : { parties }).eventFormat!;
+
+        const maxUpdates = this.delta.maxUpdates ?? Math.max(1_000, 2 * base.contracts.length);
+
+        const entries: DeltaEntry[] = [];
+
+        const seenPageTokens = new Set<string>();
+
+        const end = parseCacheOffset(endInclusive)!;
+
+        let expectedLowestExclusive = parseCacheOffset(base.activeAtOffset)!;
+
+        let pageToken: Uint8Array | undefined;
+
+        let updatesSeen = 0;
+
+        for (let pagesRead = 0; pagesRead < DELTA_MAX_PAGES; pagesRead += 1) {
+            const request: GetUpdatesPageRequest = {
+                beginOffsetExclusive: base.activeAtOffset,
+                endOffsetInclusive: endInclusive,
+                updateFormat: { includeTransactions: { eventFormat, transactionShape: TransactionShape.ACS_DELTA } },
+                descendingOrder: false,
+                pageToken: pageToken === undefined ? undefined : Uint8Array.from(pageToken),
+            };
+
+            const response = await this.updateService!.getUpdatesPageAsync(request);
+
+            const lowest = parseCacheOffset(response.lowestPageOffsetExclusive);
+
+            const highest = parseCacheOffset(response.highestPageOffsetInclusive);
+
+            if (lowest === undefined || highest === undefined || lowest !== expectedLowestExclusive || highest < lowest || highest > end) {
+                return undefined;
+            }
+
+            updatesSeen += response.updates.length;
+
+            if (updatesSeen > maxUpdates) {
+                return undefined;
+            }
+
+            for (const update of response.updates) {
+                const collected = collectDeltaEntries(update, entries);
+
+                if (!collected) {
+                    return undefined;
+                }
+            }
+
+            const nextPageToken = response.nextPageToken;
+
+            if (nextPageToken === undefined || nextPageToken.length === 0) {
+                return highest === end ? { entries } : undefined;
+            } else if (highest >= end || highest <= lowest) {
+                return undefined;
+            }
+
+            const tokenKey = Array.from(nextPageToken).join(",");
+
+            if (seenPageTokens.has(tokenKey)) {
+                return undefined;
+            }
+
+            seenPageTokens.add(tokenKey);
+            expectedLowestExclusive = highest;
+            pageToken = Uint8Array.from(nextPageToken);
+        }
+
+        return undefined;
+    }
+
+    private async writeSnapshotAsync(
+        parties: readonly string[] | undefined,
+        key: string,
+        activeAtOffset: string,
+        contracts: readonly ContractRow[],
+        creationMetadata: readonly GrpcCachedCreationMetadata[],
+        outcome: { readonly refresh: "delta" | "noop"; readonly offsetGap: string; readonly deltaUpdateCount?: number },
+    ): Promise<ContractCacheResult> {
+        const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
+
+        const snapshot: CachedContractSnapshot = {
+            version: 2,
+            endpointScope: this.endpointScope,
+            parties,
+            activeAtOffset,
+            expiresAtEpochMs,
+            contracts: copyRows(contracts),
+            creationMetadata: creationMetadata.map((entry) => ({ ...entry })),
+        };
+
+        await this.store.setAsync(key, snapshot, this.ttlMs);
+
+        return {
+            source: QuerySource.grpc,
+            cached: true,
+            activeAtOffset,
+            contractCount: contracts.length,
+            expiresAt: new Date(expiresAtEpochMs),
+            ...outcome,
+        };
+    }
+
+    private async fullRefreshAsync(
+        parties: readonly string[] | undefined,
+        key: string,
+        base: CachedContractSnapshot | undefined,
     ): Promise<ContractCacheResult> {
         const activeContracts: GetActiveContractsResponse[] = [];
 
@@ -179,12 +469,20 @@ export class GrpcContractCache {
 
         const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
+        const baseOffset = base === undefined ? undefined : parseCacheOffset(base.activeAtOffset);
+
+        const newOffset = parseCacheOffset(activeAtOffset!);
+
         const result: ContractCacheResult = {
             source: QuerySource.grpc,
             cached: true,
             activeAtOffset: activeAtOffset!,
             contractCount: contracts.length,
             expiresAt: new Date(expiresAtEpochMs),
+            refresh: "full",
+            ...(baseOffset !== undefined && newOffset !== undefined && newOffset >= baseOffset
+                ? { offsetGap: (newOffset - baseOffset).toString() }
+                : {}),
         };
 
         const snapshot: CachedContractSnapshot = {
@@ -251,11 +549,59 @@ function cacheKey(endpointScope: string, parties: readonly string[] | undefined)
     return `grpc-contract-cache:v1:${JSON.stringify([endpointScope, parties])}`;
 }
 
+type DeltaEntry =
+    | { readonly kind: "created"; readonly event: CreatedEvent; readonly synchronizerId: string }
+    | { readonly kind: "archived"; readonly contractId: string };
+
+/** Collects created/archived events from one ACS_DELTA update; false means the window cannot be patched. */
+function collectDeltaEntries(update: unknown, entries: DeltaEntry[]): boolean {
+    if (update === null || typeof update !== "object") {
+        return false;
+    }
+
+    const oneof = (update as { update?: { oneofKind?: string; transaction?: { synchronizerId?: unknown; events?: unknown } } }).update;
+
+    if (oneof === undefined || oneof.oneofKind === "offsetCheckpoint") {
+        return oneof !== undefined;
+    } else if (oneof.oneofKind !== "transaction") {
+        // Reassignments and topology changes move contracts between synchronizers/visibility in ways a
+        // row-level patch cannot represent safely.
+        return false;
+    }
+
+    const transaction = oneof.transaction;
+
+    const synchronizerId = transaction?.synchronizerId;
+
+    if (typeof synchronizerId !== "string" || synchronizerId.length === 0 || !Array.isArray(transaction?.events)) {
+        return false;
+    }
+
+    for (const wrapped of transaction.events as readonly { event?: { oneofKind?: string; created?: CreatedEvent; archived?: { contractId?: unknown } } }[]) {
+        const event = wrapped?.event;
+
+        if (event?.oneofKind === "created" && event.created !== undefined) {
+            entries.push({ kind: "created", event: event.created, synchronizerId });
+        } else if (event?.oneofKind === "archived" && typeof event.archived?.contractId === "string" && event.archived.contractId.length > 0) {
+            entries.push({ kind: "archived", contractId: event.archived.contractId });
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function parseCacheOffset(value: unknown): bigint | undefined {
+    return isCanonicalGrpcOffset(value) ? BigInt(value) : undefined;
+}
+
 function asCompatibleSnapshot(
     value: unknown,
     endpointScope: string,
     parties: readonly string[] | undefined,
     nowEpochMs: number,
+    ignoreExpiry = false,
 ): CachedContractSnapshot | undefined {
     try {
         if (value === null || typeof value !== "object") {
@@ -292,7 +638,7 @@ function asCompatibleSnapshot(
             || typeof expiresAtEpochMs !== "number"
             || !Number.isFinite(expiresAtEpochMs)
             || !Number.isFinite(new Date(expiresAtEpochMs).getTime())
-            || expiresAtEpochMs <= nowEpochMs
+            || (!ignoreExpiry && expiresAtEpochMs <= nowEpochMs)
             || contracts === undefined
             || creationMetadata === undefined
         ) {

@@ -9,7 +9,7 @@ import { createQueryDataset, type QueryDataset, type QueryRow } from "../canonic
 import type { NormalizedAggregateQuery, NormalizedCountQuery, NormalizedFindManyQuery, NormalizedFindUniqueQuery, NormalizedGroupByQuery, NormalizedInclude, QueryPredicate } from "../canonical/query-ast.js";
 import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUnique, normalizeGroupBy } from "../canonical/query-normalizer.js";
 import { queryRelationEdges, queryRelations, type QueryRelation } from "../canonical/query-schema.js";
-import type { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
+import type { ContractCacheArgs, ContractCacheInspection, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { canonicalPublicNumericIdentityParts } from "../canonical/public-identity.js";
 import type { ContractTypeRow } from "../model-types.js";
@@ -71,6 +71,10 @@ export class GrpcQueryClient implements QueryClient {
 
     public async invalidateContractsCache(args?: ContractCacheArgs): Promise<void> {
         await this.options.contractCache?.invalidateContractsCache(args);
+    }
+
+    public async inspectContractsCache(args?: ContractCacheArgs): Promise<ContractCacheInspection | undefined> {
+        return this.options.contractCache?.inspectContractsCacheAsync(args);
     }
 
     private delegate(relation: QueryRelation): object {

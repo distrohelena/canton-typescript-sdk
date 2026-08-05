@@ -7,7 +7,7 @@ import {
     ContractResult,
     JsonProjectionResult,
 } from "../model-types.js";
-import { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
+import { ContractCacheArgs, ContractCacheInspection, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { PqsQueryError } from "../errors/pqs-query-error.js";
 import { compileContractAggregate, compileContractCount, compileContractFindMany, compileContractGroupBy } from "./pqs-sql-compiler.js";
@@ -84,6 +84,10 @@ export class PqsQueryClient implements QueryClient {
     }
 
     public async invalidateContractsCache(_args?: ContractCacheArgs): Promise<void> {}
+
+    public async inspectContractsCache(_args?: ContractCacheArgs): Promise<ContractCacheInspection | undefined> {
+        return undefined;
+    }
 
     private createPhysicalDelegate(relation: PqsRelation, hasUnique = true) {
         const queryRelation = queryRelationForPqs[relation];

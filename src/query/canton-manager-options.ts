@@ -12,6 +12,17 @@ export interface QueryCacheOptions {
     readonly ttlMs: number;
     /** Per-request ACS page size for cache prewarms; omitted means the participant's default. */
     readonly maxPageSize?: number;
+    /**
+     * BETA: opt into delta refresh. Re-warms with a warm (or expired) snapshot then try to patch it forward
+     * from the update stream instead of re-downloading the ACS. Any unprovable window — reassignments or
+     * topology changes, pruning past the snapshot, exceeded budgets — falls back to the full download
+     * automatically. Off by default: every re-warm performs the full ACS download.
+     */
+    readonly betaDeltaRefresh?: boolean;
+    /** Delta refresh only: skip the delta attempt when the ledger has run further than this past the snapshot. */
+    readonly maxDeltaOffsetGap?: number;
+    /** Delta refresh only: abandon the delta (fall back to full download) after this many applied updates. */
+    readonly maxDeltaUpdates?: number;
 }
 
 export interface CantonManagerOptions {

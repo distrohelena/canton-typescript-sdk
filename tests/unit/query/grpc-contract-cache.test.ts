@@ -73,7 +73,7 @@ describe("gRPC contract cache", () => {
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.cacheContracts()).resolves.toEqual({
-            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 2, expiresAt: new Date(1_100),
+            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 2, expiresAt: new Date(1_100), refresh: "full",
         });
 
         expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
@@ -1076,7 +1076,7 @@ describe("gRPC contract cache", () => {
         const cache = new GrpcContractCache({ getActiveContractsPageAsync } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.cacheContracts()).resolves.toEqual({
-            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 1, expiresAt: new Date(1_100),
+            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 1, expiresAt: new Date(1_100), refresh: "full",
         });
         expect(cacheStore.setAsync.mock.calls[0]?.[1]).toMatchObject({
             activeAtOffset: "42",
@@ -1165,7 +1165,7 @@ describe("gRPC contract cache", () => {
         } as never, cacheStore, 100, "participant", () => 1_000);
 
         await expect(cache.cacheContracts()).resolves.toEqual({
-            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 1, expiresAt: new Date(1_100),
+            source: "grpc", cached: true, activeAtOffset: "42", contractCount: 1, expiresAt: new Date(1_100), refresh: "full",
         });
     });
 
@@ -1265,5 +1265,185 @@ describe("gRPC contract cache", () => {
                 throw proxy;
             },
         })).rejects.toBeInstanceOf(ValidationError);
+    });
+});
+
+describe("gRPC contract cache delta refresh (beta)", () => {
+    const txUpdate = (offset: string, events: readonly unknown[]) => ({
+        update: { oneofKind: "transaction", transaction: { offset, updateId: `update-${offset}`, synchronizerId: "sync", events } },
+    });
+
+    const createdEntry = (contractId: string, offset: string) => ({ event: { oneofKind: "created", created: createdEvent(contractId, { offset }) } });
+
+    const archivedEntry = (contractId: string) => ({ event: { oneofKind: "archived", archived: { contractId, templateId } } });
+
+    const updatesPage = (updates: readonly unknown[], init: Record<string, unknown> = {}) => ({
+        lowestPageOffsetExclusive: "42",
+        highestPageOffsetInclusive: "50",
+        updates,
+        ...init,
+    });
+
+    function harness(init: { delta?: { enabled?: boolean; maxOffsetGap?: number; maxUpdates?: number }; ledgerEnd?: string; prunedUpTo?: string; nowRef?: { value: number } } = {}) {
+        const cacheStore = store();
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage({ activeContracts: [activeContract("C1")] }));
+
+        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: init.ledgerEnd ?? "50" });
+
+        const getLatestPrunedOffsetsAsync = vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: init.prunedUpTo ?? "0" });
+
+        const getUpdatesPageAsync = vi.fn();
+
+        const nowRef = init.nowRef ?? { value: 1_000 };
+
+        const cache = new GrpcContractCache(
+            { getActiveContractsPageAsync, getLedgerEndAsync, getLatestPrunedOffsetsAsync } as never,
+            cacheStore,
+            100,
+            "participant",
+            () => nowRef.value,
+            undefined,
+            { getUpdatesPageAsync } as never,
+            init.delta ?? { enabled: true },
+        );
+
+        return { cache, cacheStore, getActiveContractsPageAsync, getLedgerEndAsync, getLatestPrunedOffsetsAsync, getUpdatesPageAsync, nowRef };
+    }
+
+    it("patches a warm snapshot forward and reports the delta", async () => {
+        const { cache, cacheStore, getActiveContractsPageAsync, getUpdatesPageAsync } = harness();
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "full", activeAtOffset: "42", contractCount: 1 });
+
+        getUpdatesPageAsync.mockResolvedValue(updatesPage([
+            txUpdate("45", [createdEntry("C2", "45")]),
+            txUpdate("48", [archivedEntry("C1")]),
+        ]));
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({
+            refresh: "delta",
+            activeAtOffset: "50",
+            contractCount: 1,
+            offsetGap: "8",
+            deltaUpdateCount: 2,
+        });
+
+        // Only the original prewarm downloaded the ACS.
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+        expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "42", endOffsetInclusive: "50" });
+
+        const snapshot = cacheStore.setAsync.mock.calls[1]![1] as { activeAtOffset: string; contracts: readonly { contractId: string }[]; creationMetadata: readonly { contractId: string }[] };
+
+        expect(snapshot.activeAtOffset).toBe("50");
+        expect(snapshot.contracts.map((row) => row.contractId)).toEqual(["C2"]);
+        expect(snapshot.creationMetadata.map((entry) => entry.contractId)).toEqual(["C2"]);
+
+        await expect(cache.readSnapshotAsync()).resolves.toMatchObject({ activeAtOffset: "50" });
+    });
+
+    it("cancels contracts created and archived inside the window", async () => {
+        const { cache, getUpdatesPageAsync } = harness();
+
+        await cache.cacheContracts();
+
+        getUpdatesPageAsync.mockResolvedValue(updatesPage([
+            txUpdate("44", [createdEntry("C9", "44")]),
+            txUpdate("47", [archivedEntry("C9")]),
+        ]));
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "delta", contractCount: 1 });
+        await expect(cache.readContractsAsync()).resolves.toEqual([expect.objectContaining({ contractId: "C1" })]);
+    });
+
+    it("re-stamps the TTL without any fetch when the ledger has not moved", async () => {
+        const { cache, getActiveContractsPageAsync, getUpdatesPageAsync } = harness({ ledgerEnd: "42" });
+
+        await cache.cacheContracts();
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "noop", offsetGap: "0", contractCount: 1 });
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+        expect(getUpdatesPageAsync).not.toHaveBeenCalled();
+    });
+
+    it("uses an expired snapshot as the delta base", async () => {
+        const nowRef = { value: 1_000 };
+
+        const { cache, getActiveContractsPageAsync, getUpdatesPageAsync } = harness({ nowRef });
+
+        await cache.cacheContracts();
+
+        // Past the 100ms TTL: queries would miss, but the refresh still patches forward.
+        nowRef.value = 5_000;
+
+        getUpdatesPageAsync.mockResolvedValue(updatesPage([txUpdate("45", [createdEntry("C2", "45")])]));
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "delta", contractCount: 2 });
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+        ["a reassignment in the window", [{ update: { oneofKind: "reassignment", reassignment: { offset: "45" } } }]],
+        ["a topology change in the window", [{ update: { oneofKind: "topologyTransaction", topologyTransaction: { offset: "45" } } }]],
+        ["an exercised event where ACS_DELTA promises none", [txUpdate("45", [{ event: { oneofKind: "exercised", exercised: { contractId: "C1" } } }])]],
+        ["an archive of a contract the snapshot does not hold", [txUpdate("45", [archivedEntry("C-unknown")])]],
+        ["a duplicate create for a held contract", [txUpdate("45", [createdEntry("C1", "45")])]],
+    ])("falls back to the full download on %s", async (_name, updates) => {
+        const { cache, getActiveContractsPageAsync, getUpdatesPageAsync } = harness();
+
+        await cache.cacheContracts();
+
+        getUpdatesPageAsync.mockResolvedValue(updatesPage(updates));
+
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "full", offsetGap: "0" });
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to the full download when budgets are exceeded or the participant pruned past the base", async () => {
+        const gapCapped = harness({ delta: { enabled: true, maxOffsetGap: 5 } });
+
+        await gapCapped.cache.cacheContracts();
+        await expect(gapCapped.cache.cacheContracts()).resolves.toMatchObject({ refresh: "full" });
+        expect(gapCapped.getUpdatesPageAsync).not.toHaveBeenCalled();
+
+        const updateCapped = harness({ delta: { enabled: true, maxUpdates: 1 } });
+
+        await updateCapped.cache.cacheContracts();
+        updateCapped.getUpdatesPageAsync.mockResolvedValue(updatesPage([
+            txUpdate("44", [createdEntry("C2", "44")]),
+            txUpdate("45", [createdEntry("C3", "45")]),
+        ]));
+        await expect(updateCapped.cache.cacheContracts()).resolves.toMatchObject({ refresh: "full" });
+
+        const pruned = harness({ prunedUpTo: "43" });
+
+        await pruned.cache.cacheContracts();
+        await expect(pruned.cache.cacheContracts()).resolves.toMatchObject({ refresh: "full" });
+        expect(pruned.getUpdatesPageAsync).not.toHaveBeenCalled();
+    });
+
+    it("performs the full download on re-warm when the beta flag is off", async () => {
+        const { cache, getActiveContractsPageAsync, getUpdatesPageAsync } = harness({ delta: {} });
+
+        await cache.cacheContracts();
+        await expect(cache.cacheContracts()).resolves.toMatchObject({ refresh: "full", offsetGap: "0" });
+        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
+        expect(getUpdatesPageAsync).not.toHaveBeenCalled();
+    });
+
+    it("measures a warm snapshot against the ledger end via inspectContractsCacheAsync", async () => {
+        const { cache } = harness({ ledgerEnd: "50" });
+
+        await expect(cache.inspectContractsCacheAsync()).resolves.toBeUndefined();
+
+        await cache.cacheContracts();
+
+        await expect(cache.inspectContractsCacheAsync()).resolves.toEqual({
+            activeAtOffset: "42",
+            ledgerEndOffset: "50",
+            offsetGap: "8",
+            contractCount: 1,
+            expiresAt: new Date(1_100),
+        });
     });
 });

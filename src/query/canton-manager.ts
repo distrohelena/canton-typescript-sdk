@@ -53,6 +53,8 @@ export class CantonManager {
                         options.grpc.ledgerEndpoint ?? "ledger",
                         undefined,
                         options.cache.maxPageSize,
+                        this.grpc.updateService,
+                        { enabled: options.cache.betaDeltaRefresh, maxOffsetGap: options.cache.maxDeltaOffsetGap, maxUpdates: options.cache.maxDeltaUpdates },
                     ),
             });
         }

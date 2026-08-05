@@ -91,11 +91,30 @@ export type ContractCacheResult =
         readonly activeAtOffset: string;
         readonly contractCount: number;
         readonly expiresAt: Date;
+        /**
+         * How this prewarm was satisfied: "full" downloaded the ACS, "delta" patched the previous snapshot
+         * forward from the update stream, "noop" found the ledger unchanged and only re-stamped the TTL.
+         */
+        readonly refresh: "full" | "delta" | "noop";
+        /** Ledger-end minus the previous snapshot's offset at refresh time; undefined on a cold prewarm. */
+        readonly offsetGap?: string;
+        /** Update count applied by a "delta" refresh. */
+        readonly deltaUpdateCount?: number;
     }
     | {
         readonly source: QuerySource.pqs;
         readonly cached: false;
     };
+
+/** Measurement of a cached ACS snapshot against the current ledger end, for deciding when to re-warm. */
+export interface ContractCacheInspection {
+    readonly activeAtOffset: string;
+    readonly ledgerEndOffset: string;
+    /** ledgerEndOffset - activeAtOffset: how far the ledger has run past the snapshot. */
+    readonly offsetGap: string;
+    readonly contractCount: number;
+    readonly expiresAt: Date;
+}
 
 export interface QueryDelegate<TRow, TWhere, TSelect, TOrderBy, TUnique, TInclude = never, TGroupBy = never, TGroupRow = never> {
     findMany<TArgs extends FindManyArgs<TWhere, TSelect, TOrderBy, TInclude>>(args?: TArgs): Promise<readonly (TRow & JsonProjectionResult<TArgs>)[]>;
@@ -126,6 +145,8 @@ export interface QueryClient {
     $queryRaw<TRow>(sql: string, values?: readonly unknown[]): Promise<readonly TRow[]>;
     cacheContracts(args?: ContractCacheArgs): Promise<ContractCacheResult>;
     invalidateContractsCache(args?: ContractCacheArgs): Promise<void>;
+    /** Measures a warmed snapshot against the current ledger end (undefined when cold or not cache-backed). */
+    inspectContractsCache(args?: ContractCacheArgs): Promise<ContractCacheInspection | undefined>;
     readonly contracts: {
         findMany<TArgs extends ContractFindManyArgs>(args?: TArgs): Promise<readonly (ContractResult & JsonProjectionResult<TArgs>)[]>;
         findUnique<TArgs extends ContractFindUniqueArgs>(args: TArgs): Promise<(ContractResult & JsonProjectionResult<TArgs>) | undefined>;

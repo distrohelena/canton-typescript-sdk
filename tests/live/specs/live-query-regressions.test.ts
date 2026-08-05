@@ -54,7 +54,7 @@ describe("live gRPC typed query regressions", () => {
         manager = new CantonManager({
             grpc: seeded.grpcEnvironment.options,
             querySource: QuerySource.grpc,
-            cache: { store: new MemoryQueryCache(), ttlMs: 600_000 },
+            cache: { store: new MemoryQueryCache(), ttlMs: 600_000, betaDeltaRefresh: true },
         });
 
         await manager.grpc.packageManagementService.uploadDarFileAsync(
@@ -251,4 +251,31 @@ describe("live gRPC typed query regressions", () => {
 
         expect(secondIds).toContain(extraContractId);
     }, 300_000);
+
+    it("patches the warmed contract cache forward with a bounded delta refresh", async () => {
+        // Warmed by the name-pinned test; measure how far the ledger has run since.
+        const inspection = await manager!.query.inspectContractsCache({ parties: [party] });
+
+        expect(inspection).toBeDefined();
+        expect(BigInt(inspection!.offsetGap)).toBeGreaterThanOrEqual(0n);
+
+        const extraContractId = await createLiveIouAsync(manager!, party, party, v1PackageId);
+
+        const result = await manager!.query.cacheContracts({ parties: [party] });
+
+        expect(result).toMatchObject({ cached: true, refresh: "delta" });
+
+        if (result.cached) {
+            expect(result.deltaUpdateCount).toBeGreaterThanOrEqual(1);
+            expect(BigInt(result.offsetGap!)).toBeGreaterThanOrEqual(1n);
+        }
+
+        const rows = await manager!.query.contracts.findMany({
+            parties: [party],
+            where: { active: true },
+            select: { contractId: true },
+        });
+
+        expect(rows.map((row) => row.contractId)).toContain(extraContractId);
+    }, 120_000);
 });
