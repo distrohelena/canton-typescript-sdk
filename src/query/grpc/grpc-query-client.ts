@@ -131,7 +131,9 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
                 ? []
                 : query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes"
                     ? await this.packages.readAllAsync()
-                    : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
+                    : derivableFromCreationsOnly(closure, fragment)
+                        ? contractTypeMetadataFromCreations(fragment.creationIdentities)
+                        : await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment));
 
             return packageMetadata.length === 0
                 ? fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger")
@@ -214,6 +216,25 @@ function predicateProvesActive(predicate: QueryPredicate | undefined): boolean {
 
 function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
     return closure.has("packages") || closure.has("contractTypes") || closure.has("exercises") || closure.has("exerciseTypes");
+}
+
+/**
+ * True when contractType metadata can be derived from the fetched creation events alone (see
+ * contractTypeMetadataFromCreations), instead of decoding LF packages. Every CreatedEvent already carries its
+ * own packageName, so this always holds for "contractTypes" by itself. It does NOT extend to "exercises"/
+ * "exerciseTypes": ExercisedEvent.packageName documents "the package name of the contract" — i.e. the
+ * template side — so it is not a reliable source for the choice owner's package name when a choice was
+ * exercised via an interface. "packages" is excluded because its own rows (e.g. version) have no event
+ * equivalent at all.
+ *
+ * The closure alone is enough in the ACS-only path (ACS pages structurally never contain exercises), but a
+ * full-history fragment reflects the *entire* replayed window, not just what this query's closure touches —
+ * createGrpcQueryDataset still unconditionally resolves package metadata for every exercise it contains, so
+ * an unrelated exercise elsewhere in that window would break canonical exerciseType/contractType keys. Hence
+ * the extra check that the fetched fragment itself has no exercises at all.
+ */
+function derivableFromCreationsOnly(closure: ReadonlySet<QueryRelation>, fragment: GrpcQueryRelationFragment): boolean {
+    return closure.has("contractTypes") && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages") && fragment.exercises.length === 0;
 }
 
 function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {

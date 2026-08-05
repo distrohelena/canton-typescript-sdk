@@ -229,6 +229,32 @@ describe("GrpcQueryClient", () => {
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ endOffsetInclusive: "300" });
     });
 
+    it("derives contractType metadata from history creations without calling the Package Service when the replayed window has no exercises", async () => {
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "1", updates: [historyUpdate("1", { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" }, "app")] });
+
+        const stateService = {
+            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
+            getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }),
+            getActiveContractsPageAsync: vi.fn(),
+        };
+
+        const client = new GrpcQueryClient({
+            stateService: stateService as never,
+            updateService: { getUpdatesPageAsync } as never,
+            packageService: {} as never,
+        });
+
+        // No active: true, so this forces the full-history path — but the closure is still just
+        // {contracts, contractTypes} and the replayed window has no exercises, so packageName/entityName
+        // still come straight from the creation event instead of the Package Service.
+        const rows = await client.contracts.findMany({
+            where: { contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+        });
+
+        expect(rows).toEqual([{ contractId: "C1" }]);
+    });
+
     it("uses complete history rows when a party-scoped cache supplies only the offset", async () => {
         const makeCreated = (contractId: string, witness: string, nodeId: number) => CreatedEvent.create({
             offset: "99",
