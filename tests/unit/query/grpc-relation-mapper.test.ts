@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
-import { createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
+import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds } from "../../../src/query/grpc/grpc-relation-mapper.js";
 import { relatedQueryRows } from "../../../src/query/canonical/query-dataset.js";
 import { InMemoryQueryEvaluator } from "../../../src/query/canonical/in-memory-query-evaluator.js";
 import { normalizeFindMany } from "../../../src/query/canonical/query-normalizer.js";
@@ -745,3 +745,47 @@ function packageMetadata(id: string, name: string, consuming: boolean, version =
         }],
     };
 }
+
+describe("contractTypeMetadataFromCreations", () => {
+    it("derives packageName/moduleName/entityName/templateFqn/aliases from creation events alone", () => {
+        const fragment = mapGrpcQueryRelationFragment([], [active(create())]);
+
+        expect(contractTypeMetadataFromCreations(fragment.creationIdentities)).toEqual([{
+            id: "pkg-id",
+            name: "app",
+            version: "unresolved",
+            templates: [{
+                moduleName: "Main",
+                entityName: "Asset",
+                payloadType: "template",
+                aliases: ["app:Main:Asset", "Main:Asset", "Asset"],
+                templateFqn: "app:Main:Asset",
+                choices: [],
+            }],
+        }]);
+    });
+
+    it("feeds a working contracts.contractType join into createGrpcQueryDataset without any decoded package", () => {
+        const fragment = mapGrpcQueryRelationFragment([], [active(create())]);
+
+        const dataset = createGrpcQueryDataset(fragment, contractTypeMetadataFromCreations(fragment.creationIdentities), "10", "ledger");
+
+        const rows = new InMemoryQueryEvaluator().execute(dataset, normalizeFindMany("contracts", {
+            where: { active: true, contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+            include: { contractType: { select: { entityName: true, packageName: true } } },
+        }));
+
+        expect(rows).toEqual([{ contractId: "C1", contractType: { entityName: "Asset", packageName: "app" } }]);
+    });
+
+    it("deduplicates templates within a package and rejects a packageId reporting two different names", () => {
+        const fragment = mapGrpcQueryRelationFragment([], [active(create("C1")), active(create("C2"))]);
+
+        expect(contractTypeMetadataFromCreations(fragment.creationIdentities)).toHaveLength(1);
+
+        const conflicting = fragment.creationIdentities.map((identity, index) => index === 0 ? { ...identity, packageName: "other" } : identity);
+
+        expect(() => contractTypeMetadataFromCreations(conflicting)).toThrow("reports conflicting package names");
+    });
+});

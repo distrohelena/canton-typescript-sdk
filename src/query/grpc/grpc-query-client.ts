@@ -11,7 +11,7 @@ import { queryRelationEdges, queryRelations, type QueryRelation } from "../canon
 import type { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
 import { GrpcContractCache } from "./grpc-contract-cache.js";
-import { createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
+import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { GrpcPackageRelationReader } from "./grpc-package-relation-reader.js";
 import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
 
@@ -157,9 +157,18 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
 
         const fragment = mapGrpcQueryRelationFragment([], active.activeContracts);
 
-        return requiresPackageMetadata(closure)
-            ? createGrpcQueryDataset(fragment, await this.packages.readPackagesAsync(referencedGrpcPackageIds(fragment)), endInclusive, this.options.endpointScope ?? "ledger")
-            : fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger", false);
+        if (!requiresPackageMetadata(closure)) {
+            return fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger", false);
+        }
+
+        // Reaching here guarantees query.relation === "contracts" with needsHistory === false, which (per
+        // predicateRequiresHistory/includesRequireHistory above) is only possible when the closure never
+        // touches "exercises"/"exerciseTypes"/"packages"/"transactions"/"events" — those unconditionally force
+        // history. So requiresPackageMetadata(closure) here can only be "contractTypes", and every contract in
+        // this ACS-only fragment already carries its own packageName — no Package Service call needed.
+        const packageMetadata = contractTypeMetadataFromCreations(fragment.creationIdentities);
+
+        return createGrpcQueryDataset(fragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
     }
 }
 

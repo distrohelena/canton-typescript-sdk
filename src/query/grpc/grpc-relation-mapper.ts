@@ -29,6 +29,7 @@ export interface GrpcQueryCreationIdentity {
     readonly templateId: Readonly<{ packageId: string; moduleName: string; entityName: string }>;
     readonly creationPackageId: string;
     readonly representativePackageId: string | null;
+    readonly packageName: string;
     readonly payload: unknown;
     readonly witnesses: readonly string[];
     readonly createdAt: Date;
@@ -388,6 +389,54 @@ export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): r
         ...concreteExercisePackages,
         ...fragment.typeIdentities.filter((identity) => identity.choice !== undefined).map((identity) => identity.packageId),
     ])].sort());
+}
+
+/**
+ * Derives contractType metadata straight from already-fetched created-contract events instead of the
+ * Package Service. Only valid where the caller has confirmed the query's relation closure is a subset of
+ * {contracts, contractTypes} — every contract's own creation event already carries packageName directly,
+ * so no archive decode is needed. "version" is a placeholder: this path is unreachable from any query that
+ * can see the "packages" relation, so it is never observed.
+ */
+export function contractTypeMetadataFromCreations(creationIdentities: readonly GrpcQueryCreationIdentity[]): readonly GrpcPackageMetadata[] {
+    const packages = new Map<string, { name: string; templates: Map<string, GrpcPackageMetadata["templates"][number]> }>();
+
+    for (const creation of creationIdentities) {
+        const packageId = creation.representativePackageId ?? creation.creationPackageId;
+
+        const { moduleName, entityName } = creation.templateId;
+
+        let pkg = packages.get(packageId);
+
+        if (pkg === undefined) {
+            pkg = { name: creation.packageName, templates: new Map() };
+            packages.set(packageId, pkg);
+        } else if (pkg.name !== creation.packageName) {
+            throw new ValidationError(`gRPC query package ${packageId} reports conflicting package names`);
+        }
+
+        const identity = `${moduleName} ${entityName}`;
+
+        if (!pkg.templates.has(identity)) {
+            const templateFqn = `${pkg.name}:${moduleName}:${entityName}`;
+
+            pkg.templates.set(identity, Object.freeze({
+                moduleName,
+                entityName,
+                payloadType: "template" as const,
+                aliases: Object.freeze([templateFqn, `${moduleName}:${entityName}`, entityName]),
+                templateFqn,
+                choices: Object.freeze([]),
+            }));
+        }
+    }
+
+    return Object.freeze([...packages.entries()].map(([id, pkg]) => Object.freeze({
+        id,
+        name: pkg.name,
+        version: "unresolved",
+        templates: Object.freeze([...pkg.templates.values()]),
+    })));
 }
 
 function compareTemplateMetadata(left: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }, right: { readonly package: GrpcPackageMetadata; readonly template: GrpcPackageMetadata["templates"][number] }): number {
@@ -910,6 +959,7 @@ function creationDescriptor(event: CreatedEvent, offset: string): GrpcQueryCreat
         templateId: copyTemplate(template),
         creationPackageId: template.packageId,
         representativePackageId: nullableString(event.representativePackageId),
+        packageName: event.packageName,
         payload: mapGrpcQueryValue({ sum: { oneofKind: "record", record: event.createArguments } }),
         witnesses: immutableStrings(event.witnessParties, "created event witnesses", true),
         createdAt,

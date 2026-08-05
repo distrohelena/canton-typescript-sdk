@@ -320,7 +320,7 @@ describe("GrpcQueryClient", () => {
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
     });
 
-    it("uses a cache offset but rereads ACS for active metadata/private joins", async () => {
+    it("uses a cache offset but rereads ACS for active metadata/private joins without calling the Package Service", async () => {
         const fixture = packageFixture();
 
         const created = CreatedEvent.create({
@@ -349,10 +349,14 @@ describe("GrpcQueryClient", () => {
             contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "99", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
         });
 
-        await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true }, include: { contractType: { select: { entityName: true } } } })).resolves.toEqual([{ contractId: "C1", contractType: { entityName: "Iou" } }]);
+        await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true }, include: { contractType: { select: { entityName: true, packageName: true } } } })).resolves.toEqual([{ contractId: "C1", contractType: { entityName: "Iou", packageName: "sample-package" } }]);
         expect(getLedgerEndAsync).not.toHaveBeenCalled();
         expect(getActiveContractsPageAsync.mock.calls[0]![0]).toMatchObject({ activeAtOffset: "99" });
-        expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
+        // The contractType closure here is provably a subset of {contracts, contractTypes} (see
+        // predicateRequiresHistory/includesRequireHistory), so packageName/entityName are derived straight
+        // from the ACS creation events — no Package Service round trip needed at all.
+        expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
+        expect(packageService.getPackageAsync).not.toHaveBeenCalled();
     });
 
     it("reads complete history for contracts -> contractType -> contracts and includes archived matching-template rows", async () => {
@@ -441,6 +445,40 @@ describe("GrpcQueryClient", () => {
         // Both queries reference the same package; the second call is served from the packageId cache.
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
         expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
+    });
+
+    it("resolves packageName/entityName/payload contract filters without touching the Package Service at all", async () => {
+        const created = CreatedEvent.create({
+            offset: "1",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: {} as never,
+        });
+
+        const rows = await client.contracts.findMany({
+            where: {
+                active: true,
+                contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } },
+                payload: { match: { owner: { equals: "Alice" } } },
+            },
+            select: { contractId: true },
+        });
+
+        expect(rows).toEqual([{ contractId: "C1" }]);
     });
 
     it("resolves a proven-active nested contracts include from contractTypes via ACS instead of full history", async () => {
