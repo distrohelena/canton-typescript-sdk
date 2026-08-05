@@ -77,7 +77,13 @@ describe("gRPC contract cache", () => {
         });
 
         expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
-        expect(getActiveContractsPageAsync.mock.calls[1]?.[0]).toMatchObject({ activeAtOffset: "42", pageToken: new Uint8Array([1]) });
+        // The continuation request must stay identical to the first page's request apart from the token —
+        // the participant rejects tokens accompanied by fields the original request did not carry.
+        expect(getActiveContractsPageAsync.mock.calls[1]?.[0]).toMatchObject({ pageToken: new Uint8Array([1]) });
+        expect(getActiveContractsPageAsync.mock.calls[1]?.[0].activeAtOffset).toBeUndefined();
+        expect(getActiveContractsPageAsync.mock.calls[1]?.[0].eventFormat).toEqual(getActiveContractsPageAsync.mock.calls[0]?.[0].eventFormat);
+        expect(getActiveContractsPageAsync.mock.calls[0]?.[0].activeAtOffset).toBeUndefined();
+        expect(getActiveContractsPageAsync.mock.calls[0]?.[0].pageToken).toBeUndefined();
         expect(cacheStore.setAsync).toHaveBeenCalledOnce();
 
         const [, payload, ttlMs] = cacheStore.setAsync.mock.calls[0]!;

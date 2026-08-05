@@ -114,19 +114,23 @@ export class GrpcContractCache {
 
         const seenPageTokens = new Set<string>();
 
+        // Every continuation request must be identical to the first page's request apart from the page
+        // token: the participant validates each token against the request it was minted for, so adopting
+        // the response's now-explicit activeAtOffset into page 2+ makes it reject the token
+        // (INVALID_ACS_PAGE_TOKEN) — the token was prepared for a request with the field absent. The token
+        // itself pins the snapshot offset; the echoed offset is only tracked to validate it stays constant.
+        const baseRequest = mapGrpcQueryContractsRequest(parties === undefined ? { allParties: true } : { parties });
+
         let activeAtOffset: string | undefined;
 
         let pageToken: Uint8Array | undefined;
 
         do {
             const page = materializeActiveContractsPage(
-                await this.stateService.getActiveContractsPageAsync(
-                    mapGrpcQueryContractsRequest(
-                        parties === undefined
-                            ? { allParties: true, activeAtOffset, pageToken }
-                            : { parties, activeAtOffset, pageToken },
-                    ),
-                ),
+                await this.stateService.getActiveContractsPageAsync({
+                    ...baseRequest,
+                    pageToken: pageToken === undefined ? undefined : Uint8Array.from(pageToken),
+                }),
             );
 
             if (activeAtOffset === undefined) {
