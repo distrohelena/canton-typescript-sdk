@@ -533,4 +533,111 @@ describe("gRPC query snapshot reader", () => {
     it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])("rejects an invalid traversal limit of %p", value => {
         expect(() => readerFor({ options: { maxHistoryPages: value } })).toThrow();
     });
+
+    it("rejects a non-boolean incrementalHistory option", () => {
+        expect(() => readerFor({ options: { incrementalHistory: "yes" as never } })).toThrow("incrementalHistory must be a boolean.");
+    });
+
+    describe("incremental history", () => {
+        it("fetches only offsets past the cached window and returns the combined snapshot", async () => {
+            const { reader, getUpdatesPageAsync } = readerFor({
+                options: { incrementalHistory: true },
+                historyPages: [
+                    historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1"), transactionUpdate("2")] }),
+                    historyPage({ lowestPageOffsetExclusive: "2", highestPageOffsetInclusive: "5", updates: [transactionUpdate("4")] }),
+                ],
+            });
+
+            await expect(reader.readHistoryAsync("2")).resolves.toMatchObject({ endInclusive: "2", updates: [expect.anything(), expect.anything()] });
+            await expect(reader.readHistoryAsync("5")).resolves.toMatchObject({ endInclusive: "5", updates: [expect.anything(), expect.anything(), expect.anything()] });
+
+            expect(getUpdatesPageAsync).toHaveBeenCalledTimes(2);
+            expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "2" });
+            expect(getUpdatesPageAsync.mock.calls[1]![0]).toMatchObject({ beginOffsetExclusive: "2", endOffsetInclusive: "5" });
+        });
+
+        it("serves an exact repeat entirely from the cached window without any service calls", async () => {
+            const { reader, getLatestPrunedOffsetsAsync, getUpdatesPageAsync } = readerFor({
+                options: { incrementalHistory: true },
+                historyPages: [historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] })],
+            });
+
+            await reader.readHistoryAsync("2");
+            await expect(reader.readHistoryAsync("2")).resolves.toMatchObject({ endInclusive: "2", updates: [expect.anything()] });
+
+            expect(getUpdatesPageAsync).toHaveBeenCalledTimes(1);
+            expect(getLatestPrunedOffsetsAsync).toHaveBeenCalledTimes(1);
+        });
+
+        it("serves a shorter range as a prefix of the cached window", async () => {
+            const { reader, getUpdatesPageAsync } = readerFor({
+                options: { incrementalHistory: true },
+                historyPages: [historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "5", updates: [transactionUpdate("2"), transactionUpdate("4")] })],
+            });
+
+            await reader.readHistoryAsync("5");
+
+            const prefix = await reader.readHistoryAsync("3");
+
+            expect(prefix.endInclusive).toBe("3");
+            expect(prefix.updates).toHaveLength(1);
+            expect(getUpdatesPageAsync).toHaveBeenCalledTimes(1);
+        });
+
+        it("replays from offset 0 on every read when incrementalHistory is off", async () => {
+            const { reader, getUpdatesPageAsync } = readerFor({
+                historyPages: [
+                    historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] }),
+                    historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] }),
+                ],
+            });
+
+            await reader.readHistoryAsync("2");
+            await reader.readHistoryAsync("2");
+
+            expect(getUpdatesPageAsync).toHaveBeenCalledTimes(2);
+            expect(getUpdatesPageAsync.mock.calls[1]![0]).toMatchObject({ beginOffsetExclusive: "0" });
+        });
+
+        it("tolerates pruning up to the cached window but rejects pruning past it", async () => {
+            const tolerated = readerFor({
+                options: { incrementalHistory: true },
+                historyPages: [
+                    historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] }),
+                    historyPage({ lowestPageOffsetExclusive: "2", highestPageOffsetInclusive: "5", updates: [] }),
+                ],
+            });
+
+            await tolerated.reader.readHistoryAsync("2");
+
+            tolerated.getLatestPrunedOffsetsAsync.mockResolvedValue({ participantPrunedUpToInclusive: "2" });
+
+            await expect(tolerated.reader.readHistoryAsync("5")).resolves.toMatchObject({ endInclusive: "5" });
+
+            const rejected = readerFor({
+                options: { incrementalHistory: true },
+                historyPages: [historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] })],
+            });
+
+            await rejected.reader.readHistoryAsync("2");
+
+            rejected.getLatestPrunedOffsetsAsync.mockResolvedValue({ participantPrunedUpToInclusive: "3" });
+
+            await expect(rejected.reader.readHistoryAsync("5")).rejects.toMatchObject({ reason: "participant-pruned", beginExclusive: "2" });
+        });
+
+        it("counts the cached window toward maxHistoryUpdates when extending", async () => {
+            const { reader } = readerFor({
+                options: { incrementalHistory: true, maxHistoryUpdates: 2 },
+                historyPages: [
+                    historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "2", updates: [transactionUpdate("1")] }),
+                    historyPage({ lowestPageOffsetExclusive: "2", highestPageOffsetInclusive: "5", updates: [transactionUpdate("3"), transactionUpdate("4")] }),
+                ],
+            });
+
+            await reader.readHistoryAsync("2");
+
+            await expect(reader.readHistoryAsync("5")).rejects.toMatchObject({ reason: "max-updates-exceeded", beginExclusive: "2" });
+        });
+    });
 });

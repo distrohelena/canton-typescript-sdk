@@ -28,6 +28,12 @@ export interface GrpcQueryClientOptions {
     readonly packageService: Pick<PackageServiceClient, "listPackagesAsync" | "getPackageAsync">;
     readonly contractCache?: GrpcContractCache;
     readonly endpointScope?: string;
+    /**
+     * Opt-in: after the first history replay, keep the materialized window in memory and only fetch offsets
+     * past it on later history queries — turning repeat full replays into delta reads. Off by default because
+     * the retained window lives for this client's lifetime and its RAM cost is the full replayed history.
+     */
+    readonly incrementalHistory?: boolean;
 }
 
 export class GrpcQueryClient implements QueryClient {
@@ -94,7 +100,7 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
     private readonly packages: GrpcPackageRelationReader;
 
     public constructor(private readonly options: GrpcQueryClientOptions) {
-        this.snapshots = new GrpcQuerySnapshotReader(options.stateService, options.updateService);
+        this.snapshots = new GrpcQuerySnapshotReader(options.stateService, options.updateService, { incrementalHistory: options.incrementalHistory });
         this.packages = new GrpcPackageRelationReader(options.packageService);
     }
 
@@ -112,12 +118,18 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
         if (cached !== undefined && !needsHistory && !requiresPackageMetadata(closure)) {
             return cachedContractsDataset(cached.contracts as unknown as readonly QueryRow[], cached.activeAtOffset, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
-            console.warn(
-                `[GrpcQueryClient] Falling back to a full ledger replay from offset 0 for a "${query.relation}" query. `
-                    + "This is expensive and should be an extreme edge case. It is usually triggered by a \"contracts\" query "
-                    + "that does not explicitly prove `active: true` (so archived contracts may be in scope), or by querying "
-                    + "\"transactions\"/\"events\"/\"exercises\" directly. Add an explicit active:true filter if only current state is needed.",
-            );
+            // With a warm incremental window only the new offsets are fetched, which is no longer worth a warning.
+            if (!(this.options.incrementalHistory === true && this.snapshots.hasHistoryCache)) {
+                console.warn(
+                    `[GrpcQueryClient] Falling back to a full ledger replay from offset 0 for a "${query.relation}" query. `
+                        + "This is expensive and should be an extreme edge case. It is usually triggered by a \"contracts\" query "
+                        + "that does not explicitly prove `active: true` (so archived contracts may be in scope), or by querying "
+                        + "\"transactions\"/\"events\"/\"exercises\" directly. Add an explicit active:true filter if only current state is needed"
+                        + (this.options.incrementalHistory === true
+                            ? "; incrementalHistory is enabled, so later history queries will fetch only new offsets."
+                            : ", or enable the incrementalHistory option to fetch only new offsets on repeat history queries."),
+                );
+            }
 
             const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
 

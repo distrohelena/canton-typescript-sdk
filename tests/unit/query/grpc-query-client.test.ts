@@ -202,6 +202,50 @@ describe("GrpcQueryClient", () => {
         expect(stateService.getActiveContractsPageAsync).not.toHaveBeenCalled();
     });
 
+    it("fetches only new offsets on repeat history queries when incrementalHistory is enabled, warning once", async () => {
+        const created = (contractId: string, offset: string) => CreatedEvent.create({
+            offset,
+            nodeId: 1,
+            contractId,
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [] },
+        });
+
+        const update = (offset: string, contractId: string) => GetUpdateResponse.create({
+            update: { oneofKind: "transaction", transaction: Transaction.create({ offset, updateId: `update-${offset}`, effectiveAt: { seconds: "1700000000", nanos: 0 }, recordTime: { seconds: "1700000000", nanos: 0 }, synchronizerId: "sync", events: [Event.create({ event: { oneofKind: "created", created: created(contractId, offset) } })] }) },
+        });
+
+        const getUpdatesPageAsync = vi.fn(async (request: { beginOffsetExclusive: string }) => request.beginOffsetExclusive === "0"
+            ? { lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "1", updates: [update("1", "C1")] }
+            : { lowestPageOffsetExclusive: "1", highestPageOffsetInclusive: "2", updates: [update("2", "C2")] });
+
+        const stateService = {
+            getLedgerEndAsync: vi.fn().mockResolvedValueOnce({ offset: "1" }).mockResolvedValueOnce({ offset: "2" }),
+            getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }),
+            getActiveContractsPageAsync: vi.fn(),
+        };
+
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, incrementalHistory: true });
+
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        try {
+            await expect(client.transactions.findMany({ select: { offset: true } })).resolves.toEqual([{ offset: "1" }]);
+            await expect(client.transactions.findMany({ select: { offset: true } })).resolves.toEqual([{ offset: "1" }, { offset: "2" }]);
+
+            expect(getUpdatesPageAsync).toHaveBeenCalledTimes(2);
+            expect(getUpdatesPageAsync.mock.calls[1]![0]).toMatchObject({ beginOffsetExclusive: "1", endOffsetInclusive: "2" });
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+        }
+    });
+
     it("pins historical contract includes to the active cache offset", async () => {
         const fixture = packageFixture();
 

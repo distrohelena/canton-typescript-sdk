@@ -40,11 +40,17 @@ export interface GrpcQuerySnapshotReaderOptions {
     readonly maxHistoryUpdates?: number;
     readonly maxActiveContractPages?: number;
     readonly maxActiveContracts?: number;
+    /**
+     * Opt-in: retain the last replayed history window in memory and only fetch offsets past it on later
+     * reads. Off by default because the retained window lives for this reader's lifetime — its RAM cost is
+     * the full materialized history, bounded only by maxHistoryUpdates.
+     */
+    readonly incrementalHistory?: boolean;
 }
 
 type RequiredOptions = Required<GrpcQuerySnapshotReaderOptions>;
 
-const DEFAULT_OPTIONS: RequiredOptions = {
+const DEFAULT_LIMITS: Required<Omit<GrpcQuerySnapshotReaderOptions, "incrementalHistory">> = {
     maxHistoryPages: 10_000,
     maxHistoryUpdates: 1_000_000,
     maxActiveContractPages: 10_000,
@@ -53,8 +59,14 @@ const DEFAULT_OPTIONS: RequiredOptions = {
 
 const LEDGER_BEGIN = "0";
 
+interface HistoryCacheEntry {
+    readonly end: bigint;
+    readonly updates: readonly GetUpdateResponseType[];
+}
+
 export class GrpcQuerySnapshotReader {
     private readonly options: RequiredOptions;
+    private historyCache: HistoryCacheEntry | undefined;
 
     public constructor(
         private readonly stateService: StateSnapshotReader,
@@ -62,6 +74,11 @@ export class GrpcQuerySnapshotReader {
         options: GrpcQuerySnapshotReaderOptions = {},
     ) {
         this.options = validateOptions(options);
+    }
+
+    /** Whether an incremental history window is already held, meaning the next read only fetches new offsets. */
+    public get hasHistoryCache(): boolean {
+        return this.historyCache !== undefined;
     }
 
     public async readCurrentHistoryAsync(): Promise<GrpcHistorySnapshot> {
@@ -74,15 +91,52 @@ export class GrpcQuerySnapshotReader {
         const end = parseOffset(endInclusive);
 
         if (end === undefined) {
-            throw this.historyError(endInclusive, "invalid-offset");
+            throw this.historyError(LEDGER_BEGIN, endInclusive, "invalid-offset");
         }
+
+        const cached = this.options.incrementalHistory ? this.historyCache : undefined;
+
+        // History is append-only, so a cached window ending at or past the requested offset already contains
+        // the complete answer: an exact hit is returned as-is, a shorter request is a prefix of the window.
+        if (cached !== undefined && cached.end >= end) {
+            const updates = cached.end === end
+                ? cached.updates
+                : cached.updates.filter((update) => {
+                    const offset = parseOffset(extractUpdateOffset(update));
+
+                    return offset !== undefined && offset <= end;
+                });
+
+            return freezeSnapshot({ endInclusive, updates: Object.freeze([...updates]) });
+        }
+
+        const beginExclusive = cached?.end ?? 0n;
+
+        const snapshot = await this.readHistoryRangeAsync(beginExclusive, end, endInclusive, cached?.updates ?? []);
+
+        if (this.options.incrementalHistory && (this.historyCache === undefined || this.historyCache.end < end)) {
+            this.historyCache = { end, updates: snapshot.updates };
+        }
+
+        return snapshot;
+    }
+
+    private async readHistoryRangeAsync(
+        beginExclusive: bigint,
+        end: bigint,
+        endInclusive: string,
+        seed: readonly GetUpdateResponseType[],
+    ): Promise<GrpcHistorySnapshot> {
+        const begin = beginExclusive.toString();
 
         const pruned = await this.stateService.getLatestPrunedOffsetsAsync({});
 
         const prunedUpTo = parseOffset(pruned.participantPrunedUpToInclusive);
 
-        if (prunedUpTo === undefined || prunedUpTo !== 0n) {
-            throw this.historyError(endInclusive, "participant-pruned");
+        // Offsets at or below beginExclusive are already held (or not requested), so pruning only breaks the
+        // read when it reaches past the range start.
+        if (prunedUpTo === undefined || prunedUpTo > beginExclusive) {
+            throw this.historyError(begin, endInclusive, "participant-pruned");
         }
 
         const updateFormat = freezeDeep(createHistoryUpdateFormat());
@@ -91,7 +145,7 @@ export class GrpcQuerySnapshotReader {
 
         const observedPageTokens = new Set<string>();
 
-        let expectedLowestExclusive = 0n;
+        let expectedLowestExclusive = beginExclusive;
 
         let pageToken: Uint8Array | undefined;
 
@@ -101,11 +155,11 @@ export class GrpcQuerySnapshotReader {
 
         while (true) {
             if (pagesRead >= this.options.maxHistoryPages) {
-                throw this.historyError(endInclusive, "max-pages-exceeded");
+                throw this.historyError(begin, endInclusive, "max-pages-exceeded");
             }
 
             const request: GetUpdatesPageRequest = {
-                beginOffsetExclusive: LEDGER_BEGIN,
+                beginOffsetExclusive: begin,
                 endOffsetInclusive: endInclusive,
                 updateFormat,
                 descendingOrder: false,
@@ -121,20 +175,20 @@ export class GrpcQuerySnapshotReader {
             const highest = parseOffset(response.highestPageOffsetInclusive);
 
             if (lowest === undefined || highest === undefined) {
-                throw this.historyError(endInclusive, "missing-boundary");
+                throw this.historyError(begin, endInclusive, "missing-boundary");
             } else if (lowest !== expectedLowestExclusive || highest < lowest || highest > end) {
-                throw this.historyError(endInclusive, "page-boundary-mismatch");
+                throw this.historyError(begin, endInclusive, "page-boundary-mismatch");
             }
 
-            if (response.updates.length > this.options.maxHistoryUpdates - updates.length) {
-                throw this.historyError(endInclusive, "max-updates-exceeded");
+            if (response.updates.length > this.options.maxHistoryUpdates - seed.length - updates.length) {
+                throw this.historyError(begin, endInclusive, "max-updates-exceeded");
             }
 
             for (const update of response.updates) {
                 const updateOffset = parseOffset(extractUpdateOffset(update));
 
                 if (updateOffset === undefined || updateOffset <= lowest || updateOffset > highest || (previousUpdateOffset !== undefined && updateOffset <= previousUpdateOffset)) {
-                    throw this.historyError(endInclusive, "page-boundary-mismatch");
+                    throw this.historyError(begin, endInclusive, "page-boundary-mismatch");
                 }
 
                 previousUpdateOffset = updateOffset;
@@ -146,23 +200,23 @@ export class GrpcQuerySnapshotReader {
 
             if (nextPageToken === undefined || nextPageToken.length === 0) {
                 if (highest !== end) {
-                    throw this.historyError(endInclusive, "nonterminal-page-without-token");
+                    throw this.historyError(begin, endInclusive, "nonterminal-page-without-token");
                 }
 
                 return freezeSnapshot({
                     endInclusive,
-                    updates: Object.freeze(updates),
+                    updates: Object.freeze([...seed, ...updates]),
                 });
             } else if (highest >= end) {
-                throw this.historyError(endInclusive, "nonterminal-page-reaches-end");
+                throw this.historyError(begin, endInclusive, "nonterminal-page-reaches-end");
             } else if (highest <= lowest) {
-                throw this.historyError(endInclusive, "page-boundary-mismatch");
+                throw this.historyError(begin, endInclusive, "page-boundary-mismatch");
             }
 
             const tokenKey = tokenKeyFor(nextPageToken);
 
             if (observedPageTokens.has(tokenKey)) {
-                throw this.historyError(endInclusive, "repeated-page-token");
+                throw this.historyError(begin, endInclusive, "repeated-page-token");
             }
 
             observedPageTokens.add(tokenKey);
@@ -241,11 +295,12 @@ export class GrpcQuerySnapshotReader {
     }
 
     private historyError(
+        beginExclusive: string,
         endInclusive: string,
         reason: QuerySnapshotIncompleteReason,
     ): QuerySnapshotIncompleteError {
         return new QuerySnapshotIncompleteError({
-            beginExclusive: LEDGER_BEGIN,
+            beginExclusive,
             endInclusive,
             reason,
         });
@@ -265,7 +320,13 @@ export class GrpcQuerySnapshotReader {
 }
 
 function validateOptions(options: GrpcQuerySnapshotReaderOptions): RequiredOptions {
-    const validated = { ...DEFAULT_OPTIONS, ...options };
+    const { incrementalHistory = false, ...limits } = options;
+
+    if (typeof incrementalHistory !== "boolean") {
+        throw new ValidationError("incrementalHistory must be a boolean.");
+    }
+
+    const validated = { ...DEFAULT_LIMITS, ...limits };
 
     for (const [name, value] of Object.entries(validated)) {
         if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
@@ -273,7 +334,7 @@ function validateOptions(options: GrpcQuerySnapshotReaderOptions): RequiredOptio
         }
     }
 
-    return Object.freeze(validated);
+    return Object.freeze({ ...validated, incrementalHistory });
 }
 
 function createHistoryUpdateFormat(): UpdateFormat {
