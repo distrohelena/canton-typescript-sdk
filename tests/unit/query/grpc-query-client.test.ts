@@ -315,7 +315,9 @@ describe("GrpcQueryClient", () => {
         await expect(client.exerciseTypes.findMany({ select: { choice: true } })).resolves.toEqual([{ choice: "EventLog_HoldingsChange" }, { choice: "Transfer" }]);
         expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(3);
         expect(packageService.listPackagesAsync).toHaveBeenCalledTimes(3);
-        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(3);
+        // Package content is content-addressed and cached by packageId, so the same package archive
+        // is only ever fetched and decoded once across all three queries.
+        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
     });
 
     it("uses a cache offset but rereads ACS for active metadata/private joins", async () => {
@@ -436,7 +438,8 @@ describe("GrpcQueryClient", () => {
         expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ beginOffsetExclusive: "0", endOffsetInclusive: "300" });
         expect(getLedgerEndAsync).toHaveBeenCalledTimes(1);
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
-        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(2);
+        // Both queries reference the same package; the second call is served from the packageId cache.
+        expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
         expect(packageService.getPackageAsync).toHaveBeenLastCalledWith({ packageId: fixture.id });
     });
 

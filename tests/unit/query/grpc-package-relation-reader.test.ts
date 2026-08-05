@@ -90,6 +90,23 @@ describe("GrpcPackageRelationReader", () => {
         expect(getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
+    it("caches a resolved package by packageId across separate readAllAsync/readPackagesAsync calls", async () => {
+        const fixture = fixturePackage();
+
+        const listPackagesAsync = vi.fn(async () => ({ packageIds: [fixture.id] }));
+
+        const getPackageAsync = vi.fn(async () => fixture.response);
+
+        const reader = new GrpcPackageRelationReader({ listPackagesAsync, getPackageAsync });
+
+        await reader.readAllAsync();
+        await reader.readAllAsync();
+        await reader.readPackagesAsync([fixture.id]);
+
+        expect(listPackagesAsync).toHaveBeenCalledTimes(2);
+        expect(getPackageAsync).toHaveBeenCalledTimes(1);
+    });
+
     it("omits listed LF packages without template or interface payload types", async () => {
         const fixture = fixturePackage();
 

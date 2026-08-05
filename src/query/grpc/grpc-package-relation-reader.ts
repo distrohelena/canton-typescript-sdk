@@ -46,6 +46,9 @@ export class GrpcPackageRelationError extends CantonError {
 
 /** Loads LF package metadata. Each call owns its promise map, so no package data enters QueryCacheStore. */
 export class GrpcPackageRelationReader {
+    /** Package IDs are content-addressed SHA-256 digests (verified below), so a resolved entry is cached forever. */
+    private readonly resolved = new Map<string, GrpcPackageMetadata>();
+
     public constructor(
         private readonly packageService: GrpcPackageService,
         private readonly packageLoader: DamlLfPackageLoader = new DamlLfPackageLoader(),
@@ -84,6 +87,12 @@ export class GrpcPackageRelationReader {
     }
 
     private async readPackageAsync(packageId: string): Promise<GrpcPackageMetadata> {
+        const cached = this.resolved.get(packageId);
+
+        if (cached !== undefined) {
+            return cached;
+        }
+
         let response: GetPackageResponse;
 
         try {
@@ -126,12 +135,16 @@ export class GrpcPackageRelationReader {
                 ...interfaceMetadata(packageId, packageName, result.rawPackage),
             ];
 
-            return Object.freeze({
+            const metadata = Object.freeze({
                 id: packageId,
                 name: packageName,
                 version: requiredPackageText(pkg.packageVersion, "version"),
                 templates: Object.freeze(templates),
             });
+
+            this.resolved.set(packageId, metadata);
+
+            return metadata;
         } catch (error) {
             throw isGrpcPackageRelationError(error) ? error : new GrpcPackageRelationError(packageId, errorMessage(error));
         }
