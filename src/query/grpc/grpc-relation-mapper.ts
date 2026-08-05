@@ -398,6 +398,9 @@ export function referencedGrpcPackageIds(fragment: GrpcQueryRelationFragment): r
     ])].sort());
 }
 
+/** The minimal creation facts needed to derive a contract's type metadata without decoding its package. */
+export type GrpcCreationTypeSource = Pick<GrpcQueryCreationIdentity, "creationPackageId" | "representativePackageId" | "packageName" | "templateId">;
+
 interface DerivedPackage {
     readonly name: string;
     readonly templates: Map<string, { readonly moduleName: string; readonly entityName: string; readonly choices: Map<string, boolean> }>;
@@ -410,7 +413,7 @@ interface DerivedPackage {
  * so no archive decode is needed. "version" is a per-package placeholder: this path is unreachable from
  * any query that can see the "packages" relation, so it is never observed.
  */
-export function contractTypeMetadataFromCreations(creationIdentities: readonly GrpcQueryCreationIdentity[]): readonly GrpcPackageMetadata[] {
+export function contractTypeMetadataFromCreations(creationIdentities: readonly GrpcCreationTypeSource[]): readonly GrpcPackageMetadata[] {
     const packages = new Map<string, DerivedPackage>();
 
     addDerivedCreationEntries(packages, creationIdentities);
@@ -456,7 +459,7 @@ export function packageMetadataFromEvents(fragment: Pick<GrpcQueryRelationFragme
     return finalizeDerivedPackages(packages);
 }
 
-function addDerivedCreationEntries(packages: Map<string, DerivedPackage>, creationIdentities: readonly GrpcQueryCreationIdentity[]): void {
+function addDerivedCreationEntries(packages: Map<string, DerivedPackage>, creationIdentities: readonly GrpcCreationTypeSource[]): void {
     for (const creation of creationIdentities) {
         derivedTemplateFor(
             derivedPackageFor(packages, creation.representativePackageId ?? creation.creationPackageId, creation.packageName),

@@ -12,19 +12,28 @@ import { isCanonicalGrpcOffset } from "./grpc-query-snapshot-reader.js";
 
 type ActiveContractsReader = Pick<StateServiceClient, "getActiveContractsPageAsync">;
 
+/** Per-contract creation facts the contractType join needs; stored so cached reads never re-fetch the ACS. */
+export interface GrpcCachedCreationMetadata {
+    readonly contractId: string;
+    readonly packageName: string;
+    readonly representativePackageId: string | null;
+}
+
 interface CachedContractSnapshot {
-    readonly version: 1;
+    readonly version: 2;
     readonly endpointScope: string;
     readonly parties: readonly string[] | undefined;
     readonly activeAtOffset: string;
     readonly expiresAtEpochMs: number;
     readonly contracts: readonly ContractRow[];
+    readonly creationMetadata: readonly GrpcCachedCreationMetadata[];
 }
 
 /** Internal point-in-time active-contract cache lookup used by query planning. */
 export interface GrpcCachedContractSnapshot {
     readonly activeAtOffset: string;
     readonly contracts: readonly ContractRow[];
+    readonly creationMetadata: readonly GrpcCachedCreationMetadata[];
 }
 
 interface MaterializedActiveContractsPage {
@@ -92,7 +101,7 @@ export class GrpcContractCache {
             return undefined;
         }
 
-        return Object.freeze({ activeAtOffset: snapshot.activeAtOffset, contracts: snapshot.contracts });
+        return Object.freeze({ activeAtOffset: snapshot.activeAtOffset, contracts: snapshot.contracts, creationMetadata: snapshot.creationMetadata });
     }
 
     public async invalidateContractsCache(args?: ContractCacheArgs): Promise<void> {
@@ -158,7 +167,15 @@ export class GrpcContractCache {
             }
         } while (pageToken !== undefined && pageToken.length > 0);
 
-        const contracts = mapGrpcQueryRelationFragment([], activeContracts).contracts;
+        const fragment = mapGrpcQueryRelationFragment([], activeContracts);
+
+        const contracts = fragment.contracts;
+
+        const creationMetadata = fragment.creationIdentities.map((identity) => ({
+            contractId: identity.contractId,
+            packageName: identity.packageName,
+            representativePackageId: identity.representativePackageId,
+        }));
 
         const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
@@ -171,12 +188,13 @@ export class GrpcContractCache {
         };
 
         const snapshot: CachedContractSnapshot = {
-            version: 1,
+            version: 2,
             endpointScope: this.endpointScope,
             parties,
             activeAtOffset: activeAtOffset!,
             expiresAtEpochMs,
             contracts: copyRows(contracts),
+            creationMetadata,
         };
 
         await this.store.setAsync(key, snapshot, this.ttlMs);
@@ -260,8 +278,10 @@ function asCompatibleSnapshot(
 
         const contracts = materializeContractRows(candidate.contracts);
 
+        const creationMetadata = materializeCreationMetadata(candidate.creationMetadata, contracts);
+
         if (
-            version !== 1
+            version !== 2
             || storedEndpointScope !== endpointScope
             || (rawParties !== undefined && storedParties === undefined)
             || !sameParties(storedParties, parties)
@@ -274,6 +294,7 @@ function asCompatibleSnapshot(
             || !Number.isFinite(new Date(expiresAtEpochMs).getTime())
             || expiresAtEpochMs <= nowEpochMs
             || contracts === undefined
+            || creationMetadata === undefined
         ) {
             return undefined;
         }
@@ -285,6 +306,7 @@ function asCompatibleSnapshot(
             activeAtOffset,
             expiresAtEpochMs,
             contracts,
+            creationMetadata,
         };
     } catch {
         return undefined;
@@ -361,6 +383,61 @@ function materializePageToken(value: unknown): Uint8Array | undefined {
     } catch {
         throw new Error("Active-contracts response nextPageToken is invalid.");
     }
+}
+
+function materializeCreationMetadata(
+    value: unknown,
+    contracts: readonly ContractRow[] | undefined,
+): readonly GrpcCachedCreationMetadata[] | undefined {
+    if (contracts === undefined) {
+        return undefined;
+    }
+
+    const entries = materializeIndexedValues(value, materializeCreationMetadataEntry);
+
+    if (entries === undefined || entries.some((entry) => entry === undefined)) {
+        return undefined;
+    }
+
+    const materialized = entries as readonly GrpcCachedCreationMetadata[];
+
+    // Coherence: exactly one metadata entry per contract row, so the contractType join can never dangle.
+    const metadataContractIds = new Set(materialized.map((entry) => entry.contractId));
+
+    if (
+        metadataContractIds.size !== materialized.length
+        || materialized.length !== contracts.length
+        || !contracts.every((row) => metadataContractIds.has(row.contractId))
+    ) {
+        return undefined;
+    }
+
+    return materialized;
+}
+
+function materializeCreationMetadataEntry(value: unknown): GrpcCachedCreationMetadata | undefined {
+    if (value === null || typeof value !== "object") {
+        return undefined;
+    }
+
+    const candidate = value as Partial<GrpcCachedCreationMetadata>;
+
+    const contractId = candidate.contractId;
+
+    const packageName = candidate.packageName;
+
+    const representativePackageId = candidate.representativePackageId;
+
+    if (
+        typeof contractId !== "string"
+        || typeof packageName !== "string"
+        || packageName.length === 0
+        || (typeof representativePackageId !== "string" && representativePackageId !== null)
+    ) {
+        return undefined;
+    }
+
+    return { contractId, packageName, representativePackageId };
 }
 
 function materializeContractRows(value: unknown): readonly ContractRow[] | undefined {

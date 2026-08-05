@@ -130,6 +130,7 @@ describe("GrpcQueryClient", () => {
             readSnapshotAsync: vi.fn().mockResolvedValue({
                 activeAtOffset: "300",
                 contracts: [queryConformanceDataset.rows.contracts[0]],
+                creationMetadata: [{ contractId: "C1", packageName: "app", representativePackageId: null }],
             }),
         };
 
@@ -141,6 +142,14 @@ describe("GrpcQueryClient", () => {
         });
 
         await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true } })).resolves.toEqual([{ contractId: "C1" }]);
+
+        // The stored creation metadata answers contractType filters and includes with zero transport calls.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+            include: { contractType: { select: { packageName: true, templateFqn: true } } },
+        })).resolves.toEqual([{ contractId: "C1", contractType: { packageName: "app", templateFqn: "app:App:Asset" } }]);
+
         expect(stateService.getLedgerEndAsync).not.toHaveBeenCalled();
         expect(stateService.getActiveContractsPageAsync).not.toHaveBeenCalled();
         expect(updateService.getUpdatesPageAsync).not.toHaveBeenCalled();
@@ -390,41 +399,31 @@ describe("GrpcQueryClient", () => {
         expect(packageService.getPackageAsync).toHaveBeenCalledTimes(1);
     });
 
-    it("uses a cache offset but rereads ACS for active metadata/private joins without calling the Package Service", async () => {
-        const fixture = packageFixture();
+    it("serves contractType joins from the cached snapshot's creation metadata without any transport calls", async () => {
+        const getActiveContractsPageAsync = vi.fn();
 
-        const created = CreatedEvent.create({
-            offset: "99",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
-            packageName: "sample-package",
-            representativePackageId: fixture.id,
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
-        });
+        const getLedgerEndAsync = vi.fn();
 
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "99", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
-
-        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
-
-        const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
+        const packageService = { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn() };
 
         const client = new GrpcQueryClient({
             stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
             updateService: {} as never,
             packageService: packageService as never,
-            contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "99", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
+            contractCache: {
+                readSnapshotAsync: vi.fn().mockResolvedValue({
+                    activeAtOffset: "99",
+                    contracts: [queryConformanceDataset.rows.contracts[0]],
+                    creationMetadata: [{ contractId: "C1", packageName: "sample-package", representativePackageId: null }],
+                }),
+            } as never,
         });
 
-        await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true }, include: { contractType: { select: { entityName: true, packageName: true } } } })).resolves.toEqual([{ contractId: "C1", contractType: { entityName: "Iou", packageName: "sample-package" } }]);
+        await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true }, include: { contractType: { select: { entityName: true, packageName: true } } } })).resolves.toEqual([{ contractId: "C1", contractType: { entityName: "Asset", packageName: "sample-package" } }]);
+        // The snapshot stores each contract's creation metadata, so the contractType join resolves without
+        // re-reading the ACS, resolving the ledger end, or touching the Package Service.
         expect(getLedgerEndAsync).not.toHaveBeenCalled();
-        expect(getActiveContractsPageAsync.mock.calls[0]![0]).toMatchObject({ activeAtOffset: "99" });
-        // The contractType closure here is provably a subset of {contracts, contractTypes} (see
-        // predicateRequiresHistory/includesRequireHistory), so packageName/entityName are derived straight
-        // from the ACS creation events — no Package Service round trip needed at all.
+        expect(getActiveContractsPageAsync).not.toHaveBeenCalled();
         expect(packageService.listPackagesAsync).not.toHaveBeenCalled();
         expect(packageService.getPackageAsync).not.toHaveBeenCalled();
     });

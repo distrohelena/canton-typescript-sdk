@@ -95,7 +95,7 @@ describe("gRPC contract cache", () => {
         const [, payload, ttlMs] = cacheStore.setAsync.mock.calls[0]!;
 
         expect(ttlMs).toBe(100);
-        expect(payload).toMatchObject({ version: 1, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100 });
+        expect(payload).toMatchObject({ version: 2, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100 });
         expect((payload as { contracts: readonly unknown[] }).contracts).toEqual([
             expect.objectContaining({
                 contractId: "C1",
@@ -110,6 +110,10 @@ describe("gRPC contract cache", () => {
                 active: true,
             }),
             expect.objectContaining({ contractId: "C2" }),
+        ]);
+        expect((payload as { creationMetadata: readonly unknown[] }).creationMetadata).toEqual([
+            { contractId: "C1", packageName: "app", representativePackageId: "pkg-id" },
+            { contractId: "C2", packageName: "app", representativePackageId: "pkg-id" },
         ]);
     });
 
@@ -381,6 +385,41 @@ describe("gRPC contract cache", () => {
         expect(cacheStore.setAsync).toHaveBeenCalledOnce();
     });
 
+    it("treats a version-1 snapshot without creation metadata as a miss", async () => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
+
+        cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
+            version: 1, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100, contracts: [],
+        });
+
+        await expect(cache.readSnapshotAsync()).resolves.toBeUndefined();
+    });
+
+    it("treats incoherent creation metadata as a miss", async () => {
+        const cacheStore = store();
+
+        const cache = new GrpcContractCache({ getActiveContractsPageAsync: vi.fn() } as never, cacheStore, 100, "participant", () => 1_000);
+
+        const contract = {
+            contractId: "C1", templateId: { packageId: "pkg", moduleName: "Main", entityName: "Asset" }, packageId: "pkg", payload: {}, witnesses: ["Alice"], createdEventOffset: "10", createdAt: new Date(1), archivedEventOffset: null, archivedAt: null, active: true,
+        };
+
+        for (const creationMetadata of [
+            [],
+            [{ contractId: "C-other", packageName: "app", representativePackageId: null }],
+            [{ contractId: "C1", packageName: "", representativePackageId: null }],
+            [{ contractId: "C1", packageName: "app", representativePackageId: null }, { contractId: "C1", packageName: "app", representativePackageId: null }],
+        ]) {
+            cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
+                version: 2, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100, contracts: [contract], creationMetadata,
+            });
+
+            await expect(cache.readSnapshotAsync()).resolves.toBeUndefined();
+        }
+    });
+
     it.each(["", "01", "-1", "9223372036854775808"])("treats non-canonical cached activeAtOffset %p as a miss", async (activeAtOffset) => {
         const cacheStore = store();
 
@@ -560,6 +599,10 @@ describe("gRPC contract cache", () => {
             activeAtOffset: 0,
             expiresAtEpochMs: 0,
             contracts: 0,
+            creationMetadata: 0,
+            metadataContractId: 0,
+            metadataPackageName: 0,
+            metadataRepresentativePackageId: 0,
             contractId: 0,
             templateId: 0,
             templatePackageId: 0,
@@ -708,11 +751,37 @@ describe("gRPC contract cache", () => {
             },
         });
 
+        const metadataEntry = {
+            get contractId() {
+                reads.metadataContractId += 1;
+
+                return reads.metadataContractId === 1 ? "C1" : 7;
+            },
+            get packageName() {
+                reads.metadataPackageName += 1;
+
+                return reads.metadataPackageName === 1 ? "app" : 7;
+            },
+            get representativePackageId() {
+                reads.metadataRepresentativePackageId += 1;
+
+                return reads.metadataRepresentativePackageId === 1 ? null : 7;
+            },
+        };
+
+        const creationMetadata = [metadataEntry];
+
+        Object.defineProperty(creationMetadata, Symbol.iterator, {
+            value: () => {
+                throw new Error("custom creation metadata iterator must not be used");
+            },
+        });
+
         const cached = {
             get version() {
                 reads.version += 1;
 
-                return reads.version === 1 ? 1 : 2;
+                return reads.version === 1 ? 2 : 7;
             },
             get endpointScope() {
                 reads.endpointScope += 1;
@@ -739,6 +808,11 @@ describe("gRPC contract cache", () => {
 
                 return contracts;
             },
+            get creationMetadata() {
+                reads.creationMetadata += 1;
+
+                return creationMetadata;
+            },
         };
 
         const cacheStore = store();
@@ -762,6 +836,10 @@ describe("gRPC contract cache", () => {
             activeAtOffset: 1,
             expiresAtEpochMs: 1,
             contracts: 1,
+            creationMetadata: 1,
+            metadataContractId: 1,
+            metadataPackageName: 1,
+            metadataRepresentativePackageId: 1,
             contractId: 1,
             templateId: 1,
             templatePackageId: 1,

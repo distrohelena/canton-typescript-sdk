@@ -10,7 +10,9 @@ import { normalizeAggregate, normalizeCount, normalizeFindMany, normalizeFindUni
 import { queryRelationEdges, queryRelations, type QueryRelation } from "../canonical/query-schema.js";
 import type { ContractCacheArgs, ContractCacheResult, QueryClient } from "../query-client.js";
 import { QuerySource } from "../query-source.js";
-import { GrpcContractCache } from "./grpc-contract-cache.js";
+import { canonicalPublicNumericIdentityParts } from "../canonical/public-identity.js";
+import type { ContractTypeRow } from "../model-types.js";
+import { GrpcContractCache, type GrpcCachedContractSnapshot } from "./grpc-contract-cache.js";
 import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, packageMetadataFromEvents, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { GrpcPackageRelationReader } from "./grpc-package-relation-reader.js";
 import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
@@ -117,8 +119,10 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
             ? await this.options.contractCache.readSnapshotAsync({ parties: partiesFor(query) })
             : undefined;
 
-        if (cached !== undefined && !needsHistory && !requiresPackageMetadata(closure)) {
-            return cachedContractsDataset(cached.contracts as unknown as readonly QueryRow[], cached.activeAtOffset, this.options.endpointScope ?? "ledger");
+        // The snapshot stores per-contract creation metadata, so contractTypes joins are served from cache
+        // too; only exercises/exerciseTypes/packages (whose rows the snapshot cannot answer) force a fetch.
+        if (cached !== undefined && !needsHistory && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages")) {
+            return cachedContractsDataset(cached, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
             // With a warm incremental window only the new offsets are fetched, which is no longer worth a warning.
             if (!(this.options.incrementalHistory === true && this.snapshots.hasHistoryCache)) {
@@ -465,10 +469,61 @@ function addRelationPath(relation: QueryRelation, path: readonly string[], relat
     }
 }
 
-function cachedContractsDataset(contracts: readonly QueryRow[], offset: string, instanceId: string): QueryDataset {
+/**
+ * Builds a dataset entirely from a cached snapshot: contract rows plus contractType rows derived from the
+ * stored per-contract creation metadata, joined through private keys. No transport calls. History-only
+ * edges stay incomplete so anything the snapshot cannot answer still fails loudly instead of lying.
+ */
+function cachedContractsDataset(snapshot: GrpcCachedContractSnapshot, instanceId: string): QueryDataset {
+    const offset = snapshot.activeAtOffset;
+
+    const metadataByContractId = new Map(snapshot.creationMetadata.map((entry) => [entry.contractId, entry]));
+
+    const creations = snapshot.contracts.map((row) => {
+        const metadata = metadataByContractId.get(row.contractId);
+
+        if (metadata === undefined) {
+            throw new ValidationError(`Cached contract snapshot is missing creation metadata for ${row.contractId}`);
+        }
+
+        return {
+            creationPackageId: row.templateId.packageId,
+            representativePackageId: metadata.representativePackageId,
+            packageName: metadata.packageName,
+            templateId: row.templateId,
+        };
+    });
+
+    const typeRowsByPk = new Map<string, ContractTypeRow>();
+
+    for (const pkg of contractTypeMetadataFromCreations(creations)) {
+        for (const template of pkg.templates) {
+            const pk = canonicalPublicNumericIdentityParts([template.payloadType, template.templateFqn]);
+
+            if (!typeRowsByPk.has(pk)) {
+                typeRowsByPk.set(pk, { pk, payloadType: template.payloadType, aliases: template.aliases, packageName: pkg.name, moduleName: template.moduleName, entityName: template.entityName, templateFqn: template.templateFqn });
+            }
+        }
+    }
+
+    const typeRows = [...typeRowsByPk.values()];
+
+    const contractTypeKeys = creations.map((creation) => [canonicalPublicNumericIdentityParts(["template", `${creation.packageName}:${creation.templateId.moduleName}:${creation.templateId.entityName}`])]);
+
+    const typeKeys = typeRows.map((row) => [row.pk]);
+
     const empty = [] as const;
 
-    return basicDataset({ contracts: contracts as never, transactions: empty, events: empty, exercises: empty }, offset, instanceId, false);
+    const edges = Object.fromEntries(queryRelations.map((relation) => [relation, Object.fromEntries(Object.keys(queryRelationEdges[relation] ?? {}).map((edge: string) => [edge, { ...cachedEdgePaths(relation, edge), complete: false }]))])) as Record<QueryRelation, Record<string, unknown>>;
+
+    edges.contracts.contractType = { privateKeys: { source: contractTypeKeys, target: typeKeys } };
+    edges.contractTypes.contracts = { privateKeys: { source: typeKeys, target: contractTypeKeys } };
+
+    return createQueryDataset({
+        rows: { contracts: snapshot.contracts as unknown as readonly QueryRow[], contractTypes: typeRows as unknown as readonly QueryRow[], events: empty, exercises: empty, exerciseTypes: empty, packages: empty, transactions: empty, watermark: [{ singleton: true, ix: offset, offset, instanceId }] },
+        uniqueKeys: { contracts: [["contractId"]], contractTypes: [["pk"]], events: [["pk"]], exercises: [["tpePk", "contractTpePk", "exerciseEventPk", "contractId"]], exerciseTypes: [["pk"]], packages: [["pk"], ["id"]], transactions: [["ix"], ["offset"]], watermark: [["singleton"]] },
+        edges: edges as QueryDataset["edges"],
+    });
 }
 
 function fragmentDataset(fragment: Pick<GrpcQueryRelationFragment, "contracts" | "transactions" | "events" | "exercises">, offset: string, instanceId: string, completeHistoryEdges = true): QueryDataset {
