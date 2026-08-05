@@ -14,6 +14,8 @@ import { GrpcContractCache } from "./grpc-contract-cache.js";
 import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { GrpcPackageRelationReader } from "./grpc-package-relation-reader.js";
 import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
+import { validDottedNameString } from "./grpc-query-value-mapper.js";
+import type { GrpcQueryTemplateRef } from "../../transports/grpc/mappers/contracts-mapper.js";
 
 type NormalizedQuery = NormalizedFindManyQuery | NormalizedFindUniqueQuery | NormalizedCountQuery | NormalizedAggregateQuery | NormalizedGroupByQuery;
 
@@ -177,7 +179,7 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
             return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [], endInclusive, this.options.endpointScope ?? "ledger");
         }
 
-        const active = await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query));
+        const active = await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query), pushdownTemplateRefsFor(query));
 
         const fragment = mapGrpcQueryRelationFragment([], active.activeContracts);
 
@@ -248,6 +250,119 @@ function predicateProvesActive(predicate: QueryPredicate | undefined): boolean {
 
 function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
     return closure.has("packages") || closure.has("contractTypes") || closure.has("exercises") || closure.has("exerciseTypes");
+}
+
+const MAX_PUSHDOWN_TEMPLATE_FILTERS = 25;
+
+/**
+ * Extracts template filters the ACS request itself can apply, so non-matching contracts are never
+ * downloaded or materialized. The participant scans its whole ACS either way — the win is wire volume and
+ * client-side decode/freeze work, not node time. Correctness rule: the evaluator re-applies the complete
+ * predicate over whatever rows come back, so a pushed filter set only has to be a SUPERSET of possible
+ * matches — over-fetching is fine, under-fetching never happens because pins are only read from top-level
+ * AND conjuncts (anything under or/not is ignored) and any single conjunct constrains every matching row.
+ * Returns undefined (wildcard fetch) when no full package/module/entity pin can be proven or a pinned value
+ * is not a syntactically valid identifier (a malformed value can never match, but pushing it would make the
+ * node reject the request instead of returning the empty result the evaluator would produce).
+ */
+function pushdownTemplateRefsFor(query: NormalizedQuery): readonly GrpcQueryTemplateRef[] | undefined {
+    if (query.relation !== "contracts") {
+        return undefined;
+    }
+
+    const stringValues = (operator: string, value: unknown): readonly string[] | undefined => operator === "equals" && typeof value === "string"
+        ? [value]
+        : operator === "in" && Array.isArray(value) && value.every((item) => typeof item === "string") ? value as readonly string[] : undefined;
+
+    let packageRefs: readonly string[] | undefined;
+    let moduleNames: readonly string[] | undefined;
+    let entityNames: readonly string[] | undefined;
+    let fqnRefs: readonly GrpcQueryTemplateRef[] | undefined;
+
+    for (const conjunct of flattenAndConjuncts(query.predicate)) {
+        if (conjunct.kind === "scalar" && conjunct.path.length === 2 && conjunct.path[0] === "templateId") {
+            const values = stringValues(conjunct.operator, conjunct.value);
+
+            if (values === undefined) {
+                continue;
+            } else if (conjunct.path[1] === "packageId") {
+                packageRefs ??= values;
+            } else if (conjunct.path[1] === "moduleName") {
+                moduleNames ??= values;
+            } else if (conjunct.path[1] === "entityName") {
+                entityNames ??= values;
+            }
+        } else if (conjunct.kind === "relation" && conjunct.edge === "contractType" && conjunct.quantifier === "one") {
+            for (const inner of flattenAndConjuncts(conjunct.predicate)) {
+                if (inner.kind !== "scalar" || inner.path.length !== 1) {
+                    continue;
+                }
+
+                const values = stringValues(inner.operator, inner.value);
+
+                if (values === undefined) {
+                    continue;
+                } else if (inner.path[0] === "packageName") {
+                    packageRefs ??= values.map((name) => `#${name}`);
+                } else if (inner.path[0] === "moduleName") {
+                    moduleNames ??= values;
+                } else if (inner.path[0] === "entityName") {
+                    entityNames ??= values;
+                } else if (inner.path[0] === "templateFqn") {
+                    const triples = values.map(templateRefFromFqn);
+
+                    if (triples.every((triple): triple is GrpcQueryTemplateRef => triple !== undefined)) {
+                        fqnRefs ??= triples;
+                    }
+                }
+            }
+        }
+    }
+
+    const refs = fqnRefs ?? (packageRefs !== undefined && moduleNames !== undefined && entityNames !== undefined
+        ? packageRefs.flatMap((packageId) => moduleNames!.flatMap((moduleName) => entityNames!.map((entityName) => ({ packageId, moduleName, entityName }))))
+        : undefined);
+
+    return refs !== undefined && refs.length > 0 && refs.length <= MAX_PUSHDOWN_TEMPLATE_FILTERS && refs.every(isValidTemplateRef)
+        ? refs
+        : undefined;
+}
+
+function flattenAndConjuncts(predicate: QueryPredicate | undefined): readonly QueryPredicate[] {
+    if (predicate === undefined) {
+        return [];
+    } else if (predicate.kind === "and") {
+        return predicate.children.flatMap(flattenAndConjuncts);
+    }
+
+    return [predicate];
+}
+
+function templateRefFromFqn(fqn: string): GrpcQueryTemplateRef | undefined {
+    const parts = fqn.split(":");
+
+    return parts.length === 3 && parts.every((part) => part.length > 0)
+        ? { packageId: `#${parts[0]}`, moduleName: parts[1], entityName: parts[2] }
+        : undefined;
+}
+
+function isValidTemplateRef(ref: GrpcQueryTemplateRef): boolean {
+    const validPackage = ref.packageId.startsWith("#")
+        ? /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(ref.packageId.slice(1))
+        : /^[0-9a-f]{64}$/.test(ref.packageId);
+
+    if (!validPackage) {
+        return false;
+    }
+
+    try {
+        validDottedNameString(ref.moduleName, "template filter module name");
+        validDottedNameString(ref.entityName, "template filter entity name");
+
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 /**

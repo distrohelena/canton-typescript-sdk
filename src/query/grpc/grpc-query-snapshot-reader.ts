@@ -12,7 +12,7 @@ import {
     type GetUpdatesPageRequest,
 } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/update_service.js";
 import { TransactionShape, type EventFormat, type UpdateFormat } from "../../transports/grpc/generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
-import { mapGrpcQueryContractsRequest } from "../../transports/grpc/mappers/contracts-mapper.js";
+import { mapGrpcQueryContractsRequest, type GrpcQueryTemplateRef } from "../../transports/grpc/mappers/contracts-mapper.js";
 import { immutableQueryValue } from "../canonical/query-dataset.js";
 import { QuerySnapshotIncompleteError, type QuerySnapshotIncompleteReason } from "../errors/query-snapshot-incomplete-error.js";
 
@@ -228,12 +228,16 @@ export class GrpcQuerySnapshotReader {
     public async readActiveContractsAsync(
         activeAtOffset: string,
         parties?: readonly string[],
+        templateRefs?: readonly GrpcQueryTemplateRef[],
     ): Promise<GrpcActiveContractSnapshot> {
         if (parseOffset(activeAtOffset) === undefined) {
             throw this.activeError(activeAtOffset, "invalid-offset");
         }
 
-        const eventFormat = freezeDeep(parties === undefined ? createAllPartiesEventFormat() : mapGrpcQueryContractsRequest({ parties }).eventFormat!);
+        const eventFormat = freezeDeep(mapGrpcQueryContractsRequest({
+            ...(parties === undefined ? { allParties: true } : { parties }),
+            ...(templateRefs === undefined || templateRefs.length === 0 ? {} : { templateRefs: [...templateRefs] }),
+        }).eventFormat!);
 
         const activeContracts: GetActiveContractsResponseType[] = [];
 

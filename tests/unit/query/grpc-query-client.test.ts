@@ -553,6 +553,89 @@ describe("GrpcQueryClient", () => {
         expect(rows).toEqual([{ contractId: "C1" }]);
     });
 
+    it("pushes fully pinned template filters into the ACS request and falls back to wildcard otherwise", async () => {
+        const created = CreatedEvent.create({
+            offset: "1",
+            nodeId: 1,
+            contractId: "C1",
+            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
+            packageName: "app",
+            representativePackageId: "pkg-id",
+            witnessParties: ["Alice"],
+            signatories: ["Alice"],
+            createdAt: { seconds: "1700000000", nanos: 0 },
+            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        });
+
+        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            updateService: {} as never,
+            packageService: {} as never,
+        });
+
+        const filtersOfCall = (index: number) => {
+            const format = getActiveContractsPageAsync.mock.calls[index]![0].eventFormat;
+
+            return (format.filtersForAnyParty ?? Object.values(format.filtersByParty)[0]).cumulative.map((entry: { identifierFilter: { oneofKind: string; templateFilter?: { templateId: unknown } } }) =>
+                entry.identifierFilter.oneofKind === "templateFilter" ? entry.identifierFilter.templateFilter!.templateId : entry.identifierFilter.oneofKind);
+        };
+
+        // Full pin by name: packageName + moduleName + entityName → one #package-name template filter.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+        })).resolves.toEqual([{ contractId: "C1" }]);
+        expect(filtersOfCall(0)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
+
+        // templateFqn pin carries all three parts on its own.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { templateFqn: { equals: "app:Main:Asset" } } },
+            select: { contractId: true },
+        })).resolves.toEqual([{ contractId: "C1" }]);
+        expect(filtersOfCall(1)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
+
+        // in-lists expand into one filter per combination.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { in: ["Asset", "Other"] } } },
+            select: { contractId: true },
+        })).resolves.toEqual([{ contractId: "C1" }]);
+        expect(filtersOfCall(2)).toEqual([
+            { packageId: "#app", moduleName: "Main", entityName: "Asset" },
+            { packageId: "#app", moduleName: "Main", entityName: "Other" },
+        ]);
+
+        // Party scoping keeps the pushed filter inside each party's filter list.
+        await client.contracts.findMany({
+            parties: ["Alice"],
+            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { equals: "Asset" } } },
+        });
+        expect(filtersOfCall(3)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
+
+        // No moduleName → cannot form a full template id → wildcard fetch, evaluated in memory.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+        })).resolves.toEqual([{ contractId: "C1" }]);
+        expect(filtersOfCall(4)).toEqual(["wildcardFilter"]);
+
+        // A pin inside `or` proves nothing about every match → wildcard.
+        await expect(client.contracts.findMany({
+            where: { active: true, or: [{ contractType: { templateFqn: { equals: "app:Main:Asset" } } }, { contractId: { equals: "C1" } }] },
+            select: { contractId: true },
+        })).resolves.toEqual([{ contractId: "C1" }]);
+        expect(filtersOfCall(5)).toEqual(["wildcardFilter"]);
+
+        // A malformed pinned value can never match, but pushing it would make the node reject the request —
+        // fall back to wildcard so the evaluator returns the empty result instead.
+        await expect(client.contracts.findMany({
+            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "not a module!" }, entityName: { equals: "Asset" } } },
+            select: { contractId: true },
+        })).resolves.toEqual([]);
+        expect(filtersOfCall(6)).toEqual(["wildcardFilter"]);
+    });
+
     it("treats archivedAt/archivedEventOffset is-null filters as proving active, same as active: true", async () => {
         const created = CreatedEvent.create({
             offset: "1",

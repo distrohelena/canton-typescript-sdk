@@ -8,12 +8,20 @@ import {
 } from "../generated/canton/com/daml/ledger/api/v2/transaction_filter.js";
 import { Identifier } from "../generated/canton/com/daml/ledger/api/v2/value.js";
 
+/** A fully qualified template reference; packageId is a concrete package id or a "#package-name" reference. */
+export interface GrpcQueryTemplateRef {
+    readonly packageId: string;
+    readonly moduleName: string;
+    readonly entityName: string;
+}
+
 export function mapGrpcQueryContractsRequest(
     request: {
         party?: string;
         parties?: readonly string[];
         allParties?: boolean;
         templateId?: string;
+        templateRefs?: readonly GrpcQueryTemplateRef[];
         interfaceId?: string;
         includeInterfaceView?: boolean;
         includeCreatedEventBlob?: boolean;
@@ -57,6 +65,7 @@ function createEventFormat(
         parties?: readonly string[];
         allParties?: boolean;
         templateId?: string;
+        templateRefs?: readonly GrpcQueryTemplateRef[];
         interfaceId?: string;
         includeInterfaceView?: boolean;
         includeCreatedEventBlob?: boolean;
@@ -89,6 +98,7 @@ function createEventFormat(
 function createFilters(
     request: {
         templateId?: string;
+        templateRefs?: readonly GrpcQueryTemplateRef[];
         interfaceId?: string;
         includeInterfaceView?: boolean;
         includeCreatedEventBlob?: boolean;
@@ -104,6 +114,18 @@ function createFilters(
                 oneofKind: "templateFilter",
                 templateFilter: {
                     templateId: parseIdentifier(request.templateId, "templateId"),
+                    includeCreatedEventBlob,
+                },
+            },
+        });
+    }
+
+    for (const ref of request.templateRefs ?? []) {
+        cumulative.push({
+            identifierFilter: {
+                oneofKind: "templateFilter",
+                templateFilter: {
+                    templateId: { packageId: ref.packageId, moduleName: ref.moduleName, entityName: ref.entityName },
                     includeCreatedEventBlob,
                 },
             },
