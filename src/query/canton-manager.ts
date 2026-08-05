@@ -43,6 +43,7 @@ export class CantonManager {
                 updateService: this.grpc.updateService,
                 packageService: this.grpc.packageService,
                 endpointScope: options.grpc.ledgerEndpoint ?? "ledger",
+                incrementalHistory: options.incrementalHistory,
                 contractCache: options.cache === undefined
                     ? undefined
                     : new GrpcContractCache(
@@ -50,6 +51,8 @@ export class CantonManager {
                         options.cache.store,
                         options.cache.ttlMs,
                         options.grpc.ledgerEndpoint ?? "ledger",
+                        undefined,
+                        options.cache.maxPageSize,
                     ),
             });
         }

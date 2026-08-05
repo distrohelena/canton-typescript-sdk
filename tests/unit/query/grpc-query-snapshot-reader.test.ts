@@ -538,6 +538,24 @@ describe("gRPC query snapshot reader", () => {
         expect(() => readerFor({ options: { incrementalHistory: "yes" as never } })).toThrow("incrementalHistory must be a boolean.");
     });
 
+    it.each([0, -1, 1.5])("rejects an invalid page size of %p", (value) => {
+        expect(() => readerFor({ options: { historyPageSize: value } })).toThrow("historyPageSize");
+        expect(() => readerFor({ options: { activeContractPageSize: value } })).toThrow("activeContractPageSize");
+    });
+
+    it("forwards configured page sizes on every history and ACS request", async () => {
+        const { reader, getUpdatesPageAsync, getActiveContractsPageAsync } = readerFor({
+            options: { historyPageSize: 7, activeContractPageSize: 3 },
+            historyPages: [historyPage({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "42" })],
+        });
+
+        await reader.readHistoryAsync("42");
+        await reader.readActiveContractsAsync("42");
+
+        expect(getUpdatesPageAsync.mock.calls[0]![0]).toMatchObject({ maxPageSize: 7 });
+        expect(getActiveContractsPageAsync.mock.calls[0]![0]).toMatchObject({ maxPageSize: 3 });
+    });
+
     describe("incremental history", () => {
         it("fetches only offsets past the cached window and returns the combined snapshot", async () => {
             const { reader, getUpdatesPageAsync } = readerFor({

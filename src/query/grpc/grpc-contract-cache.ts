@@ -42,9 +42,12 @@ export class GrpcContractCache {
         private readonly ttlMs: number,
         private readonly endpointScope: string,
         private readonly now: () => number = Date.now,
+        private readonly maxPageSize?: number,
     ) {
         if (!Number.isFinite(ttlMs) || ttlMs <= 0) {
             throw new ValidationError("Contract cache ttlMs must be a positive finite number.");
+        } else if (maxPageSize !== undefined && (!Number.isFinite(maxPageSize) || !Number.isInteger(maxPageSize) || maxPageSize <= 0)) {
+            throw new ValidationError("Contract cache maxPageSize must be a positive integer.");
         }
     }
 
@@ -119,7 +122,9 @@ export class GrpcContractCache {
         // the response's now-explicit activeAtOffset into page 2+ makes it reject the token
         // (INVALID_ACS_PAGE_TOKEN) — the token was prepared for a request with the field absent. The token
         // itself pins the snapshot offset; the echoed offset is only tracked to validate it stays constant.
-        const baseRequest = mapGrpcQueryContractsRequest(parties === undefined ? { allParties: true } : { parties });
+        const baseRequest = mapGrpcQueryContractsRequest(parties === undefined
+            ? { allParties: true, maxPageSize: this.maxPageSize }
+            : { parties, maxPageSize: this.maxPageSize });
 
         let activeAtOffset: string | undefined;
 

@@ -86,6 +86,12 @@ describe("gRPC contract cache", () => {
         expect(getActiveContractsPageAsync.mock.calls[0]?.[0].pageToken).toBeUndefined();
         expect(cacheStore.setAsync).toHaveBeenCalledOnce();
 
+        const pagedGetActiveContractsPageAsync = vi.fn().mockResolvedValue(activePage());
+
+        await new GrpcContractCache({ getActiveContractsPageAsync: pagedGetActiveContractsPageAsync } as never, store(), 100, "participant", () => 1_000, 1).cacheContracts();
+        expect(pagedGetActiveContractsPageAsync.mock.calls[0]![0]).toMatchObject({ maxPageSize: 1 });
+        expect(() => new GrpcContractCache({} as never, store(), 100, "participant", () => 1_000, 0)).toThrow("maxPageSize");
+
         const [, payload, ttlMs] = cacheStore.setAsync.mock.calls[0]!;
 
         expect(ttlMs).toBe(100);

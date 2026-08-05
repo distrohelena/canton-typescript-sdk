@@ -40,6 +40,10 @@ export interface GrpcQuerySnapshotReaderOptions {
     readonly maxHistoryUpdates?: number;
     readonly maxActiveContractPages?: number;
     readonly maxActiveContracts?: number;
+    /** Per-request page size for history reads; omitted means the participant's default. */
+    readonly historyPageSize?: number;
+    /** Per-request page size for ACS reads; omitted means the participant's default. */
+    readonly activeContractPageSize?: number;
     /**
      * Opt-in: retain the last replayed history window in memory and only fetch offsets past it on later
      * reads. Off by default because the retained window lives for this reader's lifetime — its RAM cost is
@@ -48,9 +52,11 @@ export interface GrpcQuerySnapshotReaderOptions {
     readonly incrementalHistory?: boolean;
 }
 
-type RequiredOptions = Required<GrpcQuerySnapshotReaderOptions>;
+type RequiredOptions =
+    & Required<Omit<GrpcQuerySnapshotReaderOptions, "historyPageSize" | "activeContractPageSize">>
+    & Pick<GrpcQuerySnapshotReaderOptions, "historyPageSize" | "activeContractPageSize">;
 
-const DEFAULT_LIMITS: Required<Omit<GrpcQuerySnapshotReaderOptions, "incrementalHistory">> = {
+const DEFAULT_LIMITS: Required<Omit<GrpcQuerySnapshotReaderOptions, "incrementalHistory" | "historyPageSize" | "activeContractPageSize">> = {
     maxHistoryPages: 10_000,
     maxHistoryUpdates: 1_000_000,
     maxActiveContractPages: 10_000,
@@ -163,6 +169,7 @@ export class GrpcQuerySnapshotReader {
                 endOffsetInclusive: endInclusive,
                 updateFormat,
                 descendingOrder: false,
+                maxPageSize: this.options.historyPageSize,
                 pageToken: pageToken === undefined ? undefined : Uint8Array.from(pageToken),
             };
 
@@ -255,6 +262,7 @@ export class GrpcQuerySnapshotReader {
             const request: GetActiveContractsPageRequest = {
                 activeAtOffset,
                 eventFormat,
+                maxPageSize: this.options.activeContractPageSize,
                 pageToken: pageToken === undefined ? undefined : Uint8Array.from(pageToken),
             };
 
@@ -324,7 +332,7 @@ export class GrpcQuerySnapshotReader {
 }
 
 function validateOptions(options: GrpcQuerySnapshotReaderOptions): RequiredOptions {
-    const { incrementalHistory = false, ...limits } = options;
+    const { incrementalHistory = false, historyPageSize, activeContractPageSize, ...limits } = options;
 
     if (typeof incrementalHistory !== "boolean") {
         throw new ValidationError("incrementalHistory must be a boolean.");
@@ -332,13 +340,13 @@ function validateOptions(options: GrpcQuerySnapshotReaderOptions): RequiredOptio
 
     const validated = { ...DEFAULT_LIMITS, ...limits };
 
-    for (const [name, value] of Object.entries(validated)) {
+    for (const [name, value] of Object.entries({ ...validated, ...(historyPageSize === undefined ? {} : { historyPageSize }), ...(activeContractPageSize === undefined ? {} : { activeContractPageSize }) })) {
         if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
             throw new ValidationError(`${name} must be a finite positive integer.`);
         }
     }
 
-    return Object.freeze({ ...validated, incrementalHistory });
+    return Object.freeze({ ...validated, historyPageSize, activeContractPageSize, incrementalHistory });
 }
 
 function createHistoryUpdateFormat(): UpdateFormat {
