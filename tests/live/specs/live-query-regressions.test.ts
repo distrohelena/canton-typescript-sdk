@@ -8,6 +8,7 @@ import {
 import { GrpcContractCache } from "../../../src/query/grpc/grpc-contract-cache.js";
 import { GrpcQuerySnapshotReader } from "../../../src/query/grpc/grpc-query-snapshot-reader.js";
 import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
+import { GrantUserRightsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { getLiveSeededContextAsync } from "../runtime/live-seeded-context.js";
 import {
     getLiveQueryModelFixtureAsync,
@@ -68,6 +69,15 @@ describe("live gRPC typed query regressions", () => {
         )).party;
 
         await grantLedgerUserActAsAsync(manager, party);
+
+        // Typed history queries read updates with the all-parties format, which requires readAsAnyParty.
+        await manager.grpc.userManagementService.grantUserRightsAsync(
+            GrantUserRightsRequest.create({
+                userId: process.env.SDK_TEST_LEDGER_USER_ID ?? "ledger-api-user",
+                identityProviderId: "",
+                rights: [{ kind: { oneofKind: "canReadAsAnyParty", canReadAsAnyParty: {} } }],
+            }),
+        );
 
         v1ActiveContractId = await createLiveIouAsync(manager, party, party, v1PackageId);
         v2ActiveContractId = await createLiveIouAsync(manager, party, party, v2PackageId);
