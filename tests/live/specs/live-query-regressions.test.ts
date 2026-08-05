@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
     AllocatePartyRequest,
     CantonManager,
+    ContractCacheRequiredError,
     MemoryQueryCache,
     QuerySource,
 } from "../../../src/index.js";
@@ -53,6 +54,7 @@ describe("live gRPC typed query regressions", () => {
         manager = new CantonManager({
             grpc: seeded.grpcEnvironment.options,
             querySource: QuerySource.grpc,
+            cache: { store: new MemoryQueryCache(), ttlMs: 600_000 },
         });
 
         await manager.grpc.packageManagementService.uploadDarFileAsync(
@@ -90,8 +92,14 @@ describe("live gRPC typed query regressions", () => {
     }, 30_000);
 
     it("answers name-pinned active queries across multiple package ids sharing one package name", async () => {
-        // This where-shape pushes a #sdk-query-live-model:Main:Iou template filter into the real ACS
-        // request AND derives contractType metadata from creations spanning two package ids of one name.
+        // ACS queries never fetch implicitly: without a warmed cache entry for this party scope they throw.
+        await expect(manager!.query.contracts.findMany({ parties: [party], where: { active: true } }))
+            .rejects.toBeInstanceOf(ContractCacheRequiredError);
+
+        await manager!.query.cacheContracts({ parties: [party] });
+
+        // Served from the warmed snapshot, deriving contractType metadata from creations that span two
+        // package ids sharing one package name.
         const rows = await manager!.query.contracts.findMany({
             parties: [party],
             where: {

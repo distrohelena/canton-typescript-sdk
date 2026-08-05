@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { GrpcQueryClient } from "../../../src/query/grpc/grpc-query-client.js";
+import { ContractCacheRequiredError } from "../../../src/query/errors/contract-cache-required-error.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
 import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
@@ -155,41 +156,43 @@ describe("GrpcQueryClient", () => {
         expect(updateService.getUpdatesPageAsync).not.toHaveBeenCalled();
     });
 
-    it("reads a point-in-time ACS on an active-only cache miss without writing a cache entry", async () => {
+    it("throws ContractCacheRequiredError instead of implicitly downloading the ACS", async () => {
         const stateService = {
-            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
+            getLedgerEndAsync: vi.fn(),
             getLatestPrunedOffsetsAsync: vi.fn(),
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [] }),
+            getActiveContractsPageAsync: vi.fn(),
         };
 
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
+        // No cache configured at all.
+        const uncached = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
 
-        await expect(client.contracts.findMany({ where: { active: true } })).resolves.toEqual([]);
-        expect(stateService.getLedgerEndAsync).toHaveBeenCalledTimes(1);
-        expect(stateService.getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+        await expect(uncached.contracts.findMany({ where: { active: true } })).rejects.toBeInstanceOf(ContractCacheRequiredError);
+        await expect(uncached.contracts.findMany({ parties: ["Alice"], where: { active: true } })).rejects.toThrow(/cacheContracts\({"parties":\["Alice"\]}\)/);
+
+        // Cache configured but cold for this scope: same error, still no ACS download.
+        const contractCache = { readSnapshotAsync: vi.fn().mockResolvedValue(undefined) };
+
+        const cold = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never, contractCache: contractCache as never });
+
+        await expect(cold.contracts.findMany({ where: { active: true } })).rejects.toBeInstanceOf(ContractCacheRequiredError);
+        expect(contractCache.readSnapshotAsync).toHaveBeenCalledWith({ parties: undefined });
+        expect(stateService.getLedgerEndAsync).not.toHaveBeenCalled();
+        expect(stateService.getActiveContractsPageAsync).not.toHaveBeenCalled();
     });
 
-    it("uses canonical explicit parties for an active ACS probe without narrowing history", async () => {
-        const stateService = {
-            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
-            getLatestPrunedOffsetsAsync: vi.fn(),
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [] }),
-        };
-
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
-
-        await client.contracts.findMany({ parties: ["Bob", "Alice", "Alice"], where: { active: true } });
-        expect(stateService.getActiveContractsPageAsync.mock.calls[0]![0].eventFormat).toMatchObject({ filtersByParty: { Alice: expect.anything(), Bob: expect.anything() } });
-    });
-
-    it("keeps history-only edges incomplete for a nonempty ACS snapshot", async () => {
-        const stateService = {
-            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
-            getLatestPrunedOffsetsAsync: vi.fn(),
-            getActiveContractsPageAsync: vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [activeContract()] }),
-        };
-
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
+    it("keeps history-only edges incomplete for a cached snapshot", async () => {
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: { getUpdatesPageAsync: vi.fn() } as never,
+            packageService: {} as never,
+            contractCache: {
+                readSnapshotAsync: vi.fn().mockResolvedValue({
+                    activeAtOffset: "1",
+                    contracts: [queryConformanceDataset.rows.contracts[0]],
+                    creationMetadata: [{ contractId: "C1", packageName: "app", representativePackageId: null }],
+                }),
+            } as never,
+        });
 
         await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true } })).resolves.toEqual([{ contractId: "C1" }]);
     });
@@ -578,26 +581,20 @@ describe("GrpcQueryClient", () => {
         expect(packageService.getPackageAsync).toHaveBeenCalledExactlyOnceWith({ packageId: fixture.id });
     });
 
-    it("resolves packageName/entityName/payload contract filters without touching the Package Service at all", async () => {
-        const created = CreatedEvent.create({
-            offset: "1",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
-            packageName: "app",
-            representativePackageId: "pkg-id",
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
-        });
-
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
-
+    it("resolves packageName/entityName/payload contract filters from the cache without touching the Package Service at all", async () => {
         const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: {} as never,
             packageService: {} as never,
+            contractCache: {
+                readSnapshotAsync: vi.fn().mockResolvedValue({
+                    activeAtOffset: "1",
+                    contracts: [{
+                        contractId: "C1", templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" }, packageId: "pkg-id", payload: { owner: "Alice" }, witnesses: ["Alice"], createdEventOffset: "1", createdAt: new Date("2023-11-14T22:13:20.000Z"), archivedEventOffset: null, archivedAt: null, active: true,
+                    }],
+                    creationMetadata: [{ contractId: "C1", packageName: "app", representativePackageId: "pkg-id" }],
+                }),
+            } as never,
         });
 
         const rows = await client.contracts.findMany({
@@ -612,119 +609,30 @@ describe("GrpcQueryClient", () => {
         expect(rows).toEqual([{ contractId: "C1" }]);
     });
 
-    it("pushes fully pinned template filters into the ACS request and falls back to wildcard otherwise", async () => {
-        const created = CreatedEvent.create({
-            offset: "1",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
-            packageName: "app",
-            representativePackageId: "pkg-id",
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
-        });
-
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
-
-        const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
-            updateService: {} as never,
-            packageService: {} as never,
-        });
-
-        const filtersOfCall = (index: number) => {
-            const format = getActiveContractsPageAsync.mock.calls[index]![0].eventFormat;
-
-            return (format.filtersForAnyParty ?? Object.values(format.filtersByParty)[0]).cumulative.map((entry: { identifierFilter: { oneofKind: string; templateFilter?: { templateId: unknown } } }) =>
-                entry.identifierFilter.oneofKind === "templateFilter" ? entry.identifierFilter.templateFilter!.templateId : entry.identifierFilter.oneofKind);
-        };
-
-        // Full pin by name: packageName + moduleName + entityName → one #package-name template filter.
-        await expect(client.contracts.findMany({
-            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { equals: "Asset" } } },
-            select: { contractId: true },
-        })).resolves.toEqual([{ contractId: "C1" }]);
-        expect(filtersOfCall(0)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
-
-        // templateFqn pin carries all three parts on its own.
-        await expect(client.contracts.findMany({
-            where: { active: true, contractType: { templateFqn: { equals: "app:Main:Asset" } } },
-            select: { contractId: true },
-        })).resolves.toEqual([{ contractId: "C1" }]);
-        expect(filtersOfCall(1)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
-
-        // in-lists expand into one filter per combination.
-        await expect(client.contracts.findMany({
-            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { in: ["Asset", "Other"] } } },
-            select: { contractId: true },
-        })).resolves.toEqual([{ contractId: "C1" }]);
-        expect(filtersOfCall(2)).toEqual([
-            { packageId: "#app", moduleName: "Main", entityName: "Asset" },
-            { packageId: "#app", moduleName: "Main", entityName: "Other" },
-        ]);
-
-        // Party scoping keeps the pushed filter inside each party's filter list.
-        await client.contracts.findMany({
-            parties: ["Alice"],
-            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "Main" }, entityName: { equals: "Asset" } } },
-        });
-        expect(filtersOfCall(3)).toEqual([{ packageId: "#app", moduleName: "Main", entityName: "Asset" }]);
-
-        // No moduleName → cannot form a full template id → wildcard fetch, evaluated in memory.
-        await expect(client.contracts.findMany({
-            where: { active: true, contractType: { packageName: { equals: "app" }, entityName: { equals: "Asset" } } },
-            select: { contractId: true },
-        })).resolves.toEqual([{ contractId: "C1" }]);
-        expect(filtersOfCall(4)).toEqual(["wildcardFilter"]);
-
-        // A pin inside `or` proves nothing about every match → wildcard.
-        await expect(client.contracts.findMany({
-            where: { active: true, or: [{ contractType: { templateFqn: { equals: "app:Main:Asset" } } }, { contractId: { equals: "C1" } }] },
-            select: { contractId: true },
-        })).resolves.toEqual([{ contractId: "C1" }]);
-        expect(filtersOfCall(5)).toEqual(["wildcardFilter"]);
-
-        // A malformed pinned value can never match, but pushing it would make the node reject the request —
-        // fall back to wildcard so the evaluator returns the empty result instead.
-        await expect(client.contracts.findMany({
-            where: { active: true, contractType: { packageName: { equals: "app" }, moduleName: { equals: "not a module!" }, entityName: { equals: "Asset" } } },
-            select: { contractId: true },
-        })).resolves.toEqual([]);
-        expect(filtersOfCall(6)).toEqual(["wildcardFilter"]);
-    });
-
     it("treats archivedAt/archivedEventOffset is-null filters as proving active, same as active: true", async () => {
-        const created = CreatedEvent.create({
-            offset: "1",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" },
-            packageName: "app",
-            representativePackageId: "pkg-id",
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
+        const readSnapshotAsync = vi.fn().mockResolvedValue({
+            activeAtOffset: "1",
+            contracts: [{
+                contractId: "C1", templateId: { packageId: "pkg-id", moduleName: "Main", entityName: "Asset" }, packageId: "pkg-id", payload: { owner: "Alice" }, witnesses: ["Alice"], createdEventOffset: "1", createdAt: new Date("2023-11-14T22:13:20.000Z"), archivedEventOffset: null, archivedAt: null, active: true,
+            }],
+            creationMetadata: [{ contractId: "C1", packageName: "app", representativePackageId: "pkg-id" }],
         });
-
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "1", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
 
         const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: {} as never,
             packageService: {} as never,
+            contractCache: { readSnapshotAsync } as never,
         });
 
-        // No literal "active: true" — archivedAt: { is: null } is the same fact, and should take the same
-        // ACS fast path (no full-history replay, no Package Service call for the derived contractType).
+        // No literal "active: true" — archivedAt: { is: null } proves the same fact, so the query is
+        // recognized as active-only and served from the cache instead of forcing a history replay.
         const byArchivedAt = await client.contracts.findMany({ where: { archivedAt: { is: null }, contractType: { entityName: { equals: "Asset" } } }, select: { contractId: true } });
         const byArchivedOffset = await client.contracts.findMany({ where: { archivedEventOffset: { is: null } }, select: { contractId: true } });
 
         expect(byArchivedAt).toEqual([{ contractId: "C1" }]);
         expect(byArchivedOffset).toEqual([{ contractId: "C1" }]);
-        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(2);
+        expect(readSnapshotAsync).toHaveBeenCalledTimes(2);
     });
 
     it("derives contractType metadata from creations even when the replayed history also contains an unrelated exercise", async () => {
@@ -798,78 +706,60 @@ describe("GrpcQueryClient", () => {
         expect(rows).toEqual([{ contractId: "C1" }]);
     });
 
-    it("resolves a proven-active nested contracts include from contractTypes via ACS instead of full history", async () => {
+    it("resolves proven-active contracts references from contractTypes via the cached snapshot", async () => {
         const fixture = packageFixture();
 
-        const created = CreatedEvent.create({
-            offset: "99",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
-            packageName: "sample-package",
-            representativePackageId: fixture.id,
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
-        });
+        const contractCache = {
+            readSnapshotAsync: vi.fn().mockResolvedValue({
+                activeAtOffset: "100",
+                contracts: [{
+                    contractId: "C1", templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" }, packageId: fixture.id, payload: { owner: "Alice" }, witnesses: ["Alice"], createdEventOffset: "99", createdAt: new Date("2023-11-14T22:13:20.000Z"), archivedEventOffset: null, archivedAt: null, active: true,
+                }],
+                creationMetadata: [{ contractId: "C1", packageName: "sample-package", representativePackageId: fixture.id }],
+            }),
+        };
 
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "100", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
-
-        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
+        const getActiveContractsPageAsync = vi.fn();
 
         const packageService = { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
 
         const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
             updateService: {} as never,
             packageService: packageService as never,
+            contractCache: contractCache as never,
         });
 
-        const rows = await client.contractTypes.findMany({
+        const included = await client.contractTypes.findMany({
             where: { packageName: { equals: "sample-package" }, entityName: { equals: "Iou" } },
             select: { entityName: true },
             include: { contracts: { where: { active: true }, take: 10, select: { contractId: true } } },
         });
 
-        expect(rows).toEqual([expect.objectContaining({ entityName: "Iou", contracts: [{ contractId: "C1" }] })]);
-        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
-    });
+        expect(included).toEqual([expect.objectContaining({ entityName: "Iou", contracts: [{ contractId: "C1" }] })]);
 
-    it("resolves a proven-active where-relation to contracts from contractTypes via ACS instead of full history", async () => {
-        const fixture = packageFixture();
-
-        const created = CreatedEvent.create({
-            offset: "99",
-            nodeId: 1,
-            contractId: "C1",
-            templateId: { packageId: fixture.id, moduleName: "Sample.Module", entityName: "Iou" },
-            packageName: "sample-package",
-            representativePackageId: fixture.id,
-            witnessParties: ["Alice"],
-            signatories: ["Alice"],
-            createdAt: { seconds: "1700000000", nanos: 0 },
-            createArguments: { fields: [{ label: "owner", value: Value.create({ sum: { oneofKind: "party", party: "Alice" } }) }] },
-        });
-
-        const getActiveContractsPageAsync = vi.fn().mockResolvedValue({ activeAtOffset: "100", activeContracts: [GetActiveContractsResponse.create({ contractEntry: { oneofKind: "activeContract", activeContract: { createdEvent: created, synchronizerId: "sync", reassignmentCounter: "0" } } })] });
-
-        const getLedgerEndAsync = vi.fn().mockResolvedValue({ offset: "100" });
-
-        const packageService = { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) };
-
-        const client = new GrpcQueryClient({
-            stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
-            updateService: {} as never,
-            packageService: packageService as never,
-        });
-
-        const rows = await client.contractTypes.findMany({
+        const filtered = await client.contractTypes.findMany({
             where: { contracts: { some: { active: true } } },
             select: { entityName: true },
         });
 
-        expect(rows).toEqual([expect.objectContaining({ entityName: "Iou" })]);
-        expect(getActiveContractsPageAsync).toHaveBeenCalledTimes(1);
+        expect(filtered).toEqual([expect.objectContaining({ entityName: "Iou" })]);
+        // The contract rows come from the warmed cache; the ACS is never downloaded implicitly.
+        expect(getActiveContractsPageAsync).not.toHaveBeenCalled();
+    });
+
+    it("throws ContractCacheRequiredError for contractTypes queries referencing contracts without a warm cache", async () => {
+        const fixture = packageFixture();
+
+        const client = new GrpcQueryClient({
+            stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
+            updateService: {} as never,
+            packageService: { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) } as never,
+        });
+
+        await expect(client.contractTypes.findMany({
+            where: { contracts: { some: { active: true } } },
+            select: { entityName: true },
+        })).rejects.toBeInstanceOf(ContractCacheRequiredError);
     });
 });

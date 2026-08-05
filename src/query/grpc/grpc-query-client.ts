@@ -2,6 +2,7 @@ import type { PackageServiceClient } from "../../services/package/package-servic
 import type { StateServiceClient } from "../../services/state/state-service-client.js";
 import type { UpdateServiceClient } from "../../services/update/update-service-client.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
+import { ContractCacheRequiredError } from "../errors/contract-cache-required-error.js";
 import { QueryCapabilityError } from "../errors/query-capability-error.js";
 import { InMemoryQueryEvaluator } from "../canonical/in-memory-query-evaluator.js";
 import { createQueryDataset, type QueryDataset, type QueryRow } from "../canonical/query-dataset.js";
@@ -16,8 +17,6 @@ import { GrpcContractCache, type GrpcCachedContractSnapshot } from "./grpc-contr
 import { contractTypeMetadataFromCreations, createGrpcQueryDataset, mapGrpcQueryRelationFragment, packageMetadataFromEvents, referencedGrpcPackageIds, type GrpcQueryRelationFragment } from "./grpc-relation-mapper.js";
 import { GrpcPackageRelationReader } from "./grpc-package-relation-reader.js";
 import { GrpcQuerySnapshotReader } from "./grpc-query-snapshot-reader.js";
-import { validDottedNameString } from "./grpc-query-value-mapper.js";
-import type { GrpcQueryTemplateRef } from "../../transports/grpc/mappers/contracts-mapper.js";
 
 type NormalizedQuery = NormalizedFindManyQuery | NormalizedFindUniqueQuery | NormalizedCountQuery | NormalizedAggregateQuery | NormalizedGroupByQuery;
 
@@ -179,38 +178,79 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
                 : createGrpcQueryDataset(datasetFragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
         }
 
-        const endInclusive = cached?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
-
         if (query.relation === "packages" || query.relation === "contractTypes" || query.relation === "exerciseTypes") {
             // A proven-active where/include on "contracts" (see predicateRequiresHistory/includesRequireHistory)
-            // can put "contracts" in the closure here without needsHistory being true, so the ACS still has to
-            // be read — otherwise that where/include would silently resolve against an empty row set.
-            const contractsFragment = closure.has("contracts")
-                ? mapGrpcQueryRelationFragment([], (await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query))).activeContracts)
-                : mapGrpcQueryRelationFragment([]);
+            // can put "contracts" in the closure here without needsHistory being true. Those rows come from
+            // the warmed cache — the ACS is never downloaded implicitly.
+            const contractsSnapshot = closure.has("contracts") ? await this.requireCachedSnapshotAsync(query) : undefined;
+
+            const endInclusive = contractsSnapshot?.activeAtOffset ?? (await this.options.stateService.getLedgerEndAsync({})).offset;
+
+            const contractsFragment = contractsSnapshot === undefined
+                ? mapGrpcQueryRelationFragment([])
+                : fragmentFromCachedSnapshot(contractsSnapshot);
 
             return createGrpcQueryDataset(contractsFragment, await this.packages.readAllAsync(), endInclusive, this.options.endpointScope ?? "ledger");
         } else if (query.relation === "watermark") {
+            const endInclusive = (await this.options.stateService.getLedgerEndAsync({})).offset;
+
             return createGrpcQueryDataset(mapGrpcQueryRelationFragment([]), [], endInclusive, this.options.endpointScope ?? "ledger");
         }
 
-        const active = await this.snapshots.readActiveContractsAsync(endInclusive, partiesFor(query), pushdownTemplateRefsFor(query));
+        // Only an active-only "contracts" query can reach here (anything else forces history above), and the
+        // cache gate has already failed — the ACS is never downloaded per query, so this is a hard error.
+        throw new ContractCacheRequiredError(partiesFor(query));
+    }
 
-        const fragment = mapGrpcQueryRelationFragment([], active.activeContracts);
+    private async requireCachedSnapshotAsync(query: NormalizedQuery): Promise<GrpcCachedContractSnapshot> {
+        const snapshot = this.options.contractCache === undefined
+            ? undefined
+            : await this.options.contractCache.readSnapshotAsync({ parties: partiesFor(query) });
 
-        if (!requiresPackageMetadata(closure)) {
-            return fragmentDataset(fragment, endInclusive, this.options.endpointScope ?? "ledger", false);
+        if (snapshot === undefined) {
+            throw new ContractCacheRequiredError(partiesFor(query));
         }
 
-        // Reaching here guarantees query.relation === "contracts" with needsHistory === false, which (per
-        // predicateRequiresHistory/includesRequireHistory above) is only possible when the closure never
-        // touches "exercises"/"exerciseTypes"/"packages"/"transactions"/"events" — those unconditionally force
-        // history. So requiresPackageMetadata(closure) here can only be "contractTypes", and every contract in
-        // this ACS-only fragment already carries its own packageName — no Package Service call needed.
-        const packageMetadata = contractTypeMetadataFromCreations(fragment.creationIdentities);
-
-        return createGrpcQueryDataset(fragment, packageMetadata, endInclusive, this.options.endpointScope ?? "ledger");
+        return snapshot;
     }
+}
+
+/** Rebuilds an ACS-shaped relation fragment from a cached snapshot, with no transport involved. */
+function fragmentFromCachedSnapshot(snapshot: GrpcCachedContractSnapshot): GrpcQueryRelationFragment {
+    const metadataByContractId = new Map(snapshot.creationMetadata.map((entry) => [entry.contractId, entry]));
+
+    const creationIdentities = snapshot.contracts.map((row) => {
+        const metadata = metadataByContractId.get(row.contractId);
+
+        if (metadata === undefined) {
+            throw new ValidationError(`Cached contract snapshot is missing creation metadata for ${row.contractId}`);
+        }
+
+        return {
+            contractId: row.contractId,
+            offset: row.createdEventOffset,
+            templateId: row.templateId,
+            creationPackageId: row.templateId.packageId,
+            representativePackageId: metadata.representativePackageId,
+            packageName: metadata.packageName,
+            payload: row.payload,
+            witnesses: row.witnesses,
+            createdAt: row.createdAt ?? new Date(0),
+        };
+    });
+
+    return {
+        contracts: snapshot.contracts,
+        transactions: [],
+        events: [],
+        exercises: [],
+        typeIdentities: [],
+        packageIdentities: [],
+        creationIdentities,
+        // Only the contract ids are consumed (they mark creating transactions as legitimately absent, so the
+        // createdTransaction edge is flagged incomplete instead of pretending to be empty).
+        activeContractIdentities: snapshot.contracts.map((row) => ({ contractId: row.contractId, synchronizerId: "", reassignmentCounter: "0", activationOffset: row.createdEventOffset, activationNodeId: 0 })),
+    };
 }
 
 function requiresHistory(query: NormalizedQuery): boolean {
@@ -267,118 +307,6 @@ function requiresPackageMetadata(closure: ReadonlySet<QueryRelation>): boolean {
     return closure.has("packages") || closure.has("contractTypes") || closure.has("exercises") || closure.has("exerciseTypes");
 }
 
-const MAX_PUSHDOWN_TEMPLATE_FILTERS = 25;
-
-/**
- * Extracts template filters the ACS request itself can apply, so non-matching contracts are never
- * downloaded or materialized. The participant scans its whole ACS either way — the win is wire volume and
- * client-side decode/freeze work, not node time. Correctness rule: the evaluator re-applies the complete
- * predicate over whatever rows come back, so a pushed filter set only has to be a SUPERSET of possible
- * matches — over-fetching is fine, under-fetching never happens because pins are only read from top-level
- * AND conjuncts (anything under or/not is ignored) and any single conjunct constrains every matching row.
- * Returns undefined (wildcard fetch) when no full package/module/entity pin can be proven or a pinned value
- * is not a syntactically valid identifier (a malformed value can never match, but pushing it would make the
- * node reject the request instead of returning the empty result the evaluator would produce).
- */
-function pushdownTemplateRefsFor(query: NormalizedQuery): readonly GrpcQueryTemplateRef[] | undefined {
-    if (query.relation !== "contracts") {
-        return undefined;
-    }
-
-    const stringValues = (operator: string, value: unknown): readonly string[] | undefined => operator === "equals" && typeof value === "string"
-        ? [value]
-        : operator === "in" && Array.isArray(value) && value.every((item) => typeof item === "string") ? value as readonly string[] : undefined;
-
-    let packageRefs: readonly string[] | undefined;
-    let moduleNames: readonly string[] | undefined;
-    let entityNames: readonly string[] | undefined;
-    let fqnRefs: readonly GrpcQueryTemplateRef[] | undefined;
-
-    for (const conjunct of flattenAndConjuncts(query.predicate)) {
-        if (conjunct.kind === "scalar" && conjunct.path.length === 2 && conjunct.path[0] === "templateId") {
-            const values = stringValues(conjunct.operator, conjunct.value);
-
-            if (values === undefined) {
-                continue;
-            } else if (conjunct.path[1] === "packageId") {
-                packageRefs ??= values;
-            } else if (conjunct.path[1] === "moduleName") {
-                moduleNames ??= values;
-            } else if (conjunct.path[1] === "entityName") {
-                entityNames ??= values;
-            }
-        } else if (conjunct.kind === "relation" && conjunct.edge === "contractType" && conjunct.quantifier === "one") {
-            for (const inner of flattenAndConjuncts(conjunct.predicate)) {
-                if (inner.kind !== "scalar" || inner.path.length !== 1) {
-                    continue;
-                }
-
-                const values = stringValues(inner.operator, inner.value);
-
-                if (values === undefined) {
-                    continue;
-                } else if (inner.path[0] === "packageName") {
-                    packageRefs ??= values.map((name) => `#${name}`);
-                } else if (inner.path[0] === "moduleName") {
-                    moduleNames ??= values;
-                } else if (inner.path[0] === "entityName") {
-                    entityNames ??= values;
-                } else if (inner.path[0] === "templateFqn") {
-                    const triples = values.map(templateRefFromFqn);
-
-                    if (triples.every((triple): triple is GrpcQueryTemplateRef => triple !== undefined)) {
-                        fqnRefs ??= triples;
-                    }
-                }
-            }
-        }
-    }
-
-    const refs = fqnRefs ?? (packageRefs !== undefined && moduleNames !== undefined && entityNames !== undefined
-        ? packageRefs.flatMap((packageId) => moduleNames!.flatMap((moduleName) => entityNames!.map((entityName) => ({ packageId, moduleName, entityName }))))
-        : undefined);
-
-    return refs !== undefined && refs.length > 0 && refs.length <= MAX_PUSHDOWN_TEMPLATE_FILTERS && refs.every(isValidTemplateRef)
-        ? refs
-        : undefined;
-}
-
-function flattenAndConjuncts(predicate: QueryPredicate | undefined): readonly QueryPredicate[] {
-    if (predicate === undefined) {
-        return [];
-    } else if (predicate.kind === "and") {
-        return predicate.children.flatMap(flattenAndConjuncts);
-    }
-
-    return [predicate];
-}
-
-function templateRefFromFqn(fqn: string): GrpcQueryTemplateRef | undefined {
-    const parts = fqn.split(":");
-
-    return parts.length === 3 && parts.every((part) => part.length > 0)
-        ? { packageId: `#${parts[0]}`, moduleName: parts[1], entityName: parts[2] }
-        : undefined;
-}
-
-function isValidTemplateRef(ref: GrpcQueryTemplateRef): boolean {
-    const validPackage = ref.packageId.startsWith("#")
-        ? /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(ref.packageId.slice(1))
-        : /^[0-9a-f]{64}$/.test(ref.packageId);
-
-    if (!validPackage) {
-        return false;
-    }
-
-    try {
-        validDottedNameString(ref.moduleName, "template filter module name");
-        validDottedNameString(ref.entityName, "template filter entity name");
-
-        return true;
-    } catch {
-        return false;
-    }
-}
 
 function predicateRequiresHistory(relation: QueryRelation, predicate: QueryPredicate | undefined): boolean {
     if (predicate === undefined || predicate.kind === "scalar") {
