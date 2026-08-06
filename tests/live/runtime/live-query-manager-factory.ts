@@ -149,6 +149,10 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
 
         await grantLedgerUserActAsAsync(client, party);
 
+        // Typed gRPC history queries use the all-parties update format; the grant must not depend on any
+        // other spec having run first (vitest schedules files by cached duration, so order shifts).
+        await grantLedgerUserReadAsAnyPartyAsync(client);
+
         const activeContractId = await createLiveIouAsync(client, party, party, packageId);
 
         const archivedContractId = await createLiveIouAsync(client, party, party, packageId);
@@ -516,6 +520,16 @@ export async function archiveLiveIouAsync(
     }
 
     return offset;
+}
+
+export async function grantLedgerUserReadAsAnyPartyAsync(manager: CantonManager): Promise<void> {
+    await manager.grpc.userManagementService.grantUserRightsAsync(
+        GrantUserRightsRequest.create({
+            userId: process.env.SDK_TEST_LEDGER_USER_ID ?? "ledger-api-user",
+            identityProviderId: "",
+            rights: [{ kind: { oneofKind: "canReadAsAnyParty", canReadAsAnyParty: {} } }],
+        }),
+    );
 }
 
 export async function grantLedgerUserActAsAsync(manager: CantonManager, party: string): Promise<void> {
