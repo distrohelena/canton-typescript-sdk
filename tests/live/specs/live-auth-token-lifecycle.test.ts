@@ -14,7 +14,7 @@ import {
     TransportKind,
 } from "../../../src/index.js";
 import type { IAuthProvider } from "../../../src/core/auth/auth-provider.interface.js";
-import { getLiveEndpointDefaults } from "../fixtures/live-endpoint-defaults.js";
+import { getLiveEndpointDefaults, resolveLiveGrpcChannelSecurity, resolveLiveTlsRootCertificates } from "../fixtures/live-endpoint-defaults.js";
 import { createLiveIouAsync, grantLedgerUserActAsAsync } from "../runtime/live-query-manager-factory.js";
 import { getLiveQueryModelFixtureAsync } from "../runtime/live-query-model-fixture.js";
 import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
@@ -25,7 +25,10 @@ const mintScriptPath = fileURLToPath(new URL("../../../node/es256-jwt.mjs", impo
 
 const privateKeyPath = fileURLToPath(new URL("../../../.generated/localnet-es256/es256-private-key.pem", import.meta.url));
 
-const es256Available = existsSync(privateKeyPath);
+// The matrix runner sets SDK_TEST_LOCALNET_AUTH=es256 when the booted localnet validates ES256 JWTs; a
+// mere key file on disk is not enough, since a no-auth localnet accepts expired tokens and would fail the
+// UNAUTHENTICATED expectation.
+const es256Active = process.env.SDK_TEST_LOCALNET_AUTH === "es256";
 
 async function mintTokenAsync(ttlSeconds: number): Promise<string> {
     const { stdout } = await execFileAsync("node", [
@@ -49,7 +52,8 @@ function managerWith(provider: IAuthProvider): CantonManager {
             ledgerEndpoint: process.env.SDK_TEST_LEDGER_ENDPOINT ?? defaults.ledgerEndpoint,
             ledgerAdminEndpoint: process.env.SDK_TEST_LEDGER_ADMIN_ENDPOINT ?? defaults.ledgerAdminEndpoint,
             participantAdminEndpoint: process.env.SDK_TEST_PARTICIPANT_ADMIN_ENDPOINT ?? defaults.participantAdminEndpoint,
-            grpcChannelSecurity: defaults.grpcChannelSecurity,
+            grpcChannelSecurity: resolveLiveGrpcChannelSecurity(defaults.grpcChannelSecurity),
+            grpcTlsRootCertificates: resolveLiveTlsRootCertificates(),
             ledgerAuthProvider: provider,
             ledgerAdminAuthProvider: provider,
             participantAdminAuthProvider: provider,
@@ -69,7 +73,7 @@ function delayAsync(milliseconds: number): Promise<void> {
  * forever, so the first refresh after its exp claim is rejected. Only runs against an ES256 localnet
  * (LOCALNET_ES256_JWT=1), whose minting key lets the test control token lifetimes exactly.
  */
-describe.skipIf(!es256Available)("live bearer token lifecycle", () => {
+describe.skipIf(!es256Active)("live bearer token lifecycle", () => {
     const managers: CantonManager[] = [];
 
     afterAll(async () => {
@@ -77,6 +81,8 @@ describe.skipIf(!es256Available)("live bearer token lifecycle", () => {
     }, 30_000);
 
     it("static tokens die at expiry mid-lifecycle; a refreshing provider keeps re-warms alive", async () => {
+        expect(existsSync(privateKeyPath)).toBe(true);
+
         // Seed with a comfortably long-lived token.
         const setupManager = managerWith(new BearerTokenAuthProvider(await mintTokenAsync(300)));
 

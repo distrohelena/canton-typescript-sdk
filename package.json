@@ -1,6 +1,6 @@
 {
     "name": "@distrohelena/canton-typescript-sdk",
-    "version": "0.1.37",
+    "version": "0.1.49",
     "license": "Apache-2.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -140,6 +140,8 @@
         "test": "vitest run --exclude 'tests/live/**' --maxWorkers=1 --testTimeout=15000",
         "test:property": "vitest run tests/property --maxWorkers=1 --testTimeout=15000",
         "test:live": "vitest run --dir tests/live --maxWorkers=1 --testTimeout=15000",
+        "test:live:matrix": "node scripts/live-matrix.mjs",
+        "test:full": "npm run test && node scripts/live-matrix.mjs",
         "test:live:fuzz": "vitest run tests/live/specs/live-stateful-fuzzing.test.ts --maxWorkers=1 --testTimeout=300000",
         "test:unit": "vitest run tests/unit",
         "verify:pack": "node ./scripts/verify-npm-pack.mjs"

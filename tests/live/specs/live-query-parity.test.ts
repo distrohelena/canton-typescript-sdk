@@ -7,7 +7,8 @@ import {
     waitForLivePqsParityFixtureAsync,
 } from "../runtime/live-query-manager-factory.js";
 
-describe("live gRPC and PQS typed-query parity", () => {
+// The matrix runner sets SDK_TEST_PQS_AVAILABLE=0 on legs booted without PQS; parity needs both sources.
+describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS typed-query parity", () => {
     let managers: LiveQueryManagers | undefined;
 
     afterAll(async () => {

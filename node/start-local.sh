@@ -929,7 +929,19 @@ prerequisite_services() {
   printf '%s\n' "${services[@]}"
 }
 
+resolve_pqs_enabled() {
+  local value="${LOCALNET_PQS:-1}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_PQS must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
 dependent_services() {
+  if [[ "$(resolve_pqs_enabled)" == "0" ]]; then
+    return 0
+  fi
   printf '%s\n' pqs-app-provider pqs-sv
 }
 
@@ -1235,7 +1247,9 @@ start_ledger_stack() {
   # gating so its healthcheck can retry until those apps are ready; PQS still
   # starts afterward and retains its onboarding health dependency.
   start_splice_services compose_args
-  docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
+  if (( ${#followup_services[@]} > 0 )); then
+    docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
+  fi
 
   if (( extra_participants > 0 )); then
     wait_for_container_readiness splice container_health_is_ready

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { GrpcChannelSecurity, TransportKind } from "../../../src/index.js";
 
 export const liveEndpointEnvironmentVariableNames = {
@@ -123,4 +124,30 @@ export function getLiveEndpointDefaults(
         participantAdminEndpoint: undefined,
         grpcChannelSecurity: GrpcChannelSecurity.insecure,
     };
+}
+
+/** Channel security for live gRPC tests: SDK_TEST_GRPC_CHANNEL_SECURITY overrides the per-node default. */
+export function resolveLiveGrpcChannelSecurity(fallback: GrpcChannelSecurity): GrpcChannelSecurity {
+    const value = (process.env.SDK_TEST_GRPC_CHANNEL_SECURITY ?? "").trim().toLowerCase();
+
+    if (value === "tls") {
+        return GrpcChannelSecurity.tls;
+    } else if (value === "insecure") {
+        return GrpcChannelSecurity.insecure;
+    } else if (value.length > 0) {
+        throw new Error("SDK_TEST_GRPC_CHANNEL_SECURITY must be 'tls' or 'insecure'.");
+    }
+
+    return fallback;
+}
+
+/** Root CA for TLS live runs, from SDK_TEST_GRPC_TLS_ROOT_CERT_PATH (e.g. the localnet's generated ca.crt). */
+export function resolveLiveTlsRootCertificates(): Uint8Array | undefined {
+    const path = (process.env.SDK_TEST_GRPC_TLS_ROOT_CERT_PATH ?? "").trim();
+
+    if (path.length === 0) {
+        return undefined;
+    }
+
+    return new Uint8Array(readFileSync(path));
 }

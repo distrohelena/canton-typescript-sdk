@@ -23,8 +23,10 @@ import {
     createLiveTestEnvironment,
 } from "./live-test-environment.js";
 import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
+import { PqsPool } from "../../../src/query/pqs/pqs-pool.js";
+import { PqsSchemaProfileV1, validatePqsSchemaAsync } from "../../../src/query/pqs/pqs-schema-profile.js";
 
-const pqsReadyTimeoutMs = 30_000;
+const pqsReadyTimeoutMs = 120_000;
 
 const pqsReadyIntervalMs = 500;
 
@@ -74,6 +76,11 @@ export async function createLiveQueryManagersAsync(init: {
     readonly grpc: CantonClientOptions;
     readonly pqs: PqsQueryOptions;
 }): Promise<LiveQueryManagers> {
+    // On a freshly booted localnet PQS creates its schema asynchronously, and PqsQueryClient's readiness
+    // promise is one-shot — a manager constructed too early is poisoned even after PQS comes up. Wait for
+    // the schema to validate before building managers.
+    await waitForPqsSchemaReadyAsync(init.pqs);
+
     const grpc = new CantonManager({
         grpc: init.grpc,
         querySource: QuerySource.grpc,
@@ -226,6 +233,38 @@ export async function resolveLiveQueryParityPartyAsync(
     );
 }
 
+async function waitForPqsSchemaReadyAsync(
+    pqs: PqsQueryOptions,
+    timeoutMs = 180_000,
+    intervalMs = 2_000,
+): Promise<void> {
+    const pool = PqsPool.create(pqs.connectionString);
+
+    try {
+        const profile = new PqsSchemaProfileV1(pqs.schema);
+
+        const deadline = Date.now() + timeoutMs;
+
+        let lastError: unknown;
+
+        while (Date.now() < deadline) {
+            try {
+                await validatePqsSchemaAsync(pool.pool, profile);
+
+                return;
+            } catch (error) {
+                lastError = error;
+            }
+
+            await delayAsync(intervalMs);
+        }
+
+        throw new Error(`PQS schema was not ready within ${timeoutMs}ms: ${String(lastError)}`);
+    } finally {
+        await pool.disposeAsync();
+    }
+}
+
 export async function waitForLivePqsParityFixtureAsync(
     manager: CantonManager,
     fixture: LivePqsParityReadinessFixture,
@@ -239,18 +278,26 @@ export async function waitForLivePqsParityFixtureAsync(
 
     let lastObserved: LivePqsParityReadiness | undefined;
 
-    while (Date.now() < deadline) {
-        lastObserved = await inspectLivePqsParityReadinessAsync(manager, fixture);
+    let lastError: unknown;
 
-        if (isLivePqsParityFixtureReady(lastObserved, fixture)) {
-            return;
+    while (Date.now() < deadline) {
+        try {
+            lastObserved = await inspectLivePqsParityReadinessAsync(manager, fixture);
+
+            if (isLivePqsParityFixtureReady(lastObserved, fixture)) {
+                return;
+            }
+        } catch (error) {
+            // PQS may still be catching up on a freshly booted localnet; keep polling until the deadline.
+            lastError = error;
         }
 
         await delayAsync(intervalMs);
     }
 
     throw new Error(
-        `PQS did not index the complete parity fixture within ${timeoutMs}ms; observed ${JSON.stringify(lastObserved ?? {})}.`,
+        `PQS did not index the complete parity fixture within ${timeoutMs}ms; observed ${JSON.stringify(lastObserved ?? {})}`
+            + (lastError === undefined ? "." : `; last error: ${String(lastError)}.`),
     );
 }
 

@@ -6,6 +6,8 @@ import {
 import {
     liveEndpointEnvironmentVariableNames,
     getLiveEndpointDefaults,
+    resolveLiveGrpcChannelSecurity,
+    resolveLiveTlsRootCertificates,
 } from "../fixtures/live-endpoint-defaults.js";
 import { createHmac, randomBytes } from "node:crypto";
 
@@ -67,7 +69,8 @@ export function createLiveNodeClientOptions(init: {
         participantAdminEndpoint:
             process.env[getParticipantAdminEndpointVariableName(init.nodeIndex)]
             ?? defaults.participantAdminEndpoint,
-        grpcChannelSecurity: defaults.grpcChannelSecurity,
+        grpcChannelSecurity: resolveLiveGrpcChannelSecurity(defaults.grpcChannelSecurity),
+        grpcTlsRootCertificates: resolveLiveTlsRootCertificates(),
         defaultRequestTimeoutMs,
         grpcConnectTimeoutMs,
         ledgerAuthProvider: createDefaultAuthProvider(
