@@ -28,6 +28,8 @@ export class GeneratedTemplateBinding {
     public readonly namespaceAlias: string;
     public readonly className: string;
     public readonly templateIdLiteral: string;
+    /** The owning package's name; enables upgrade-aware (name-based) identity checks in emitted code. */
+    public readonly packageName?: string;
     public readonly path: string;
     public readonly createFieldsTypeName: string;
     public readonly createdEventTypeName: string;
@@ -39,6 +41,7 @@ export class GeneratedTemplateBinding {
         namespaceAlias?: string;
         className: string;
         templateIdLiteral: string;
+        packageName?: string;
         path: string;
         createFieldsTypeName: string;
         createdEventTypeName: string;
@@ -49,6 +52,7 @@ export class GeneratedTemplateBinding {
         this.namespaceAlias = init.namespaceAlias ?? init.className;
         this.className = init.className;
         this.templateIdLiteral = init.templateIdLiteral;
+        this.packageName = init.packageName;
         this.path = init.path;
         this.createFieldsTypeName = init.createFieldsTypeName;
         this.createdEventTypeName = init.createdEventTypeName;

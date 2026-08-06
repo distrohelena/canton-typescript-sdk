@@ -25,6 +25,8 @@ export type DamlExercisedEventSource =
 
 export type DamlCreatedEventMetadata = {
     readonly templateId: DamlTypeIdentity;
+    /** The template's package NAME — the stable identity across smart-contract-upgrade versions. */
+    readonly packageName?: string;
     readonly offset?: string;
     readonly nodeId?: number;
     readonly witnessParties?: readonly string[];
@@ -36,6 +38,8 @@ export type DamlCreatedEventMetadata = {
 
 export type DamlExercisedEventMetadata = {
     readonly templateId: DamlTypeIdentity;
+    /** The template's package NAME — the stable identity across smart-contract-upgrade versions. */
+    readonly packageName?: string;
     readonly offset?: string;
     readonly nodeId?: number;
     readonly actingParties?: readonly string[];
@@ -268,6 +272,7 @@ function identityFrom(value: unknown, path: string): DamlTypeIdentity {
 function freezeCreatedMetadata(event: DamlJsonEventRecord, templateId: DamlTypeIdentity): DamlCreatedEventMetadata {
     return Object.freeze(removeUndefined({
         templateId,
+        packageName: optionalPackageName(event, "created event source"),
         offset: optionalString(event, ["offset", "createdEventOffset", "created_event_offset"], "offset", "created event source"),
         nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "created event source"),
         witnessParties: optionalStringArray(event, ["witnessParties", "witness_parties", "witnesses"], "witness parties", "created event source"),
@@ -288,6 +293,7 @@ function freezeExercisedMetadata(
 
     return Object.freeze(removeUndefined({
         templateId,
+        packageName: optionalPackageName(event, "exercised event source"),
         offset: optionalString(event, ["offset"], "offset", "exercised event source")
             ?? optionalString(transaction ?? {}, ["offset"], "offset", "exercised event source"),
         nodeId: optionalNodeId(event, ["nodeId", "node_id"], "node ID", "exercised event source"),
@@ -798,6 +804,21 @@ function cloneAndFreeze<T>(value: T, seen = new WeakMap<object, unknown>()): T {
 
 function removeUndefined<T extends Record<string, unknown>>(value: T): T {
     return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T;
+}
+
+/** Protobuf-generated events default packageName to ""; treat the default as absent, not invalid. */
+function optionalPackageName(event: DamlJsonEventRecord, context: string): string | undefined {
+    const { value } = readProperty(event, ["packageName", "package_name"]);
+
+    if (value === undefined || value === null || value === "") {
+        return undefined;
+    }
+
+    if (typeof value !== "string") {
+        throw sourceError(context, "package name must be a string");
+    }
+
+    return value;
 }
 
 function sourceError(path: string, detail: string): DamlMaterializationError {

@@ -25,10 +25,17 @@ type RuntimeWrapperTypeNames = ReadonlyMap<string, string>;
 
 /** Emits typed contract and exercise-event bindings for analyzed DAML templates. */
 export class TemplateBindingEmitter {
+    private packageMetadata?: ReadonlyMap<string, { readonly packageName: string }>;
+
     public constructor(
         private readonly nameResolver: TypeScriptNameResolver = new TypeScriptNameResolver(),
     ) {
         void this.nameResolver;
+    }
+
+    /** Supplies per-package metadata so emitted identity checks can match by package NAME across upgrades. */
+    public providePackageMetadata(metadata: ReadonlyMap<string, { readonly packageName: string }>): void {
+        this.packageMetadata = metadata;
     }
 
     /** Prepares stable collision-safe names before emitting a complete project. */
@@ -87,6 +94,7 @@ export class TemplateBindingEmitter {
             namespaceAlias: this.nameResolver.getNamespaceAlias(template),
             className,
             templateIdLiteral: this.nameResolver.getTemplateIdLiteral(template),
+            packageName: this.packageMetadata?.get(template.templateId.packageId)?.packageName,
             path: this.nameResolver.getTemplateFilePath(template),
             createFieldsTypeName: this.nameResolver.getCreateFieldsTypeName(template),
             createdEventTypeName: this.nameResolver.getCreatedEventTypeName(template),
@@ -214,6 +222,7 @@ export class TemplateBindingEmitter {
         return [
             `export class ${binding.className} extends ${this.getSdkName("DamlTemplate", runtimeWrapperTypeNames)} implements ${binding.createFieldsTypeName} {`,
             `    public static readonly templateId = ${JSON.stringify(binding.templateIdLiteral)};`,
+            ...(binding.packageName === undefined ? [] : [`    public static readonly packageName = ${JSON.stringify(binding.packageName)};`]),
             `    private static readonly descriptor: ${this.getSdkName("DamlTypeDescriptor", runtimeWrapperTypeNames)} = ${this.emitTemplateDescriptor(binding)};`,
             "",
             ...binding.createFields.map((field) => `    public readonly ${field.propertyName}: ${field.typeName};`),
@@ -225,7 +234,7 @@ export class TemplateBindingEmitter {
             "",
             `    public static fromCreatedEvent(event: ${this.getSdkName("DamlCreatedEventSource", runtimeWrapperTypeNames)}): ${binding.className} {`,
             `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeCreated(event);`,
-            `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
+            `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId, normalized.metadata.packageName);`,
             `        const fields = ${this.getSdkName("DamlValueMaterializer", runtimeWrapperTypeNames)}.materialize<${binding.createFieldsTypeName}>(${this.getSdkName("DamlValueConverter", runtimeWrapperTypeNames)}.decode(normalized.payload, ${binding.className}.descriptor, GeneratedDamlTypeDescriptorRegistry, "create arguments"));`,
             `        return new ${binding.className}(`,
             "            normalized.contractId,",
@@ -235,7 +244,7 @@ export class TemplateBindingEmitter {
             "",
             `    public static fromExercisedEvent(event: ${this.getSdkName("DamlExercisedEventSource", runtimeWrapperTypeNames)}): ${exercisedReturnType} {`,
             `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeExercised(event);`,
-            `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId);`,
+            `        ${binding.className}.assertTemplateIdentity(normalized.metadata.templateId, normalized.metadata.packageName);`,
             "        switch (normalized.choice) {",
             ...binding.choices.map((choice) => `            case ${JSON.stringify(choice.name)}:\n                return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`),
             "            default:",
@@ -243,11 +252,7 @@ export class TemplateBindingEmitter {
             "        }",
             "    }",
             "",
-            "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
-            `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
-            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
-            "        }",
-            "    }",
+            ...this.emitAssertTemplateIdentity(binding, runtimeWrapperTypeNames),
             "}",
         ].join("\n");
     }
@@ -279,12 +284,12 @@ export class TemplateBindingEmitter {
             "",
             `    public static fromExercisedEvent(event: ${this.getSdkName("DamlExercisedEventSource", runtimeWrapperTypeNames)}): ${choice.exercisedEventTypeName} {`,
             `        const normalized = ${this.getSdkName("DamlEventSourceNormalizer", runtimeWrapperTypeNames)}.normalizeExercised(event);`,
-            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(normalized.metadata.templateId);`,
+            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(normalized.metadata.templateId, normalized.metadata.packageName);`,
             `        return ${choice.exercisedEventTypeName}.fromNormalizedEvent(normalized);`,
             "    }",
             "",
             `    public static fromNormalizedEvent(event: ${this.getSdkName("DamlNormalizedExercisedEvent", runtimeWrapperTypeNames)}): ${choice.exercisedEventTypeName} {`,
-            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(event.metadata.templateId);`,
+            `        ${choice.exercisedEventTypeName}.assertTemplateIdentity(event.metadata.templateId, event.metadata.packageName);`,
             `        if (event.choice !== ${JSON.stringify(choice.name)}) {`,
             `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("choice", \`Expected choice '${choice.name}' but received '\${event.choice}'\`);`,
             "        }",
@@ -293,13 +298,35 @@ export class TemplateBindingEmitter {
             `        return new ${choice.exercisedEventTypeName}(event.contractId, argument, result, event.consuming, event.metadata);`,
             "    }",
             "",
-            "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }): void {",
-            `        if (identity.packageId !== ${JSON.stringify(this.packageId(binding))} || identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
-            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
-            "        }",
-            "    }",
+            ...this.emitAssertTemplateIdentity(binding, runtimeWrapperTypeNames),
             "}",
         ].join("\n");
+    }
+
+    /**
+     * Emits the identity guard for materialization. Module and entity must match exactly; the package is
+     * matched by NAME when the event provides one — never by exact package id, because smart contract
+     * upgrades give every version its own id while contracts from any version stay materializable.
+     */
+    private emitAssertTemplateIdentity(binding: GeneratedTemplateBinding, runtimeWrapperTypeNames: RuntimeWrapperTypeNames): string[] {
+        const lines = [
+            "    private static assertTemplateIdentity(identity: { readonly packageId: string; readonly moduleName: string; readonly entityName: string }, packageName?: string): void {",
+            `        if (identity.moduleName !== ${JSON.stringify(this.moduleName(binding))} || identity.entityName !== ${JSON.stringify(this.entityName(binding))}) {`,
+            `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected template '${binding.templateIdLiteral}' but received '\${identity.packageId}:\${identity.moduleName}:\${identity.entityName}'\`);`,
+            "        }",
+        ];
+
+        if (binding.packageName !== undefined) {
+            lines.push(
+                `        if (packageName !== undefined && packageName !== ${JSON.stringify(binding.packageName)}) {`,
+                `            throw new ${this.getSdkName("DamlMaterializationError", runtimeWrapperTypeNames)}("template ID", \`Expected package '${binding.packageName}' but received '\${packageName}' for template '${binding.templateIdLiteral}'\`);`,
+                "        }",
+            );
+        }
+
+        lines.push("    }");
+
+        return lines;
     }
 
     private emitTemplateDescriptor(binding: GeneratedTemplateBinding): string {

@@ -37,6 +37,8 @@ export class ProjectEmitter {
             analysis.packageMetadata,
         );
 
+        this.templateBindingEmitter.providePackageMetadata(analysis.packageMetadata);
+
         const templateBindingFiles = analysis.templates.map((template) =>
             this.templateBindingEmitter.emitTemplateBindingFile(template),
         );

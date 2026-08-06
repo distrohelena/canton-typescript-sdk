@@ -12,11 +12,16 @@ import { AnalyzedTemplate } from "../../../src/daml-interface/analysis/analyzed-
 import { TemplateBindingEmitter } from "../../../src/daml-interface/emission/template-binding-emitter.js";
 
 describe("generated template choice factories", () => {
-    it("rejects an exercised event for another template even when the choice name matches", async () => {
+    it("rejects cross-package-name and cross-entity events while accepting any package version", async () => {
         const outputDirectory = await mkdtemp(join(tmpdir(), "daml-template-runtime-"));
 
         try {
             const emitter = new TemplateBindingEmitter();
+
+            emitter.providePackageMetadata(new Map([
+                ["package-one", { packageName: "pkg-one" }],
+                ["package-two", { packageName: "pkg-two" }],
+            ]));
 
             const one = emitter.emitTemplateFile(template("package-one"));
 
@@ -28,6 +33,7 @@ describe("generated template choice factories", () => {
 
             const module = await import(pathToFileURL(join(outputDirectory, one.path.replace(/\.ts$/, ".js"))).href);
 
+            // A contract from ANOTHER PACKAGE NAME is rejected when the event names its package.
             let error: unknown;
 
             try {
@@ -37,7 +43,7 @@ describe("generated template choice factories", () => {
                     argument: { value: "owner" },
                     result: { value: "ok" },
                     consuming: false,
-                    metadata: { templateId: { packageId: "package-two", moduleName: "Main", entityName: "Iou" } },
+                    metadata: { templateId: { packageId: "package-two", moduleName: "Main", entityName: "Iou" }, packageName: "pkg-two" },
                 });
             } catch (caught) {
                 error = caught;
@@ -45,6 +51,37 @@ describe("generated template choice factories", () => {
 
             expect(error).toMatchObject({ path: "template ID" });
             expect((error as { readonly constructor: { readonly name: string } }).constructor.name).toBe("DamlMaterializationError");
+
+            // A DIFFERENT VERSION of the same package name — a different package id — materializes fine:
+            // smart contract upgrades make exact package-id matching wrong.
+            const upgraded = module.IouTransferExercisedEvent.fromExercisedEvent({
+                contractId: "#cid",
+                choice: "Transfer",
+                argument: { value: "owner" },
+                result: { value: "ok" },
+                consuming: false,
+                metadata: { templateId: { packageId: "package-one-v15", moduleName: "Main", entityName: "Iou" }, packageName: "pkg-one" },
+            });
+
+            expect(upgraded.contractId).toBe("#cid");
+
+            // A different module/entity is always rejected, with or without a package name.
+            let entityError: unknown;
+
+            try {
+                module.IouTransferExercisedEvent.fromExercisedEvent({
+                    contractId: "#cid",
+                    choice: "Transfer",
+                    argument: { value: "owner" },
+                    result: { value: "ok" },
+                    consuming: false,
+                    metadata: { templateId: { packageId: "package-one", moduleName: "Other", entityName: "Iou" } },
+                });
+            } catch (caught) {
+                entityError = caught;
+            }
+
+            expect(entityError).toMatchObject({ path: "template ID" });
         } finally {
             await rm(outputDirectory, { recursive: true, force: true });
         }

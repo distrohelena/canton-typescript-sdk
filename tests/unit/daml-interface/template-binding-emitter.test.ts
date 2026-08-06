@@ -75,7 +75,7 @@ describe("TemplateBindingEmitter", () => {
         expect(file.contents).toContain("fields.issuer,");
         expect(file.contents).toContain("fields.owner,");
         expect(file.contents).toContain("throw new DamlMaterializationError(\"choice\"");
-        expect(file.contents).toContain("IouTransferExercisedEvent.assertTemplateIdentity(event.metadata.templateId);");
+        expect(file.contents).toContain("IouTransferExercisedEvent.assertTemplateIdentity(event.metadata.templateId, event.metadata.packageName);");
         expect(file.contents).toContain("throw new DamlMaterializationError(\"template ID\"");
         expect(file.contents).toContain('private static readonly descriptor: DamlTypeDescriptor = { kind: "record", fields: [{ damlLabel: "issuer", propertyName: "issuer", type: { kind: "primitive", primitive: "text" } }, { damlLabel: "owner", propertyName: "owner", type: { kind: "primitive", primitive: "text" } }] };');
         expect(file.contents).not.toContain("public static create(");
