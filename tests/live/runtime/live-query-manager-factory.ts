@@ -26,8 +26,11 @@ import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
 import { PqsPool } from "../../../src/query/pqs/pqs-pool.js";
 import { PqsSchemaProfileV1, validatePqsSchemaAsync } from "../../../src/query/pqs/pqs-schema-profile.js";
 
-// A freshly booted localnet's scribe replays all splice bootstrap traffic before reaching test fixtures.
+// Hard cap only; the operative failure mode is the stall window below. Progress keeps the wait alive.
 const pqsReadyTimeoutMs = 420_000;
+
+// No watermark movement for this long means scribe is wedged, not slow — fail fast with diagnostics.
+const pqsStallTimeoutMs = 45_000;
 
 const pqsReadyIntervalMs = 500;
 
@@ -59,6 +62,7 @@ export interface LiveQueryParityFixture {
 
 export interface LivePqsParityWaitOptions {
     readonly timeoutMs?: number;
+    readonly stallTimeoutMs?: number;
     readonly intervalMs?: number;
 }
 
@@ -266,20 +270,32 @@ async function waitForPqsSchemaReadyAsync(
     }
 }
 
+/**
+ * Waits for PQS to index the parity fixture based on OBSERVED PROGRESS, not machine-speed guesses: while
+ * the PQS watermark keeps advancing the wait continues (bounded only by a generous hard cap), and the
+ * moment it stalls — no watermark movement for stallTimeoutMs — the wait fails fast with everything
+ * observed, so a wedged scribe surfaces immediately instead of consuming an arbitrary timeout budget.
+ */
 export async function waitForLivePqsParityFixtureAsync(
     manager: CantonManager,
     fixture: LivePqsParityReadinessFixture,
     options: LivePqsParityWaitOptions = {},
 ): Promise<void> {
-    const timeoutMs = options.timeoutMs ?? pqsReadyTimeoutMs;
+    const hardCapMs = options.timeoutMs ?? pqsReadyTimeoutMs;
+
+    const stallTimeoutMs = options.stallTimeoutMs ?? pqsStallTimeoutMs;
 
     const intervalMs = options.intervalMs ?? pqsReadyIntervalMs;
 
-    const deadline = Date.now() + timeoutMs;
+    const deadline = Date.now() + hardCapMs;
 
     let lastObserved: LivePqsParityReadiness | undefined;
 
     let lastError: unknown;
+
+    let lastProgressSignature = "";
+
+    let lastProgressAt = Date.now();
 
     while (Date.now() < deadline) {
         try {
@@ -288,16 +304,30 @@ export async function waitForLivePqsParityFixtureAsync(
             if (isLivePqsParityFixtureReady(lastObserved, fixture)) {
                 return;
             }
+
+            const progressSignature = JSON.stringify(lastObserved);
+
+            if (progressSignature !== lastProgressSignature) {
+                lastProgressSignature = progressSignature;
+                lastProgressAt = Date.now();
+            }
         } catch (error) {
-            // PQS may still be catching up on a freshly booted localnet; keep polling until the deadline.
+            // Schema/connection errors count as progress-less; the stall window decides, not the error.
             lastError = error;
+        }
+
+        if (Date.now() - lastProgressAt >= stallTimeoutMs) {
+            throw new Error(
+                `PQS made no indexing progress for ${stallTimeoutMs}ms (watermark stalled); observed ${JSON.stringify(lastObserved ?? {})}`
+                    + (lastError === undefined ? "." : `; last error: ${String(lastError)}.`),
+            );
         }
 
         await delayAsync(intervalMs);
     }
 
     throw new Error(
-        `PQS did not index the complete parity fixture within ${timeoutMs}ms; observed ${JSON.stringify(lastObserved ?? {})}`
+        `PQS did not index the complete parity fixture within ${hardCapMs}ms despite continuous progress; observed ${JSON.stringify(lastObserved ?? {})}`
             + (lastError === undefined ? "." : `; last error: ${String(lastError)}.`),
     );
 }
@@ -354,10 +384,7 @@ async function inspectLivePqsParityReadinessAsync(
             where: { exercises: archivedExercise },
         }),
         manager.query.watermark.findMany({
-            where: {
-                singleton: { equals: true },
-                offset: { gte: fixture.archivedAtOffset },
-            },
+            where: { singleton: { equals: true } },
         }),
     ]);
 

@@ -137,6 +137,13 @@ async function runLegAsync(name, config, quickstartDir) {
 
     console.log(`=== [${name}] ${vitestCode === 0 ? "PASSED" : `FAILED (exit ${vitestCode}); see ${logPath}`}`);
 
+    if (vitestCode !== 0) {
+        // Capture the participant-side story so a failed leg explains itself instead of just timing out.
+        for (const container of ["canton", "splice", "splice-onboarding", "pqs-app-provider"]) {
+            await runToLogAsync("bash", ["-c", `echo; echo "=== docker logs --tail 120 ${container} ==="; docker logs --tail 120 ${container} 2>&1 || true`], {}, logPath);
+        }
+    }
+
     return { name, ok: vitestCode === 0, reason: vitestCode === 0 ? undefined : "tests" };
 }
 
