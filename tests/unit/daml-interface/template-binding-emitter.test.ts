@@ -338,4 +338,30 @@ describe("TemplateBindingEmitter", () => {
         expect(contents).toContain('typeArguments: [{ kind: "namedReference", identity: { packageId: "sample-hash", moduleName: "Types", entityName: "Amount" }, typeArguments: [] }]');
         expect(contents).toContain('typeArguments: [{ kind: "primitive", primitive: "text" }]');
     });
+
+    it("emits a package-name-based template identity when package metadata is known", () => {
+        // Package ids are version-specific under smart contract upgrades; when the analyzer supplies the
+        // package name, the emitted identity must not contain the id anywhere.
+        const template = new AnalyzedTemplate({
+            templateId: new DamlLfTemplateId({
+                packageId: "sample-hash",
+                moduleName: "Main",
+                templateName: "Iou",
+            }),
+            className: "Iou",
+            fileName: "iou.ts",
+            createFields: [],
+            choices: [],
+        });
+
+        const emitter = new TemplateBindingEmitter();
+
+        emitter.providePackageMetadata(new Map([["sample-hash", { packageName: "sample-app" }]]));
+
+        const file = emitter.emitTemplateFile(template);
+
+        expect(file.contents).toContain('public static readonly templateId = "sample-app:Main:Iou";');
+        expect(file.contents).toContain('public static readonly packageName = "sample-app";');
+        expect(file.contents).not.toContain("sample-hash:Main:Iou");
+    });
 });

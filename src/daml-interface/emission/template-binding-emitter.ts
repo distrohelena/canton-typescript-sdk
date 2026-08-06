@@ -93,7 +93,7 @@ export class TemplateBindingEmitter {
             templateIdentityKey: this.nameResolver.getTemplateIdentityKey(template),
             namespaceAlias: this.nameResolver.getNamespaceAlias(template),
             className,
-            templateIdLiteral: this.nameResolver.getTemplateIdLiteral(template),
+            templateIdLiteral: this.templateIdLiteral(template),
             packageName: this.packageMetadata?.get(template.templateId.packageId)?.packageName,
             path: this.nameResolver.getTemplateFilePath(template),
             createFieldsTypeName: this.nameResolver.getCreateFieldsTypeName(template),
@@ -719,8 +719,17 @@ export class TemplateBindingEmitter {
         return (hash >>> 0).toString(36).padStart(6, "0").slice(-6);
     }
 
-    private packageId(binding: GeneratedTemplateBinding): string {
-        return binding.templateIdLiteral.split(":")[0]!;
+    /**
+     * The emitted identity literal NEVER contains a package id when the package name is known: package ids
+     * are version-specific under smart contract upgrades, while packageName:module:entity is stable. The
+     * id-based form remains only for metadata-less invocations (tests driving the emitter directly).
+     */
+    private templateIdLiteral(template: AnalyzedTemplate): string {
+        const packageName = this.packageMetadata?.get(template.templateId.packageId)?.packageName;
+
+        return packageName === undefined
+            ? this.nameResolver.getTemplateIdLiteral(template)
+            : `${packageName}:${template.templateId.moduleName}:${template.templateId.templateName}`;
     }
     private moduleName(binding: GeneratedTemplateBinding): string {
         return binding.templateIdLiteral.split(":")[1]!;

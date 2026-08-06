@@ -5,7 +5,7 @@ import { GeneratedTemplateBindingFile } from "../../../src/daml-interface/emissi
 import { RegistryEmitter } from "../../../src/daml-interface/emission/registry-emitter.js";
 
 describe("RegistryEmitter", () => {
-    it("emits a canonical registry that dispatches event sources by their full identity", () => {
+    it("emits a canonical registry that dispatches event sources by module and entity", () => {
         const templateFile = new GeneratedTemplateBindingFile({
             path: "generated/main/iou.ts",
             contents: "export class Iou {}",
@@ -32,14 +32,16 @@ describe("RegistryEmitter", () => {
         expect(registryFile.contents).toContain("DamlEventSourceNormalizer.normalizeCreated(event)");
         expect(registryFile.contents).toContain("DamlEventSourceNormalizer.normalizeExercised(event)");
         expect(registryFile.contents).toContain("DamlMaterializationError");
-        expect(registryFile.contents).toContain('sample-hash:Main:Iou');
+        expect(registryFile.contents).toContain('case "Main:Iou"');
         expect(registryFile.contents).not.toContain("decodeCreatedEvent");
         expect(registryFile.contents).not.toContain("decodeExercisedEvent");
         expect(registryFile.contents).not.toContain("templateId: string");
         expect(registryFile.contents).not.toContain("return event;");
     });
 
-    it("dispatches same module/entity templates from separate packages by full identity", () => {
+    it("rejects same module/entity templates from different packages at emit time", () => {
+        // Dispatch is upgrade-stable (module:entity), so distinct packages colliding on both names cannot
+        // be told apart at runtime — the generator must fail loudly instead of emitting ambiguous cases.
         const project = new GeneratedDamlInterfaceProject({
             templateFiles: [
                 createTemplateFile("package-one", "IouOne"),
@@ -47,10 +49,20 @@ describe("RegistryEmitter", () => {
             ],
         });
 
+        expect(() => new RegistryEmitter().emitRegistry(project)).toThrow(/collide on module:entity/);
+    });
+
+    it("dispatches multiple versions of one template through a single upgrade-stable case", () => {
+        // Two versions of the same package produce the same name-based literal; the registry emits one
+        // case that any version's events route through.
+        const project = new GeneratedDamlInterfaceProject({
+            templateFiles: [createTemplateFile("app", "Iou")],
+        });
+
         const contents = new RegistryEmitter().emitRegistry(project).contents;
 
-        expect(contents).toContain('case "package-one:Main:Iou"');
-        expect(contents).toContain('case "package-two:Main:Iou"');
+        expect(contents).toContain('case "Main:Iou"');
+        expect(contents).not.toContain("templateId.packageId");
     });
 });
 

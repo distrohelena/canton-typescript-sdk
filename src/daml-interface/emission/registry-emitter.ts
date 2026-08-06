@@ -33,7 +33,7 @@ export class RegistryEmitter {
                 "export class GeneratedRegistry {",
                 "    public static fromCreatedEvent(event: DamlCreatedEventSource): unknown {",
                 "        const normalized = DamlEventSourceNormalizer.normalizeCreated(event);",
-                "        switch (`${normalized.metadata.templateId.packageId}:${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
+                "        switch (`${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
                 ...createdCases,
                 "            default:",
                 "                throw new DamlMaterializationError(\"template ID\", \"no generated template binding matches the created event\");",
@@ -42,7 +42,7 @@ export class RegistryEmitter {
                 "",
                 "    public static fromExercisedEvent(event: DamlExercisedEventSource): unknown {",
                 "        const normalized = DamlEventSourceNormalizer.normalizeExercised(event);",
-                "        switch (`${normalized.metadata.templateId.packageId}:${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
+                "        switch (`${normalized.metadata.templateId.moduleName}:${normalized.metadata.templateId.entityName}`) {",
                 ...exercisedCases,
                 "            default:",
                 "                throw new DamlMaterializationError(\"template ID\", \"no generated template binding matches the exercised event\");",
@@ -58,9 +58,28 @@ export class RegistryEmitter {
         project: GeneratedDamlInterfaceProject,
         methodName: "fromCreatedEvent" | "fromExercisedEvent",
     ): readonly string[] {
-        return project.templateFiles.map(
-            (file) =>
-                `            case "${file.binding.templateIdLiteral}":\n                return ${file.binding.className}.${methodName}(event);`,
-        );
+        // Dispatch is by module:entity — package ids are version-specific under smart contract upgrades,
+        // so any version of a template routes to its binding; the binding's own identity guard then
+        // verifies the package name when the event carries one.
+        const seen = new Map<string, string>();
+
+        return project.templateFiles.map((file) => {
+            const parts = file.binding.templateIdLiteral.split(":");
+
+            const dispatchKey = `${parts[1]}:${parts[2]}`;
+
+            const existing = seen.get(dispatchKey);
+
+            if (existing !== undefined && existing !== file.binding.templateIdLiteral) {
+                throw new Error(
+                    `Generated registry cannot dispatch '${dispatchKey}': templates '${existing}' and `
+                        + `'${file.binding.templateIdLiteral}' collide on module:entity across packages.`,
+                );
+            }
+
+            seen.set(dispatchKey, file.binding.templateIdLiteral);
+
+            return `            case "${dispatchKey}":\n                return ${file.binding.className}.${methodName}(event);`;
+        });
     }
 }
