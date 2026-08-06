@@ -3,6 +3,7 @@ import {
     LiveQueryManagers,
     createDefaultLiveQueryManagerOptions,
     createLiveQueryManagersAsync,
+    prepareLiveParityPackageAsync,
     seedLiveQueryParityFixtureAsync,
     waitForLivePqsParityFixtureAsync,
     waitForLivePqsStreamAsync,
@@ -17,6 +18,10 @@ describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS t
     }, 30_000);
 
     it("returns equivalent lifecycle, explorer, package, JSON, and aggregate results", async () => {
+        // Upload the parity DAR and restart scribe FIRST: it discovers packages only at init, and the
+        // restart resets its state, so everything below must happen strictly after it.
+        await prepareLiveParityPackageAsync();
+
         managers = await createLiveQueryManagersAsync(
             createDefaultLiveQueryManagerOptions(),
         );

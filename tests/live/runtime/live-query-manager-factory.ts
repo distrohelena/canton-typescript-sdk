@@ -143,17 +143,6 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
     });
 
     try {
-        await client.grpc.packageManagementService.uploadDarFileAsync(
-            UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
-        );
-
-        // Scribe lists Daml packages only at init; its mid-run discovery path wedges permanently (a partial
-        // transaction batch commits before the unknown-package error, and every rediscovery retry collides
-        // on it). Restarting scribe after the upload and BEFORE any contract exists closes the race
-        // entirely: it re-initializes with the package known and resumes from its checkpoint, so contracts
-        // created even while it boots are indexed in order.
-        await restartPqsScribeForPackageDiscoveryAsync();
-
         const packageId = queryModel.packageId;
 
         const party = await resolveLiveQueryParityPartyAsync(client, seeded.runId);
@@ -564,6 +553,34 @@ function createdContractId(value: unknown): string | undefined {
     return typeof (created as Record<string, unknown>).contractId === "string"
         ? (created as Record<string, unknown>).contractId as string
         : undefined;
+}
+
+/**
+ * Uploads the parity DAR and restarts scribe so it initializes with the package known. Scribe lists Daml
+ * packages only at init, and its mid-run discovery retry wedges permanently on the partial batch it
+ * committed before noticing the unknown package. The restart also RESETS scribe's state (its container
+ * re-runs schema setup), so the caller MUST wait for the post-restart watermark before seeding any
+ * fixture contracts — scribe seeds from the ACS at its own start offset and never indexes earlier history.
+ */
+export async function prepareLiveParityPackageAsync(): Promise<void> {
+    const seeded = await getLiveSeededContextAsync();
+
+    const queryModel = await getLiveQueryModelFixtureAsync();
+
+    const client = new CantonManager({
+        grpc: seeded.grpcEnvironment.options,
+        querySource: QuerySource.grpc,
+    });
+
+    try {
+        await client.grpc.packageManagementService.uploadDarFileAsync(
+            UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
+        );
+
+        await restartPqsScribeForPackageDiscoveryAsync();
+    } finally {
+        await client.disposeAsync();
+    }
 }
 
 async function restartPqsScribeForPackageDiscoveryAsync(): Promise<void> {
