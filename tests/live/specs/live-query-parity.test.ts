@@ -5,6 +5,7 @@ import {
     createLiveQueryManagersAsync,
     seedLiveQueryParityFixtureAsync,
     waitForLivePqsParityFixtureAsync,
+    waitForLivePqsStreamAsync,
 } from "../runtime/live-query-manager-factory.js";
 
 // The matrix runner sets SDK_TEST_PQS_AVAILABLE=0 on legs booted without PQS; parity needs both sources.
@@ -16,11 +17,15 @@ describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS t
     }, 30_000);
 
     it("returns equivalent lifecycle, explorer, package, JSON, and aggregate results", async () => {
-        const fixture = await seedLiveQueryParityFixtureAsync();
-
         managers = await createLiveQueryManagersAsync(
             createDefaultLiveQueryManagerOptions(),
         );
+
+        // Fixtures must be seeded only after scribe streams; history before its start offset is never indexed.
+        await waitForLivePqsStreamAsync(managers.pqs);
+
+        const fixture = await seedLiveQueryParityFixtureAsync();
+
         await waitForLivePqsParityFixtureAsync(managers.pqs, fixture);
 
         const query = async (manager: LiveQueryManagers["grpc"]) => ({

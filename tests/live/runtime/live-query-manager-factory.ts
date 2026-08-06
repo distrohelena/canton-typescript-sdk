@@ -276,6 +276,39 @@ async function waitForPqsSchemaReadyAsync(
  * moment it stalls — no watermark movement for stallTimeoutMs — the wait fails fast with everything
  * observed, so a wedged scribe surfaces immediately instead of consuming an arbitrary timeout budget.
  */
+/**
+ * Waits until scribe's pipeline is live — its watermark row exists — before any fixture is seeded. Scribe's
+ * cold start seeds from the ACS at its own start offset and only streams forward from there, so anything
+ * archived before that offset is permanently invisible to PQS. Seeding fixtures strictly after the
+ * watermark appears makes indexing deterministic regardless of boot timing.
+ */
+export async function waitForLivePqsStreamAsync(
+    manager: CantonManager,
+    timeoutMs = 180_000,
+    intervalMs = 1_000,
+): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+
+    let lastError: unknown;
+
+    while (Date.now() < deadline) {
+        try {
+            const watermark = await manager.query.watermark.findMany({ where: { singleton: { equals: true } } });
+
+            if (watermark.length > 0) {
+                return;
+            }
+        } catch (error) {
+            lastError = error;
+        }
+
+        await delayAsync(intervalMs);
+    }
+
+    throw new Error(`PQS pipeline did not come live (no watermark) within ${timeoutMs}ms`
+        + (lastError === undefined ? "." : `; last error: ${String(lastError)}.`));
+}
+
 export async function waitForLivePqsParityFixtureAsync(
     manager: CantonManager,
     fixture: LivePqsParityReadinessFixture,
