@@ -18,6 +18,8 @@ import {
 import { UploadDarFileRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/package_management_service.js";
 import { GrantUserRightsRequest } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/admin/user_management_service.js";
 import { getLiveSeededContextAsync } from "./live-seeded-context.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import {
     LiveTestEnvironment,
     createLiveTestEnvironment,
@@ -33,6 +35,8 @@ const pqsReadyTimeoutMs = 420_000;
 const pqsStallTimeoutMs = 45_000;
 
 const pqsReadyIntervalMs = 500;
+
+const execFileAsync = promisify(execFile);
 
 const iouTemplate = {
     packageId: "",
@@ -142,6 +146,13 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
         await client.grpc.packageManagementService.uploadDarFileAsync(
             UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
         );
+
+        // Scribe lists Daml packages only at init; its mid-run discovery path wedges permanently (a partial
+        // transaction batch commits before the unknown-package error, and every rediscovery retry collides
+        // on it). Restarting scribe after the upload and BEFORE any contract exists closes the race
+        // entirely: it re-initializes with the package known and resumes from its checkpoint, so contracts
+        // created even while it boots are indexed in order.
+        await restartPqsScribeForPackageDiscoveryAsync();
 
         const packageId = queryModel.packageId;
 
@@ -553,6 +564,17 @@ function createdContractId(value: unknown): string | undefined {
     return typeof (created as Record<string, unknown>).contractId === "string"
         ? (created as Record<string, unknown>).contractId as string
         : undefined;
+}
+
+async function restartPqsScribeForPackageDiscoveryAsync(): Promise<void> {
+    const container = process.env.SDK_TEST_PQS_CONTAINER ?? "pqs-app-provider";
+
+    try {
+        await execFileAsync("docker", ["restart", container]);
+    } catch (error) {
+        // Without docker access the spec still runs; a wedged scribe then surfaces through stall detection.
+        console.warn(`[live-query-manager-factory] Could not restart ${container} for package discovery: ${String(error)}`);
+    }
 }
 
 function delayAsync(milliseconds: number): Promise<void> {
