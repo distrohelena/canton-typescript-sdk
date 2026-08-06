@@ -1054,6 +1054,23 @@ wait_for_canton_health() {
   wait_for_container_readiness canton canton_and_extras_are_ready "$extra_participants"
 }
 
+container_is_healthy() {
+  local _container="$1"
+  local lifecycle_state="$2"
+  local health_status="$3"
+  [[ "$lifecycle_state" == "running" && "$health_status" == "healthy" ]]
+}
+
+wait_for_onboarding_health() {
+  local onboarding_container
+  onboarding_container="$(docker ps -a --filter name=splice-onboarding --format '{{.Names}}' | head -n 1)"
+  if [[ -z "$onboarding_container" ]]; then
+    echo "Unable to resolve the splice-onboarding container for readiness." >&2
+    return 1
+  fi
+  wait_for_container_readiness "$onboarding_container" container_is_healthy
+}
+
 provision_extra_pqs() {
   local count="$1"
   if (( count == 0 )); then
@@ -1249,6 +1266,10 @@ start_ledger_stack() {
   start_splice_services compose_args
   if (( ${#followup_services[@]} > 0 )); then
     docker_compose "${compose_args[@]}" up -d --no-recreate "${followup_services[@]}"
+  else
+    # Without PQS nothing carries a service_healthy dependency on splice-onboarding, so wait explicitly —
+    # the participant is not usable until onboarding finishes.
+    wait_for_onboarding_health
   fi
 
   if (( extra_participants > 0 )); then

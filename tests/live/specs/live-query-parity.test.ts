@@ -245,7 +245,7 @@ describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS t
         expect(nestedCanonicalKey).toMatch(/^\d+$/);
         expect(BigInt(nestedCanonicalKey!)).toBeGreaterThan(BigInt(Number.MAX_SAFE_INTEGER));
         expect(pqs.nested[0]?.exercises?.[0]?.tpePk).toBe(nestedCanonicalKey);
-    }, 300_000);
+    }, 600_000);
 });
 
 const exerciseRelations = {

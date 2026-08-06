@@ -26,7 +26,8 @@ import { getLiveQueryModelFixtureAsync } from "./live-query-model-fixture.js";
 import { PqsPool } from "../../../src/query/pqs/pqs-pool.js";
 import { PqsSchemaProfileV1, validatePqsSchemaAsync } from "../../../src/query/pqs/pqs-schema-profile.js";
 
-const pqsReadyTimeoutMs = 120_000;
+// A freshly booted localnet's scribe replays all splice bootstrap traffic before reaching test fixtures.
+const pqsReadyTimeoutMs = 420_000;
 
 const pqsReadyIntervalMs = 500;
 
