@@ -45,6 +45,7 @@ const CONFIGS = {
     "es256": { env: { LOCALNET_ES256_JWT: "1" }, auth: "es256", tls: false, pqs: true, specs: ALL_SPECS },
     "tls": { env: { LOCALNET_TLS: "1" }, auth: "none", tls: true, pqs: true, specs: TLS_LEG_SPECS },
     "es256-tls": { env: { LOCALNET_ES256_JWT: "1", LOCALNET_TLS: "1" }, auth: "es256", tls: true, pqs: true, specs: TLS_LEG_SPECS },
+    "pruning": { env: {}, auth: "none", tls: false, pqs: true, sidecar358: true, specs: ["tests/live/specs/live-query-pruning.test.ts"] },
 };
 
 function resolveQuickstartDir() {
@@ -98,16 +99,18 @@ async function runLegAsync(name, config, quickstartDir) {
 
     console.log(`\n=== [${name}] stopping any running localnet...`);
 
+    await runToLogAsync("bash", [join(repoRoot, "node", "stop-local-participant-358.sh")], startEnv, logPath);
     await runToLogAsync("bash", [join(repoRoot, "node", "stop-local.sh")], startEnv, logPath);
 
-    // The stop script is interruptible and config-sensitive; a leg must never inherit state from whatever
-    // ran before. Force-remove every quickstart-labeled container and volume so postgres (and with it the
-    // PQS database and canton stores) is provably virgin — a reused volume wedges scribe on re-seeding.
+    // The stop scripts are interruptible and config-sensitive; a leg must never inherit state from whatever
+    // ran before. Force-remove every quickstart- and sidecar-labeled container and volume so postgres (and
+    // with it the PQS database and canton stores) is provably virgin — a reused volume wedges scribe.
     await runToLogAsync("bash", ["-c",
-        "docker ps -aq --filter label=com.docker.compose.project=quickstart | xargs -r docker rm -f; "
-        + "docker volume ls -q --filter label=com.docker.compose.project=quickstart | xargs -r docker volume rm -f; "
-        + "docker volume ls -q | grep '^quickstart_' | xargs -r docker volume rm -f; "
-        + "echo 'quickstart containers/volumes cleansed'",
+        "for project in quickstart canton-participant-358; do "
+        + "docker ps -aq --filter label=com.docker.compose.project=$project | xargs -r docker rm -f; "
+        + "docker volume ls -q --filter label=com.docker.compose.project=$project | xargs -r docker volume rm -f; "
+        + "docker volume ls -q | grep \"^${project}_\" | xargs -r docker volume rm -f; "
+        + "done; echo 'containers/volumes cleansed'",
     ], {}, logPath);
 
     console.log(`=== [${name}] starting localnet (${JSON.stringify(config.env)})...`);
@@ -121,6 +124,30 @@ async function runLegAsync(name, config, quickstartDir) {
     }
 
     const testEnv = { SDK_TEST_PQS_AVAILABLE: config.pqs ? "1" : "0" };
+
+    if (config.sidecar358) {
+        console.log(`=== [${name}] starting participant-358 sidecar...`);
+
+        const sidecarCode = await runToLogAsync("bash", [join(repoRoot, "node", "start-local-participant-358.sh")], startEnv, logPath);
+
+        if (sidecarCode !== 0) {
+            console.error(`=== [${name}] participant-358 failed to start (exit ${sidecarCode}); see ${logPath}`);
+
+            return { name, ok: false, reason: "sidecar-start" };
+        }
+
+        const token = (await import("node:fs/promises")).readFile(join(repoRoot, ".generated", "participant-358", "ledger-api-user.token"), "utf8");
+
+        const sidecarToken = (await token).trim();
+
+        // The pruning fixture is nodeIndex 2 (tertiary); its bearer token is global across nodes.
+        testEnv.SDK_TEST_TERTIARY_LEDGER_ENDPOINT = "http://localhost:8901";
+        testEnv.SDK_TEST_TERTIARY_LEDGER_ADMIN_ENDPOINT = "http://localhost:8901";
+        testEnv.SDK_TEST_TERTIARY_PARTICIPANT_ADMIN_ENDPOINT = "http://localhost:8902";
+        testEnv.SDK_TEST_LEDGER_BEARER_TOKEN = sidecarToken;
+        testEnv.SDK_TEST_LEDGER_ADMIN_BEARER_TOKEN = sidecarToken;
+        testEnv.SDK_TEST_PARTICIPANT_ADMIN_BEARER_TOKEN = sidecarToken;
+    }
 
     if (config.auth === "es256") {
         const token = await mintTokenAsync(600);
@@ -149,7 +176,7 @@ async function runLegAsync(name, config, quickstartDir) {
 
     if (vitestCode !== 0) {
         // Capture the participant-side story so a failed leg explains itself instead of just timing out.
-        for (const container of ["canton", "splice", "splice-onboarding", "pqs-app-provider"]) {
+        for (const container of ["canton", "splice", "splice-onboarding", "pqs-app-provider", "canton-participant-358-participant358-1"]) {
             await runToLogAsync("bash", ["-c", `echo; echo "=== docker logs --tail 120 ${container} ==="; docker logs --tail 120 ${container} 2>&1 || true`], {}, logPath);
         }
     }
@@ -157,7 +184,7 @@ async function runLegAsync(name, config, quickstartDir) {
     return { name, ok: vitestCode === 0, reason: vitestCode === 0 ? undefined : "tests" };
 }
 
-const requested = (process.argv.find((argument) => argument.startsWith("--configs="))?.slice("--configs=".length) ?? "plain,no-pqs,es256,tls,es256-tls")
+const requested = (process.argv.find((argument) => argument.startsWith("--configs="))?.slice("--configs=".length) ?? "plain,no-pqs,es256,tls,es256-tls,pruning")
     .split(",")
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
@@ -184,6 +211,7 @@ if (!process.argv.includes("--keep")) {
 
     const lastConfig = CONFIGS[requested.at(-1)];
 
+    await runToLogAsync("bash", [join(repoRoot, "node", "stop-local-participant-358.sh")], { CN_QUICKSTART_DIR: quickstartDir, ...lastConfig.env }, join(logDir, "shutdown.log"));
     await runToLogAsync("bash", [join(repoRoot, "node", "stop-local.sh")], { CN_QUICKSTART_DIR: quickstartDir, IMAGE_TAG: process.env.IMAGE_TAG ?? "0.7.0", ...lastConfig.env }, join(logDir, "shutdown.log"));
 }
 

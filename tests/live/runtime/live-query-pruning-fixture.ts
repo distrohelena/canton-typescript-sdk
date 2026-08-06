@@ -96,32 +96,42 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
 async function getSafePruningOffsetAsync(
     manager: CantonManager,
     ledgerEnd: string,
+    timeoutMs = 120_000,
+    intervalMs = 5_000,
 ): Promise<string> {
-    const response = await manager.grpc.pruningService.getSafePruningOffsetAsync(
-        GetSafePruningOffsetRequest.create({
-            beforeOrAt: Timestamp.create({
-                seconds: String(Math.floor(Date.now() / 1_000)),
-                nanos: 0,
+    const deadline = Date.now() + timeoutMs;
+
+    // A freshly booted participant publishes its first safe pruning offset only after a commitment tick;
+    // poll for that event instead of failing on the first ask.
+    while (true) {
+        const response = await manager.grpc.pruningService.getSafePruningOffsetAsync(
+            GetSafePruningOffsetRequest.create({
+                beforeOrAt: Timestamp.create({
+                    seconds: String(Math.floor(Date.now() / 1_000)),
+                    nanos: 0,
+                }),
+                ledgerEnd,
             }),
-            ledgerEnd,
-        }),
-    );
-
-    if (response.response.oneofKind !== "safePruningOffset") {
-        throw new Error(
-            "Live query pruning found no safe offset. Configure the dedicated participant with a shorter ACS journal garbage-collection delay or retain it long enough to produce a safe pruning point.",
         );
+
+        if (response.response.oneofKind === "safePruningOffset") {
+            const safeOffset = response.response.safePruningOffset;
+
+            if (BigInt(safeOffset) > 0n && BigInt(safeOffset) < BigInt(ledgerEnd)) {
+                return safeOffset;
+            }
+        }
+
+        if (Date.now() >= deadline) {
+            throw new Error(
+                "Live query pruning found no safe offset within "
+                    + `${timeoutMs}ms. Configure the dedicated participant with a shorter ACS journal `
+                    + "garbage-collection delay or retain it long enough to produce a safe pruning point.",
+            );
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
-
-    const safeOffset = response.response.safePruningOffset;
-
-    if (BigInt(safeOffset) <= 0n || BigInt(safeOffset) >= BigInt(ledgerEnd)) {
-        throw new Error(
-            `Live query pruning requires a positive safe offset before ledger end ${ledgerEnd}; received ${safeOffset}.`,
-        );
-    }
-
-    return safeOffset;
 }
 
 interface PruningEndpointPair {

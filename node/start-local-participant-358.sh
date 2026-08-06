@@ -91,6 +91,8 @@ cat > "$RUNTIME_DIR/canton.conf" <<EOF
 canton {
   parameters { manual-start = no }
   participants.participant358 {
+    # The pruning live spec needs a safe pruning offset promptly on a fresh participant.
+    parameters { journal-garbage-collection-delay = 0s }
     storage {
       type = postgres
       config {
