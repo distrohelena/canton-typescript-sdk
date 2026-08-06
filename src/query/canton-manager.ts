@@ -44,6 +44,7 @@ export class CantonManager {
                 packageService: this.grpc.packageService,
                 endpointScope: options.grpc.ledgerEndpoint ?? "ledger",
                 incrementalHistory: options.incrementalHistory,
+                logger: options.logger,
                 contractCache: options.cache === undefined
                     ? undefined
                     : new GrpcContractCache(

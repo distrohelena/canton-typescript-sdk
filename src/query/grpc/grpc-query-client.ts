@@ -2,6 +2,7 @@ import type { PackageServiceClient } from "../../services/package/package-servic
 import type { StateServiceClient } from "../../services/state/state-service-client.js";
 import type { UpdateServiceClient } from "../../services/update/update-service-client.js";
 import { ValidationError } from "../../core/errors/validation-error.js";
+import type { CantonLogger } from "../../core/types/canton-logger.js";
 import { ContractCacheRequiredError } from "../errors/contract-cache-required-error.js";
 import { QueryCapabilityError } from "../errors/query-capability-error.js";
 import { InMemoryQueryEvaluator } from "../canonical/in-memory-query-evaluator.js";
@@ -37,6 +38,8 @@ export interface GrpcQueryClientOptions {
      * the retained window lives for this client's lifetime and its RAM cost is the full replayed history.
      */
     readonly incrementalHistory?: boolean;
+    /** Receives SDK diagnostics (e.g. the once-per-relation full-replay warning); defaults to console. */
+    readonly logger?: CantonLogger;
 }
 
 export class GrpcQueryClient implements QueryClient {
@@ -105,6 +108,7 @@ export class GrpcQueryClient implements QueryClient {
 class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
     private readonly snapshots: GrpcQuerySnapshotReader;
     private readonly packages: GrpcPackageRelationReader;
+    private readonly warnedReplayRelations = new Set<QueryRelation>();
 
     public constructor(private readonly options: GrpcQueryClientOptions) {
         this.snapshots = new GrpcQuerySnapshotReader(options.stateService, options.updateService, { incrementalHistory: options.incrementalHistory });
@@ -127,16 +131,20 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
         if (cached !== undefined && !needsHistory && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages")) {
             return cachedContractsDataset(cached, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
-            // With a warm incremental window only the new offsets are fetched, which is no longer worth a warning.
-            if (!(this.options.incrementalHistory === true && this.snapshots.hasHistoryCache)) {
-                console.warn(
+            // With a warm incremental window only the new offsets are fetched, which is no longer worth a
+            // warning; otherwise warn once per relation per client, not once per query.
+            if (!(this.options.incrementalHistory === true && this.snapshots.hasHistoryCache) && !this.warnedReplayRelations.has(query.relation)) {
+                this.warnedReplayRelations.add(query.relation);
+
+                (this.options.logger ?? console).warn(
                     `[GrpcQueryClient] Falling back to a full ledger replay from offset 0 for a "${query.relation}" query. `
                         + "This is expensive and should be an extreme edge case. It is usually triggered by a \"contracts\" query "
                         + "that does not explicitly prove `active: true` (so archived contracts may be in scope), or by querying "
                         + "\"transactions\"/\"events\"/\"exercises\" directly. Add an explicit active:true filter if only current state is needed"
                         + (this.options.incrementalHistory === true
                             ? "; incrementalHistory is enabled, so later history queries will fetch only new offsets."
-                            : ", or enable the incrementalHistory option to fetch only new offsets on repeat history queries."),
+                            : ", or enable the incrementalHistory option to fetch only new offsets on repeat history queries.")
+                        + ` This warning is logged once per relation; further "${query.relation}" replays stay silent.`,
                 );
             }
 

@@ -2,6 +2,7 @@ export { CantonClient } from "./client/canton-client.js";
 export { CantonManager } from "./query/canton-manager.js";
 export { QuerySource } from "./query/query-source.js";
 export { MemoryQueryCache } from "./query/cache/memory-query-cache.js";
+export type { CantonLogger } from "./core/types/canton-logger.js";
 export { ContractCacheRequiredError } from "./query/errors/contract-cache-required-error.js";
 export { QueryCapabilityError } from "./query/errors/query-capability-error.js";
 export { QuerySnapshotIncompleteError } from "./query/errors/query-snapshot-incomplete-error.js";

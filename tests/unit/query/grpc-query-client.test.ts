@@ -197,6 +197,36 @@ describe("GrpcQueryClient", () => {
         await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true } })).resolves.toEqual([{ contractId: "C1" }]);
     });
 
+    it("routes the full-replay warning through the injectable logger, once per relation", async () => {
+        const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "1", updates: [] });
+
+        const stateService = {
+            getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }),
+            getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }),
+            getActiveContractsPageAsync: vi.fn(),
+        };
+
+        const logger = { warn: vi.fn() };
+
+        const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+        try {
+            const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, logger });
+
+            await client.transactions.findMany();
+            await client.transactions.findMany();
+            await client.contracts.findMany();
+
+            // One warning per relation per client — repeats stay silent, and console is never touched.
+            expect(logger.warn).toHaveBeenCalledTimes(2);
+            expect(logger.warn.mock.calls[0]![0]).toContain("\"transactions\"");
+            expect(logger.warn.mock.calls[1]![0]).toContain("\"contracts\"");
+            expect(consoleWarn).not.toHaveBeenCalled();
+        } finally {
+            consoleWarn.mockRestore();
+        }
+    });
+
     it("uses bounded history for unconstrained contracts and transaction relations", async () => {
         const getUpdatesPageAsync = vi.fn().mockResolvedValue({ lowestPageOffsetExclusive: "0", highestPageOffsetInclusive: "1", updates: [] });
 

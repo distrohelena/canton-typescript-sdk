@@ -1,4 +1,5 @@
 import { CantonClientOptions } from "../client/canton-client-options.js";
+import { CantonLogger } from "../core/types/canton-logger.js";
 import { QueryCacheStore } from "./cache/query-cache-store.js";
 import { QuerySource } from "./query-source.js";
 
@@ -35,4 +36,6 @@ export interface CantonManagerOptions {
      * on later history queries. Costs RAM for the manager's lifetime — see GrpcQueryClientOptions.
      */
     readonly incrementalHistory?: boolean;
+    /** Receives SDK diagnostics (e.g. the once-per-relation full-replay warning); defaults to console. */
+    readonly logger?: CantonLogger;
 }
