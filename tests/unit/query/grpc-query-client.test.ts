@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { GrpcQueryClient } from "../../../src/query/grpc/grpc-query-client.js";
 import { ContractCacheRequiredError } from "../../../src/query/errors/contract-cache-required-error.js";
+import { HistoryWalkRequiredError } from "../../../src/query/errors/history-walk-required-error.js";
 import { QueryCapabilityError } from "../../../src/query/errors/query-capability-error.js";
 import { ValidationError } from "../../../src/core/errors/validation-error.js";
 import { Event, CreatedEvent, ExercisedEvent } from "../../../src/transports/grpc/generated/canton/com/daml/ledger/api/v2/event.js";
@@ -91,6 +92,7 @@ describe("GrpcQueryClient", () => {
             stateService: {} as never,
             updateService: {} as never,
             packageService: {} as never,
+            walkHistory: true,
         }, provider);
 
         await expect(entry.invoke(client, entry.args as never)).resolves.toEqual(entry.expected);
@@ -102,6 +104,7 @@ describe("GrpcQueryClient", () => {
             stateService: {} as never,
             updateService: {} as never,
             packageService: {} as never,
+            walkHistory: true,
         }, fixtureProvider());
 
         await expect(client.$queryRaw("select 1")).rejects.toBeInstanceOf(QueryCapabilityError);
@@ -110,7 +113,7 @@ describe("GrpcQueryClient", () => {
     it("validates malformed typed input before provider I/O and keeps exercises collection-only", async () => {
         const provider = fixtureProvider();
 
-        const client = new GrpcQueryClient({ stateService: {} as never, updateService: {} as never, packageService: {} as never }, provider);
+        const client = new GrpcQueryClient({ stateService: {} as never, updateService: {} as never, packageService: {} as never, walkHistory: true }, provider);
 
         await expect(client.packages.findMany({ where: { unknown: { equals: "x" } } } as never)).rejects.toThrow("unknown is not a field of packages");
         expect(provider.readDatasetAsync).not.toHaveBeenCalled();
@@ -139,6 +142,7 @@ describe("GrpcQueryClient", () => {
             stateService: stateService as never,
             updateService: updateService as never,
             packageService: {} as never,
+            walkHistory: true,
             contractCache: contractCache as never,
         });
 
@@ -164,7 +168,7 @@ describe("GrpcQueryClient", () => {
         };
 
         // No cache configured at all.
-        const uncached = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never });
+        const uncached = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync: vi.fn() } as never, packageService: {} as never, walkHistory: true });
 
         await expect(uncached.contracts.findMany({ where: { active: true } })).rejects.toBeInstanceOf(ContractCacheRequiredError);
         await expect(uncached.contracts.findMany({ parties: ["Alice"], where: { active: true } })).rejects.toThrow(/cacheContracts\({"parties":\["Alice"\]}\)/);
@@ -185,6 +189,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync: vi.fn() } as never,
             packageService: {} as never,
+            walkHistory: true,
             contractCache: {
                 readSnapshotAsync: vi.fn().mockResolvedValue({
                     activeAtOffset: "1",
@@ -195,6 +200,28 @@ describe("GrpcQueryClient", () => {
         });
 
         await expect(client.contracts.findMany({ where: { active: true }, select: { contractId: true } })).resolves.toEqual([{ contractId: "C1" }]);
+    });
+
+    it("throws HistoryWalkRequiredError instead of implicitly replaying history", async () => {
+        const stateService = {
+            getLedgerEndAsync: vi.fn(),
+            getLatestPrunedOffsetsAsync: vi.fn(),
+            getActiveContractsPageAsync: vi.fn(),
+        };
+
+        const getUpdatesPageAsync = vi.fn();
+
+        // walkHistory not set: every history-requiring shape throws before any transport call.
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never });
+
+        await expect(client.transactions.findMany()).rejects.toBeInstanceOf(HistoryWalkRequiredError);
+        await expect(client.events.findMany()).rejects.toBeInstanceOf(HistoryWalkRequiredError);
+        await expect(client.exercises.findMany()).rejects.toBeInstanceOf(HistoryWalkRequiredError);
+        await expect(client.contracts.findMany()).rejects.toThrow(/walkHistory/);
+        await expect(client.contracts.findMany({ where: { active: false } })).rejects.toBeInstanceOf(HistoryWalkRequiredError);
+
+        expect(getUpdatesPageAsync).not.toHaveBeenCalled();
+        expect(stateService.getLedgerEndAsync).not.toHaveBeenCalled();
     });
 
     it("routes the full-replay warning through the injectable logger, once per relation", async () => {
@@ -211,7 +238,7 @@ describe("GrpcQueryClient", () => {
         const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
         try {
-            const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, logger });
+            const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, walkHistory: true, logger });
 
             await client.transactions.findMany();
             await client.transactions.findMany();
@@ -236,7 +263,7 @@ describe("GrpcQueryClient", () => {
             getActiveContractsPageAsync: vi.fn(),
         };
 
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never });
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, walkHistory: true });
 
         await expect(client.contracts.findMany()).resolves.toEqual([]);
         await expect(client.transactions.findMany()).resolves.toEqual([]);
@@ -272,7 +299,7 @@ describe("GrpcQueryClient", () => {
             getActiveContractsPageAsync: vi.fn(),
         };
 
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, incrementalHistory: true });
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: { getUpdatesPageAsync } as never, packageService: {} as never, walkHistory: true, incrementalHistory: true });
 
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -305,6 +332,7 @@ describe("GrpcQueryClient", () => {
             stateService: stateService as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: { listPackagesAsync: vi.fn(), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) } as never,
+            walkHistory: true,
             contractCache: {
                 readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "300", contracts: [queryConformanceDataset.rows.contracts[0]] }),
             } as never,
@@ -328,6 +356,7 @@ describe("GrpcQueryClient", () => {
             stateService: stateService as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: {} as never,
+            walkHistory: true,
         });
 
         // No active: true, so this forces the full-history path — but the closure is still just
@@ -373,6 +402,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: {} as never,
+            walkHistory: true,
             contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "99", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
         });
 
@@ -400,6 +430,7 @@ describe("GrpcQueryClient", () => {
             } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: packageService as never,
+            walkHistory: true,
         });
 
         await expect(client.transactions.findMany({ select: { ix: true } })).resolves.toEqual([{ ix: "1" }]);
@@ -417,7 +448,7 @@ describe("GrpcQueryClient", () => {
 
         const stateService = { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "1" }), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() };
 
-        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: {} as never, packageService: packageService as never });
+        const client = new GrpcQueryClient({ stateService: stateService as never, updateService: {} as never, packageService: packageService as never, walkHistory: true });
 
         await expect(client.packages.findMany({ select: { id: true } })).resolves.toEqual([{ id: fixture.id }]);
         await expect(client.contractTypes.findMany({ select: { entityName: true, payloadType: true } })).resolves.toEqual([
@@ -443,6 +474,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
             updateService: {} as never,
             packageService: packageService as never,
+            walkHistory: true,
             contractCache: {
                 readSnapshotAsync: vi.fn().mockResolvedValue({
                     activeAtOffset: "99",
@@ -523,6 +555,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync, getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: packageService as never,
+            walkHistory: true,
             contractCache: { readSnapshotAsync: vi.fn().mockResolvedValue({ activeAtOffset: "300", contracts: [queryConformanceDataset.rows.contracts[0]] }) } as never,
         });
 
@@ -601,6 +634,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "2" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: packageService as never,
+            walkHistory: true,
         });
 
         // The choice is owned by the EventLog interface, whose package name the event does not carry —
@@ -616,6 +650,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: {} as never,
             packageService: {} as never,
+            walkHistory: true,
             contractCache: {
                 readSnapshotAsync: vi.fn().mockResolvedValue({
                     activeAtOffset: "1",
@@ -652,6 +687,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: {} as never,
             packageService: {} as never,
+            walkHistory: true,
             contractCache: { readSnapshotAsync } as never,
         });
 
@@ -723,6 +759,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn().mockResolvedValue({ offset: "3" }), getLatestPrunedOffsetsAsync: vi.fn().mockResolvedValue({ participantPrunedUpToInclusive: "0" }), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: { getUpdatesPageAsync } as never,
             packageService: {} as never,
+            walkHistory: true,
         });
 
         // No active: true, so this forces full history — which also happens to contain an unrelated
@@ -757,6 +794,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync } as never,
             updateService: {} as never,
             packageService: packageService as never,
+            walkHistory: true,
             contractCache: contractCache as never,
         });
 
@@ -785,6 +823,7 @@ describe("GrpcQueryClient", () => {
             stateService: { getLedgerEndAsync: vi.fn(), getLatestPrunedOffsetsAsync: vi.fn(), getActiveContractsPageAsync: vi.fn() } as never,
             updateService: {} as never,
             packageService: { listPackagesAsync: vi.fn().mockResolvedValue({ packageIds: [fixture.id] }), getPackageAsync: vi.fn().mockResolvedValue(fixture.response) } as never,
+            walkHistory: true,
         });
 
         await expect(client.contractTypes.findMany({

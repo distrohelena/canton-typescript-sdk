@@ -36,6 +36,11 @@ export interface CantonManagerOptions {
      * on later history queries. Costs RAM for the manager's lifetime — see GrpcQueryClientOptions.
      */
     readonly incrementalHistory?: boolean;
+    /**
+     * Opt-in for gRPC typed queries: permit queries that replay ledger history. Off by default — such
+     * queries throw HistoryWalkRequiredError so the replay cost is never paid implicitly.
+     */
+    readonly walkHistory?: boolean;
     /** Receives SDK diagnostics (e.g. the once-per-relation full-replay warning); defaults to console. */
     readonly logger?: CantonLogger;
 }

@@ -55,6 +55,7 @@ describe("live gRPC typed query regressions", () => {
             grpc: seeded.grpcEnvironment.options,
             querySource: QuerySource.grpc,
             cache: { store: new MemoryQueryCache(), ttlMs: 600_000, betaDeltaRefresh: true },
+            walkHistory: true,
         });
 
         await manager.grpc.packageManagementService.uploadDarFileAsync(

@@ -4,6 +4,7 @@ import type { UpdateServiceClient } from "../../services/update/update-service-c
 import { ValidationError } from "../../core/errors/validation-error.js";
 import type { CantonLogger } from "../../core/types/canton-logger.js";
 import { ContractCacheRequiredError } from "../errors/contract-cache-required-error.js";
+import { HistoryWalkRequiredError } from "../errors/history-walk-required-error.js";
 import { QueryCapabilityError } from "../errors/query-capability-error.js";
 import { InMemoryQueryEvaluator } from "../canonical/in-memory-query-evaluator.js";
 import { createQueryDataset, type QueryDataset, type QueryRow } from "../canonical/query-dataset.js";
@@ -38,6 +39,12 @@ export interface GrpcQueryClientOptions {
      * the retained window lives for this client's lifetime and its RAM cost is the full replayed history.
      */
     readonly incrementalHistory?: boolean;
+    /**
+     * Opt-in: permit queries that replay ledger history (transactions/events/exercises, and contracts
+     * queries reaching archived state). Off by default — such queries throw HistoryWalkRequiredError so the
+     * replay cost is never paid implicitly.
+     */
+    readonly walkHistory?: boolean;
     /** Receives SDK diagnostics (e.g. the once-per-relation full-replay warning); defaults to console. */
     readonly logger?: CantonLogger;
 }
@@ -131,6 +138,10 @@ class DefaultGrpcQueryDataProvider implements GrpcQueryDataProvider {
         if (cached !== undefined && !needsHistory && !closure.has("exercises") && !closure.has("exerciseTypes") && !closure.has("packages")) {
             return cachedContractsDataset(cached, this.options.endpointScope ?? "ledger");
         } else if (needsHistory) {
+            if (this.options.walkHistory !== true) {
+                throw new HistoryWalkRequiredError(query.relation);
+            }
+
             // With a warm incremental window only the new offsets are fetched, which is no longer worth a
             // warning; otherwise warn once per relation per client, not once per query.
             if (!(this.options.incrementalHistory === true && this.snapshots.hasHistoryCache) && !this.warnedReplayRelations.has(query.relation)) {

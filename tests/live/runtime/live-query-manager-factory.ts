@@ -78,6 +78,7 @@ export async function createLiveQueryManagersAsync(init: {
         grpc: init.grpc,
         querySource: QuerySource.grpc,
         pqs: init.pqs,
+        walkHistory: true,
     });
 
     const pqs = new CantonManager({

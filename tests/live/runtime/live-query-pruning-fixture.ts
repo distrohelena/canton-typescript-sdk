@@ -66,6 +66,7 @@ export async function createLiveQueryPruningFixtureAsync(): Promise<LiveQueryPru
     const manager = new CantonManager({
         grpc: environment.options,
         querySource: QuerySource.grpc,
+        walkHistory: true,
     });
 
     try {
