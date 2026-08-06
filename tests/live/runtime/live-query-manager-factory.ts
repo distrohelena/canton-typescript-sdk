@@ -577,20 +577,55 @@ export async function prepareLiveParityPackageAsync(): Promise<void> {
             UploadDarFileRequest.create({ darFile: queryModel.darBytes }),
         );
 
-        await restartPqsScribeForPackageDiscoveryAsync();
+        const restartedAt = new Date();
+
+        const restarted = await restartPqsScribeForPackageDiscoveryAsync();
+
+        if (restarted) {
+            // docker restart returns at container start, but scribe wipes and re-seeds its state seconds
+            // later — polling the database would race that wipe. Scribe's own log marker is the only
+            // signal that its post-restart pipeline is live and everything from here on will be streamed.
+            await waitForScribeStreamingMarkerAsync(restartedAt);
+        }
     } finally {
         await client.disposeAsync();
     }
 }
 
-async function restartPqsScribeForPackageDiscoveryAsync(): Promise<void> {
+async function waitForScribeStreamingMarkerAsync(since: Date, timeoutMs = 180_000, intervalMs = 2_000): Promise<void> {
+    const container = process.env.SDK_TEST_PQS_CONTAINER ?? "pqs-app-provider";
+
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        try {
+            const { stdout, stderr } = await execFileAsync("docker", ["logs", "--since", since.toISOString(), container]);
+
+            if (`${stdout}\n${stderr}`.includes("Continuing from offset")) {
+                return;
+            }
+        } catch {
+            // Container may still be restarting; keep polling until the deadline.
+        }
+
+        await delayAsync(intervalMs);
+    }
+
+    throw new Error(`Scribe did not report a live pipeline within ${timeoutMs}ms of its restart.`);
+}
+
+async function restartPqsScribeForPackageDiscoveryAsync(): Promise<boolean> {
     const container = process.env.SDK_TEST_PQS_CONTAINER ?? "pqs-app-provider";
 
     try {
         await execFileAsync("docker", ["restart", container]);
+
+        return true;
     } catch (error) {
         // Without docker access the spec still runs; a wedged scribe then surfaces through stall detection.
         console.warn(`[live-query-manager-factory] Could not restart ${container} for package discovery: ${String(error)}`);
+
+        return false;
     }
 }
 
