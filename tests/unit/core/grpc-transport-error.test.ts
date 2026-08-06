@@ -154,3 +154,86 @@ describe("GrpcTransportError", () => {
         expect(GrpcTransportError.fromUnknown(createRpcError({ code: undefined }))).toBeUndefined();
     });
 });
+
+describe("GrpcTransportError ErrorInfo surfacing", () => {
+    const utf8 = (value: string): Uint8Array => new TextEncoder().encode(value);
+
+    const lengthDelimited = (field: number, payload: Uint8Array): Uint8Array => {
+        expect(payload.length).toBeLessThan(128);
+
+        return Uint8Array.from([field * 8 + 2, payload.length, ...payload]);
+    };
+
+    const errorInfoBytes = (reason: string, domain: string, metadata: Record<string, string>): Uint8Array => {
+        const parts: number[] = [
+            ...lengthDelimited(1, utf8(reason)),
+            ...lengthDelimited(2, utf8(domain)),
+        ];
+
+        for (const [key, value] of Object.entries(metadata)) {
+            const entry = Uint8Array.from([...lengthDelimited(1, utf8(key)), ...lengthDelimited(2, utf8(value))]);
+
+            parts.push(...lengthDelimited(3, entry));
+        }
+
+        return Uint8Array.from(parts);
+    };
+
+    const statusWith = (details: { typeUrl: string; value: Uint8Array }[], message = "An error occurred. Please contact the operator and inquire about the request tid-1"): Uint8Array =>
+        Status.toBinary({ code: 9, message, details });
+
+    it("surfaces the decoded reason and metadata in the error message", () => {
+        const bytes = statusWith([
+            { typeUrl: "type.googleapis.com/google.rpc.RequestInfo", value: Uint8Array.from([10, 1, 65]) },
+            { typeUrl: "type.googleapis.com/google.rpc.ErrorInfo", value: errorInfoBytes("CONTRACT_NOT_FOUND", "participant", { category: "11", test: "yes" }) },
+        ]);
+
+        const parsed = GrpcTransportError.fromUnknown(createRpcError({
+            message: "An error occurred. Please contact the operator and inquire about the request tid-1",
+            meta: { "grpc-status-details-bin": Buffer.from(bytes).toString("base64") },
+        } as never));
+
+        // The generic operator message now carries the real reason for every consumer.
+        expect(parsed?.message).toContain("reason: CONTRACT_NOT_FOUND (category=11, test=yes)");
+        expect(parsed?.errorInfo).toEqual({
+            reason: "CONTRACT_NOT_FOUND",
+            domain: "participant",
+            metadata: { category: "11", test: "yes" },
+        });
+    });
+
+    it("includes a status message that differs from the transport message", () => {
+        const bytes = statusWith(
+            [{ typeUrl: "type.googleapis.com/google.rpc.ErrorInfo", value: errorInfoBytes("NO_SYNCHRONIZER", "participant", {}) }],
+            "no synchronizer connected",
+        );
+
+        const parsed = GrpcTransportError.fromUnknown(createRpcError({
+            message: "generic transport text",
+            meta: { "grpc-status-details-bin": Buffer.from(bytes).toString("base64") },
+        } as never));
+
+        expect(parsed?.message).toContain("[status: no synchronizer connected; reason: NO_SYNCHRONIZER]");
+    });
+
+    it("keeps the message unchanged when the details hold no ErrorInfo or malformed bytes", () => {
+        const noInfo = GrpcTransportError.fromUnknown(createRpcError({
+            meta: { "grpc-status-details-bin": Buffer.from(statusWith([], "the supplied token is invalid")).toString("base64") },
+        } as never));
+
+        expect(noInfo?.message).toBe("gRPC UNAUTHENTICATED from com.daml.ledger.api.v2.admin.UserManagementService.ListUsers: the supplied token is invalid");
+        expect(noInfo?.errorInfo).toBeUndefined();
+
+        const malformed = GrpcTransportError.fromUnknown(createRpcError({
+            meta: {
+                "grpc-status-details-bin": Buffer.from(statusWith(
+                    [{ typeUrl: "type.googleapis.com/google.rpc.ErrorInfo", value: Uint8Array.from([0x0a, 0x7f, 1, 2]) }],
+                    "the supplied token is invalid",
+                )).toString("base64"),
+            },
+        } as never));
+
+        expect(malformed?.errorInfo).toBeUndefined();
+        expect(malformed?.message).toBe("gRPC UNAUTHENTICATED from com.daml.ledger.api.v2.admin.UserManagementService.ListUsers: the supplied token is invalid");
+    });
+});

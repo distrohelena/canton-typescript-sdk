@@ -363,6 +363,7 @@ export { AuthenticationError } from "./core/errors/authentication-error.js";
 export { AuthorizationError } from "./core/errors/authorization-error.js";
 export { TransportError } from "./core/errors/transport-error.js";
 export { GrpcTransportError } from "./core/errors/grpc-transport-error.js";
+export type { GrpcErrorInfo } from "./core/errors/grpc-transport-error.js";
 export type {
     GrpcErrorMetadata,
     GrpcStatusDetails,
