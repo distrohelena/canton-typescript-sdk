@@ -100,6 +100,16 @@ async function runLegAsync(name, config, quickstartDir) {
 
     await runToLogAsync("bash", [join(repoRoot, "node", "stop-local.sh")], startEnv, logPath);
 
+    // The stop script is interruptible and config-sensitive; a leg must never inherit state from whatever
+    // ran before. Force-remove every quickstart-labeled container and volume so postgres (and with it the
+    // PQS database and canton stores) is provably virgin — a reused volume wedges scribe on re-seeding.
+    await runToLogAsync("bash", ["-c",
+        "docker ps -aq --filter label=com.docker.compose.project=quickstart | xargs -r docker rm -f; "
+        + "docker volume ls -q --filter label=com.docker.compose.project=quickstart | xargs -r docker volume rm -f; "
+        + "docker volume ls -q | grep '^quickstart_' | xargs -r docker volume rm -f; "
+        + "echo 'quickstart containers/volumes cleansed'",
+    ], {}, logPath);
+
     console.log(`=== [${name}] starting localnet (${JSON.stringify(config.env)})...`);
 
     const startCode = await runToLogAsync("bash", [join(repoRoot, "node", "start-local.sh")], startEnv, logPath);
