@@ -105,6 +105,7 @@ export { VersionServiceClient } from "./services/version/version-service-client.
 export { SynchronizerConnectivityServiceClient } from "./services/synchronizer-connectivity/synchronizer-connectivity-service-client.js";
 export type { IAuthProvider } from "./core/auth/auth-provider.interface.js";
 export { BearerTokenAuthProvider } from "./core/auth/bearer-token-auth-provider.js";
+export { RefreshingBearerTokenAuthProvider } from "./core/auth/refreshing-bearer-token-auth-provider.js";
 export type { ICommandSigner } from "./core/signing/command-signer.interface.js";
 export { SignCommandRequest } from "./core/signing/sign-command-request.js";
 export { SignCommandResult } from "./core/signing/sign-command-result.js";
