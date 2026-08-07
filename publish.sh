@@ -11,4 +11,7 @@ echo "Publishing ${new_version}..."
 
 npm publish
 
+git add package.json package-lock.json
+git commit -m "chore: release ${new_version}"
+
 echo "Published ${new_version}."
