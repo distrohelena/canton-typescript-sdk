@@ -497,6 +497,15 @@ services:
     volumes:
       - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
       - "$canton_config_file:/app/app.conf:ro"
+  pqs-app-provider:
+    environment:
+      SCRIBE_SOURCE_LEDGER_AUTH: NoAuth
+  pqs-app-user:
+    environment:
+      SCRIBE_SOURCE_LEDGER_AUTH: NoAuth
+  pqs-sv:
+    environment:
+      SCRIBE_SOURCE_LEDGER_AUTH: NoAuth
 EOF
   export LOCALNET_NO_AUTH_COMPOSE_FILE="$compose_file"
 }
@@ -916,7 +925,7 @@ EOF
     environment:
       SCRIBE_SOURCE_LEDGER_HOST: canton
       SCRIBE_SOURCE_LEDGER_PORT: \${EXTRA_PARTICIPANT_${index}_LEDGER_API_PORT}
-      SCRIBE_SOURCE_LEDGER_AUTH: OAuth
+      SCRIBE_SOURCE_LEDGER_AUTH: $(if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then printf 'NoAuth'; else printf 'OAuth'; fi)
       SCRIBE_TARGET_POSTGRES_HOST: postgres-pqs-extra-${index}
       SCRIBE_TARGET_POSTGRES_PORT: 5432
       SCRIBE_TARGET_POSTGRES_DATABASE: \${EXTRA_PQS_${index}_POSTGRES_DB}
