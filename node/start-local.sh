@@ -558,6 +558,23 @@ docker_compose() {
   "${DOCKER_COMPOSE_CMD[@]}" "$@"
 }
 
+resolve_extra_participant_auth() {
+  local index="$1"
+  local var="EXTRA_PARTICIPANT_${index}_AUTH"
+  local value="${!var:-}"
+  if [[ -z "$value" ]]; then
+    if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then value="none"; else value="jwt"; fi
+  fi
+  case "$value" in
+    jwt|none) ;;
+    *)
+      echo "EXTRA_PARTICIPANT_${index}_AUTH must be 'jwt' or 'none'." >&2
+      return 1
+      ;;
+  esac
+  printf '%s\n' "$value"
+}
+
 resolve_extra_participants() {
   local value="${EXTRA_PARTICIPANTS:-0}"
   if [[ ! "$value" =~ ^[0-9]+$ ]]; then
@@ -757,15 +774,15 @@ EOF
     done
   fi
 
-  if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then
-    local index
-    for ((index = 1; index <= count; index++)); do
+  local no_auth_index
+  for ((no_auth_index = 1; no_auth_index <= count; no_auth_index++)); do
+    if [[ "$(resolve_extra_participant_auth "$no_auth_index")" == "none" ]]; then
       cat >> "$canton_config_file" <<EOF
-canton.participants.extra-${index}.ledger-api.auth-services = []
+canton.participants.extra-${no_auth_index}.ledger-api.auth-services = []
 
 EOF
-    done
-  fi
+    fi
+  done
 
   if [[ "$(resolve_tls_enabled)" == "1" ]]; then
     local index
@@ -925,7 +942,7 @@ EOF
     environment:
       SCRIBE_SOURCE_LEDGER_HOST: canton
       SCRIBE_SOURCE_LEDGER_PORT: \${EXTRA_PARTICIPANT_${index}_LEDGER_API_PORT}
-      SCRIBE_SOURCE_LEDGER_AUTH: $(if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then printf 'NoAuth'; else printf 'OAuth'; fi)
+      SCRIBE_SOURCE_LEDGER_AUTH: $(if [[ "$(resolve_extra_participant_auth "$index")" == "none" ]]; then printf 'NoAuth'; else printf 'OAuth'; fi)
       SCRIBE_TARGET_POSTGRES_HOST: postgres-pqs-extra-${index}
       SCRIBE_TARGET_POSTGRES_PORT: 5432
       SCRIBE_TARGET_POSTGRES_DATABASE: \${EXTRA_PQS_${index}_POSTGRES_DB}
