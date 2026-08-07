@@ -98,6 +98,19 @@ es256_runtime_dir() {
   printf '%s\n' "${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}"
 }
 
+resolve_no_auth_enabled() {
+  local value="${LOCALNET_NO_AUTH:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_NO_AUTH must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+no_auth_runtime_dir() {
+  printf '%s\n' "${START_LOCAL_NO_AUTH_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-no-auth}"
+}
+
 resolve_tls_enabled() {
   local value="${LOCALNET_TLS:-0}"
   if [[ "$value" != "0" && "$value" != "1" ]]; then
@@ -447,6 +460,57 @@ EOF
   export LOCALNET_ES256_TOKEN_PATH="$token_path"
 }
 
+prepare_no_auth_runtime_files() {
+  if [[ "$(resolve_no_auth_enabled)" != "1" ]]; then
+    return 0
+  fi
+
+  local runtime_dir
+  runtime_dir="$(no_auth_runtime_dir)"
+  local compose_file="$runtime_dir/compose-no-auth.yaml"
+  local canton_config_file="$runtime_dir/canton-no-auth.conf"
+  mkdir -p "$runtime_dir"
+
+  cat > "$canton_config_file" <<EOF
+include file("/app/base-app.conf")
+
+$(if [[ "$(resolve_tls_enabled)" == "1" ]]; then printf 'include file("/app/localnet-tls.conf")\n'; fi)
+
+EOF
+  local participant profile
+  for participant in app-provider app-user sv; do
+    case "$participant" in
+      app-provider) profile="$APP_PROVIDER_PROFILE" ;;
+      app-user) profile="$APP_USER_PROFILE" ;;
+      sv) profile="$SV_PROFILE" ;;
+    esac
+    if [[ "$profile" != "off" ]]; then
+      cat >> "$canton_config_file" <<EOF
+canton.participants.${participant}.ledger-api.auth-services = []
+EOF
+    fi
+  done
+
+  cat > "$compose_file" <<EOF
+services:
+  canton:
+    volumes:
+      - "${LOCALNET_DIR}/conf/canton/app.conf:/app/base-app.conf:ro"
+      - "$canton_config_file:/app/app.conf:ro"
+EOF
+  export LOCALNET_NO_AUTH_COMPOSE_FILE="$compose_file"
+}
+
+append_no_auth_args() {
+  local -n compose_args_ref="$1"
+  if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then
+    local compose_file="$(no_auth_runtime_dir)/compose-no-auth.yaml"
+    if [[ -f "$compose_file" ]]; then
+      compose_args_ref+=( -f "$compose_file" )
+    fi
+  fi
+}
+
 append_es256_args() {
   local -n compose_args_ref="$1"
   if [[ "$(resolve_es256_enabled)" == "1" ]]; then
@@ -679,6 +743,16 @@ canton.participants.extra-${index}.ledger-api.auth-services = [
     target-audience = "https://canton.network.global/es256"
   }
 ]
+
+EOF
+    done
+  fi
+
+  if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then
+    local index
+    for ((index = 1; index <= count; index++)); do
+      cat >> "$canton_config_file" <<EOF
+canton.participants.extra-${index}.ledger-api.auth-services = []
 
 EOF
     done
@@ -1218,8 +1292,9 @@ start_ledger_stack() {
   load_localnet_common_env "$localnet_dir/env/common.env"
   prepare_tls_runtime_files
   prepare_es256_runtime_files
+  prepare_no_auth_runtime_files
   local extra_participants
-  extra_participants="$(resolve_extra_participants)"
+  extra_participants="$(resolve_extra_participants)" 
   if (( extra_participants > 0 )) && [[ "$auth_mode" != "shared-secret" ]]; then
     echo "EXTRA_PARTICIPANTS with extra PQS currently supports AUTH_MODE=shared-secret only." >&2
     return 1
@@ -1252,6 +1327,7 @@ start_ledger_stack() {
   append_extra_participant_args "$extra_participants" "$auth_mode" compose_args
   append_tls_args compose_args
   append_es256_args compose_args
+  append_no_auth_args compose_args
   docker_compose "${compose_args[@]}" down -v --remove-orphans
   mapfile -t startup_services < <(prerequisite_services "$auth_mode")
   mapfile -t followup_services < <(dependent_services)
@@ -1289,17 +1365,22 @@ load_repo_root_env
 QUICKSTART_DIR="$(resolve_quickstart_dir)"
 cd "$QUICKSTART_DIR"
 
+if [[ "$(resolve_no_auth_enabled)" == "1" && "$(resolve_es256_enabled)" == "1" ]]; then
+  echo "LOCALNET_NO_AUTH=1 conflicts with LOCALNET_ES256_JWT=1: pick one auth mode." >&2
+  exit 1
+fi
+
 if [[ ! -f .env.local ]]; then
   echo ".env.local not found. Bootstrapping Quickstart with 'make setup'."
   make setup
 fi
 
-if [[ "$(resolve_es256_enabled)" != "1" && "$(resolve_tls_enabled)" != "1" ]] && make_target_exists start-local-ledger; then
+if [[ "$(resolve_es256_enabled)" != "1" && "$(resolve_tls_enabled)" != "1" && "$(resolve_no_auth_enabled)" != "1" ]] && make_target_exists start-local-ledger; then
   make start-local-ledger
 else
   auth_mode="$(read_env_value AUTH_MODE || true)"
   auth_mode="${auth_mode:-shared-secret}"
-  if [[ "$(resolve_es256_enabled)" == "1" || "$(resolve_tls_enabled)" == "1" ]]; then
+  if [[ "$(resolve_es256_enabled)" == "1" || "$(resolve_tls_enabled)" == "1" || "$(resolve_no_auth_enabled)" == "1" ]]; then
     echo "Generated localnet transport overlay enabled. Starting ledger-only compose stack directly."
   else
     echo "start-local-ledger target not found. Starting ledger-only compose stack directly."

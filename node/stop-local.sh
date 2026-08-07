@@ -92,6 +92,19 @@ es256_runtime_dir() {
   printf '%s\n' "${START_LOCAL_ES256_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-es256}"
 }
 
+resolve_no_auth_enabled() {
+  local value="${LOCALNET_NO_AUTH:-0}"
+  if [[ "$value" != "0" && "$value" != "1" ]]; then
+    echo "LOCALNET_NO_AUTH must be 0 or 1." >&2
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
+no_auth_runtime_dir() {
+  printf '%s\n' "${START_LOCAL_NO_AUTH_RUNTIME_DIR:-$REPO_ROOT/.generated/localnet-no-auth}"
+}
+
 resolve_tls_enabled() {
   local value="${LOCALNET_TLS:-0}"
   if [[ "$value" != "0" && "$value" != "1" ]]; then
@@ -119,6 +132,16 @@ append_tls_args() {
   local -n compose_args_ref="$1"
   if [[ "$(resolve_tls_enabled)" == "1" ]]; then
     local compose_file="$(tls_runtime_dir)/compose-localnet.yaml"
+    if [[ -f "$compose_file" ]]; then
+      compose_args_ref+=( -f "$compose_file" )
+    fi
+  fi
+}
+
+append_no_auth_args() {
+  local -n compose_args_ref="$1"
+  if [[ "$(resolve_no_auth_enabled)" == "1" ]]; then
+    local compose_file="$(no_auth_runtime_dir)/compose-no-auth.yaml"
     if [[ -f "$compose_file" ]]; then
       compose_args_ref+=( -f "$compose_file" )
     fi
@@ -203,6 +226,7 @@ stop_ledger_stack() {
   append_existing_extra_participant_args compose_args
   append_tls_args compose_args
   append_es256_args compose_args
+  append_no_auth_args compose_args
   docker_compose "${compose_args[@]}" down -v --remove-orphans
 }
 
@@ -215,7 +239,7 @@ if [[ ! -f .env.local ]]; then
   exit 0
 fi
 
-if [[ "$(resolve_es256_enabled)" != "1" && "$(resolve_tls_enabled)" != "1" ]] && make_target_exists stop-local-ledger; then
+if [[ "$(resolve_es256_enabled)" != "1" && "$(resolve_tls_enabled)" != "1" && "$(resolve_no_auth_enabled)" != "1" ]] && make_target_exists stop-local-ledger; then
   make stop-local-ledger
 else
   auth_mode="$(read_env_value AUTH_MODE || true)"
