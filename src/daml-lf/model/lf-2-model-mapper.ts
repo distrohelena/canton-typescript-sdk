@@ -452,6 +452,7 @@ export class Lf2ModelMapper {
                 rawDataType.nameInternedDname,
             ),
             definition,
+            serializable: rawDataType.serializable,
             typeParameters: rawDataType.params.map((parameter) =>
                 Lf2ModelMapper.mapTypeParameter(rawPackage, parameter),
             ),

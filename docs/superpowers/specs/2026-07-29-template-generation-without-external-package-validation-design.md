@@ -1,51 +1,53 @@
 # Template Generation Without External Package Validation Design
 
+> **Superseded:** The generator now emits every modeled named data type. This
+> document records the earlier lazy-reachability design and is retained for
+> historical context only.
+
 ## Goal
 
-Generate bindings for a package's own templates from one Dalf without requiring
-any referenced external package solely because the Dalf contains unrelated
-definitions that mention it.
+Generate bindings from a Dalf or DAR while keeping general semantic consumers
+strict. The generator-specific compilation factory may index packages without
+global validation, but analyzer output is now rooted at every modeled data
+type, not only at template fields and choices.
 
 ## Problem
 
-`DamlInterfaceGenerator` currently creates `DamlLfCompilation` through the
-global validating constructor. That constructor recursively validates every
-data type and value definition in the loaded package before the generator has
-selected or analyzed a template. An unused type that mentions an unloaded
-Splice package therefore aborts generation, even though no generated file would
-reference that type. This remains true after making `ContractId<T>` opaque.
+The generator must not infer the future roots of the TypeScript application
+from the template materialization code it emits. Pruning named declarations
+based on template reachability makes otherwise valid package types unavailable
+to consumers and can hide unresolved structured dependencies until a type is
+used in generated bindings.
 
 ## Design
 
-Add a template-generation compilation factory that builds the compilation
-indexes but does not run global reference validation. `DamlInterfaceGenerator`
-uses this factory for both Dalf and DAR generation.
+Keep the template-generation compilation factory that builds compilation
+indexes without global reference validation. `DamlInterfaceGenerator` uses
+this factory for both Dalf and DAR generation, while `DamlInterfaceAnalyzer`
+enumerates every modeled `DamlLfDataType` and builds each as an analysis root.
 
 The ordinary `DamlLfCompilation.createOrThrow` path remains strict for general
-semantic/evaluator consumers. Generator analysis resolves named types lazily
-only when they are reachable from an emitted template field or choice. Thus an
-unused external reference is ignored, while a real structured external record
-used by a generated template still fails with its fully qualified package,
-module, and type identity instead of producing an untyped binding.
+semantic/evaluator consumers. Any modeled data type with a missing structured
+dependency now fails generation with its fully qualified package, module, and
+type identity instead of being silently omitted. Value definitions are still
+not generator output roots.
 `ContractId<T>` remains its existing special case: its target is never resolved
 because the generated value is a string.
 
-DAR generation continues to load all Dalf entries and emit their templates, as
-it does today. The new factory changes only global validation: each loaded
-package may contain unused external references without blocking generation.
+DAR generation continues to load all Dalf entries and emits all their modeled
+named types and templates. The factory still avoids validating unrelated value
+definitions globally, but a structured reference in any emitted data type is
+required to resolve.
 
 ## Verification
 
-Add separate real one-Dalf fixtures (or isolated workspaces) containing an
-otherwise-unused data type and an otherwise-unused value definition,
-respectively, that directly reference `Splice.Api.Token.HoldingV1.Holding`,
-with no Holding package in the workspace. Prove strict `createOrThrow` rejects
-each branch independently, while `generateFromDalfOrThrowAsync` succeeds for
-the package containing both and emits only reachable template bindings. Cover
-the equivalent DAR generation path and ensure no generated source includes the
-external package/module name.
+Add fixtures proving that an unused local named type is emitted and that an
+unused named type directly referencing `Splice.Api.Token.HoldingV1.Holding`
+still fails generation when no Holding package is present. Cover the equivalent
+DAR generation path and verify template materialization remains successful
+when extra local types are present.
 
 Add separate Dalf and DAR negative tests where a template field or choice
 directly uses the missing structured Holding type. Generation must reject with
-the fully qualified external identity. This proves the factory removes only
-unreachable dependency requirements.
+the fully qualified external identity. This proves the generator does not make
+TypeScript-usage assumptions based on template reachability.

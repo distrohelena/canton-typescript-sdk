@@ -84,29 +84,45 @@ describe("DamlInterfaceGenerator", () => {
         expect(contents).not.toContain("missing");
     });
 
-    it("generates a Dalf while skipping unused unresolved external references", async () => {
+    it("emits a local named type even when no template reaches it", async () => {
         const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
-            SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+            SampleLfPackageFixture.createUnusedLocalTypeLf2ArchiveBytes(),
         );
 
-        expect(project.templateFiles.map((file) => file.path)).toEqual([
-            "generated/packages/sample-package_1.0.0/sample/lazy/iou.ts",
-        ]);
-        expectProjectToExcludeExternalHolding(project);
+        expect(project.namedTypeFiles).toHaveLength(1);
+        expect(project.namedTypeFiles[0]?.contents).toContain(
+            "export interface UnusedExternalType",
+        );
     });
 
-    it("generates every template from a multi-entry DAR while skipping unused unresolved external references", async () => {
-        const project = await new DamlInterfaceGenerator().generateFromDarOrThrowAsync(
+    it("ignores non-serializable internal data types", async () => {
+        const project = await new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createLf2ArchiveBytes({
+                includeNonSerializableNatSyn: true,
+            }),
+        );
+
+        expect(project.namedTypeFiles.map((file) => file.contents)).not.toContain(
+            expect.stringContaining("NatSyn"),
+        );
+    });
+
+    it("rejects a Dalf when an unused named type reaches an unresolved external type", async () => {
+        await expect(new DamlInterfaceGenerator().generateFromDalfOrThrowAsync(
+            SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+        )).rejects.toThrow(
+            "missing-package-id:Splice.Api.Token.HoldingV1:Holding",
+        );
+    });
+
+    it("rejects a DAR when an unused named type reaches an unresolved external type", async () => {
+        await expect(new DamlInterfaceGenerator().generateFromDarOrThrowAsync(
             SampleLfPackageFixture.createTemplateGenerationDarBytes(
                 SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
             ),
+        )).rejects.toThrow(
+            "missing-package-id:Splice.Api.Token.HoldingV1:Holding",
         );
-
-        expect(project.templateFiles.map((file) => file.path)).toEqual([
-            "generated/packages/sample-package_1.0.0/sample/lazy/iou.ts",
-            "generated/packages/second-package_1.0.0/sample/second/note.ts",
-        ]);
-        expectProjectToExcludeExternalHolding(project);
     });
 
     it("rejects a Dalf when a template field reaches an unresolved external named type", async () => {
@@ -181,23 +197,3 @@ describe("DamlInterfaceGenerator", () => {
         },
     );
 });
-
-function expectProjectToExcludeExternalHolding(project: {
-    readonly templateFiles: readonly { readonly contents: string }[];
-    readonly namedTypeFiles: readonly { readonly contents: string }[];
-    readonly supportFiles: readonly { readonly contents: string }[];
-    readonly registryFile?: { readonly contents: string };
-    readonly indexFile?: { readonly contents: string };
-}): void {
-    for (const file of [
-        ...project.templateFiles,
-        ...project.namedTypeFiles,
-        ...project.supportFiles,
-        project.registryFile,
-        project.indexFile,
-    ]) {
-        expect(file?.contents).not.toContain("missing-package-id");
-        expect(file?.contents).not.toContain("Splice.Api.Token.HoldingV1");
-        expect(file?.contents).not.toContain("Holding");
-    }
-}

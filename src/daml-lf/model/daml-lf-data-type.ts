@@ -49,12 +49,14 @@ export class DamlLfDataType extends DamlLfDefinition {
     public readonly nodeKind = DamlLfNodeKind.dataType;
     public readonly definition: DamlLfDataTypeDefinition;
     public readonly fields: readonly DamlLfField[];
+    public readonly serializable: boolean;
     public readonly typeParameters: readonly DamlLfTypeParameter[];
 
     public constructor(init: {
         name: string;
         definition?: DamlLfDataTypeDefinition;
         fields?: readonly DamlLfField[];
+        serializable?: boolean;
         typeParameters?: readonly DamlLfTypeParameter[];
     }) {
         super({
@@ -67,6 +69,7 @@ export class DamlLfDataType extends DamlLfDefinition {
         this.fields = this.definition.kind === "record"
             ? this.definition.fields
             : [];
+        this.serializable = init.serializable ?? true;
         this.typeParameters = Object.freeze(
             (init.typeParameters ?? []).map((parameter) =>
                 Object.freeze({

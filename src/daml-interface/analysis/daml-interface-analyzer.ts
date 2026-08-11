@@ -54,6 +54,17 @@ export class DamlInterfaceAnalyzer {
             .getTemplates()
             .map((item) => this.analyzeTemplateOrThrow(item, typeBuilder));
 
+        for (const { reference, definition } of semanticModel.getDataTypes()) {
+            if (!definition.serializable) {
+                continue;
+            }
+
+            typeBuilder.buildDefinitionOrThrow(
+                reference,
+                `data type '${reference.name}'`,
+            );
+        }
+
         return new DamlInterfaceAnalysisResult({
             templates,
             typeDefinitions: typeBuilder.getTypeDefinitions(),
@@ -293,6 +304,20 @@ class AnalyzedDamlTypeBuilder {
         }
     }
 
+    public buildDefinitionOrThrow(
+        reference: TypeConReference,
+        context: string,
+    ): void {
+        const key = this.getDefinitionKey(reference);
+
+        const identity = this.getCanonicalIdentity(reference, key);
+
+        const dataType = this.getDataTypeOrThrow(reference, context);
+
+        this.assertSupportedDataTypeParametersOrThrow(dataType, context);
+        this.registerNamedDefinitionOrThrow(reference, identity, dataType);
+    }
+
     public getTypeDefinitions(): readonly AnalyzedDamlTypeDefinition[] {
         return Object.freeze(this.definitionKeys.map((key) => {
             const definition = this.definitions.get(key);
@@ -336,6 +361,22 @@ class AnalyzedDamlTypeBuilder {
             this.buildOrThrow(argument, context, typeParameters)
         ));
 
+        this.registerNamedDefinitionOrThrow(reference, identity, dataType);
+
+        return Object.freeze({
+            kind: "namedReference" as const,
+            identity,
+            typeArguments: analyzedTypeArguments,
+        });
+    }
+
+    private registerNamedDefinitionOrThrow(
+        reference: TypeConReference,
+        identity: TypeConReference,
+        dataType: DamlLfDataType,
+    ): void {
+        const key = this.getDefinitionKey(reference);
+
         if (!this.definitions.has(key)) {
             this.definitionKeys.push(key);
             this.definitions.set(key, undefined);
@@ -348,12 +389,6 @@ class AnalyzedDamlTypeBuilder {
                 ),
             );
         }
-
-        return Object.freeze({
-            kind: "namedReference" as const,
-            identity,
-            typeArguments: analyzedTypeArguments,
-        });
     }
 
     private buildNamedDefinitionOrThrow(

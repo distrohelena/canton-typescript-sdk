@@ -8,7 +8,9 @@ import { Package, Type } from "../../../src/transports/grpc/generated/canton/com
 import { strToU8, zipSync } from "fflate";
 
 export class SampleLfPackageFixture {
-    public static createLf2ArchiveBytes(): Uint8Array {
+    public static createLf2ArchiveBytes(init: {
+        readonly includeNonSerializableNatSyn?: boolean;
+    } = {}): Uint8Array {
         const packageBytes = Package.toBinary({
             modules: [
                 {
@@ -51,6 +53,25 @@ export class SampleLfPackageFixture {
                                 },
                             },
                         },
+                        ...(init.includeNonSerializableNatSyn === true
+                            ? [{
+                                nameInternedDname: 4,
+                                params: [{
+                                    varInternedStr: 16,
+                                    kind: {
+                                        sum: {
+                                            oneofKind: "nat" as const,
+                                            nat: {},
+                                        },
+                                    },
+                                }],
+                                serializable: false,
+                                dataCons: {
+                                    oneofKind: "record" as const,
+                                    record: { fields: [] },
+                                },
+                            }]
+                            : []),
                     ],
                     values: [
                         {
@@ -191,6 +212,8 @@ export class SampleLfPackageFixture {
                 "self",
                 "EventLog",
                 "EventLog_HoldingsChange",
+                "NatSyn",
+                "n",
             ],
             internedDottedNames: [
                 {
@@ -204,6 +227,9 @@ export class SampleLfPackageFixture {
                 },
                 {
                     segmentsInternedStr: [13],
+                },
+                {
+                    segmentsInternedStr: [15],
                 },
             ],
             metadata: {
@@ -556,9 +582,14 @@ export class SampleLfPackageFixture {
         return this.wrapLf2Package(packageBytes);
     }
 
-    /** A package with unresolved external references that no emitted template reaches. */
+    /** A package with unresolved external references in an otherwise-unused data type. */
     public static createUnusedExternalReferencesLf2ArchiveBytes(): Uint8Array {
         return this.createExternalReferencesLf2ArchiveBytes("unused");
+    }
+
+    /** A package with an additional local data type that no emitted template reaches. */
+    public static createUnusedLocalTypeLf2ArchiveBytes(): Uint8Array {
+        return this.createExternalReferencesLf2ArchiveBytes("local");
     }
 
     /** A package whose template field directly references an unavailable external type. */
@@ -639,7 +670,7 @@ export class SampleLfPackageFixture {
     }
 
     private static createExternalReferencesLf2ArchiveBytes(
-        reachableReference: "unused" | "field" | "choice",
+        reachableReference: "unused" | "local" | "field" | "choice",
     ): Uint8Array {
         const text = () => ({
             sum: {
@@ -695,14 +726,21 @@ export class SampleLfPackageFixture {
                     dataCons: {
                         oneofKind: "record",
                         record: {
-                            fields: [{ fieldInternedStr: 7, type: externalHolding() }],
+                            fields: [{
+                                fieldInternedStr: 7,
+                                type: reachableReference === "local"
+                                    ? text()
+                                    : externalHolding(),
+                            }],
                         },
                     },
                 }],
                 values: [{
                     nameWithType: {
                         nameInternedDname: 3,
-                        type: externalHolding(),
+                        type: reachableReference === "local"
+                            ? text()
+                            : externalHolding(),
                     },
                     expr: { sum: { oneofKind: undefined } },
                 }],

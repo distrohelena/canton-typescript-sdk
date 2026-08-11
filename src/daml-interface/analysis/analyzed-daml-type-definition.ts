@@ -6,7 +6,7 @@ import {
 import { DamlLfTypeParameter } from "../../daml-lf/model/daml-lf-data-type.js";
 import { TypeConReference } from "../../daml-lf/model/type-con-reference.js";
 
-/** A reachable named DAML data type and its complete serializable shape. */
+/** A modeled named DAML data type and its complete serializable shape. */
 export type AnalyzedDamlTypeDefinition = {
     readonly identity: TypeConReference;
 } & (

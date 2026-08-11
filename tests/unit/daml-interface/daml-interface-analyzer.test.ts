@@ -50,6 +50,25 @@ describe("DamlInterfaceAnalyzer", () => {
         );
     });
 
+    it("includes named data types that are not reached by template fields or choices", () => {
+        const result = new DamlInterfaceAnalyzer().analyzeOrThrow(
+            createGenericNamedTypeCompilation({
+                dataTypes: [new DamlLfDataType({
+                    name: "Unused",
+                    fields: [new DamlLfField({
+                        name: "value",
+                        type: new DamlLfType({
+                            builtinType: DamlLfBuiltinType.text,
+                        }),
+                    })],
+                })],
+            }),
+        );
+
+        expect(result.typeDefinitions.map((definition) => definition.identity.name))
+            .toContain("Unused");
+    });
+
     it("rejects unsupported template field shapes", () => {
         const compilation = createCompilation({
             templateName: "TradeOrder",
@@ -89,7 +108,15 @@ describe("DamlInterfaceAnalyzer", () => {
         expect(result.templates[0].createFields[0].type).toEqual({
             kind: "contractId",
         });
-        expect(result.typeDefinitions).toEqual([]);
+        expect(result.typeDefinitions).toHaveLength(1);
+        expect(result.typeDefinitions[0]).toMatchObject({
+            identity: {
+                packageId: "sample-hash",
+                moduleName: "Main",
+                name: "TradeOrder",
+            },
+            kind: "record",
+        });
     });
 
     it("rejects numeric fields without a scale in their field context", () => {
@@ -355,6 +382,7 @@ describe("DamlInterfaceAnalyzer", () => {
                 "Node",
                 "MutualA",
                 "MutualB",
+                "TradeOrder",
             ].sort());
         expect(new Set(result.typeDefinitions.map((definition) =>
             `${definition.identity.packageId}:${definition.identity.moduleName}:${definition.identity.name}`,
@@ -424,6 +452,16 @@ describe("DamlInterfaceAnalyzer", () => {
                         },
                     },
                 ],
+            },
+            {
+                identity: new TypeConReference({
+                    packageId: "sample-hash",
+                    moduleName: "Main",
+                    name: "TradeOrder",
+                }),
+                typeParameters: [],
+                kind: "record",
+                fields: [],
             },
         ]);
     });

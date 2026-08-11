@@ -84,7 +84,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 1: Write failing analyzer tests for nested types and named records.**
 
-  Cover `Optional Text`, `List (ContractId Trade)`, a referenced record, a referenced variant, an enum, and a mutually recursive named record pair. Assert that analysis returns recursive descriptors, including DAML field labels and resolved constructor identity, rather than `unknown`, and that the analysis result exports every reachable named type definition once.
+  Cover `Optional Text`, `List (ContractId Trade)`, a referenced record, a referenced variant, an enum, and a mutually recursive named record pair. Assert that analysis returns recursive descriptors, including DAML field labels and resolved constructor identity, rather than `unknown`, and that the analysis result exports every modeled named type definition once.
 
 - [ ] **Step 2: Run the analyzer test.**
 
@@ -94,7 +94,7 @@ Do not modify the root `README.md`, root `package.json`, or `test.txt`; they are
 
 - [ ] **Step 3: Add immutable generator descriptors.**
 
-  Define a closed `AnalyzedDamlType` union with primitive, contract-id, optional, list, text-map, gen-map, record, variant, enum, and named-reference cases. Define `AnalyzedDamlTypeDefinition` with one full identity and record/variant/enum shape. Record descriptors contain ordered `{ damlLabel, propertyName, type }` fields; variants contain constructor name and payload descriptor. Carry descriptors in `AnalyzedTemplateField` and `AnalyzedChoice`, and carry the complete reachable named-definition set in `DamlInterfaceAnalysisResult`.
+  Define a closed `AnalyzedDamlType` union with primitive, contract-id, optional, list, text-map, gen-map, record, variant, enum, and named-reference cases. Define `AnalyzedDamlTypeDefinition` with one full identity and record/variant/enum shape. Record descriptors contain ordered `{ damlLabel, propertyName, type }` fields; variants contain constructor name and payload descriptor. Carry descriptors in `AnalyzedTemplateField` and `AnalyzedChoice`, and carry the complete modeled named-definition set in `DamlInterfaceAnalysisResult`.
 
 - [ ] **Step 4: Resolve and validate types through the semantic model.**
 

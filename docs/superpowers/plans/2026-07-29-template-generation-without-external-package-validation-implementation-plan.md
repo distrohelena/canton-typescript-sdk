@@ -1,10 +1,12 @@
 # Template Generation Without External Package Validation Implementation Plan
 
+> **Superseded:** Follow `docs/superpowers/plans/2026-08-11-template-generator-all-types-implementation-plan.md` instead. This plan documents the historical lazy-reachability behavior.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Generate bindings from one Dalf despite unrelated unloaded external references in that package.
+**Goal:** Historical plan for allowing unrelated unloaded external references during template-only generation. It is superseded because named type generation now includes every modeled data type.
 
-**Architecture:** Preserve strict `DamlLfCompilation.createOrThrow` validation for general consumers. Add an index-only compilation factory for `DamlInterfaceGenerator`; the analyzer then resolves only types reachable from templates it emits and reports fully qualified identities for a genuinely missing reachable type.
+**Architecture:** Preserve strict `DamlLfCompilation.createOrThrow` validation for general consumers and retain the index-only factory for generator loading. The current analyzer enumerates every modeled data type as an output root and reports fully qualified identities for any missing structured dependency.
 
 **Tech Stack:** TypeScript, DAML-LF compiler/model, Vitest.
 

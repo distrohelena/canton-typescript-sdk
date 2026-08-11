@@ -23,7 +23,7 @@ type ExternalTypeAliases = ReadonlyMap<string, string>;
 
 type TypeParameterNames = ReadonlyMap<string, string>;
 
-/** Emits TypeScript declarations for reachable named DAML records, variants, and enums. */
+/** Emits TypeScript declarations for modeled named DAML records, variants, and enums. */
 export class NamedTypeEmitter {
     public constructor(
         private readonly nameResolver: TypeScriptNameResolver = new TypeScriptNameResolver(),
@@ -44,7 +44,7 @@ export class NamedTypeEmitter {
         );
     }
 
-    /** Emits one `types.ts` module for every reachable DAML package/module identity. */
+    /** Emits one `types.ts` module for every modeled DAML package/module identity. */
     public emitNamedTypeFiles(
         definitions: readonly AnalyzedDamlTypeDefinition[],
         moduleImportStyle?: DamlModuleImportStyle,

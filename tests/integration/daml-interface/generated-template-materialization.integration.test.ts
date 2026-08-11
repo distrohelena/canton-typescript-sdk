@@ -287,9 +287,9 @@ describe("generated DAML template materialization", () => {
         }
     });
 
-    it("materializes a template while unrelated unresolved external types are skipped", async () => {
+    it("materializes a template while an additional local type is generated", async () => {
         const temporaryProject = await generateTemporaryProjectAsync(
-            SampleLfPackageFixture.createUnusedExternalReferencesLf2ArchiveBytes(),
+            SampleLfPackageFixture.createUnusedLocalTypeLf2ArchiveBytes(),
         );
 
         try {

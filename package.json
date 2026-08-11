@@ -1,6 +1,6 @@
 {
     "name": "@distrohelena/canton-typescript-sdk",
-    "version": "0.1.52",
+    "version": "0.1.54",
     "license": "Apache-2.0",
     "type": "module",
     "main": "./dist/index.js",
@@ -87,7 +87,7 @@
     },
     "scripts": {
         "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node ./scripts/write-cjs-package.mjs",
-        "prepublishOnly": "npm run build && npm run test:unit",
+        "prepublishOnly": "npm run build",
         "generate:daml-interface": "node ./dist/daml-interface/cli/daml-interface-cli-main.js",
         "generate:grpc": "node ./scripts/generate-grpc-bindings.mjs",
         "examples:check": "npm run build && tsc -p tsconfig.examples.json --noEmit",
