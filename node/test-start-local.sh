@@ -126,6 +126,10 @@ EOF
 #!/usr/bin/env bash
 set -euo pipefail
 docker_mode="__DOCKER_MODE__"
+if [[ "${1:-}" == "ps" ]]; then
+  printf 'splice-onboarding\n'
+  exit 0
+fi
 printf 'stub env MODULES_DIR=%s\n' "${MODULES_DIR:-}"
 printf 'stub env LOCALNET_DIR=%s\n' "${LOCALNET_DIR:-}"
 printf 'stub env IMAGE_TAG=%s\n' "${IMAGE_TAG:-}"
@@ -332,8 +336,19 @@ EOF
     exit 1
   fi
 
+  LAST_RUN_CASE_OUTPUT="$output"
+
   if ! grep -Fxq "$expected_output" <<<"$output"; then
     printf 'expected output line %q, got:\n%s\n' "$expected_output" "$output" >&2
+    exit 1
+  fi
+}
+
+assert_last_case_output_not_contains() {
+  local unexpected="$1"
+
+  if grep -Fq "$unexpected" <<<"$LAST_RUN_CASE_OUTPUT"; then
+    printf 'expected most recent case output not to contain %q, got:\n%s\n' "$unexpected" "$LAST_RUN_CASE_OUTPUT" >&2
     exit 1
   fi
 }
@@ -487,6 +502,8 @@ run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$t
 run_case $'.PHONY: start\nstart:\n' 'stub docker-compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv down -v --remove-orphans' shared-secret compose-v1
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env down -v --remove-orphans' shared-secret default 3
 run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate pqs-extra-1 pqs-extra-2 pqs-extra-3' shared-secret default 3
+run_case $'.PHONY: start\nstart:\n' 'stub docker compose -f compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/localnet/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/splice-onboarding/compose.yaml -f '"$tmpdir"'/quickstart/docker/modules/pqs/compose.yaml --env-file .env --env-file .env.local --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/compose.env --env-file '"$tmpdir"'/quickstart/docker/modules/localnet/env/common.env --env-file '"$tmpdir"'/quickstart/docker/modules/pqs/compose.env --profile app-provider --profile pqs-app-provider --profile pqs-sv -f '"$tmpdir"'/generated/compose-extra-participants.yaml --env-file '"$tmpdir"'/generated/extra-participants.env up -d --no-recreate postgres canton' shared-secret default 3 '' 'LOCALNET_PQS=0'
+assert_last_case_output_not_contains 'stub extra pqs startup'
 run_case $'.PHONY: start\nstart:\n' 'ES256 bearer token written to '"$tmpdir"'/es256/ledger-api-user.token' shared-secret default 3 '' '' 1
 assert_file_contains_text "$tmpdir/docker-state/extra-healthcheck-command" 'wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:5900/health'
 assert_file_contains_text "$tmpdir/docker-state/extra-healthcheck-command" 'wget -q --timeout=2 --tries=1 -O /dev/null http://localhost:6900/health'

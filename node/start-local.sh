@@ -1380,10 +1380,12 @@ start_ledger_stack() {
     if [[ "$auth_mode" == "shared-secret" ]]; then
       grant_localnet_validator_read_rights "$extra_participants"
     fi
-    provision_extra_pqs "$extra_participants"
-    local extra_pqs_services_list=()
-    mapfile -t extra_pqs_services_list < <(extra_pqs_services "$extra_participants")
-    docker_compose "${compose_args[@]}" up -d --no-recreate "${extra_pqs_services_list[@]}"
+    if [[ "$(resolve_pqs_enabled)" == "1" ]]; then
+      provision_extra_pqs "$extra_participants"
+      local extra_pqs_services_list=()
+      mapfile -t extra_pqs_services_list < <(extra_pqs_services "$extra_participants")
+      docker_compose "${compose_args[@]}" up -d --no-recreate "${extra_pqs_services_list[@]}"
+    fi
   fi
 }
 
