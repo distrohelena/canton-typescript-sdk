@@ -95,7 +95,7 @@ describe("gRPC contract cache", () => {
         const [, payload, ttlMs] = cacheStore.setAsync.mock.calls[0]!;
 
         expect(ttlMs).toBe(100);
-        expect(payload).toMatchObject({ version: 2, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100 });
+        expect(payload).toMatchObject({ version: 3, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100 });
         expect((payload as { contracts: readonly unknown[] }).contracts).toEqual([
             expect.objectContaining({
                 contractId: "C1",
@@ -413,7 +413,7 @@ describe("gRPC contract cache", () => {
             [{ contractId: "C1", packageName: "app", representativePackageId: null }, { contractId: "C1", packageName: "app", representativePackageId: null }],
         ]) {
             cacheStore.values.set("grpc-contract-cache:v1:[\"participant\",null]", {
-                version: 2, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100, contracts: [contract], creationMetadata,
+                version: 3, endpointScope: "participant", parties: undefined, activeAtOffset: "42", expiresAtEpochMs: 1_100, contracts: [contract], creationMetadata,
             });
 
             await expect(cache.readSnapshotAsync()).resolves.toBeUndefined();
@@ -781,7 +781,7 @@ describe("gRPC contract cache", () => {
             get version() {
                 reads.version += 1;
 
-                return reads.version === 1 ? 2 : 7;
+                return reads.version === 1 ? 3 : 7;
             },
             get endpointScope() {
                 reads.endpointScope += 1;

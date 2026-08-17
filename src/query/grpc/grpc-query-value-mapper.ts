@@ -171,19 +171,30 @@ function int64(value: string, name: string): string {
 function timestamp(value: string): string {
     int64(value, "timestamp");
 
-    if (BigInt(value) < -62_135_596_800_000_000n || BigInt(value) > 253_402_300_799_999_999n) {
+    const micros = BigInt(value);
+
+    if (micros < -62_135_596_800_000_000n || micros > 253_402_300_799_999_999n) {
         throw new ValidationError("gRPC query timestamp is outside the Ledger API range");
     }
 
-    return value;
+    // Daml-LF JSON encoding, as stored by PQS: sub-second part of length 0, 3, or 6.
+    const seconds = micros >= 0n || micros % 1_000_000n === 0n ? micros / 1_000_000n : micros / 1_000_000n - 1n;
+
+    const fraction = micros - seconds * 1_000_000n;
+
+    const base = new Date(Number(seconds) * 1000).toISOString().slice(0, 19);
+
+    const subSecond = fraction === 0n ? "" : fraction % 1_000n === 0n ? `.${(fraction / 1_000n).toString().padStart(3, "0")}` : `.${fraction.toString().padStart(6, "0")}`;
+
+    return `${base}${subSecond}Z`;
 }
 
-function date(value: number): number {
+function date(value: number): string {
     if (!Number.isInteger(value) || value < MIN_DATE_EPOCH_DAY || value > MAX_DATE_EPOCH_DAY) {
         throw new ValidationError("gRPC query date is outside the Ledger API range");
     }
 
-    return value;
+    return new Date(value * 86_400_000).toISOString().slice(0, 10);
 }
 
 function numeric(value: string): string {

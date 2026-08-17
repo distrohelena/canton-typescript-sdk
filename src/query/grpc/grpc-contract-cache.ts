@@ -43,7 +43,7 @@ export interface GrpcCachedCreationMetadata {
 }
 
 interface CachedContractSnapshot {
-    readonly version: 2;
+    readonly version: 3;
     readonly endpointScope: string;
     readonly parties: readonly string[] | undefined;
     readonly activeAtOffset: string;
@@ -386,7 +386,7 @@ export class GrpcContractCache {
         const expiresAtEpochMs = effectiveExpiryEpochMs(this.now, this.ttlMs);
 
         const snapshot: CachedContractSnapshot = {
-            version: 2,
+            version: 3,
             endpointScope: this.endpointScope,
             parties,
             activeAtOffset,
@@ -486,7 +486,7 @@ export class GrpcContractCache {
         };
 
         const snapshot: CachedContractSnapshot = {
-            version: 2,
+            version: 3,
             endpointScope: this.endpointScope,
             parties,
             activeAtOffset: activeAtOffset!,
@@ -627,7 +627,7 @@ function asCompatibleSnapshot(
         const creationMetadata = materializeCreationMetadata(candidate.creationMetadata, contracts);
 
         if (
-            version !== 2
+            version !== 3
             || storedEndpointScope !== endpointScope
             || (rawParties !== undefined && storedParties === undefined)
             || !sameParties(storedParties, parties)

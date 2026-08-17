@@ -26,11 +26,28 @@ describe("mapGrpcQueryValue", () => {
         ] } });
 
         expect(mapGrpcQueryValue(input)).toEqual({
-            unit: {}, bool: true, int: "9007199254740993", numeric: "12.30", date: 20,
-            timestamp: "1700000000123456", party: "Alice", text: "hello", contract: "#1",
+            unit: {}, bool: true, int: "9007199254740993", numeric: "12.30", date: "1970-01-21",
+            timestamp: "2023-11-14T22:13:20.123456Z", party: "Alice", text: "hello", contract: "#1",
             none: null, some: ["x"], textMap: { a: false }, genMap: [["a", "1"]],
             variant: { tag: "Some", value: "nested" }, enum: "Open",
         });
+    });
+
+    it("renders times and dates in the Daml-LF JSON encoding stored by Scribe", () => {
+        const timestamp = (micros: string) => mapGrpcQueryValue(value({ oneofKind: "timestamp", timestamp: micros }));
+
+        const date = (epochDay: number) => mapGrpcQueryValue(value({ oneofKind: "date", date: epochDay }));
+
+        expect(timestamp("0")).toBe("1970-01-01T00:00:00Z");
+        expect(timestamp("1700000000000000")).toBe("2023-11-14T22:13:20Z");
+        expect(timestamp("1700000000123000")).toBe("2023-11-14T22:13:20.123Z");
+        expect(timestamp("1700000000123456")).toBe("2023-11-14T22:13:20.123456Z");
+        expect(timestamp("-1")).toBe("1969-12-31T23:59:59.999999Z");
+        expect(timestamp("-62135596800000000")).toBe("0001-01-01T00:00:00Z");
+        expect(timestamp("253402300799999999")).toBe("9999-12-31T23:59:59.999999Z");
+        expect(date(0)).toBe("1970-01-01");
+        expect(date(-719162)).toBe("0001-01-01");
+        expect(date(2932896)).toBe("9999-12-31");
     });
 
     it("rejects malformed verbose values rather than silently changing their JSON meaning", () => {
