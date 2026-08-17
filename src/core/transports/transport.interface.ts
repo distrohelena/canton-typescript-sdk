@@ -35,6 +35,7 @@ import { AllocatePartyRequest } from "../types/requests/allocate-party-request.j
 import { GetActiveContractsRequest } from "../types/requests/get-active-contracts-request.js";
 import { GetUserRequest } from "../types/requests/get-user-request.js";
 import { ListKnownPartiesRequest } from "../types/requests/list-known-parties-request.js";
+import { ListPartyToKeyMappingRequest } from "../types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../types/requests/list-party-to-participant-request.js";
 import { ListUserRightsRequest } from "../types/requests/list-user-rights-request.js";
 import { ListUsersRequest } from "../types/requests/list-users-request.js";
@@ -70,6 +71,7 @@ import type {
 } from "../../transports/grpc/generated/canton/com/digitalasset/canton/admin/pruning/v30/pruning.js";
 import { AllocatePartyResponse } from "../types/responses/allocate-party-response.js";
 import { GetUserResponse } from "../types/responses/get-user-response.js";
+import { ListPartyToKeyMappingResponse } from "../types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../types/responses/list-party-to-participant-response.js";
 import { ListUserRightsResponse } from "../types/responses/list-user-rights-response.js";
 import { ListUsersResponse } from "../types/responses/list-users-response.js";
@@ -104,8 +106,6 @@ import type {
     ListParticipantSynchronizerPermissionResponse,
     ListSynchronizerTrustCertificateRequest,
     ListSynchronizerTrustCertificateResponse,
-    ListPartyToKeyMappingRequest,
-    ListPartyToKeyMappingResponse,
     ListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse,
     ListDecentralizedNamespaceDefinitionRequest,

@@ -2,12 +2,14 @@ import { AllocatePartyRequest } from "../../core/types/requests/allocate-party-r
 import { GetActiveContractsRequest } from "../../core/types/requests/get-active-contracts-request.js";
 import { GetUserRequest } from "../../core/types/requests/get-user-request.js";
 import { ListKnownPartiesRequest } from "../../core/types/requests/list-known-parties-request.js";
+import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
 import { ListUserRightsRequest } from "../../core/types/requests/list-user-rights-request.js";
 import { ListUsersRequest } from "../../core/types/requests/list-users-request.js";
 import { SubmitCommandsRequest } from "../../core/types/requests/submit-commands-request.js";
 import { AllocatePartyResponse } from "../../core/types/responses/allocate-party-response.js";
 import { GetUserResponse } from "../../core/types/responses/get-user-response.js";
+import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
 import { ListPartyToParticipantResponse } from "../../core/types/responses/list-party-to-participant-response.js";
 import { ListUserRightsResponse } from "../../core/types/responses/list-user-rights-response.js";
 import { ListUsersResponse } from "../../core/types/responses/list-users-response.js";
@@ -82,8 +84,6 @@ import type {
     ListParticipantSynchronizerPermissionResponse,
     ListSynchronizerTrustCertificateRequest,
     ListSynchronizerTrustCertificateResponse,
-    ListPartyToKeyMappingRequest,
-    ListPartyToKeyMappingResponse,
     ListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse,
     ListDecentralizedNamespaceDefinitionRequest,

@@ -1,3 +1,5 @@
+import { ListPartyToKeyMappingRequest } from "../../core/types/requests/list-party-to-key-mapping-request.js";
+import { ListPartyToKeyMappingResponse } from "../../core/types/responses/list-party-to-key-mapping-response.js";
 import { ITransport } from "../../core/transports/transport.interface.js";
 import { RequestOptions } from "../../core/types/request-options.js";
 import { ListPartyToParticipantRequest } from "../../core/types/requests/list-party-to-participant-request.js";
@@ -27,8 +29,6 @@ import type {
     ListParticipantSynchronizerPermissionResponse,
     ListSynchronizerTrustCertificateRequest,
     ListSynchronizerTrustCertificateResponse,
-    ListPartyToKeyMappingRequest,
-    ListPartyToKeyMappingResponse,
     ListOwnerToKeyMappingRequest,
     ListOwnerToKeyMappingResponse,
     ListDecentralizedNamespaceDefinitionRequest,
