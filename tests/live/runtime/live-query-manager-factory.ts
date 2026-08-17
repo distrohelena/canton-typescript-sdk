@@ -6,6 +6,7 @@ import {
     DamlNumeric,
     DamlParty,
     DamlRecord,
+    DamlTimestamp,
     ExerciseCommand,
     ListUserRightsRequest,
     QuerySource,
@@ -62,7 +63,22 @@ export interface LiveQueryParityFixture {
     readonly activeContractId: string;
     readonly archivedContractId: string;
     readonly archivedAtOffset: string;
+    readonly activeIssuedAt: LiveIouIssuedAt;
+    readonly archivedIssuedAt: LiveIouIssuedAt;
 }
+
+export interface LiveIouIssuedAt {
+    readonly microseconds: string;
+    readonly iso: string;
+}
+
+// Distinct sub-second shapes on purpose: Scribe renders payload times with 0-, 3-, or 6-digit
+// fractions, and parity must hold for each rendering.
+export const liveIouIssuedAtValues = {
+    active: { microseconds: "1786616430123456", iso: "2026-08-13T10:20:30.123456Z" },
+    archived: { microseconds: "1786616431000000", iso: "2026-08-13T10:20:31Z" },
+    default: { microseconds: "1786616432500000", iso: "2026-08-13T10:20:32.500Z" },
+} as const satisfies Record<string, LiveIouIssuedAt>;
 
 export interface LivePqsParityWaitOptions {
     readonly timeoutMs?: number;
@@ -153,9 +169,9 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
         // other spec having run first (vitest schedules files by cached duration, so order shifts).
         await grantLedgerUserReadAsAnyPartyAsync(client);
 
-        const activeContractId = await createLiveIouAsync(client, party, party, packageId);
+        const activeContractId = await createLiveIouAsync(client, party, party, packageId, liveIouIssuedAtValues.active);
 
-        const archivedContractId = await createLiveIouAsync(client, party, party, packageId);
+        const archivedContractId = await createLiveIouAsync(client, party, party, packageId, liveIouIssuedAtValues.archived);
 
         const archivedAtOffset = await archiveLiveIouAsync(
             client,
@@ -172,6 +188,8 @@ export async function seedLiveQueryParityFixtureAsync(): Promise<LiveQueryParity
             activeContractId,
             archivedContractId,
             archivedAtOffset,
+            activeIssuedAt: liveIouIssuedAtValues.active,
+            archivedIssuedAt: liveIouIssuedAtValues.archived,
         };
     } finally {
         await client.disposeAsync();
@@ -459,6 +477,7 @@ export async function createLiveIouAsync(
     issuer: string,
     owner: string,
     packageId: string,
+    issuedAt: LiveIouIssuedAt = liveIouIssuedAtValues.default,
 ): Promise<string> {
     const response = await manager.grpc.commandService.submitAndWaitForTransactionAsync(
         new SubmitCommandsRequest({
@@ -470,6 +489,7 @@ export async function createLiveIouAsync(
                     issuer: new DamlParty(issuer),
                     owner: new DamlParty(owner),
                     amount: new DamlNumeric("1.0"),
+                    issuedAt: new DamlTimestamp(issuedAt.microseconds),
                 }),
             })],
         }),

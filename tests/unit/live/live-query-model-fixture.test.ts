@@ -22,6 +22,7 @@ import { Transaction } from "../../../src/transports/grpc/generated/canton/com/d
 import {
     archiveLiveIouAsync,
     createLiveIouAsync,
+    liveIouIssuedAtValues,
     resolveLiveQueryParityPartyAsync,
 } from "../../live/runtime/live-query-manager-factory.js";
 import { getLiveQueryModelFixtureAsync } from "../../live/runtime/live-query-model-fixture.js";
@@ -214,7 +215,7 @@ describe("live query DAML fixture", () => {
         expect(fixture.allocateParty).not.toHaveBeenCalled();
     });
 
-    it("maps the Iou helper payload as Party, Party, and Numeric", async () => {
+    it("maps the Iou helper payload as Party, Party, Numeric, and Timestamp", async () => {
         const submit = vi.fn().mockResolvedValue({
             events: [{ created: { contractId: "00-query-iou" } }],
         });
@@ -273,6 +274,15 @@ describe("live query DAML fixture", () => {
                                     sum: {
                                         oneofKind: "numeric",
                                         numeric: "1.0",
+                                    },
+                                },
+                            },
+                            {
+                                label: "issuedAt",
+                                value: {
+                                    sum: {
+                                        oneofKind: "timestamp",
+                                        timestamp: liveIouIssuedAtValues.default.microseconds,
                                     },
                                 },
                             },
@@ -360,6 +370,7 @@ describe("live query DAML fixture", () => {
             ["issuer", DamlLfBuiltinType.party, undefined],
             ["owner", DamlLfBuiltinType.party, undefined],
             ["amount", DamlLfBuiltinType.numeric, 10],
+            ["issuedAt", DamlLfBuiltinType.timestamp, undefined],
         ]);
 
         const archiveChoice = iouTemplate.choices.find((choice) =>

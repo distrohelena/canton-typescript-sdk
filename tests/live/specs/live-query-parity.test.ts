@@ -123,6 +123,28 @@ describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS t
                     json: { issuer: { field: "payload", path: ["issuer"], as: "text" } },
                 },
             }),
+            payloadTimestampEquality: await manager.query.contracts.findMany({
+                where: {
+                    contractId: { in: [fixture.activeContractId, fixture.archivedContractId] },
+                    payload: { match: { issuedAt: { equals: fixture.activeIssuedAt.iso } } },
+                },
+                select: { contractId: true },
+            }),
+            payloadTimestampRange: await manager.query.contracts.findMany({
+                where: {
+                    contractId: { in: [fixture.activeContractId, fixture.archivedContractId] },
+                    payload: { match: { issuedAt: { gte: fixture.activeIssuedAt.iso } } },
+                },
+                select: { contractId: true },
+                orderBy: [{ contractId: "asc" }],
+            }),
+            payloadTimestampProjection: await manager.query.contracts.findMany({
+                where: { contractId: { equals: fixture.activeContractId } },
+                select: {
+                    contractId: true,
+                    json: { issuedAt: { field: "payload", path: ["issuedAt"], as: "timestamp" } },
+                },
+            }),
             payloadGroups: await manager.query.contracts.groupBy({
                 where: { contractId: { in: [fixture.activeContractId, fixture.archivedContractId] } },
                 by: [{ payload: { name: "issuer", path: ["issuer"], as: "text" } }],
@@ -222,6 +244,17 @@ describe.skipIf(process.env.SDK_TEST_PQS_AVAILABLE === "0")("live gRPC and PQS t
                 contractId: fixture.activeContractId,
                 issuer: fixture.party,
             });
+            expect(result.payloadTimestampEquality).toEqual([
+                { contractId: fixture.activeContractId },
+            ]);
+            expect(result.payloadTimestampRange.map((row) => row.contractId)).toEqual([
+                fixture.activeContractId,
+                fixture.archivedContractId,
+            ].sort());
+            expect(result.payloadTimestampProjection).toEqual([{
+                contractId: fixture.activeContractId,
+                issuedAt: new Date(fixture.activeIssuedAt.iso),
+            }]);
             expect(result.payloadGroups).not.toHaveLength(0);
             expect(result.partyGroups).not.toHaveLength(0);
             expect(result.amountAggregate.count).toBe(2);

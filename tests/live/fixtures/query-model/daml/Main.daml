@@ -5,6 +5,7 @@ template Iou
     issuer : Party
     owner : Party
     amount : Decimal
+    issuedAt : Time
   where
     signatory issuer
     observer owner
