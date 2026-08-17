@@ -31,11 +31,12 @@ export class CantonManager {
             this.pqsPool = PqsPool.create(options.pqs!.connectionString);
 
             const profile = new PqsSchemaProfileV1(options.pqs!.schema);
+            const pool = this.pqsPool.pool;
 
             this.query = new PqsQueryClient(
-                this.pqsPool.pool,
+                pool,
                 profile,
-                validatePqsSchemaAsync(this.pqsPool.pool, profile),
+                () => validatePqsSchemaAsync(pool, profile),
             );
         } else {
             this.query = new GrpcQueryClient({

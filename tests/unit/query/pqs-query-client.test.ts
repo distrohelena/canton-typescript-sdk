@@ -53,6 +53,37 @@ describe("PQS query client", () => {
         expect(query).not.toHaveBeenCalled();
     });
 
+    it("retries a failed readiness check on the next query instead of pinning the rejection", async () => {
+        const checkReady = vi.fn()
+            .mockRejectedValueOnce(new Error("connect ECONNREFUSED"))
+            .mockResolvedValue(undefined);
+        const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), checkReady);
+
+        await expect(client.contracts.findMany({ select: { contractId: true } })).rejects.toMatchObject({ operation: "contracts.findMany" });
+        expect(query).not.toHaveBeenCalled();
+
+        await expect(client.contracts.findMany({ select: { contractId: true } })).resolves.toEqual([{ contractId: "cid" }]);
+        expect(checkReady).toHaveBeenCalledTimes(2);
+    });
+
+    it("memoizes a successful readiness check across queries and concurrent callers", async () => {
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => { release = resolve; });
+        const checkReady = vi.fn().mockImplementation(() => gate);
+        const query = vi.fn().mockResolvedValue({ rows: [{ contract_id: "cid" }] });
+        const client = new PqsQueryClient({ query } as never, new PqsSchemaProfileV1(), checkReady);
+
+        const first = client.contracts.findMany({ select: { contractId: true } });
+        const second = client.contracts.findMany({ select: { contractId: true } });
+        release();
+        await expect(first).resolves.toEqual([{ contractId: "cid" }]);
+        await expect(second).resolves.toEqual([{ contractId: "cid" }]);
+
+        await expect(client.contracts.findMany({ select: { contractId: true } })).resolves.toEqual([{ contractId: "cid" }]);
+        expect(checkReady).toHaveBeenCalledTimes(1);
+    });
+
     it("maps logical contract rows from parameterized queries", async () => {
         const query = vi.fn().mockResolvedValue({
             rows: [

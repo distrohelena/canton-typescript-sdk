@@ -63,16 +63,37 @@ export class PqsQueryClient implements QueryClient {
     public readonly transactions = this.createPhysicalDelegate("__transactions") as unknown as QueryClient["transactions"];
     public readonly watermark = this.createPhysicalDelegate("__watermark") as unknown as QueryClient["watermark"];
 
+    private readonly checkReadyAsync: () => Promise<void>;
+    private readyPromise?: Promise<void>;
+
     public constructor(
         private readonly executor: PqsQueryExecutor,
         private readonly profile: PqsSchemaProfileV1,
-        private readonly ready: Promise<void> = Promise.resolve(),
-    ) {}
+        readiness: Promise<void> | (() => Promise<void>) = () => Promise.resolve(),
+    ) {
+        this.checkReadyAsync = typeof readiness === "function" ? readiness : () => readiness;
+    }
+
+    /**
+     * Awaits the readiness check, memoizing success so validation runs once,
+     * but clearing the memo on rejection so a transiently unreachable PQS is
+     * revalidated on the next query instead of pinning the first failure.
+     */
+    private ready(): Promise<void> {
+        if (this.readyPromise === undefined) {
+            this.readyPromise = Promise.resolve(this.checkReadyAsync()).catch((cause: unknown) => {
+                this.readyPromise = undefined;
+                throw cause;
+            });
+        }
+
+        return this.readyPromise;
+    }
 
     public async $queryRaw<TRow>(sql: string, values: readonly unknown[] = []): Promise<readonly TRow[]> {
         assertReadOnlySql(sql);
         try {
-            await this.ready;
+            await this.ready();
             return (await this.executor.query(sql, values)).rows as readonly TRow[];
         } catch (cause) {
             throw this.wrap("$queryRaw", cause);
@@ -112,7 +133,7 @@ export class PqsQueryClient implements QueryClient {
     private async readPhysicalAsync(relation: PqsRelation, query: NormalizedFindManyQuery): Promise<readonly Record<string, unknown>[]> {
         const compiled = compilePqsRelationFindMany(relation, query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => this.mapPhysicalRow(row, compiled.resultShape));
         } catch (cause) {
             throw this.wrap(`${relation}.findMany`, cause);
@@ -122,7 +143,7 @@ export class PqsQueryClient implements QueryClient {
     private async countPhysicalAsync(relation: PqsRelation, query: ReturnType<typeof normalizeCount>): Promise<number> {
         const compiled = compilePqsRelationCount(relation, query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return Number((await this.executor.query(compiled.text, compiled.values)).rows[0]?.count ?? 0);
         } catch (cause) {
             throw this.wrap(`${relation}.count`, cause);
@@ -132,7 +153,7 @@ export class PqsQueryClient implements QueryClient {
     private async aggregatePhysicalAsync(relation: PqsRelation, query: NormalizedAggregateQuery): Promise<{ readonly count?: number; readonly min?: Readonly<Record<string, string | null>>; readonly max?: Readonly<Record<string, string | null>>; readonly sum?: Readonly<Record<string, string | null>> }> {
         const compiled = compilePqsRelationAggregate(relation, query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             const row = (await this.executor.query(compiled.text, compiled.values)).rows[0] ?? {};
             const result: { count?: number; min?: Record<string, string | null>; max?: Record<string, string | null>; sum?: Record<string, string | null> } = {};
             if (query.aggregates.count) result.count = Number(row.count ?? 0);
@@ -148,7 +169,7 @@ export class PqsQueryClient implements QueryClient {
     private async groupPhysicalAsync(relation: PqsRelation, query: NormalizedGroupByQuery): Promise<readonly Record<string, string | number | Date | null>[]> {
         const compiled = compilePqsRelationGroupBy(relation, query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value instanceof Date ? value : value === null ? null : String(value)])));
         } catch (cause) {
             throw this.wrap(`${relation}.groupBy`, cause);
@@ -179,7 +200,7 @@ export class PqsQueryClient implements QueryClient {
     private async findContractsAsync(query: NormalizedFindManyQuery): Promise<readonly ContractResult[]> {
         const compiled = compileContractFindMany(query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => this.mapPhysicalRow(contractRootRow(row), compiled.resultShape, contractRootScalars(row)) as unknown as ContractResult);
         } catch (cause) {
             throw this.wrap("contracts.findMany", cause);
@@ -189,7 +210,7 @@ export class PqsQueryClient implements QueryClient {
     private async countContractsAsync(query: ReturnType<typeof normalizeCount>): Promise<number> {
         const compiled = compileContractCount(query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return Number((await this.executor.query(compiled.text, compiled.values)).rows[0]?.count ?? 0);
         } catch (cause) {
             throw this.wrap("contracts.count", cause);
@@ -199,7 +220,7 @@ export class PqsQueryClient implements QueryClient {
     private async aggregateContractsAsync(normalized: NormalizedAggregateQuery): Promise<Awaited<ReturnType<QueryClient["contracts"]["aggregate"]>>> {
         const compiled = compileContractAggregate(normalized, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             const row = (await this.executor.query(compiled.text, compiled.values)).rows[0] ?? {};
         const result: { count?: number; min?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>; max?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>>; sum?: Partial<Record<"createdEventOffset" | "archivedEventOffset", string | null>> } = {};
         if (normalized.aggregates.count) result.count = Number(row.count ?? 0);
@@ -215,7 +236,7 @@ export class PqsQueryClient implements QueryClient {
     private async groupContractsAsync(query: NormalizedGroupByQuery): Promise<readonly ContractGroupRow[]> {
         const compiled = compileContractGroupBy(query, this.profile);
         try {
-            await this.ready;
+            await this.ready();
             return (await this.executor.query(compiled.text, compiled.values)).rows.map((row) => Object.fromEntries(Object.entries(row).map(([name, value]) => [name, name === "count" ? Number(value) : value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value instanceof Date ? value : String(value)])));
         } catch (cause) {
             throw this.wrap("contracts.groupBy", cause);
