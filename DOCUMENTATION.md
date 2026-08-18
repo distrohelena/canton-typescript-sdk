@@ -64,6 +64,13 @@ import { GrpcLedgerClient } from "canton-typescript-sdk/grpc";
 import { JsonLedgerClient } from "canton-typescript-sdk/json";
 ```
 
+The `/grpc` subpath also exports `ListPartyToKeyMappingResponseCodec` and `ListPartyToParticipantResponseCodec`. Each is a static class converting between the raw topology-read protobuf messages and the SDK's normalized `ListPartyToKeyMappingResponse` / `ListPartyToParticipantResponse` types, in both directions:
+
+- `fromProto(payload)` / `toProto(response)` — convert to and from the generated protobuf object shape
+- `fromBinary(bytes)` / `toBinary(response)` — deserialize and serialize the raw wire format directly
+
+The wire format carries no key fingerprints (`fromProto` recomputes them) and the deprecated `scheme` field is never emitted by `toProto`.
+
 DAML-LF parser:
 
 ```ts

@@ -16,6 +16,7 @@ import {
 } from "../../../src/transports/grpc/mappers/topology-manager-read-mapper.js";
 
 describe("gRPC topology manager read mappers", () => {
+
     it("maps topology base queries", () => {
         const result = mapGrpcTopologyBaseQuery(
             new TopologyBaseQuery({
